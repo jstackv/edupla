@@ -1,0 +1,416 @@
+const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
+const { User, Class, Assignment, Document, Announcement, Level, Trade, Submission } = require('../models/db');
+
+// ── Dashboard Stats ────────────────────────────────────────────────────
+const getDashboardStats = async (req, res) => {
+  try {
+    const [teachers, students, classes, assignments, documents, announcements] = await Promise.all([
+      User.countDocuments({ role: 'teacher' }),
+      User.countDocuments({ role: 'student' }),
+      Class.countDocuments(),
+      Assignment.countDocuments(),
+      Document.countDocuments(),
+      Announcement.countDocuments(),
+    ]);
+
+    const [recentTeachers, recentStudents] = await Promise.all([
+      User.find({ role: 'teacher' }).sort({ created_at: -1 }).limit(5).select('name email created_at').lean(),
+      User.find({ role: 'student' }).sort({ created_at: -1 }).limit(5).select('name email level trade created_at').lean(),
+    ]);
+
+    // Classes by teacher
+    const classesByTeacher = await Class.aggregate([
+      { $group: { _id: '$teacher_id', class_count: { $sum: 1 }, all_students: { $push: '$students' } } },
+      { $lookup: { from: 'users', localField: '_id', foreignField: '_id', as: 'teacher' } },
+      { $unwind: { path: '$teacher', preserveNullAndEmptyArrays: true } },
+      { $project: {
+          teacher_name: '$teacher.name',
+          class_count: 1,
+          student_count: {
+            $size: {
+              $reduce: {
+                input: '$all_students',
+                initialValue: [],
+                in: { $setUnion: ['$$value', '$$this'] }
+              }
+            }
+          }
+        }
+      },
+      { $sort: { class_count: -1 } },
+      { $limit: 5 },
+    ]);
+
+    res.json({ counts: { teachers, students, classes, assignments, documents, announcements }, recentTeachers, recentStudents, classesByTeacher });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+// ── Teachers ───────────────────────────────────────────────────────────
+const getTeachers = async (req, res) => {
+  try {
+    const { search = '', page = 1, limit = 12 } = req.query;
+    const skip = (page - 1) * limit;
+    const searchRegex = new RegExp(search, 'i');
+    const filter = { role: 'teacher', $or: [{ name: searchRegex }, { email: searchRegex }] };
+
+    const [teachers, total] = await Promise.all([
+      User.find(filter).sort({ created_at: -1 }).skip(skip).limit(parseInt(limit)).lean(),
+      User.countDocuments(filter),
+    ]);
+
+    const result = await Promise.all(teachers.map(async (t) => {
+      const classes = await Class.find({ $or: [{ teacher_id: t._id }, { extra_teachers: t._id }] }, 'students').lean();
+      const studentSet = new Set();
+      classes.forEach(c => c.students.forEach(s => studentSet.add(s.toString())));
+      return { ...t, id: t._id, class_count: classes.length, student_count: studentSet.size };
+    }));
+
+    res.json({ teachers: result, total, page: parseInt(page), limit: parseInt(limit) });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+const createTeacher = async (req, res) => {
+  try {
+    const { name, email, phone } = req.body;
+    if (!name || !email) return res.status(400).json({ message: 'Name and email are required' });
+    const existing = await User.findOne({ email: email.toLowerCase() });
+    if (existing) return res.status(400).json({ message: 'Email already exists' });
+    const defaultPassword = process.env.TEACHER_DEFAULT_PASSWORD || 'teacher123';
+    const hashed = await bcrypt.hash(defaultPassword, 10);
+    const t = await User.create({ name, email: email.toLowerCase(), password: hashed, role: 'teacher', phone: phone || null });
+    res.status(201).json({ message: 'Teacher created successfully', id: t._id, defaultPassword });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+const updateTeacher = async (req, res) => {
+  try {
+    const { name, email, phone } = req.body;
+    const result = await User.findOneAndUpdate(
+      { _id: req.params.id, role: 'teacher' },
+      { name, email: email?.toLowerCase(), phone: phone || null }
+    );
+    if (!result) return res.status(404).json({ message: 'Teacher not found' });
+    res.json({ message: 'Teacher updated' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+const deleteTeacher = async (req, res) => {
+  try {
+    const teacherId = new mongoose.Types.ObjectId(req.params.id);
+    // Unassign from classes but don't delete classes
+    await Class.updateMany({ teacher_id: teacherId }, { $unset: { teacher_id: '' } });
+    await Class.updateMany({ extra_teachers: teacherId }, { $pull: { extra_teachers: teacherId } });
+    const result = await User.findOneAndDelete({ _id: teacherId, role: 'teacher' });
+    if (!result) return res.status(404).json({ message: 'Teacher not found' });
+    res.json({ message: 'Teacher deleted. Their classes remain and can be reassigned.' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+// ── Admin Classes ──────────────────────────────────────────────────────
+const getAllClasses = async (req, res) => {
+  try {
+    const { search = '', page = 1, limit = 12 } = req.query;
+    const skip = (page - 1) * limit;
+    const searchRegex = new RegExp(search, 'i');
+    const filter = { $or: [{ name: searchRegex }, { description: searchRegex }] };
+
+    const [classes, total] = await Promise.all([
+      Class.find(filter).sort({ created_at: -1 }).skip(skip).limit(parseInt(limit))
+        .populate('teacher_id', 'name').lean(),
+      Class.countDocuments(filter),
+    ]);
+
+    const result = classes.map(c => ({
+      ...c, id: c._id,
+      teacher_name: c.teacher_id?.name,
+      student_count: c.students?.length || 0,
+    }));
+
+    res.json({ classes: result, total, page: parseInt(page), limit: parseInt(limit) });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+const adminCreateClass = async (req, res) => {
+  try {
+    const { name, description, level, trade, teacher_id, extra_teacher_ids = [] } = req.body;
+    if (!name || !teacher_id) return res.status(400).json({ message: 'Name and teacher are required' });
+    const allTeacherIds = [...new Set([teacher_id, ...extra_teacher_ids])];
+    const cls = await Class.create({
+      name, description: description || null, level: level || null, trade: trade || null,
+      teacher_id, extra_teachers: allTeacherIds.slice(1),
+    });
+    res.status(201).json({ message: 'Class created', id: cls._id });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+const adminUpdateClass = async (req, res) => {
+  try {
+    const { name, description, level, trade, teacher_id, extra_teacher_ids = [] } = req.body;
+    const allExtraIds = extra_teacher_ids.filter(id => id !== teacher_id);
+    const result = await Class.findByIdAndUpdate(req.params.id, {
+      name, description: description || null, level: level || null, trade: trade || null,
+      teacher_id, extra_teachers: allExtraIds,
+    });
+    if (!result) return res.status(404).json({ message: 'Class not found' });
+    res.json({ message: 'Class updated' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+const adminDeleteClass = async (req, res) => {
+  try {
+    const result = await Class.findByIdAndDelete(req.params.id);
+    if (!result) return res.status(404).json({ message: 'Class not found' });
+    res.json({ message: 'Class deleted' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+const adminAssignClassToTeacher = async (req, res) => {
+  try {
+    const { teacher_id } = req.body;
+    const result = await Class.findByIdAndUpdate(
+      req.params.id,
+      { teacher_id, $addToSet: { extra_teachers: teacher_id } }
+    );
+    if (!result) return res.status(404).json({ message: 'Class not found' });
+    res.json({ message: 'Class assigned to teacher' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+const adminGetClassTeachers = async (req, res) => {
+  try {
+    const cls = await Class.findById(req.params.id)
+      .populate('teacher_id', 'name email')
+      .populate('extra_teachers', 'name email')
+      .lean();
+    if (!cls) return res.status(404).json({ message: 'Class not found' });
+    const teachers = [cls.teacher_id, ...cls.extra_teachers].filter(Boolean);
+    res.json({ teachers });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+const adminGetClassStudents = async (req, res) => {
+  try {
+    const cls = await Class.findById(req.params.id)
+      .populate('students', 'name email level trade created_at')
+      .lean();
+    if (!cls) return res.status(404).json({ message: 'Class not found' });
+    res.json({ students: cls.students });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+// ── Admin Students ─────────────────────────────────────────────────────
+const getAllStudents = async (req, res) => {
+  try {
+    const { search = '', page = 1, limit = 12, classId, level, trade } = req.query;
+    const skip = (page - 1) * limit;
+    const searchRegex = new RegExp(search, 'i');
+
+    let studentIds;
+    if (classId) {
+      const cls = await Class.findById(classId, 'students').lean();
+      studentIds = cls?.students || [];
+    }
+
+    const filter = {
+      role: 'student',
+      $or: [{ name: searchRegex }, { email: searchRegex }],
+      ...(level && { level }),
+      ...(trade && { trade }),
+      ...(studentIds && { _id: { $in: studentIds } }),
+    };
+
+    const [students, total] = await Promise.all([
+      User.find(filter).sort({ created_at: -1 }).skip(skip).limit(parseInt(limit)).lean(),
+      User.countDocuments(filter),
+    ]);
+
+    const allClasses = await Class.find({}, 'name students').lean();
+    const result = students.map(s => {
+      const sClasses = allClasses.filter(c => c.students.some(sid => sid.toString() === s._id.toString()));
+      return { ...s, id: s._id, classes: sClasses.map(c => c.name).join(', '), class_count: sClasses.length };
+    });
+
+    res.json({ students: result, total, page: parseInt(page), limit: parseInt(limit) });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+const adminCreateStudent = async (req, res) => {
+  try {
+    const { name, email, classIds = [], level, trade, class_year, phone } = req.body;
+    if (!name || !email) return res.status(400).json({ message: 'Name and email are required' });
+    const existing = await User.findOne({ email: email.toLowerCase() });
+    if (existing) return res.status(400).json({ message: 'Email already exists' });
+
+    const defaultPassword = process.env.STUDENT_DEFAULT_PASSWORD || 'student123';
+    const hashed = await bcrypt.hash(defaultPassword, 10);
+    const s = await User.create({
+      name, email: email.toLowerCase(), password: hashed, role: 'student',
+      level: level || null, trade: trade || null, class_year: class_year || null, phone: phone || null,
+    });
+
+    if (classIds.length > 0) {
+      await Class.updateMany({ _id: { $in: classIds } }, { $addToSet: { students: s._id } });
+    }
+    res.status(201).json({ message: 'Student created successfully', id: s._id, defaultPassword });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+const adminUpdateStudent = async (req, res) => {
+  try {
+    const { name, email, classIds = [], level, trade, class_year, phone } = req.body;
+    await User.updateOne(
+      { _id: req.params.id, role: 'student' },
+      { name, email: email?.toLowerCase(), level: level || null, trade: trade || null, class_year: class_year || null, phone: phone || null }
+    );
+    // Reset enrollment
+    await Class.updateMany({}, { $pull: { students: new mongoose.Types.ObjectId(req.params.id) } });
+    if (classIds.length > 0) {
+      await Class.updateMany({ _id: { $in: classIds } }, { $addToSet: { students: req.params.id } });
+    }
+    res.json({ message: 'Student updated' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+const adminDeleteStudent = async (req, res) => {
+  try {
+    const result = await User.findOneAndDelete({ _id: req.params.id, role: 'student' });
+    if (!result) return res.status(404).json({ message: 'Student not found' });
+    await Class.updateMany({}, { $pull: { students: new mongoose.Types.ObjectId(req.params.id) } });
+    res.json({ message: 'Student deleted' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+const adminAssignStudentToClass = async (req, res) => {
+  try {
+    const { classId } = req.body;
+    await Class.updateOne({ _id: classId }, { $addToSet: { students: req.params.id } });
+    res.json({ message: 'Student assigned to class' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+const adminGetStudentDetail = async (req, res) => {
+  try {
+    const student = await User.findOne({ _id: req.params.id, role: 'student' }, '-password').lean();
+    if (!student) return res.status(404).json({ message: 'Student not found' });
+    const classes = await Class.find({ students: req.params.id }, 'name _id').lean();
+    res.json({ student: { ...student, id: student._id, classes } });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+// ── Admin Assignments View ─────────────────────────────────────────────
+const getAdminAssignments = async (req, res) => {
+  try {
+    const { search = '', page = 1, limit = 12 } = req.query;
+    const skip = (page - 1) * limit;
+    const searchRegex = new RegExp(search, 'i');
+
+    const [assignments, total] = await Promise.all([
+      Assignment.find()
+        .sort({ created_at: -1 }).skip(skip).limit(parseInt(limit))
+        .populate('teacher_id', 'name email')
+        .populate('class_id', 'name level trade')
+        .lean(),
+      Assignment.countDocuments(),
+    ]);
+
+    const filtered = assignments.filter(a =>
+      searchRegex.test(a.title) || searchRegex.test(a.teacher_id?.name) || searchRegex.test(a.class_id?.name)
+    );
+
+    const result = await Promise.all(filtered.map(async (a) => ({
+      ...a, id: a._id,
+      teacher_name: a.teacher_id?.name, teacher_email: a.teacher_id?.email,
+      class_name: a.class_id?.name,
+      level: a.class_id?.level, trade: a.class_id?.trade,
+      submission_count: await Submission.countDocuments({ assignment_id: a._id }),
+    })));
+
+    res.json({ assignments: result, total, page: parseInt(page), limit: parseInt(limit) });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+// ── Levels ─────────────────────────────────────────────────────────────
+const getLevels = async (req, res) => {
+  try {
+    const rows = await Level.find().sort({ value: 1 }).lean();
+    res.json({ levels: rows.map(r => ({ value: r.value, label: r.label || r.value })) });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+const createLevel = async (req, res) => {
+  try {
+    const { value, label } = req.body;
+    if (!value) return res.status(400).json({ message: 'Value is required' });
+    await Level.findOneAndUpdate(
+      { value: value.toUpperCase() },
+      { value: value.toUpperCase(), label: label || value },
+      { upsert: true }
+    );
+    res.status(201).json({ message: 'Level created' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+const deleteLevel = async (req, res) => {
+  try {
+    await Level.findOneAndDelete({ value: req.params.value });
+    res.json({ message: 'Level deleted' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+const updateLevel = async (req, res) => {
+  try {
+    const { label } = req.body;
+    if (!label) return res.status(400).json({ message: 'Label is required' });
+    await Level.updateOne({ value: req.params.value }, { label });
+    res.json({ message: 'Level updated' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+// ── Trades ─────────────────────────────────────────────────────────────
+const getTrades = async (req, res) => {
+  try {
+    const rows = await Trade.find().sort({ value: 1 }).lean();
+    res.json({ trades: rows.map(r => ({ value: r.value, label: r.label || r.value })) });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+const createTrade = async (req, res) => {
+  try {
+    const { value, label } = req.body;
+    if (!value) return res.status(400).json({ message: 'Value is required' });
+    await Trade.findOneAndUpdate(
+      { value: value.toUpperCase() },
+      { value: value.toUpperCase(), label: label || value },
+      { upsert: true }
+    );
+    res.status(201).json({ message: 'Trade created' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+const deleteTrade = async (req, res) => {
+  try {
+    await Trade.findOneAndDelete({ value: req.params.value });
+    res.json({ message: 'Trade deleted' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+const updateTrade = async (req, res) => {
+  try {
+    const { label } = req.body;
+    if (!label) return res.status(400).json({ message: 'Label is required' });
+    await Trade.updateOne({ value: req.params.value }, { label });
+    res.json({ message: 'Trade updated' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+module.exports = {
+  getDashboardStats, getTeachers, createTeacher, updateTeacher, deleteTeacher,
+  getAllClasses, adminCreateClass, adminUpdateClass, adminDeleteClass, adminAssignClassToTeacher,
+  adminGetClassTeachers, adminGetClassStudents,
+  getAllStudents, adminCreateStudent, adminUpdateStudent, adminDeleteStudent,
+  adminAssignStudentToClass, adminGetStudentDetail,
+  getAdminAssignments,
+  getLevels, createLevel, deleteLevel, updateLevel,
+  getTrades, createTrade, deleteTrade, updateTrade,
+};
