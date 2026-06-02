@@ -1,5 +1,7 @@
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const { User } = require('../models/db');
+const { JWT_SECRET } = require('../middleware/auth');
 
 const login = async (req, res) => {
   try {
@@ -12,24 +14,28 @@ const login = async (req, res) => {
     const match = await bcrypt.compare(password, user.password);
     if (!match) return res.status(401).json({ message: 'Invalid credentials' });
 
-    req.session.user = { id: user._id.toString(), name: user.name, email: user.email, role: user.role };
-    res.json({ message: 'Login successful', user: req.session.user });
+    const payload = { id: user._id.toString(), name: user.name, email: user.email, role: user.role };
+    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '24h' });
+
+    res.json({ message: 'Login successful', token, user: payload });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 };
 
 const logout = (req, res) => {
-  req.session.destroy((err) => {
-    if (err) return res.status(500).json({ message: 'Logout failed' });
-    res.clearCookie('connect.sid');
-    res.json({ message: 'Logged out successfully' });
-  });
+  res.json({ message: 'Logged out successfully' });
 };
 
 const me = (req, res) => {
-  if (req.session.user) return res.json({ user: req.session.user });
-  res.status(401).json({ message: 'Not authenticated' });
+  const token = req.cookies?.token || req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ message: 'Not authenticated' });
+  try {
+    const user = jwt.verify(token, JWT_SECRET);
+    res.json({ user });
+  } catch {
+    res.status(401).json({ message: 'Invalid or expired token' });
+  }
 };
 
 module.exports = { login, logout, me };

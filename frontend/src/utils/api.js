@@ -1,20 +1,26 @@
 import axios from 'axios';
 
 const api = axios.create({
-  // In production: uses VITE_API_BASE_URL (your backend Vercel URL)
-  // In development: uses vite proxy → '/api' → localhost:5000
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
   withCredentials: true,
   timeout: 30000,
 });
 
-// Public paths that should never be force-redirected to /login
+// Attach JWT token to every request
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
 const PUBLIC_PATHS = ['/', '/login'];
 
 api.interceptors.response.use(
   res => res,
   err => {
     if (err.response?.status === 401 && !PUBLIC_PATHS.includes(window.location.pathname)) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
       window.location.href = '/login';
     }
     return Promise.reject(err);

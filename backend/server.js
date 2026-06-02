@@ -1,14 +1,14 @@
 require('dotenv').config();
 const express = require('express');
-const session = require('express-session');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 const path = require('path');
-const { connectDB, Class, Submission, Assignment } = require('./models/db');
+const { connectDB } = require('./models/db');
 
 const app = express();
 
-// ── CORS ────────────────────────────────────────────────────────────────
-const allowedOrigins = ["https://edupla.vercel.app", "http://localhost:3000"]
+// ── CORS ─────────────────────────────────────────────────────────────────
+const allowedOrigins = ['https://edupla.vercel.app','http://localhost:3000'];
 
 app.use(cors({
   origin: (origin, callback) => {
@@ -20,24 +20,12 @@ app.use(cors({
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
-// ── Sessions ─────────────────────────────────────────────────────────────
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'educonnect_secret_2024',
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: process.env.NODE_ENV === 'production',
-    httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000,
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-  },
-}));
-
-// ── Static uploads (local dev only – use Cloudinary in prod) ─────────────
+// ── Static uploads ────────────────────────────────────────────────────────
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// ── Routes ───────────────────────────────────────────────────────────────
+// ── Routes ────────────────────────────────────────────────────────────────
 app.use('/api/auth',          require('./routes/auth'));
 app.use('/api/admin',         require('./routes/admin'));
 app.use('/api/classes',       require('./routes/classes'));
@@ -47,13 +35,13 @@ app.use('/api/assignments',   require('./routes/assignments'));
 app.use('/api/announcements', require('./routes/announcements'));
 app.use('/api/notifications', require('./routes/notifications'));
 
-// ── Analytics ────────────────────────────────────────────────────────────
+// ── Analytics ─────────────────────────────────────────────────────────────
 const { isAuthenticated, isTeacher } = require('./middleware/auth');
 
 app.get('/api/analytics', isAuthenticated, isTeacher, async (req, res) => {
-  const { User, Class, Document, Assignment, Submission, Announcement } = require('./models/db');
+  const { Class, Document, Assignment, Submission, Announcement } = require('./models/db');
   const mongoose = require('mongoose');
-  const teacherId = new mongoose.Types.ObjectId(req.session.user.id);
+  const teacherId = new mongoose.Types.ObjectId(req.user.id);
 
   try {
     const [classes, docs, assignments, announcements] = await Promise.all([
@@ -106,12 +94,11 @@ app.get('/api/analytics', isAuthenticated, isTeacher, async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// ── Health check ──────────────────────────────────────────────────────────
+// ── Health ────────────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
-// ── Start (local) / Export (Vercel) ──────────────────────────────────────
+// ── Start ─────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
-
 connectDB().then(() => {
   if (process.env.NODE_ENV !== 'production') {
     app.listen(PORT, () => console.log(`EDUPLA running on port ${PORT}`));
