@@ -8,9 +8,7 @@ const { connectDB, Class, Submission, Assignment } = require('./models/db');
 const app = express();
 
 // ── CORS ────────────────────────────────────────────────────────────────
-const allowedOrigins = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
-  : ['http://localhost:3000'];
+const allowedOrigins = ["https://edupla.vercel.app", "http://localhost:3000"]
 
 app.use(cors({
   origin: (origin, callback) => {
