@@ -24,7 +24,10 @@ const userSchema = new mongoose.Schema({
   trade:        { type: String, default: null },
   class_year:   { type: String, default: null },
   phone:        { type: String, default: null },
-  avatar_color: { type: String, default: null },
+  avatar_color:    { type: String, default: null },
+  is_super_admin:  { type: Boolean, default: false },
+  is_active:       { type: Boolean, default: true },
+  created_by:      { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
 const classSchema = new mongoose.Schema({
@@ -33,10 +36,10 @@ const classSchema = new mongoose.Schema({
   level:       { type: String, default: null },
   trade:       { type: String, default: null },
   teacher_id:  { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
-  // extra teachers (many-to-many equivalent)
   extra_teachers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-  // enrolled students (replaces class_students junction table)
   students:    [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  is_active:   { type: Boolean, default: true },
+  created_by:  { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
 const documentSchema = new mongoose.Schema({
@@ -49,6 +52,7 @@ const documentSchema = new mongoose.Schema({
   class_id:       { type: mongoose.Schema.Types.ObjectId, ref: 'Class', default: null },
   teacher_id:     { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   download_count: { type: Number, default: 0 },
+  file_url:       { type: String, default: null },
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
 const assignmentSchema = new mongoose.Schema({
@@ -57,7 +61,11 @@ const assignmentSchema = new mongoose.Schema({
   filename:      { type: String, default: null },
   original_name: { type: String, default: null },
   mime_type:     { type: String, default: null },
+  file_url:      { type: String, default: null },
   deadline:      { type: Date, required: true },
+  start_date:    { type: Date, default: null },
+  end_date:      { type: Date, default: null },
+  is_active:     { type: Boolean, default: false },
   class_id:      { type: mongoose.Schema.Types.ObjectId, ref: 'Class', required: true },
   teacher_id:    { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   max_score:     { type: Number, default: 100 },
@@ -68,13 +76,13 @@ const submissionSchema = new mongoose.Schema({
   student_id:    { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   filename:      { type: String, default: null },
   original_name: { type: String, default: null },
+  file_url:      { type: String, default: null },
   notes:         { type: String, default: null },
   score:         { type: Number, default: null },
   feedback:      { type: String, default: null },
   submitted_at:  { type: Date, default: Date.now },
   graded_at:     { type: Date, default: null },
 });
-// Unique constraint: one submission per student per assignment
 submissionSchema.index({ assignment_id: 1, student_id: 1 }, { unique: true });
 
 const announcementSchema = new mongoose.Schema({

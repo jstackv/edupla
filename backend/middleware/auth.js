@@ -36,4 +36,9 @@ const isTeacherOrAdmin = (req, res, next) => {
   return res.status(403).json({ message: 'Access denied.' });
 };
 
-module.exports = { isAuthenticated, isTeacher, isStudent, isAdmin, isTeacherOrAdmin, JWT_SECRET };
+const isSuperAdmin = (req, res, next) => {
+  if (req.user?.role === 'admin' && req.user?.is_super_admin) return next();
+  return res.status(403).json({ message: 'Access denied. Only the primary admin can manage admin accounts.' });
+};
+
+module.exports = { isAuthenticated, isTeacher, isStudent, isAdmin, isTeacherOrAdmin, isSuperAdmin, JWT_SECRET };

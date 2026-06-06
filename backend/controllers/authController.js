@@ -14,7 +14,22 @@ const login = async (req, res) => {
     const match = await bcrypt.compare(password, user.password);
     if (!match) return res.status(401).json({ message: 'Invalid credentials' });
 
-    const payload = { id: user._id.toString(), name: user.name, email: user.email, role: user.role };
+    // Block inactive accounts with a clear, role-specific message
+    if (user.is_active === false) {
+      const roleLabel = user.role === 'teacher' ? 'Teacher' : user.role === 'student' ? 'Student' : 'Admin';
+      return res.status(403).json({
+        message: `Your ${roleLabel} account has been deactivated. Please contact your administrator to regain access.`,
+        code: 'ACCOUNT_INACTIVE',
+      });
+    }
+
+    const payload = {
+      id: user._id.toString(),
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      is_super_admin: user.is_super_admin || false,
+    };
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '24h' });
 
     res.json({ message: 'Login successful', token, user: payload });

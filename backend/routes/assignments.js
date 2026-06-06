@@ -2,7 +2,8 @@ const router = require('express').Router();
 const { isAuthenticated, isTeacher } = require('../middleware/auth');
 const { assignmentUpload } = require('../middleware/upload');
 const {
-  getAssignments, createAssignment, updateAssignment, deleteAssignment, downloadAssignment, viewAssignment,
+  getAssignments, createAssignment, updateAssignment, deleteAssignment, toggleAssignmentStatus,
+  downloadAssignment, viewAssignment,
   submitAssignment, getSubmissions, downloadSubmission, viewSubmission, gradeSubmission, getGradesReport
 } = require('../controllers/assignmentController');
 
@@ -10,6 +11,7 @@ router.use(isAuthenticated);
 router.get('/', getAssignments);
 router.post('/', isTeacher, assignmentUpload.single('file'), createAssignment);
 router.put('/:id', isTeacher, assignmentUpload.single('file'), updateAssignment);
+router.patch('/:id/toggle-status', isTeacher, toggleAssignmentStatus);
 router.delete('/:id', isTeacher, deleteAssignment);
 router.get('/:id/download', downloadAssignment);
 router.get('/:id/view', viewAssignment);

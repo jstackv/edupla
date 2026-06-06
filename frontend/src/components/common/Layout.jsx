@@ -8,7 +8,7 @@ import {
   Megaphone, LogOut, Sun, Moon, ChevronRight, ChevronLeft,
   GraduationCap, BookMarked, Notebook, Shield, UserCheck,
   UserCircle, Settings, Bell, Search, Home,
-  Layers,
+  Layers, UserPlus,
 } from 'lucide-react';
 
 /* ─────────────────────────── NAV DEFINITIONS ─────────────────────────── */
@@ -30,12 +30,13 @@ const StudentLinks = [
 ];
 
 const AdminLinks = [
-  { to: '/admin/dashboard',    icon: LayoutDashboard, label: 'Dashboard',   section: 'main' },
-  { to: '/admin/teachers',     icon: UserCheck,       label: 'Teachers',    section: 'main' },
-  { to: '/admin/classes',      icon: BookOpen,        label: 'Classes',     section: 'main' },
-  { to: '/admin/students',     icon: GraduationCap,   label: 'Students',    section: 'main' },
-  { to: '/admin/assignments',  icon: ClipboardList,   label: 'Assignments', section: 'manage' },
-  { to: '/admin/settings',     icon: Layers,        label: 'Trades',    section: 'manage' },
+  { to: '/admin/dashboard',    icon: LayoutDashboard, label: 'Dashboard',      section: 'main' },
+  { to: '/admin/teachers',     icon: UserCheck,       label: 'Teachers',       section: 'main' },
+  { to: '/admin/classes',      icon: BookOpen,        label: 'Classes',        section: 'main' },
+  { to: '/admin/students',     icon: GraduationCap,   label: 'Students',       section: 'main' },
+  { to: '/admin/assignments',  icon: ClipboardList,   label: 'Assignments',    section: 'manage' },
+  { to: '/admin/settings',     icon: Layers,          label: 'Trades',         section: 'manage' },
+  { to: '/admin/admins',       icon: UserPlus,        label: 'Manage Admins',  section: 'manage' },
 ];
 
 /* ─────────────────────────── AVATAR COLORS ─────────────────────────── */
@@ -64,7 +65,7 @@ export default function Layout({ children }) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const links = user?.role === 'teacher' ? TeacherLinks
-    : user?.role === 'admin'   ? AdminLinks
+    : user?.role === 'admin'   ? AdminLinks.filter(l => l.to !== '/admin/admins' || user?.is_super_admin)
     : StudentLinks;
 
   const mainLinks   = links.filter(l => l.section === 'main');

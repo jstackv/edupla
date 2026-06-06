@@ -30,6 +30,7 @@ import AdminClasses from './pages/admin/Classes';
 import AdminStudents from './pages/admin/Students';
 import AdminAssignments from './pages/admin/Assignments';
 import AdminSettingsPage from './pages/admin/AdminSettings';
+import ManageAdmins from './pages/admin/ManageAdmins';
 
 function getDefaultRoute(role) {
   if (role === 'teacher') return '/teacher/dashboard';
@@ -121,6 +122,7 @@ function AppRoutes() {
       <Route path="/admin/students"    element={<AdminRoute><AdminStudents /></AdminRoute>} />
       <Route path="/admin/assignments" element={<AdminRoute><AdminAssignments /></AdminRoute>} />
       <Route path="/admin/settings"    element={<AdminRoute><AdminSettingsPage /></AdminRoute>} />
+      <Route path="/admin/admins"      element={<AdminRoute><ManageAdmins /></AdminRoute>} />
 
       {/* Document viewer — opens in new tab */}
       <Route path="/view-doc" element={<ViewerPage />} />

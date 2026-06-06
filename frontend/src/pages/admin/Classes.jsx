@@ -8,10 +8,25 @@ import {
   Plus, Search, BookOpen, Users, Edit2, Trash2, UserPlus,
   GraduationCap, ChevronRight, Filter, LayoutGrid, List,
   ArrowUpRight, X, Award, TrendingUp, Layers, UserCheck,
-  BarChart2, CheckCircle2, Clock, Star
+  BarChart2, CheckCircle2, Clock, Star,
+  ToggleLeft, ToggleRight,
 } from 'lucide-react';
 
 /* ── Constants ── */
+
+/* ── Status Badge ── */
+function StatusBadge({ is_active }) {
+  return (
+    <span style={{
+      fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6, letterSpacing: 0.3,
+      background: is_active !== false ? '#ecfdf5' : '#fef2f2',
+      color: is_active !== false ? '#059669' : '#ef4444',
+    }}>
+      {is_active !== false ? 'Active' : 'Inactive'}
+    </span>
+  );
+}
+
 
 const LEVEL_COLORS = ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#ec4899', '#06b6d4', '#f97316', '#64748b'];
 const TRADE_COLORS = ['#f59e0b', '#06b6d4', '#ec4899', '#f97316', '#6366f1', '#10b981', '#3b82f6', '#8b5cf6'];
@@ -135,7 +150,7 @@ function StatStrip({ classes, levels = [], trades = [] }) {
 }
 
 /* ── Class Card (grid view) ── */
-function ClassCard({ cls, onEdit, onDelete, onViewStudents, onEnroll, animDelay = 0, levels = [], trades = [] }) {
+function ClassCard({ cls, onEdit, onDelete, onToggle, onViewStudents, onEnroll, animDelay = 0, levels = [], trades = [] }) {
   const [hovered, setHovered] = useState(false);
   const [from] = getAvatarColors(cls.name);
   const maxStudents = 30;
@@ -193,6 +208,10 @@ function ClassCard({ cls, onEdit, onDelete, onViewStudents, onEnroll, animDelay 
               style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: 'var(--surface-100)', display: 'flex', alignItems: 'center', transition: 'background 0.15s' }}
               title="Delete class">
               <Trash2 size={13} style={{ color: '#ef4444' }} />
+            </button>
+            <button onClick={() => onToggle(cls)} title={cls.is_active !== false ? 'Deactivate' : 'Activate'}
+              style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: cls.is_active !== false ? '#fef3c7' : '#ecfdf5', display: 'flex' }}>
+              {cls.is_active !== false ? <ToggleRight size={13} style={{ color: '#d97706' }} /> : <ToggleLeft size={13} style={{ color: '#10b981' }} />}
             </button>
           </div>
         </div>
@@ -282,7 +301,7 @@ function ClassCard({ cls, onEdit, onDelete, onViewStudents, onEnroll, animDelay 
 }
 
 /* ── Class Row (list view) ── */
-function ClassRow({ cls, onEdit, onDelete, onViewStudents, onEnroll, animDelay = 0, levels = [], trades = [] }) {
+function ClassRow({ cls, onEdit, onDelete, onToggle, onViewStudents, onEnroll, animDelay = 0, levels = [], trades = [] }) {
   const [hovered, setHovered] = useState(false);
   const [from] = getAvatarColors(cls.name);
 
@@ -462,6 +481,14 @@ export default function AdminClasses() {
       fetchClasses();
     } catch (err) { toast.error(err.response?.data?.message || 'Failed to save'); }
     finally { setSaving(false); }
+  };
+
+  const handleToggle = async (cls) => {
+    try {
+      const res = await api.patch(`/admin/classes/${cls._id || cls.id}/toggle-status`);
+      toast.success(res.data.message);
+      fetchClasses();
+    } catch (err) { toast.error(err.response?.data?.message || 'Failed to update status'); }
   };
 
   const handleDelete = async () => {
@@ -721,7 +748,7 @@ export default function AdminClasses() {
           {classes.map((cls, i) => (
             <ClassCard key={cls.id} cls={cls} animDelay={i * 50}
               levels={levels} trades={trades}
-              onEdit={openModal} onDelete={setDeleteTarget}
+              onEdit={openModal} onDelete={setDeleteTarget} onToggle={handleToggle}
               onViewStudents={openStudentsModal} onEnroll={openEnrollModal} />
           ))}
         </div>
@@ -751,7 +778,7 @@ export default function AdminClasses() {
             {classes.map((cls, i) => (
               <ClassRow key={cls.id} cls={cls} animDelay={i * 40}
                 levels={levels} trades={trades}
-                onEdit={openModal} onDelete={setDeleteTarget}
+                onEdit={openModal} onDelete={setDeleteTarget} onToggle={handleToggle}
                 onViewStudents={openStudentsModal} onEnroll={openEnrollModal} />
             ))}
           </div>

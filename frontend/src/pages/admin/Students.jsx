@@ -9,6 +9,7 @@ import {
   BookOpen, GraduationCap, Filter, X, Phone, Mail,
   Calendar, TrendingUp, Award, Layers, Hash, CheckCircle2,
   ArrowUpRight, Copy, Eye, EyeOff,
+  ToggleLeft, ToggleRight,
 } from 'lucide-react';
 
 /* ── Constants ── */
@@ -17,6 +18,20 @@ const LEVEL_COLORS = ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#ec4899', '#0
 const TRADE_COLORS = ['#f59e0b', '#06b6d4', '#ec4899', '#f97316', '#6366f1', '#10b981', '#3b82f6', '#8b5cf6'];
 const LEVEL_BG    = ['#dbeafe', '#d1fae5', '#ede9fe', '#fef3c7', '#fce7f3', '#cffafe', '#ffedd5', '#f1f5f9'];
 const TRADE_BG    = ['#fef3c7', '#cffafe', '#fce7f3', '#ffedd5', '#e0e7ff', '#d1fae5', '#dbeafe', '#ede9fe'];
+
+/* ── Status Badge ── */
+function StatusBadge({ is_active }) {
+  return (
+    <span style={{
+      fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6, letterSpacing: 0.3,
+      background: is_active !== false ? '#ecfdf5' : '#fef2f2',
+      color: is_active !== false ? '#059669' : '#ef4444',
+    }}>
+      {is_active !== false ? 'Active' : 'Inactive'}
+    </span>
+  );
+}
+
 
 const AVATAR_COLORS = [
   ['#10b981','#059669'], ['#6366f1','#4338ca'], ['#0ea5e9','#0284c7'],
@@ -95,7 +110,7 @@ function StatStrip({ students, levels = [], trades = [] }) {
 }
 
 /* ── Student Card (grid) ── */
-function StudentCard({ student: s, levels = [], trades = [], onEdit, onDelete, animDelay = 0 }) {
+function StudentCard({ student: s, levels = [], trades = [], onEdit, onDelete, onToggle, animDelay = 0 }) {
   const [hovered, setHovered] = useState(false);
   const [from] = getAvatarColors(s.name);
 
@@ -128,6 +143,10 @@ function StudentCard({ student: s, levels = [], trades = [], onEdit, onDelete, a
             <button onClick={() => onDelete(s)}
               style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#fef2f2', display: 'flex', transition: 'background 0.15s' }}>
               <Trash2 size={13} style={{ color: '#ef4444' }} />
+            </button>
+            <button onClick={() => onToggle(s)} title={s.is_active !== false ? 'Deactivate' : 'Activate'}
+              style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: s.is_active !== false ? '#fef3c7' : '#ecfdf5', display: 'flex', transition: 'background 0.15s' }}>
+              {s.is_active !== false ? <ToggleRight size={13} style={{ color: '#d97706' }} /> : <ToggleLeft size={13} style={{ color: '#10b981' }} />}
             </button>
           </div>
         </div>
@@ -167,7 +186,7 @@ function StudentCard({ student: s, levels = [], trades = [], onEdit, onDelete, a
 }
 
 /* ── Student Row (table) ── */
-function StudentRow({ student: s, levels = [], trades = [], onEdit, onDelete, animDelay = 0 }) {
+function StudentRow({ student: s, levels = [], trades = [], onEdit, onDelete, onToggle, animDelay = 0 }) {
   const [hovered, setHovered] = useState(false);
   return (
     <tr
@@ -220,6 +239,10 @@ function StudentRow({ student: s, levels = [], trades = [], onEdit, onDelete, an
           <button onClick={() => onDelete(s)}
             style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#fef2f2', display: 'flex' }}>
             <Trash2 size={13} style={{ color: '#ef4444' }} />
+          </button>
+          <button onClick={() => onToggle(s)} title={s.is_active !== false ? 'Deactivate' : 'Activate'}
+            style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: s.is_active !== false ? '#fef3c7' : '#ecfdf5', display: 'flex' }}>
+            {s.is_active !== false ? <ToggleRight size={13} style={{ color: '#d97706' }} /> : <ToggleLeft size={13} style={{ color: '#10b981' }} />}
           </button>
         </div>
       </td>
@@ -316,6 +339,14 @@ export default function AdminStudents() {
       }
     } catch (err) { toast.error(err.response?.data?.message || 'Failed to save'); }
     finally { setSaving(false); }
+  };
+
+  const handleToggle = async (student) => {
+    try {
+      const res = await api.patch(`/admin/students/${student._id || student.id}/toggle-status`);
+      toast.success(res.data.message);
+      fetchStudents();
+    } catch (err) { toast.error(err.response?.data?.message || 'Failed to update status'); }
   };
 
   const handleDelete = async () => {
@@ -563,7 +594,7 @@ export default function AdminStudents() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 }}>
           {students.map((s, i) => (
             <StudentCard key={s.id} student={s} levels={levels} trades={trades} animDelay={i * 45}
-              onEdit={openModal} onDelete={setDeleteTarget} />
+              onEdit={openModal} onDelete={setDeleteTarget} onToggle={handleToggle} />
           ))}
         </div>
       ) : (
@@ -583,7 +614,7 @@ export default function AdminStudents() {
             <tbody>
               {students.map((s, i) => (
                 <StudentRow key={s.id} student={s} levels={levels} trades={trades} animDelay={i * 35}
-                  onEdit={openModal} onDelete={setDeleteTarget} />
+                  onEdit={openModal} onDelete={setDeleteTarget} onToggle={handleToggle} />
               ))}
             </tbody>
           </table>

@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 import Modal from '../../components/common/Modal';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import Pagination from '../../components/common/Pagination';
-import FileViewer from '../../components/common/FileViewer';
+import FileViewer, { downloadFile } from '../../components/common/FileViewer';
 import {
   Plus, Search, Upload, FileText, Download, Eye, Edit2, Trash2,
   CloudUpload, X, BookOpen
@@ -213,10 +213,10 @@ export default function Documents() {
                           className="p-1.5 rounded-lg hover:bg-primary-50 hover:text-primary-600 transition-colors" title="Preview">
                           <Eye className="w-4 h-4 text-muted" />
                         </button>
-                        <a href={`/api/documents/${doc.id}/download`} download
+                        <button onClick={() => downloadFile(doc)}
                           className="p-1.5 rounded-lg hover:bg-surface-100 transition-colors" title="Download">
                           <Download className="w-4 h-4 text-muted" />
-                        </a>
+                        </button>
                         <button onClick={() => openEdit(doc)}
                           className="p-1.5 rounded-lg hover:bg-surface-100 transition-colors" title="Edit">
                           <Edit2 className="w-4 h-4 text-muted" />

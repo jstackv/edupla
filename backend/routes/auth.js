@@ -25,10 +25,20 @@ router.put('/profile', isAuthenticated, async (req, res) => {
     }
 
     if (role === 'student') {
+      // Students can ONLY change their password — name and email are managed by admins
+      if (newPassword) {
+        user.password = await bcrypt.hash(newPassword, 10);
+        await user.save();
+        return res.json({ message: 'Password changed successfully' });
+      }
+      return res.status(403).json({ message: 'Students are not allowed to modify their name or email.' });
+    } else if (role === 'admin') {
+      // Admins can change their password only
       if (newPassword) {
         user.password = await bcrypt.hash(newPassword, 10);
         await user.save();
       }
+      return res.json({ message: 'Password updated successfully' });
     } else if (role === 'teacher') {
       if (name) user.name = name;
       if (email) {

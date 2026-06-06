@@ -4,11 +4,12 @@ import toast from 'react-hot-toast';
 import Modal from '../../components/common/Modal';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import Pagination from '../../components/common/Pagination';
-import FileViewer from '../../components/common/FileViewer';
+import FileViewer, { downloadFile } from '../../components/common/FileViewer';
 import {
   Plus, Search, ClipboardList, Download, Eye, Edit2, Trash2,
   Clock, Users, Award, X, CloudUpload, FileText, Star,
-  BarChart2, CheckSquare, Square, FileDown, Printer
+  BarChart2, CheckSquare, Square, FileDown, Printer,
+  ToggleLeft, ToggleRight, Calendar, Power
 } from 'lucide-react';
 
 function formatSize(bytes) {
@@ -283,14 +284,7 @@ function SubmissionsModal({ assignment, onClose }) {
       .finally(() => setLoading(false));
   }, [assignment.id]);
 
-  const handleDownload = async (sub) => {
-    try {
-      const res = await api.get(`/assignments/${assignment.id}/submissions/${sub.id}/download`, { responseType: 'blob' });
-      const url = URL.createObjectURL(new Blob([res.data]));
-      const a = document.createElement('a'); a.href = url; a.download = sub.original_name || 'submission'; a.click();
-      URL.revokeObjectURL(url);
-    } catch { toast.error('Download failed'); }
-  };
+  const handleDownload = (sub) => downloadFile({ ...sub, type: 'submission', submission_id: sub.id });
 
   const submitGrade = async () => {
     try {
@@ -416,7 +410,7 @@ export default function Assignments() {
   const [viewingSubs, setViewingSubs] = useState(null);
   const [viewingGrades, setViewingGrades] = useState(null);
   const [viewingFile, setViewingFile] = useState(null);
-  const [form, setForm] = useState({ title: '', description: '', deadline: '', classId: '', max_score: 100 });
+  const [form, setForm] = useState({ title: '', description: '', deadline: '', classId: '', max_score: 100, start_date: '', end_date: '', is_active: false });
   const [file, setFile] = useState(null);
   const [saving, setSaving] = useState(false);
 
@@ -441,9 +435,11 @@ export default function Assignments() {
     setEditing(a);
     if (a) {
       const deadline = a.deadline ? new Date(a.deadline).toISOString().slice(0, 16) : '';
-      setForm({ title: a.title, description: a.description || '', deadline, classId: String(a.class_id), max_score: a.max_score || 100 });
+      const start_date = a.start_date ? new Date(a.start_date).toISOString().slice(0, 16) : '';
+      const end_date = a.end_date ? new Date(a.end_date).toISOString().slice(0, 16) : '';
+      setForm({ title: a.title, description: a.description || '', deadline, classId: String(a.class_id), max_score: a.max_score || 100, start_date, end_date, is_active: a.is_active || false });
     } else {
-      setForm({ title: '', description: '', deadline: '', classId: '', max_score: 100 });
+      setForm({ title: '', description: '', deadline: '', classId: '', max_score: 100, start_date: '', end_date: '', is_active: false });
     }
     setFile(null);
     setModal(true);
@@ -478,6 +474,14 @@ export default function Assignments() {
       fetchAssignments();
     } catch { toast.error('Failed to delete'); }
     finally { setDeleting(false); }
+  };
+
+  const handleToggleStatus = async (assignment) => {
+    try {
+      const res = await api.patch(`/assignments/${assignment.id}/toggle-status`);
+      toast.success(res.data.message);
+      fetchAssignments();
+    } catch (err) { toast.error(err.response?.data?.message || 'Failed to toggle status'); }
   };
 
   return (
@@ -540,6 +544,13 @@ export default function Assignments() {
                           </span>
                         )}
                         <DeadlineBadge deadline={a.deadline} />
+                  <span style={{
+                    fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 5,
+                    background: a.is_active ? '#ecfdf5' : '#f3f4f6',
+                    color: a.is_active ? '#059669' : '#6b7280',
+                  }}>
+                    {a.is_active ? 'Active' : 'Inactive'}
+                  </span>
                         <span className="text-xs text-muted flex items-center gap-1">
                           <Award className="w-3 h-3" /> Max: {a.max_score || 100}
                         </span>
@@ -627,6 +638,41 @@ export default function Assignments() {
             <label className="label">Deadline *</label>
             <input type="datetime-local" value={form.deadline} onChange={e => setForm(f => ({ ...f, deadline: e.target.value }))}
               className="input-field" required />
+          </div>
+          <div style={{ background: 'var(--surface-50)', borderRadius: 10, padding: '12px 14px', border: '1px solid var(--card-border)' }}>
+            <p className="text-xs font-semibold mb-2" style={{ color: 'var(--text-secondary)' }}>Visibility Window (optional)</p>
+            <p className="text-xs mb-3" style={{ color: 'var(--text-secondary)' }}>
+              Students can only view and submit this assignment between these dates. Leave blank for no restriction.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="label">Start Date &amp; Time</label>
+                <input type="datetime-local" value={form.start_date} onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))}
+                  className="input-field" />
+              </div>
+              <div>
+                <label className="label">End Date &amp; Time</label>
+                <input type="datetime-local" value={form.end_date} onChange={e => setForm(f => ({ ...f, end_date: e.target.value }))}
+                  className="input-field" />
+              </div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: form.is_active ? 'rgba(16,185,129,0.06)' : 'var(--surface-50)', borderRadius: 10, border: `1px solid ${form.is_active ? 'rgba(16,185,129,0.25)' : 'var(--card-border)'}` }}>
+            <div>
+              <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                {form.is_active ? '✓ Assignment is Active' : 'Assignment is Inactive'}
+              </p>
+              <p className="text-xs" style={{ color: 'var(--text-secondary)', marginTop: 2 }}>
+                {form.is_active ? 'Students can view and submit this assignment' : 'Students cannot see or submit this assignment'}
+              </p>
+            </div>
+            <button type="button"
+              onClick={() => setForm(f => ({ ...f, is_active: !f.is_active }))}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
+              {form.is_active
+                ? <ToggleRight size={28} style={{ color: '#10b981' }} />
+                : <ToggleLeft size={28} style={{ color: '#9ca3af' }} />}
+            </button>
           </div>
           <div>
             <label className="label">Attachment (optional)</label>

@@ -66,11 +66,35 @@ export default function ViewerPage() {
   const fileTitle = params.get('title') || fileName;
   const fileDesc = params.get('description') || '';
   const className = params.get('class_name') || '';
-  const fullUrl = fileUrl ? `${window.location.origin}${fileUrl}` : null;
+  const isDirect = params.get('direct') === '1'; // file_url is already an absolute Cloudinary URL
+  const fullUrl = fileUrl
+    ? (isDirect ? fileUrl : `${window.location.origin}${fileUrl}`)
+    : null;
 
   useEffect(() => {
     document.title = `${fileTitle} — EDUPLA Viewer`;
   }, [fileTitle]);
+
+  const handleDownload = async () => {
+    try {
+      const response = await fetch(fullUrl);
+      if (!response.ok) throw new Error();
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+    } catch {
+      // fallback
+      const a = document.createElement('a');
+      a.href = fullUrl; a.download = fileName; a.target = '_blank';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    }
+  };
 
   const TypeIcon = getIconForType(fileType);
   const accent = getAccentForType(fileType);
@@ -157,13 +181,12 @@ export default function ViewerPage() {
           </button>
 
           {/* Download button */}
-          <a
-            href={`${fullUrl.replace('/view', '/download')}`}
-            download={fileName}
-            style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px', borderRadius: 10, background: 'linear-gradient(135deg,#3b5bdb,#7048e8)', color: 'white', fontWeight: 700, fontSize: 13, textDecoration: 'none', boxShadow: '0 3px 10px rgba(99,102,241,0.35)' }}
+          <button
+            onClick={handleDownload}
+            style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px', borderRadius: 10, background: 'linear-gradient(135deg,#3b5bdb,#7048e8)', color: 'white', fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer', boxShadow: '0 3px 10px rgba(99,102,241,0.35)' }}
           >
             <Download size={14} /> Download
-          </a>
+          </button>
         </div>
       </header>
 
@@ -265,13 +288,12 @@ export default function ViewerPage() {
                   <strong>Preview unavailable on local server.</strong> On a deployed server this would open in Google Docs Viewer. Use the Download button to open the file in your local application.
                 </p>
               </div>
-              <a
-                href={`${fullUrl.replace('/view', '/download')}`}
-                download={fileName}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '12px 24px', borderRadius: 12, background: `linear-gradient(135deg,${accent},${accent}cc)`, color: 'white', fontWeight: 700, fontSize: 14, textDecoration: 'none', boxShadow: `0 6px 20px ${accent}40` }}
+              <button
+                onClick={handleDownload}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '12px 24px', borderRadius: 12, background: `linear-gradient(135deg,${accent},${accent}cc)`, color: 'white', fontWeight: 700, fontSize: 14, border: 'none', cursor: 'pointer', boxShadow: `0 6px 20px ${accent}40` }}
               >
                 <Download size={16} /> Download & Open
-              </a>
+              </button>
             </div>
           </div>
         )}
@@ -283,13 +305,12 @@ export default function ViewerPage() {
               <AlertTriangle size={48} color="#f59e0b" style={{ margin: '0 auto 16px' }} />
               <h3 style={{ fontWeight: 700, fontSize: 18, marginBottom: 8, color: tp }}>Failed to load document</h3>
               <p style={{ fontSize: 14, color: tm, marginBottom: 20 }}>{error}</p>
-              <a
-                href={`${fullUrl.replace('/view', '/download')}`}
-                download={fileName}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 10, background: '#6366f1', color: 'white', fontWeight: 700, fontSize: 14, textDecoration: 'none' }}
+              <button
+                onClick={handleDownload}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 10, background: '#6366f1', color: 'white', fontWeight: 700, fontSize: 14, border: 'none', cursor: 'pointer' }}
               >
                 <Download size={14} /> Try Download Instead
-              </a>
+              </button>
             </div>
           </div>
         )}

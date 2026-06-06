@@ -8,6 +8,7 @@ import {
   Plus, Search, Users, Edit2, Trash2, Mail, Phone, BookOpen,
   GraduationCap, LayoutGrid, List, Filter, X, CheckCircle2,
   Copy, Eye, EyeOff, Award, TrendingUp, ArrowUpRight, Shield,
+  ToggleLeft, ToggleRight,
 } from 'lucide-react';
 
 /* ── Constants ── */
@@ -64,8 +65,21 @@ function StatStrip({ teachers }) {
   );
 }
 
+/* ── Status Badge ── */
+function StatusBadge({ is_active }) {
+  return (
+    <span style={{
+      fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6, letterSpacing: 0.3,
+      background: is_active !== false ? '#ecfdf5' : '#fef2f2',
+      color: is_active !== false ? '#059669' : '#ef4444',
+    }}>
+      {is_active !== false ? 'Active' : 'Inactive'}
+    </span>
+  );
+}
+
 /* ── Teacher Card (grid) ── */
-function TeacherCard({ teacher: t, onEdit, onDelete, animDelay = 0 }) {
+function TeacherCard({ teacher: t, onEdit, onDelete, onToggle, animDelay = 0 }) {
   const [hovered, setHovered] = useState(false);
   const [from, to] = getAvatarColors(t.name);
 
@@ -98,6 +112,10 @@ function TeacherCard({ teacher: t, onEdit, onDelete, animDelay = 0 }) {
             <button onClick={() => onDelete(t)}
               style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#fef2f2', display: 'flex' }}>
               <Trash2 size={13} style={{ color: '#ef4444' }} />
+            </button>
+            <button onClick={() => onToggle(t)} title={t.is_active !== false ? 'Deactivate' : 'Activate'}
+              style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: t.is_active !== false ? '#fef3c7' : '#ecfdf5', display: 'flex' }}>
+              {t.is_active !== false ? <ToggleRight size={13} style={{ color: '#d97706' }} /> : <ToggleLeft size={13} style={{ color: '#10b981' }} />}
             </button>
           </div>
         </div>
@@ -146,6 +164,7 @@ function TeacherCard({ teacher: t, onEdit, onDelete, animDelay = 0 }) {
             <Shield size={10} />
             Teacher
           </div>
+          <StatusBadge is_active={t.is_active} />
           <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>
             {t.created_at ? new Date(t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
           </span>
@@ -156,7 +175,7 @@ function TeacherCard({ teacher: t, onEdit, onDelete, animDelay = 0 }) {
 }
 
 /* ── Teacher Row (table) ── */
-function TeacherRow({ teacher: t, onEdit, onDelete, animDelay = 0 }) {
+function TeacherRow({ teacher: t, onEdit, onDelete, onToggle, animDelay = 0 }) {
   const [hovered, setHovered] = useState(false);
   const [from] = getAvatarColors(t.name);
 
@@ -222,6 +241,10 @@ function TeacherRow({ teacher: t, onEdit, onDelete, animDelay = 0 }) {
           <button onClick={() => onDelete(t)}
             style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#fef2f2', display: 'flex' }}>
             <Trash2 size={13} style={{ color: '#ef4444' }} />
+          </button>
+          <button onClick={() => onToggle(t)} title={t.is_active !== false ? 'Deactivate' : 'Activate'}
+            style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: t.is_active !== false ? '#fef3c7' : '#ecfdf5', display: 'flex' }}>
+            {t.is_active !== false ? <ToggleRight size={13} style={{ color: '#d97706' }} /> : <ToggleLeft size={13} style={{ color: '#10b981' }} />}
           </button>
         </div>
       </td>
@@ -296,6 +319,14 @@ export default function AdminTeachers() {
       fetchTeachers();
     } catch { toast.error('Failed to delete'); }
     finally { setDeleting(false); }
+  };
+
+  const handleToggle = async (teacher) => {
+    try {
+      const res = await api.patch(`/admin/teachers/${teacher._id || teacher.id}/toggle-status`);
+      toast.success(res.data.message);
+      fetchTeachers();
+    } catch (err) { toast.error(err.response?.data?.message || 'Failed to update status'); }
   };
 
   const copyToClipboard = (text) => {
@@ -452,7 +483,7 @@ export default function AdminTeachers() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 }}>
           {teachers.map((t, i) => (
             <TeacherCard key={t.id} teacher={t} animDelay={i * 45}
-              onEdit={openModal} onDelete={setDeleteTarget} />
+              onEdit={openModal} onDelete={setDeleteTarget} onToggle={handleToggle} />
           ))}
         </div>
       ) : (
@@ -472,7 +503,7 @@ export default function AdminTeachers() {
             <tbody>
               {teachers.map((t, i) => (
                 <TeacherRow key={t.id} teacher={t} animDelay={i * 35}
-                  onEdit={openModal} onDelete={setDeleteTarget} />
+                  onEdit={openModal} onDelete={setDeleteTarget} onToggle={handleToggle} />
               ))}
             </tbody>
           </table>

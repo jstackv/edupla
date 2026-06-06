@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import Pagination from '../../components/common/Pagination';
-import FileViewer from '../../components/common/FileViewer';
+import FileViewer, { downloadFile } from '../../components/common/FileViewer';
 import { Search, FileText, Download, Eye, BookOpen } from 'lucide-react';
 
 function formatSize(bytes) {
@@ -64,15 +64,7 @@ export default function StudentDocuments() {
     api.get('/classes/my').then(r => setClasses(r.data.classes || [])).catch(() => {});
   }, []);
 
-  const handleDownload = async (doc) => {
-    try {
-      const res = await api.get(`/documents/${doc.id}/download`, { responseType: 'blob' });
-      const url = URL.createObjectURL(new Blob([res.data]));
-      const a = document.createElement('a');
-      a.href = url; a.download = doc.original_name || doc.title; a.click();
-      URL.revokeObjectURL(url);
-    } catch { toast.error('Download failed'); }
-  };
+  const handleDownload = (doc) => downloadFile(doc);
 
   return (
     <div className="space-y-5">

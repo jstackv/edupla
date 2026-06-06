@@ -97,9 +97,27 @@ app.get('/api/analytics', isAuthenticated, isTeacher, async (req, res) => {
 // ── Health ────────────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
+// ── Ensure the oldest admin is marked as super admin ──────────────────────
+async function ensureSuperAdmin() {
+  try {
+    const { User } = require('./models/db');
+    const hasSuperAdmin = await User.exists({ role: 'admin', is_super_admin: true });
+    if (!hasSuperAdmin) {
+      const first = await User.findOne({ role: 'admin' }).sort({ created_at: 1, _id: 1 });
+      if (first) {
+        await User.updateOne({ _id: first._id }, { is_super_admin: true });
+        console.log(`✅ Super admin set: ${first.email}`);
+      }
+    }
+  } catch (err) {
+    console.error('ensureSuperAdmin error:', err.message);
+  }
+}
+
 // ── Start ─────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
-connectDB().then(() => {
+connectDB().then(async () => {
+  await ensureSuperAdmin();
   if (process.env.NODE_ENV !== 'production') {
     app.listen(PORT, () => console.log(`EDUPLA running on port ${PORT}`));
   }

@@ -88,8 +88,8 @@ export default function Profile() {
         ))}
       </div>
 
-      {/* Edit Profile — Teachers & Students can update name/email */}
-      {(isTeacher || user?.role === 'student') && (
+      {/* Edit Profile — Teachers only (students cannot change name/email) */}
+      {isTeacher && (
         <div className="card">
           <div className="flex items-center gap-2 mb-5">
             <div className="w-8 h-8 rounded-lg bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center">
@@ -146,7 +146,21 @@ export default function Profile() {
             </div>
             <div>
               <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Administrator Account</p>
-              <p className="text-xs text-muted">Admin profiles are managed by the system. Contact support for changes.</p>
+              <p className="text-xs text-muted">You can change your password in <strong>Settings</strong>. Name and email are managed by the system.</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {user?.role === 'student' && (
+        <div className="card">
+          <div className="flex items-center gap-3 p-4 rounded-xl" style={{ background: 'var(--page-bg)', border: '1px solid var(--card-border)' }}>
+            <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+              <GraduationCap className="w-5 h-5 text-emerald-600" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Student Account</p>
+              <p className="text-xs text-muted">Your name and email are managed by your administrator. You can change your password in <strong>Settings</strong>.</p>
             </div>
           </div>
         </div>

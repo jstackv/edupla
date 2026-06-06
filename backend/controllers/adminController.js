@@ -5,22 +5,33 @@ const { User, Class, Assignment, Document, Announcement, Level, Trade, Submissio
 // ── Dashboard Stats ────────────────────────────────────────────────────
 const getDashboardStats = async (req, res) => {
   try {
+    const adminId = req.user.id;
+
+    // Get IDs of teachers & classes this admin created
+    const [myTeacherDocs, myClassDocs] = await Promise.all([
+      User.find({ role: 'teacher', created_by: adminId }, '_id').lean(),
+      Class.find({ created_by: adminId }, '_id').lean(),
+    ]);
+    const myTeacherIds = myTeacherDocs.map(t => t._id);
+    const myClassIds   = myClassDocs.map(c => c._id);
+
     const [teachers, students, classes, assignments, documents, announcements] = await Promise.all([
-      User.countDocuments({ role: 'teacher' }),
-      User.countDocuments({ role: 'student' }),
-      Class.countDocuments(),
-      Assignment.countDocuments(),
-      Document.countDocuments(),
-      Announcement.countDocuments(),
+      User.countDocuments({ role: 'teacher', created_by: adminId }),
+      User.countDocuments({ role: 'student', created_by: adminId }),
+      Class.countDocuments({ created_by: adminId }),
+      Assignment.countDocuments({ teacher_id: { $in: myTeacherIds } }),
+      Document.countDocuments({ teacher_id: { $in: myTeacherIds } }),
+      Announcement.countDocuments({ teacher_id: { $in: myTeacherIds } }),
     ]);
 
     const [recentTeachers, recentStudents] = await Promise.all([
-      User.find({ role: 'teacher' }).sort({ created_at: -1 }).limit(5).select('name email created_at').lean(),
-      User.find({ role: 'student' }).sort({ created_at: -1 }).limit(5).select('name email level trade created_at').lean(),
+      User.find({ role: 'teacher', created_by: adminId }).sort({ created_at: -1 }).limit(5).select('name email created_at').lean(),
+      User.find({ role: 'student', created_by: adminId }).sort({ created_at: -1 }).limit(5).select('name email level trade created_at').lean(),
     ]);
 
-    // Classes by teacher
+    // Classes by teacher — scoped to this admin's classes
     const classesByTeacher = await Class.aggregate([
+      { $match: { created_by: new mongoose.Types.ObjectId(adminId) } },
       { $group: { _id: '$teacher_id', class_count: { $sum: 1 }, all_students: { $push: '$students' } } },
       { $lookup: { from: 'users', localField: '_id', foreignField: '_id', as: 'teacher' } },
       { $unwind: { path: '$teacher', preserveNullAndEmptyArrays: true } },
@@ -52,7 +63,7 @@ const getTeachers = async (req, res) => {
     const { search = '', page = 1, limit = 12 } = req.query;
     const skip = (page - 1) * limit;
     const searchRegex = new RegExp(search, 'i');
-    const filter = { role: 'teacher', $or: [{ name: searchRegex }, { email: searchRegex }] };
+    const filter = { role: 'teacher', created_by: req.user.id, $or: [{ name: searchRegex }, { email: searchRegex }] };
 
     const [teachers, total] = await Promise.all([
       User.find(filter).sort({ created_at: -1 }).skip(skip).limit(parseInt(limit)).lean(),
@@ -78,7 +89,7 @@ const createTeacher = async (req, res) => {
     if (existing) return res.status(400).json({ message: 'Email already exists' });
     const defaultPassword = process.env.TEACHER_DEFAULT_PASSWORD || 'teacher123';
     const hashed = await bcrypt.hash(defaultPassword, 10);
-    const t = await User.create({ name, email: email.toLowerCase(), password: hashed, role: 'teacher', phone: phone || null });
+    const t = await User.create({ name, email: email.toLowerCase(), password: hashed, role: 'teacher', phone: phone || null, created_by: req.user.id });
     res.status(201).json({ message: 'Teacher created successfully', id: t._id, defaultPassword });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
@@ -113,7 +124,7 @@ const getAllClasses = async (req, res) => {
     const { search = '', page = 1, limit = 12 } = req.query;
     const skip = (page - 1) * limit;
     const searchRegex = new RegExp(search, 'i');
-    const filter = { $or: [{ name: searchRegex }, { description: searchRegex }] };
+    const filter = { created_by: req.user.id, $or: [{ name: searchRegex }, { description: searchRegex }] };
 
     const [classes, total] = await Promise.all([
       Class.find(filter).sort({ created_at: -1 }).skip(skip).limit(parseInt(limit))
@@ -139,6 +150,7 @@ const adminCreateClass = async (req, res) => {
     const cls = await Class.create({
       name, description: description || null, level: level || null, trade: trade || null,
       teacher_id, extra_teachers: allTeacherIds.slice(1),
+      created_by: req.user.id,
     });
     res.status(201).json({ message: 'Class created', id: cls._id });
   } catch (err) { res.status(500).json({ message: err.message }); }
@@ -214,6 +226,7 @@ const getAllStudents = async (req, res) => {
 
     const filter = {
       role: 'student',
+      created_by: req.user.id,
       $or: [{ name: searchRegex }, { email: searchRegex }],
       ...(level && { level }),
       ...(trade && { trade }),
@@ -247,6 +260,7 @@ const adminCreateStudent = async (req, res) => {
     const s = await User.create({
       name, email: email.toLowerCase(), password: hashed, role: 'student',
       level: level || null, trade: trade || null, class_year: class_year || null, phone: phone || null,
+      created_by: req.user.id,
     });
 
     if (classIds.length > 0) {
@@ -305,13 +319,17 @@ const getAdminAssignments = async (req, res) => {
     const skip = (page - 1) * limit;
     const searchRegex = new RegExp(search, 'i');
 
+    // Only show assignments from teachers this admin created
+    const myTeachers = await User.find({ role: 'teacher', created_by: req.user.id }, '_id').lean();
+    const myTeacherIds = myTeachers.map(t => t._id);
+
     const [assignments, total] = await Promise.all([
-      Assignment.find()
+      Assignment.find({ teacher_id: { $in: myTeacherIds } })
         .sort({ created_at: -1 }).skip(skip).limit(parseInt(limit))
         .populate('teacher_id', 'name email')
         .populate('class_id', 'name level trade')
         .lean(),
-      Assignment.countDocuments(),
+      Assignment.countDocuments({ teacher_id: { $in: myTeacherIds } }),
     ]);
 
     const filtered = assignments.filter(a =>
@@ -414,3 +432,55 @@ module.exports = {
   getLevels, createLevel, deleteLevel, updateLevel,
   getTrades, createTrade, deleteTrade, updateTrade,
 };
+
+// ── Status Toggle Handlers ─────────────────────────────────────────────
+
+const toggleTeacherStatus = async (req, res) => {
+  try {
+    const teacher = await User.findOne({ _id: req.params.id, role: 'teacher' });
+    if (!teacher) return res.status(404).json({ message: 'Teacher not found' });
+    teacher.is_active = !teacher.is_active;
+    await teacher.save();
+    res.json({ message: `Teacher ${teacher.is_active ? 'activated' : 'deactivated'} successfully`, is_active: teacher.is_active });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+const toggleStudentStatus = async (req, res) => {
+  try {
+    const student = await User.findOne({ _id: req.params.id, role: 'student' });
+    if (!student) return res.status(404).json({ message: 'Student not found' });
+    student.is_active = !student.is_active;
+    await student.save();
+    res.json({ message: `Student ${student.is_active ? 'activated' : 'deactivated'} successfully`, is_active: student.is_active });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+const toggleClassStatus = async (req, res) => {
+  try {
+    const cls = await Class.findById(req.params.id);
+    if (!cls) return res.status(404).json({ message: 'Class not found' });
+    cls.is_active = !cls.is_active;
+    // If deactivating a class, no students should be assignable — we keep existing
+    // enrollments but students will be blocked at the class level from new joins
+    await cls.save();
+    res.json({ message: `Class ${cls.is_active ? 'activated' : 'deactivated'} successfully`, is_active: cls.is_active });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+const toggleAdminStatus = async (req, res) => {
+  try {
+    if (req.params.id === req.user.id) return res.status(400).json({ message: 'You cannot deactivate your own account' });
+    const admin = await User.findOne({ _id: req.params.id, role: 'admin' });
+    if (!admin) return res.status(404).json({ message: 'Admin not found' });
+    admin.is_active = !admin.is_active;
+    await admin.save();
+    res.json({ message: `Admin ${admin.is_active ? 'activated' : 'deactivated'} successfully`, is_active: admin.is_active });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+module.exports = Object.assign(module.exports, {
+  toggleTeacherStatus,
+  toggleStudentStatus,
+  toggleClassStatus,
+  toggleAdminStatus,
+});

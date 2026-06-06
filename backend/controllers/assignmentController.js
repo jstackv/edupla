@@ -1,7 +1,15 @@
-const path = require('path');
-const fs = require('fs');
 const mongoose = require('mongoose');
 const { Assignment, Submission, Class, User } = require('../models/db');
+const { cloudinary } = require('../middleware/upload');
+
+// Helper: check if assignment is currently accessible to students
+function isAssignmentAccessible(a) {
+  if (!a.is_active) return false;
+  const now = new Date();
+  if (a.start_date && now < new Date(a.start_date)) return false;
+  if (a.end_date && now > new Date(a.end_date)) return false;
+  return true;
+}
 
 const getAssignments = async (req, res) => {
   try {
@@ -31,21 +39,29 @@ const getAssignments = async (req, res) => {
         return {
           ...a, id: a._id,
           class_name: a.class_id?.name,
+          file_url: a.file_url,
           submission_count,
           total_students: cls?.students?.length || 0,
+          is_accessible: isAssignmentAccessible(a),
         };
       }));
       return res.json({ assignments: result, total, page: parseInt(page), limit: parseInt(limit) });
     }
 
-    // Student view
-    const enrolledClasses = await Class.find({ students: userId }, '_id').lean();
+    // Student view — only return active, in-window assignments
+    const enrolledClasses = await Class.find({ students: userId, is_active: true }, '_id').lean();
     const enrolledClassIds = enrolledClasses.map(c => c._id);
 
+    const now = new Date();
     const filter = {
       class_id: { $in: enrolledClassIds },
+      is_active: true,
       $or: [{ title: searchRegex }, { description: searchRegex }],
       ...(classId && { class_id: classId }),
+      $and: [
+        { $or: [{ start_date: null }, { start_date: { $lte: now } }] },
+        { $or: [{ end_date: null }, { end_date: { $gte: now } }] },
+      ],
     };
     const [assignments, total] = await Promise.all([
       Assignment.find(filter).sort({ deadline: 1 }).skip(skip).limit(parseInt(limit))
@@ -59,6 +75,7 @@ const getAssignments = async (req, res) => {
         ...a, id: a._id,
         class_name: a.class_id?.name,
         teacher_name: a.teacher_id?.name,
+        file_url: a.file_url,
         submission_id: sub?._id || null,
         submitted_at: sub?.submitted_at || null,
         score: sub?.score ?? null,
@@ -71,15 +88,19 @@ const getAssignments = async (req, res) => {
 
 const createAssignment = async (req, res) => {
   try {
-    const { title, description, deadline, classId, max_score } = req.body;
+    const { title, description, deadline, classId, max_score, start_date, end_date, is_active } = req.body;
     if (!title || !deadline || !classId) return res.status(400).json({ message: 'Title, deadline, and class are required' });
     const a = await Assignment.create({
       title, description, deadline,
+      start_date: start_date || null,
+      end_date: end_date || null,
+      is_active: is_active === true || is_active === 'true',
       class_id: classId, teacher_id: req.session.user.id,
       max_score: max_score || 100,
-      filename: req.file?.filename || null,
-      original_name: req.file?.originalname || null,
-      mime_type: req.file?.mimetype || null,
+      filename:      req.file?.filename      || null,
+      original_name: req.file?.originalname  || null,
+      mime_type:     req.file?.mimetype      || null,
+      file_url:      req.file?.path          || null,
     });
     res.status(201).json({ message: 'Assignment created', id: a._id });
   } catch (err) { res.status(500).json({ message: err.message }); }
@@ -87,29 +108,43 @@ const createAssignment = async (req, res) => {
 
 const updateAssignment = async (req, res) => {
   try {
-    const { title, description, deadline, classId, max_score } = req.body;
+    const { title, description, deadline, classId, max_score, start_date, end_date, is_active } = req.body;
     const existing = await Assignment.findOne({ _id: req.params.id, teacher_id: req.session.user.id });
     if (!existing) return res.status(404).json({ message: 'Assignment not found' });
 
-    let filename = existing.filename;
-    let original_name = existing.original_name;
-    let mime_type = existing.mime_type;
+    let { filename, original_name, mime_type, file_url } = existing;
 
     if (req.file) {
       if (filename) {
-        const oldPath = path.join('uploads/assignments', filename);
-        if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+        try { await cloudinary.uploader.destroy(filename, { resource_type: 'raw' }); } catch (_) {}
       }
-      filename = req.file.filename;
+      filename      = req.file.filename;
       original_name = req.file.originalname;
-      mime_type = req.file.mimetype;
+      mime_type     = req.file.mimetype;
+      file_url      = req.file.path;
     }
 
     await Assignment.updateOne(
       { _id: req.params.id },
-      { title, description, deadline, class_id: classId, max_score: max_score || 100, filename, original_name, mime_type }
+      {
+        title, description, deadline, class_id: classId, max_score: max_score || 100,
+        start_date: start_date || null,
+        end_date: end_date || null,
+        is_active: is_active === true || is_active === 'true',
+        filename, original_name, mime_type, file_url,
+      }
     );
     res.json({ message: 'Assignment updated' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+const toggleAssignmentStatus = async (req, res) => {
+  try {
+    const a = await Assignment.findOne({ _id: req.params.id, teacher_id: req.session.user.id });
+    if (!a) return res.status(404).json({ message: 'Assignment not found' });
+    a.is_active = !a.is_active;
+    await a.save();
+    res.json({ message: `Assignment ${a.is_active ? 'activated' : 'deactivated'}`, is_active: a.is_active });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
@@ -118,8 +153,7 @@ const deleteAssignment = async (req, res) => {
     const a = await Assignment.findOneAndDelete({ _id: req.params.id, teacher_id: req.session.user.id });
     if (!a) return res.status(404).json({ message: 'Assignment not found' });
     if (a.filename) {
-      const fp = path.join('uploads/assignments', a.filename);
-      if (fs.existsSync(fp)) fs.unlinkSync(fp);
+      try { await cloudinary.uploader.destroy(a.filename, { resource_type: 'raw' }); } catch (_) {}
     }
     res.json({ message: 'Assignment deleted' });
   } catch (err) { res.status(500).json({ message: err.message }); }
@@ -128,31 +162,23 @@ const deleteAssignment = async (req, res) => {
 const downloadAssignment = async (req, res) => {
   try {
     const a = await Assignment.findById(req.params.id).lean();
-    if (!a || !a.filename) return res.status(404).json({ message: 'File not found' });
-    const fp = path.resolve('uploads/assignments', a.filename);
-    if (!fs.existsSync(fp)) return res.status(404).json({ message: 'File not found on server' });
-    res.download(fp, a.original_name);
+    if (!a || !a.file_url) return res.status(404).json({ message: 'File not found' });
+    // Students can only download active, in-window assignments
+    if (req.session.user.role === 'student' && !isAssignmentAccessible(a)) {
+      return res.status(403).json({ message: 'This assignment is not currently active.' });
+    }
+    res.redirect(a.file_url);
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
 const viewAssignment = async (req, res) => {
   try {
-    const userId = req.session.user.id;
-    const role = req.session.user.role;
-    let a;
-    if (role === 'teacher') {
-      a = await Assignment.findOne({ _id: req.params.id, teacher_id: userId }).lean();
-    } else {
-      const enrolled = await Class.findOne({ students: userId }, '_id').lean();
-      a = enrolled ? await Assignment.findOne({ _id: req.params.id, class_id: enrolled._id }).lean() : null;
+    const a = await Assignment.findById(req.params.id).lean();
+    if (!a || !a.file_url) return res.status(404).json({ message: 'File not found' });
+    if (req.session.user.role === 'student' && !isAssignmentAccessible(a)) {
+      return res.status(403).json({ message: 'This assignment is not currently active.' });
     }
-    if (!a || !a.filename) return res.status(404).json({ message: 'File not found' });
-    const fp = path.resolve('uploads/assignments', a.filename);
-    if (!fs.existsSync(fp)) return res.status(404).json({ message: 'File not found on server' });
-    res.setHeader('Content-Type', a.mime_type || 'application/octet-stream');
-    res.setHeader('Content-Disposition', `inline; filename="${a.original_name}"`);
-    res.setHeader('Cache-Control', 'private, max-age=3600');
-    fs.createReadStream(fp).pipe(res);
+    res.redirect(a.file_url);
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
@@ -164,6 +190,12 @@ const submitAssignment = async (req, res) => {
 
     const a = await Assignment.findById(assignmentId);
     if (!a) return res.status(404).json({ message: 'Assignment not found' });
+
+    // Block submission if assignment is inactive or outside window
+    if (!isAssignmentAccessible(a)) {
+      return res.status(403).json({ message: 'This assignment is not currently active and cannot be submitted.' });
+    }
+
     if (new Date() > new Date(a.deadline)) {
       return res.status(400).json({ message: 'Submission deadline has expired. Resubmission is no longer allowed.' });
     }
@@ -172,8 +204,12 @@ const submitAssignment = async (req, res) => {
     if (existing) {
       const update = { notes, submitted_at: new Date() };
       if (req.file) {
-        update.filename = req.file.filename;
+        if (existing.filename) {
+          try { await cloudinary.uploader.destroy(existing.filename, { resource_type: 'raw' }); } catch (_) {}
+        }
+        update.filename      = req.file.filename;
         update.original_name = req.file.originalname;
+        update.file_url      = req.file.path;
       }
       await Submission.updateOne({ _id: existing._id }, update);
       return res.json({ message: 'Submission updated successfully' });
@@ -181,8 +217,9 @@ const submitAssignment = async (req, res) => {
 
     await Submission.create({
       assignment_id: assignmentId, student_id: studentId,
-      filename: req.file?.filename || null,
+      filename:      req.file?.filename     || null,
       original_name: req.file?.originalname || null,
+      file_url:      req.file?.path         || null,
       notes,
     });
     res.status(201).json({ message: 'Assignment submitted successfully' });
@@ -197,10 +234,11 @@ const getSubmissions = async (req, res) => {
       .lean();
     const result = submissions.map(s => ({
       ...s, id: s._id,
-      student_name: s.student_id?.name,
+      student_name:  s.student_id?.name,
       student_email: s.student_id?.email,
       level: s.student_id?.level,
       trade: s.student_id?.trade,
+      file_url: s.file_url,
     }));
     res.json({ submissions: result });
   } catch (err) { res.status(500).json({ message: err.message }); }
@@ -209,23 +247,16 @@ const getSubmissions = async (req, res) => {
 const downloadSubmission = async (req, res) => {
   try {
     const sub = await Submission.findById(req.params.submissionId).lean();
-    if (!sub || !sub.filename) return res.status(404).json({ message: 'File not found' });
-    const fp = path.resolve('uploads/assignments', sub.filename);
-    if (!fs.existsSync(fp)) return res.status(404).json({ message: 'File not found on server' });
-    res.download(fp, sub.original_name);
+    if (!sub || !sub.file_url) return res.status(404).json({ message: 'File not found' });
+    res.redirect(sub.file_url);
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
 const viewSubmission = async (req, res) => {
   try {
     const sub = await Submission.findById(req.params.submissionId).lean();
-    if (!sub || !sub.filename) return res.status(404).json({ message: 'File not found' });
-    const fp = path.resolve('uploads/assignments', sub.filename);
-    if (!fs.existsSync(fp)) return res.status(404).json({ message: 'File not found on server' });
-    res.setHeader('Content-Type', sub.mime_type || 'application/octet-stream');
-    res.setHeader('Content-Disposition', `inline; filename="${sub.original_name}"`);
-    res.setHeader('Cache-Control', 'private, max-age=3600');
-    fs.createReadStream(fp).pipe(res);
+    if (!sub || !sub.file_url) return res.status(404).json({ message: 'File not found' });
+    res.redirect(sub.file_url);
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
@@ -258,19 +289,19 @@ const getGradesReport = async (req, res) => {
     const grades = await Promise.all(students.map(async (s) => {
       const sub = await Submission.findOne({ assignment_id: assignmentId, student_id: s._id }, 'score feedback submitted_at graded_at _id').lean();
       return {
-        student_id: s._id,
-        student_name: s.name,
+        student_id:    s._id,
+        student_name:  s.name,
         student_email: s.email,
         level: s.level,
         trade: s.trade,
         submission_id: sub?._id || null,
-        score: sub?.score ?? null,
-        feedback: sub?.feedback || null,
-        submitted_at: sub?.submitted_at || null,
-        graded_at: sub?.graded_at || null,
-        max_score: a.max_score,
+        score:         sub?.score ?? null,
+        feedback:      sub?.feedback || null,
+        submitted_at:  sub?.submitted_at || null,
+        graded_at:     sub?.graded_at || null,
+        max_score:     a.max_score,
         assignment_title: a.title,
-        class_name: a.class_id?.name,
+        class_name:    a.class_id?.name,
       };
     }));
 
@@ -280,7 +311,7 @@ const getGradesReport = async (req, res) => {
 };
 
 module.exports = {
-  getAssignments, createAssignment, updateAssignment, deleteAssignment,
+  getAssignments, createAssignment, updateAssignment, deleteAssignment, toggleAssignmentStatus,
   downloadAssignment, viewAssignment,
   submitAssignment, getSubmissions, downloadSubmission, viewSubmission,
   gradeSubmission, getGradesReport,
