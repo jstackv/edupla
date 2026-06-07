@@ -16,17 +16,19 @@ const connectDB = async () => {
 // ── Schemas ────────────────────────────────────────────────────────────
 
 const userSchema = new mongoose.Schema({
-  name:         { type: String, required: true },
-  email:        { type: String, required: true, unique: true, lowercase: true },
-  password:     { type: String, required: true },
-  role:         { type: String, enum: ['teacher', 'student', 'admin'], required: true },
-  level:        { type: String, default: null },
-  trade:        { type: String, default: null },
-  class_year:   { type: String, default: null },
-  phone:        { type: String, default: null },
+  name:            { type: String, required: true },
+  email:           { type: String, required: true, unique: true, lowercase: true },
+  password:        { type: String, required: true },
+  role:            { type: String, enum: ['teacher', 'student', 'admin'], required: true },
+  level:           { type: String, default: null },
+  trade:           { type: String, default: null },
+  class_year:      { type: String, default: null },
+  phone:           { type: String, default: null },
   avatar_color:    { type: String, default: null },
   is_super_admin:  { type: Boolean, default: false },
   is_active:       { type: Boolean, default: true },
+  // When set, any JWT issued BEFORE this timestamp is treated as expired (session kill)
+  deactivated_at:  { type: Date, default: null },
   created_by:      { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
@@ -101,15 +103,20 @@ const notificationSchema = new mongoose.Schema({
   read_by:    [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
+// Levels & Trades are now admin-scoped: created_by links to the admin who owns them
 const levelSchema = new mongoose.Schema({
-  value: { type: String, required: true, unique: true, uppercase: true },
-  label: { type: String },
+  value:      { type: String, required: true, uppercase: true },
+  label:      { type: String },
+  created_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
 }, { timestamps: { createdAt: 'created_at' } });
+levelSchema.index({ value: 1, created_by: 1 }, { unique: true });
 
 const tradeSchema = new mongoose.Schema({
-  value: { type: String, required: true, unique: true, uppercase: true },
-  label: { type: String },
+  value:      { type: String, required: true, uppercase: true },
+  label:      { type: String },
+  created_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
 }, { timestamps: { createdAt: 'created_at' } });
+tradeSchema.index({ value: 1, created_by: 1 }, { unique: true });
 
 // ── Models ─────────────────────────────────────────────────────────────
 const User         = mongoose.model('User',         userSchema);

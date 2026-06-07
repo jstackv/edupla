@@ -18,11 +18,30 @@ const PUBLIC_PATHS = ['/', '/login'];
 api.interceptors.response.use(
   res => res,
   err => {
-    if (err.response?.status === 401 && !PUBLIC_PATHS.includes(window.location.pathname)) {
+    const status = err.response?.status;
+    const code   = err.response?.data?.code;
+    const message = err.response?.data?.message;
+
+    // ── Instant session kill: account was deactivated ──────────────────
+    if (status === 403 && code === 'ACCOUNT_DEACTIVATED') {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      // Store the deactivation message so Login page can display it
+      sessionStorage.setItem(
+        'deactivation_message',
+        message || 'Your account has been deactivated. Please contact your administrator.'
+      );
+      window.location.href = '/login';
+      return Promise.reject(err);
+    }
+
+    // ── Generic 401: token expired / not authenticated ─────────────────
+    if (status === 401 && !PUBLIC_PATHS.includes(window.location.pathname)) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';
     }
+
     return Promise.reject(err);
   }
 );

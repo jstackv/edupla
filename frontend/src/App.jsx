@@ -25,6 +25,7 @@ import StudentAssignments from './pages/student/Assignments';
 import StudentAnnouncements from './pages/student/Announcements';
 
 import AdminDashboard from './pages/admin/Dashboard';
+import SuperAdminDashboard from './pages/admin/SuperAdminDashboard';
 import AdminTeachers from './pages/admin/Teachers';
 import AdminClasses from './pages/admin/Classes';
 import AdminStudents from './pages/admin/Students';
@@ -64,6 +65,32 @@ const TeacherRoute = ({ children }) => <ProtectedRoute role="teacher">{children}
 const StudentRoute = ({ children }) => <ProtectedRoute role="student">{children}</ProtectedRoute>;
 const AdminRoute = ({ children }) => <ProtectedRoute role="admin">{children}</ProtectedRoute>;
 const AnyRoute = ({ children }) => <ProtectedRoute>{children}</ProtectedRoute>;
+
+// Super admin route — admin + is_super_admin
+const SuperAdminRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+  if (loading) return <LoadingScreen />;
+  if (!user) return <Navigate to="/" replace />;
+  if (user.role !== 'admin' || !user.is_super_admin) return <Navigate to={getDefaultRoute(user.role)} replace />;
+  return <Layout>{children}</Layout>;
+};
+
+// Regular admin only route — admin but NOT super admin
+const RegularAdminRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+  if (loading) return <LoadingScreen />;
+  if (!user) return <Navigate to="/" replace />;
+  if (user.role !== 'admin') return <Navigate to={getDefaultRoute(user.role)} replace />;
+  if (user.is_super_admin) return <Navigate to="/admin/dashboard" replace />;
+  return <Layout>{children}</Layout>;
+};
+
+// Routes to the right dashboard based on is_super_admin
+function AdminDashboardRouter() {
+  const { user } = useAuth();
+  if (user?.is_super_admin) return <SuperAdminDashboard />;
+  return <AdminDashboard />;
+}
 
 function AppRoutes() {
   const { user, loading } = useAuth();
@@ -115,14 +142,14 @@ function AppRoutes() {
       <Route path="/student/assignments"   element={<StudentRoute><StudentAssignments /></StudentRoute>} />
       <Route path="/student/announcements" element={<StudentRoute><StudentAnnouncements /></StudentRoute>} />
 
-      {/* Admin routes */}
-      <Route path="/admin/dashboard"   element={<AdminRoute><AdminDashboard /></AdminRoute>} />
-      <Route path="/admin/teachers"    element={<AdminRoute><AdminTeachers /></AdminRoute>} />
-      <Route path="/admin/classes"     element={<AdminRoute><AdminClasses /></AdminRoute>} />
-      <Route path="/admin/students"    element={<AdminRoute><AdminStudents /></AdminRoute>} />
-      <Route path="/admin/assignments" element={<AdminRoute><AdminAssignments /></AdminRoute>} />
-      <Route path="/admin/settings"    element={<AdminRoute><AdminSettingsPage /></AdminRoute>} />
-      <Route path="/admin/admins"      element={<AdminRoute><ManageAdmins /></AdminRoute>} />
+      {/* Admin routes — dashboard routes to correct dashboard based on role */}
+      <Route path="/admin/dashboard"   element={<AdminRoute><AdminDashboardRouter /></AdminRoute>} />
+      <Route path="/admin/teachers"    element={<RegularAdminRoute><AdminTeachers /></RegularAdminRoute>} />
+      <Route path="/admin/classes"     element={<RegularAdminRoute><AdminClasses /></RegularAdminRoute>} />
+      <Route path="/admin/students"    element={<RegularAdminRoute><AdminStudents /></RegularAdminRoute>} />
+      <Route path="/admin/assignments" element={<RegularAdminRoute><AdminAssignments /></RegularAdminRoute>} />
+      <Route path="/admin/settings"    element={<RegularAdminRoute><AdminSettingsPage /></RegularAdminRoute>} />
+      <Route path="/admin/admins"      element={<SuperAdminRoute><ManageAdmins /></SuperAdminRoute>} />
 
       {/* Document viewer — opens in new tab */}
       <Route path="/view-doc" element={<ViewerPage />} />

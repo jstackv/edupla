@@ -6,8 +6,6 @@ const { User, Class, Assignment, Document, Announcement, Level, Trade, Submissio
 const getDashboardStats = async (req, res) => {
   try {
     const adminId = req.user.id;
-
-    // Get IDs of teachers & classes this admin created
     const [myTeacherDocs, myClassDocs] = await Promise.all([
       User.find({ role: 'teacher', created_by: adminId }, '_id').lean(),
       Class.find({ created_by: adminId }, '_id').lean(),
@@ -29,7 +27,6 @@ const getDashboardStats = async (req, res) => {
       User.find({ role: 'student', created_by: adminId }).sort({ created_at: -1 }).limit(5).select('name email level trade created_at').lean(),
     ]);
 
-    // Classes by teacher — scoped to this admin's classes
     const classesByTeacher = await Class.aggregate([
       { $match: { created_by: new mongoose.Types.ObjectId(adminId) } },
       { $group: { _id: '$teacher_id', class_count: { $sum: 1 }, all_students: { $push: '$students' } } },
@@ -109,7 +106,6 @@ const updateTeacher = async (req, res) => {
 const deleteTeacher = async (req, res) => {
   try {
     const teacherId = new mongoose.Types.ObjectId(req.params.id);
-    // Unassign from classes but don't delete classes
     await Class.updateMany({ teacher_id: teacherId }, { $unset: { teacher_id: '' } });
     await Class.updateMany({ extra_teachers: teacherId }, { $pull: { extra_teachers: teacherId } });
     const result = await User.findOneAndDelete({ _id: teacherId, role: 'teacher' });
@@ -277,7 +273,6 @@ const adminUpdateStudent = async (req, res) => {
       { _id: req.params.id, role: 'student' },
       { name, email: email?.toLowerCase(), level: level || null, trade: trade || null, class_year: class_year || null, phone: phone || null }
     );
-    // Reset enrollment
     await Class.updateMany({}, { $pull: { students: new mongoose.Types.ObjectId(req.params.id) } });
     if (classIds.length > 0) {
       await Class.updateMany({ _id: { $in: classIds } }, { $addToSet: { students: req.params.id } });
@@ -319,7 +314,6 @@ const getAdminAssignments = async (req, res) => {
     const skip = (page - 1) * limit;
     const searchRegex = new RegExp(search, 'i');
 
-    // Only show assignments from teachers this admin created
     const myTeachers = await User.find({ role: 'teacher', created_by: req.user.id }, '_id').lean();
     const myTeacherIds = myTeachers.map(t => t._id);
 
@@ -348,10 +342,11 @@ const getAdminAssignments = async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
-// ── Levels ─────────────────────────────────────────────────────────────
+// ── Levels (admin-scoped) ──────────────────────────────────────────────
 const getLevels = async (req, res) => {
   try {
-    const rows = await Level.find().sort({ value: 1 }).lean();
+    const adminId = req.user.id;
+    const rows = await Level.find({ created_by: adminId }).sort({ value: 1 }).lean();
     res.json({ levels: rows.map(r => ({ value: r.value, label: r.label || r.value })) });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
@@ -360,9 +355,10 @@ const createLevel = async (req, res) => {
   try {
     const { value, label } = req.body;
     if (!value) return res.status(400).json({ message: 'Value is required' });
+    const adminId = req.user.id;
     await Level.findOneAndUpdate(
-      { value: value.toUpperCase() },
-      { value: value.toUpperCase(), label: label || value },
+      { value: value.toUpperCase(), created_by: adminId },
+      { value: value.toUpperCase(), label: label || value, created_by: adminId },
       { upsert: true }
     );
     res.status(201).json({ message: 'Level created' });
@@ -371,7 +367,8 @@ const createLevel = async (req, res) => {
 
 const deleteLevel = async (req, res) => {
   try {
-    await Level.findOneAndDelete({ value: req.params.value });
+    const adminId = req.user.id;
+    await Level.findOneAndDelete({ value: req.params.value, created_by: adminId });
     res.json({ message: 'Level deleted' });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
@@ -380,15 +377,17 @@ const updateLevel = async (req, res) => {
   try {
     const { label } = req.body;
     if (!label) return res.status(400).json({ message: 'Label is required' });
-    await Level.updateOne({ value: req.params.value }, { label });
+    const adminId = req.user.id;
+    await Level.updateOne({ value: req.params.value, created_by: adminId }, { label });
     res.json({ message: 'Level updated' });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
-// ── Trades ─────────────────────────────────────────────────────────────
+// ── Trades (admin-scoped) ──────────────────────────────────────────────
 const getTrades = async (req, res) => {
   try {
-    const rows = await Trade.find().sort({ value: 1 }).lean();
+    const adminId = req.user.id;
+    const rows = await Trade.find({ created_by: adminId }).sort({ value: 1 }).lean();
     res.json({ trades: rows.map(r => ({ value: r.value, label: r.label || r.value })) });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
@@ -397,9 +396,10 @@ const createTrade = async (req, res) => {
   try {
     const { value, label } = req.body;
     if (!value) return res.status(400).json({ message: 'Value is required' });
+    const adminId = req.user.id;
     await Trade.findOneAndUpdate(
-      { value: value.toUpperCase() },
-      { value: value.toUpperCase(), label: label || value },
+      { value: value.toUpperCase(), created_by: adminId },
+      { value: value.toUpperCase(), label: label || value, created_by: adminId },
       { upsert: true }
     );
     res.status(201).json({ message: 'Trade created' });
@@ -408,7 +408,8 @@ const createTrade = async (req, res) => {
 
 const deleteTrade = async (req, res) => {
   try {
-    await Trade.findOneAndDelete({ value: req.params.value });
+    const adminId = req.user.id;
+    await Trade.findOneAndDelete({ value: req.params.value, created_by: adminId });
     res.json({ message: 'Trade deleted' });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
@@ -417,8 +418,73 @@ const updateTrade = async (req, res) => {
   try {
     const { label } = req.body;
     if (!label) return res.status(400).json({ message: 'Label is required' });
-    await Trade.updateOne({ value: req.params.value }, { label });
+    const adminId = req.user.id;
+    await Trade.updateOne({ value: req.params.value, created_by: adminId }, { label });
     res.json({ message: 'Trade updated' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+// ── Status Toggle Handlers ─────────────────────────────────────────────
+const toggleTeacherStatus = async (req, res) => {
+  try {
+    const teacher = await User.findOne({ _id: req.params.id, role: 'teacher' });
+    if (!teacher) return res.status(404).json({ message: 'Teacher not found' });
+    teacher.is_active = !teacher.is_active;
+    teacher.deactivated_at = teacher.is_active ? null : new Date();
+    await teacher.save();
+    res.json({ message: `Teacher ${teacher.is_active ? 'activated' : 'deactivated'} successfully`, is_active: teacher.is_active });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+const toggleStudentStatus = async (req, res) => {
+  try {
+    const student = await User.findOne({ _id: req.params.id, role: 'student' });
+    if (!student) return res.status(404).json({ message: 'Student not found' });
+    student.is_active = !student.is_active;
+    student.deactivated_at = student.is_active ? null : new Date();
+    await student.save();
+    res.json({ message: `Student ${student.is_active ? 'activated' : 'deactivated'} successfully`, is_active: student.is_active });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+const toggleClassStatus = async (req, res) => {
+  try {
+    const cls = await Class.findById(req.params.id);
+    if (!cls) return res.status(404).json({ message: 'Class not found' });
+    cls.is_active = !cls.is_active;
+    await cls.save();
+    res.json({ message: `Class ${cls.is_active ? 'activated' : 'deactivated'} successfully`, is_active: cls.is_active });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+// ── Toggle Admin Status — cascades to teachers & students ──────────────
+const toggleAdminStatus = async (req, res) => {
+  try {
+    if (req.params.id === req.user.id) {
+      return res.status(400).json({ message: 'You cannot deactivate your own account' });
+    }
+    const admin = await User.findOne({ _id: req.params.id, role: 'admin' });
+    if (!admin) return res.status(404).json({ message: 'Admin not found' });
+
+    const wasActive = admin.is_active;
+    admin.is_active = !wasActive;
+    admin.deactivated_at = admin.is_active ? null : new Date();
+    await admin.save();
+
+    // Cascade: deactivate or reactivate all teachers and students created by this admin
+    const now = admin.deactivated_at || null;
+    await User.updateMany(
+      { created_by: admin._id, role: { $in: ['teacher', 'student'] } },
+      {
+        is_active: admin.is_active,
+        deactivated_at: now,
+      }
+    );
+
+    res.json({
+      message: `Admin ${admin.is_active ? 'activated' : 'deactivated'} successfully. All their teachers and students have been ${admin.is_active ? 'reactivated' : 'deactivated'} and their sessions terminated.`,
+      is_active: admin.is_active,
+    });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
@@ -431,56 +497,5 @@ module.exports = {
   getAdminAssignments,
   getLevels, createLevel, deleteLevel, updateLevel,
   getTrades, createTrade, deleteTrade, updateTrade,
+  toggleTeacherStatus, toggleStudentStatus, toggleClassStatus, toggleAdminStatus,
 };
-
-// ── Status Toggle Handlers ─────────────────────────────────────────────
-
-const toggleTeacherStatus = async (req, res) => {
-  try {
-    const teacher = await User.findOne({ _id: req.params.id, role: 'teacher' });
-    if (!teacher) return res.status(404).json({ message: 'Teacher not found' });
-    teacher.is_active = !teacher.is_active;
-    await teacher.save();
-    res.json({ message: `Teacher ${teacher.is_active ? 'activated' : 'deactivated'} successfully`, is_active: teacher.is_active });
-  } catch (err) { res.status(500).json({ message: err.message }); }
-};
-
-const toggleStudentStatus = async (req, res) => {
-  try {
-    const student = await User.findOne({ _id: req.params.id, role: 'student' });
-    if (!student) return res.status(404).json({ message: 'Student not found' });
-    student.is_active = !student.is_active;
-    await student.save();
-    res.json({ message: `Student ${student.is_active ? 'activated' : 'deactivated'} successfully`, is_active: student.is_active });
-  } catch (err) { res.status(500).json({ message: err.message }); }
-};
-
-const toggleClassStatus = async (req, res) => {
-  try {
-    const cls = await Class.findById(req.params.id);
-    if (!cls) return res.status(404).json({ message: 'Class not found' });
-    cls.is_active = !cls.is_active;
-    // If deactivating a class, no students should be assignable — we keep existing
-    // enrollments but students will be blocked at the class level from new joins
-    await cls.save();
-    res.json({ message: `Class ${cls.is_active ? 'activated' : 'deactivated'} successfully`, is_active: cls.is_active });
-  } catch (err) { res.status(500).json({ message: err.message }); }
-};
-
-const toggleAdminStatus = async (req, res) => {
-  try {
-    if (req.params.id === req.user.id) return res.status(400).json({ message: 'You cannot deactivate your own account' });
-    const admin = await User.findOne({ _id: req.params.id, role: 'admin' });
-    if (!admin) return res.status(404).json({ message: 'Admin not found' });
-    admin.is_active = !admin.is_active;
-    await admin.save();
-    res.json({ message: `Admin ${admin.is_active ? 'activated' : 'deactivated'} successfully`, is_active: admin.is_active });
-  } catch (err) { res.status(500).json({ message: err.message }); }
-};
-
-module.exports = Object.assign(module.exports, {
-  toggleTeacherStatus,
-  toggleStudentStatus,
-  toggleClassStatus,
-  toggleAdminStatus,
-});

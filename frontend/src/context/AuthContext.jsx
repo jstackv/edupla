@@ -3,11 +3,19 @@ import api from '../utils/api';
 
 const AuthContext = createContext(null);
 
-export function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => {
+function safeParseUser() {
+  try {
     const stored = localStorage.getItem('user');
-    return stored ? JSON.parse(stored) : null;
-  });
+    if (!stored || stored === 'undefined' || stored === 'null') return null;
+    return JSON.parse(stored);
+  } catch {
+    localStorage.removeItem('user');
+    return null;
+  }
+}
+
+export function AuthProvider({ children }) {
+  const [user, setUser] = useState(safeParseUser);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

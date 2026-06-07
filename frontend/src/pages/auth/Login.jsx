@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -76,6 +76,16 @@ export default function Login() {
   const [showPass, setShowPass]   = useState(false);
   const [activeRole, setActiveRole] = useState(null);
   const [focused, setFocused]     = useState(null);
+  const [deactivationMsg, setDeactivationMsg] = useState('');
+
+  // Show deactivation banner if redirected here after account was deactivated
+  useEffect(() => {
+    const msg = sessionStorage.getItem('deactivation_message');
+    if (msg) {
+      setDeactivationMsg(msg);
+      sessionStorage.removeItem('deactivation_message');
+    }
+  }, []);
 
   const { login }          = useAuth();
   const { dark, toggleTheme } = useTheme();
@@ -401,6 +411,26 @@ export default function Login() {
             </div>
 
             {/* Form */}
+            {/* Deactivation Banner */}
+            {deactivationMsg && (
+              <div style={{
+                background: '#fef2f2',
+                border: '1.5px solid #fca5a5',
+                borderRadius: 10,
+                padding: '12px 16px',
+                marginBottom: 4,
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 10,
+              }}>
+                <span style={{ fontSize: 18, lineHeight: 1 }}>⚠️</span>
+                <div>
+                  <div style={{ fontWeight: 700, color: '#dc2626', fontSize: 13, marginBottom: 2 }}>Account Deactivated</div>
+                  <div style={{ color: '#b91c1c', fontSize: 12.5 }}>{deactivationMsg}</div>
+                </div>
+                <button onClick={() => setDeactivationMsg('')} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#b91c1c', fontSize: 18, lineHeight: 1 }}>×</button>
+              </div>
+            )}
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
               {/* Email */}
