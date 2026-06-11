@@ -401,8 +401,13 @@ export default function AdminClasses() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [toggleTarget, setToggleTarget] = useState(null);
+  const [toggling, setToggling] = useState(false);
   const [enrollStudentId, setEnrollStudentId] = useState('');
   const [enrolling, setEnrolling] = useState(false);
+  const [enrollSearch, setEnrollSearch] = useState('');
+  const [enrollSearchResults, setEnrollSearchResults] = useState([]);
+  const [loadingEnrollSearch, setLoadingEnrollSearch] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [form, setForm] = useState({
     name: '', description: '', level: '', trade: '', teacher_id: '', extra_teacher_ids: [],
@@ -459,10 +464,31 @@ export default function AdminClasses() {
     finally { setLoadingStudents(false); }
   };
 
-  const openEnrollModal = (cls) => {
+  const openEnrollModal = async (cls) => {
     setEnrollTarget(cls);
     setEnrollStudentId('');
+    setEnrollSearch('');
+    setEnrollSearchResults([]);
     setEnrollModal(true);
+    // Load initial unenrolled students
+    setLoadingEnrollSearch(true);
+    try {
+      const res = await api.get(`/admin/classes/${cls.id}/unenrolled-students`, { params: { search: '' } });
+      setEnrollSearchResults(res.data.students || []);
+    } catch { setEnrollSearchResults([]); }
+    finally { setLoadingEnrollSearch(false); }
+  };
+  
+  const handleEnrollSearch = async (value) => {
+    setEnrollSearch(value);
+    setEnrollStudentId('');
+    if (!enrollTarget) return;
+    setLoadingEnrollSearch(true);
+    try {
+      const res = await api.get(`/admin/classes/${enrollTarget.id}/unenrolled-students`, { params: { search: value } });
+      setEnrollSearchResults(res.data.students || []);
+    } catch { setEnrollSearchResults([]); }
+    finally { setLoadingEnrollSearch(false); }
   };
 
   const handleSubmit = async (e) => {
@@ -483,12 +509,20 @@ export default function AdminClasses() {
     finally { setSaving(false); }
   };
 
-  const handleToggle = async (cls) => {
+  const handleToggle = (cls) => {
+    setToggleTarget(cls);
+  };
+
+  const handleToggleConfirm = async () => {
+    if (!toggleTarget) return;
+    setToggling(true);
     try {
-      const res = await api.patch(`/admin/classes/${cls._id || cls.id}/toggle-status`);
+      const res = await api.patch(`/admin/classes/${toggleTarget._id || toggleTarget.id}/toggle-status`);
       toast.success(res.data.message);
+      setToggleTarget(null);
       fetchClasses();
     } catch (err) { toast.error(err.response?.data?.message || 'Failed to update status'); }
+    finally { setToggling(false); }
   };
 
   const handleDelete = async () => {
@@ -527,7 +561,6 @@ export default function AdminClasses() {
   };
 
   const enrolledIds = new Set(classStudents.map(s => s.id));
-  const unenrolledStudents = allStudents.filter(s => !enrolledIds.has(s.id));
   const activeFilters = [filterLevel, filterTrade].filter(Boolean).length;
 
   return (
@@ -965,23 +998,64 @@ export default function AdminClasses() {
           <div style={{ padding: '12px 14px', borderRadius: 12, background: '#f0f9ff', border: '1px solid #bae6fd', display: 'flex', gap: 10 }}>
             <UserCheck size={18} style={{ color: '#0ea5e9', flexShrink: 0, marginTop: 1 }} />
             <p style={{ fontSize: 12, color: '#0369a1', lineHeight: 1.6 }}>
-              Select a student to enroll in <strong>{enrollTarget?.name}</strong>. Already-enrolled students are excluded.
+              Search and select an unenrolled student to add to <strong>{enrollTarget?.name}</strong>.
             </p>
           </div>
-          <div>
-            <label className="label">Student *</label>
-            <select value={enrollStudentId} onChange={e => setEnrollStudentId(e.target.value)} className="input-field">
-              <option value="">Choose a student…</option>
-              {unenrolledStudents.map(s => (
-                <option key={s.id} value={s.id}>{s.name} — {s.email}</option>
-              ))}
-            </select>
-            {unenrolledStudents.length === 0 && (
-              <p style={{ fontSize: 11, color: '#d97706', marginTop: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
-                ⚠ All students are already enrolled in this class.
-              </p>
+          {/* Search input */}
+          <div style={{ position: 'relative' }}>
+            <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
+            <input
+              className="input-field"
+              style={{ paddingLeft: 32 }}
+              placeholder="Search by name or email…"
+              value={enrollSearch}
+              onChange={e => handleEnrollSearch(e.target.value)}
+            />
+          </div>
+          {/* Results list */}
+          <div style={{ maxHeight: 220, overflowY: 'auto', border: '1px solid var(--card-border)', borderRadius: 10 }}>
+            {loadingEnrollSearch ? (
+              <div style={{ padding: '20px', textAlign: 'center', fontSize: 13, color: 'var(--text-secondary)' }}>Searching…</div>
+            ) : enrollSearchResults.length === 0 ? (
+              <div style={{ padding: '20px', textAlign: 'center', fontSize: 13, color: 'var(--text-secondary)' }}>
+                {enrollSearch ? 'No unenrolled students found for this search.' : 'All students are already enrolled in this class.'}
+              </div>
+            ) : (
+              enrollSearchResults.map(s => (
+                <button
+                  key={s.id}
+                  onClick={() => setEnrollStudentId(String(s.id))}
+                  style={{
+                    width: '100%', textAlign: 'left', padding: '10px 14px',
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    background: String(enrollStudentId) === String(s.id) ? 'rgba(99,102,241,0.08)' : 'transparent',
+                    borderBottom: '1px solid var(--card-border)',
+                    borderLeft: String(enrollStudentId) === String(s.id) ? '3px solid #6366f1' : '3px solid transparent',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg,#10b981,#059669)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 12, fontWeight: 700, color: '#fff' }}>
+                    {s.name?.charAt(0).toUpperCase()}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</p>
+                    <p style={{ margin: 0, fontSize: 11, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.email}</p>
+                  </div>
+                  {(s.level || s.trade) && (
+                    <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: 'rgba(99,102,241,0.1)', color: '#6366f1', flexShrink: 0 }}>{s.level || s.trade}</span>
+                  )}
+                  {String(enrollStudentId) === String(s.id) && (
+                    <UserCheck size={14} style={{ color: '#6366f1', flexShrink: 0 }} />
+                  )}
+                </button>
+              ))
             )}
           </div>
+          {enrollStudentId && (
+            <p style={{ fontSize: 12, color: '#059669', display: 'flex', alignItems: 'center', gap: 5 }}>
+              <UserCheck size={13} /> {enrollSearchResults.find(s => String(s.id) === String(enrollStudentId))?.name} selected
+            </p>
+          )}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
             <button type="button" onClick={() => setEnrollModal(false)} className="btn-secondary">Cancel</button>
             <button onClick={handleEnrollStudent} disabled={enrolling || !enrollStudentId} className="btn-primary">
@@ -992,6 +1066,16 @@ export default function AdminClasses() {
         </div>
       </Modal>
 
+      <ConfirmDialog
+        isOpen={!!toggleTarget} onClose={() => setToggleTarget(null)}
+        onConfirm={handleToggleConfirm} loading={toggling}
+        title={toggleTarget?.is_active !== false ? 'Deactivate Class' : 'Activate Class'}
+        message={toggleTarget?.is_active !== false
+          ? `Deactivate "${toggleTarget?.name}"? Students will lose access to assignments and documents in this class.`
+          : `Activate "${toggleTarget?.name}"? Students will regain access to this class.`}
+        confirmText={toggleTarget?.is_active !== false ? 'Deactivate' : 'Activate'}
+        variant="danger"
+      />
       <ConfirmDialog
         isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete} loading={deleting}

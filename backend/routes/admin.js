@@ -22,7 +22,7 @@ router.get('/admins', isSuperAdmin, async (req, res) => {
   try {
     const { User } = require('../models/db');
     const admins = await User
-      .find({ role: 'admin' })
+      .find({ role: 'admin', is_super_admin: { $ne: true } })
       .select('name email is_active is_super_admin created_at')
       .sort({ created_at: -1 })
       .lean();
@@ -204,8 +204,31 @@ router.post('/classes/:id/enroll-student', async (req, res) => {
     if (!cls) return res.status(404).json({ message: 'Class not found' });
     if (!cls.is_active) return res.status(400).json({ message: 'Cannot enroll students in an inactive class' });
     const { student_id } = req.body;
+    // Guard: reject if student already enrolled
+    const alreadyEnrolled = cls.students.map(s => s.toString()).includes(String(student_id));
+    if (alreadyEnrolled) return res.status(400).json({ message: 'Student is already enrolled in this class' });
     await Class.updateOne({ _id: req.params.id }, { $addToSet: { students: student_id } });
     res.json({ message: 'Student enrolled' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// Get unenrolled students for a class (excludes already enrolled + supports search)
+router.get('/classes/:id/unenrolled-students', async (req, res) => {
+  try {
+    const { Class, User } = require('../models/db');
+    const mongoose = require('mongoose');
+    const cls = await Class.findById(req.params.id, 'students').lean();
+    if (!cls) return res.status(404).json({ message: 'Class not found' });
+    const enrolledIds = cls.students.map(s => s.toString());
+    const search = req.query.search || '';
+    const searchRegex = new RegExp(search, 'i');
+    const students = await User.find({
+      role: 'student',
+      created_by: req.user.id,
+      _id: { $nin: enrolledIds.map(id => { try { return new mongoose.Types.ObjectId(id); } catch { return null; } }).filter(Boolean) },
+      $or: [{ name: searchRegex }, { email: searchRegex }],
+    }).select('name email level trade').sort({ name: 1 }).limit(50).lean();
+    res.json({ students: students.map(s => ({ ...s, id: s._id })) });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 

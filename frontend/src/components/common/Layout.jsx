@@ -10,15 +10,17 @@ import {
   UserCircle, Settings, Bell, Search, Home,
   Layers, UserPlus, AlertTriangle, X, Crown,
 } from 'lucide-react';
+import NotificationPanel from './NotificationPanel';
 
 /* ─── NAV DEFINITIONS ───────────────────────────────────────────── */
 const TeacherLinks = [
-  { to: '/teacher/dashboard',     icon: LayoutDashboard, label: 'Dashboard',     section: 'main' },
-  { to: '/teacher/classes',       icon: BookOpen,        label: 'My Classes',    section: 'main' },
-  { to: '/teacher/students',      icon: Users,           label: 'Students',      section: 'main' },
-  { to: '/teacher/documents',     icon: FileText,        label: 'Documents',     section: 'manage' },
-  { to: '/teacher/assignments',   icon: ClipboardList,   label: 'Assignments',   section: 'manage' },
-  { to: '/teacher/announcements', icon: Megaphone,       label: 'Announcements', section: 'manage' },
+  { to: '/teacher/dashboard',        icon: LayoutDashboard, label: 'Dashboard',     section: 'main' },
+  { to: '/teacher/classes',          icon: BookOpen,        label: 'My Classes',    section: 'main' },
+  { to: '/teacher/students',         icon: Users,           label: 'Students',      section: 'main' },
+  { to: '/teacher/documents',        icon: FileText,        label: 'Documents',     section: 'manage' },
+  { to: '/teacher/assignments',      icon: ClipboardList,   label: 'Assignments',   section: 'manage' },
+  { to: '/teacher/assessments-grade',icon: BookMarked,      label: 'Assessments',   section: 'manage' },
+  { to: '/teacher/announcements',    icon: Megaphone,       label: 'Announcements', section: 'manage' },
 ];
 const StudentLinks = [
   { to: '/student/dashboard',     icon: LayoutDashboard, label: 'Dashboard',     section: 'main' },
@@ -33,6 +35,7 @@ const AdminLinks = [
   { to: '/admin/classes',     icon: BookOpen,        label: 'Classes',       section: 'main' },
   { to: '/admin/students',    icon: GraduationCap,   label: 'Students',      section: 'main' },
   { to: '/admin/assignments', icon: ClipboardList,   label: 'Assignments',   section: 'manage' },
+  { to: '/admin/assessments', icon: BookMarked,      label: 'Assessments',   section: 'manage' },
   { to: '/admin/settings',    icon: Layers,          label: 'Trades',        section: 'manage' },
 ];
 const SuperAdminLinks = [
@@ -406,6 +409,8 @@ export default function Layout({ children }) {
   const pageTitle =
     location.pathname === '/profile'  ? 'Profile'  :
     location.pathname === '/settings' ? 'Settings' :
+    location.pathname === '/teacher/assessments-grade' ? 'Assessments' :
+    location.pathname === '/admin/assessments' ? 'Assessments' :
     currentLink?.label || 'Dashboard';
 
   const handleLogoutConfirm = async () => {
@@ -783,9 +788,7 @@ export default function Layout({ children }) {
               </div>
 
               {/* Notifications */}
-              <TopbarIconBtn dark={dark} title="Notifications" showDot>
-                <Bell size={14} color={dark ? '#7b839a' : '#6b7280'} />
-              </TopbarIconBtn>
+              <NotificationPanel dark={dark} />
 
               {/* Theme */}
               <TopbarIconBtn dark={dark} title={dark ? 'Switch to Light' : 'Switch to Dark'} onClick={toggleTheme}>

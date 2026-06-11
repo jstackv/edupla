@@ -263,6 +263,8 @@ export default function AdminTeachers() {
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [toggleTarget, setToggleTarget] = useState(null);
+  const [toggling, setToggling] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [defaultPassword, setDefaultPassword] = useState('');
@@ -321,12 +323,20 @@ export default function AdminTeachers() {
     finally { setDeleting(false); }
   };
 
-  const handleToggle = async (teacher) => {
+  const handleToggle = (teacher) => {
+    setToggleTarget(teacher);
+  };
+
+  const handleToggleConfirm = async () => {
+    if (!toggleTarget) return;
+    setToggling(true);
     try {
-      const res = await api.patch(`/admin/teachers/${teacher._id || teacher.id}/toggle-status`);
+      const res = await api.patch(`/admin/teachers/${toggleTarget._id || toggleTarget.id}/toggle-status`);
       toast.success(res.data.message);
+      setToggleTarget(null);
       fetchTeachers();
     } catch (err) { toast.error(err.response?.data?.message || 'Failed to update status'); }
+    finally { setToggling(false); }
   };
 
   const copyToClipboard = (text) => {
@@ -627,6 +637,16 @@ export default function AdminTeachers() {
         title="Delete Teacher"
         message={`Delete "${deleteTarget?.name}"? Their classes will remain and can be reassigned to another teacher.`}
         confirmText="Delete" variant="danger"
+      />
+      <ConfirmDialog
+        isOpen={!!toggleTarget} onClose={() => setToggleTarget(null)}
+        onConfirm={handleToggleConfirm} loading={toggling}
+        title={toggleTarget?.is_active !== false ? 'Deactivate Teacher' : 'Activate Teacher'}
+        message={toggleTarget?.is_active !== false
+          ? `Deactivate "${toggleTarget?.name}"? They will lose access to EDUPLA immediately.`
+          : `Activate "${toggleTarget?.name}"? They will regain full access to EDUPLA.`}
+        confirmText={toggleTarget?.is_active !== false ? 'Deactivate' : 'Activate'}
+        variant="danger"
       />
 
       <style>{`

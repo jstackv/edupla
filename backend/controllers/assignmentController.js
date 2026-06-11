@@ -1,6 +1,8 @@
 const mongoose = require('mongoose');
 const { Assignment, Submission, Class, User } = require('../models/db');
 const { cloudinary } = require('../middleware/upload');
+const { notifyAssignmentPosted, notifyAssignmentSubmitted } = require('../services/emailService');
+const { createInAppNotification, getStudentEmails, getTeacherEmail } = require('../services/notificationHelpers');
 
 // Helper: check if assignment is currently accessible to students
 function isAssignmentAccessible(a) {
@@ -103,6 +105,41 @@ const createAssignment = async (req, res) => {
       file_url:      req.file?.path          || null,
     });
     res.status(201).json({ message: 'Assignment created', id: a._id });
+
+    // ── Fire notifications async (don't block response) ────────────────
+    if (a.is_active) {
+      try {
+        const [cls, teacherEmail] = await Promise.all([
+          Class.findById(classId).populate('students', 'email name').lean(),
+          getTeacherEmail(req.session.user.id),
+        ]);
+        const teacher = await User.findById(req.session.user.id, 'name').lean();
+        const studentEmails = cls?.students?.map(s => s.email).filter(Boolean) || [];
+
+        // In-app
+        await createInAppNotification({
+          title: `New Assignment: ${title}`,
+          message: `${teacher?.name || 'Your teacher'} posted a new assignment "${title}" in ${cls?.name || 'your class'}. Deadline: ${new Date(deadline).toLocaleDateString()}.`,
+          type: 'info',
+          classId: classId,
+          teacherId: req.session.user.id,
+        });
+
+        // Email
+        if (studentEmails.length) {
+          notifyAssignmentPosted({
+            studentEmails,
+            teacherEmail,
+            assignmentTitle: title,
+            className: cls?.name || '',
+            deadline,
+            teacherName: teacher?.name || 'Your teacher',
+          }).catch(err => console.error('Email send error:', err.message));
+        }
+      } catch (err) {
+        console.error('Notification error (assignment create):', err.message);
+      }
+    }
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
@@ -223,6 +260,37 @@ const submitAssignment = async (req, res) => {
       notes,
     });
     res.status(201).json({ message: 'Assignment submitted successfully' });
+
+    // ── Notify teacher async ─────────────────────────────────────────────
+    try {
+      const [student, cls, teacherEmail] = await Promise.all([
+        User.findById(studentId, 'name').lean(),
+        Class.findById(a.class_id, 'name teacher_id').lean(),
+        getTeacherEmail(a.teacher_id),
+      ]);
+
+      // In-app notification for teacher (use teacher_id as the pivot)
+      await createInAppNotification({
+        title: `Submission: ${a.title}`,
+        message: `${student?.name || 'A student'} submitted "${a.title}". Ready to review.`,
+        type: 'success',
+        classId: a.class_id,
+        teacherId: a.teacher_id,
+      });
+
+      // Email teacher
+      if (teacherEmail) {
+        notifyAssignmentSubmitted({
+          teacherEmail,
+          studentName: student?.name || 'A student',
+          assignmentTitle: a.title,
+          className: cls?.name || '',
+          submittedAt: new Date(),
+        }).catch(err => console.error('Email send error:', err.message));
+      }
+    } catch (err) {
+      console.error('Notification error (submission):', err.message);
+    }
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 

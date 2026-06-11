@@ -1,5 +1,7 @@
 const mongoose = require('mongoose');
-const { Announcement, Class } = require('../models/db');
+const { Announcement, Class, User } = require('../models/db');
+const { notifyAnnouncement } = require('../services/emailService');
+const { createInAppNotification, getTeacherEmail } = require('../services/notificationHelpers');
 
 const getAnnouncements = async (req, res) => {
   try {
@@ -52,6 +54,35 @@ const createAnnouncement = async (req, res) => {
       title, content, class_id: classId || null, teacher_id: req.session.user.id
     });
     res.status(201).json({ message: 'Announcement created', id: a._id });
+
+    // Fire notifications async
+    try {
+      const [teacher, teacherEmail] = await Promise.all([
+        User.findById(req.session.user.id, 'name').lean(),
+        getTeacherEmail(req.session.user.id),
+      ]);
+      let studentEmails = [];
+      let className = null;
+      if (classId) {
+        const cls = await Class.findById(classId).populate('students', 'email').lean();
+        studentEmails = cls?.students?.map(s => s.email).filter(Boolean) || [];
+        className = cls?.name || null;
+      }
+      await createInAppNotification({
+        title: 'Announcement: ' + title,
+        message: (teacher?.name || 'Your teacher') + ': ' + content.substring(0, 120) + (content.length > 120 ? '...' : ''),
+        type: 'info',
+        classId: classId || null,
+        teacherId: req.session.user.id,
+      });
+      if (studentEmails.length) {
+        notifyAnnouncement({
+          studentEmails, teacherEmail,
+          announcementTitle: title, content, className,
+          teacherName: teacher?.name || 'Your teacher',
+        }).catch(err => console.error('Email error:', err.message));
+      }
+    } catch (err) { console.error('Notification error (announcement):', err.message); }
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 

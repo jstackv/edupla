@@ -32,6 +32,7 @@ app.use('/api/classes',       require('./routes/classes'));
 app.use('/api/students',      require('./routes/students'));
 app.use('/api/documents',     require('./routes/documents'));
 app.use('/api/assignments',   require('./routes/assignments'));
+app.use('/api/assessment',   require('./routes/assessments_new'));
 app.use('/api/announcements', require('./routes/announcements'));
 app.use('/api/notifications', require('./routes/notifications'));
 
@@ -124,3 +125,4 @@ connectDB().then(async () => {
 }).catch(err => { console.error('DB connection failed:', err); process.exit(1); });
 
 module.exports = app;
+

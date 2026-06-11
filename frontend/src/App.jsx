@@ -17,6 +17,7 @@ import Students from './pages/teacher/Students';
 import Documents from './pages/teacher/Documents';
 import Assignments from './pages/teacher/Assignments';
 import TeacherAnnouncements from './pages/teacher/Announcements';
+import TeacherAssessmentPage from './pages/teacher/AssessmentsTeacher';
 
 import StudentDashboard from './pages/student/Dashboard';
 import StudentClasses from './pages/student/Classes';
@@ -30,6 +31,7 @@ import AdminTeachers from './pages/admin/Teachers';
 import AdminClasses from './pages/admin/Classes';
 import AdminStudents from './pages/admin/Students';
 import AdminAssignments from './pages/admin/Assignments';
+import AdminAssessments from './pages/admin/Assessments';
 import AdminSettingsPage from './pages/admin/AdminSettings';
 import ManageAdmins from './pages/admin/ManageAdmins';
 
@@ -134,6 +136,7 @@ function AppRoutes() {
       <Route path="/teacher/documents"     element={<TeacherRoute><Documents /></TeacherRoute>} />
       <Route path="/teacher/assignments"   element={<TeacherRoute><Assignments /></TeacherRoute>} />
       <Route path="/teacher/announcements" element={<TeacherRoute><TeacherAnnouncements /></TeacherRoute>} />
+      <Route path="/teacher/assessments-grade" element={<TeacherRoute><TeacherAssessmentPage /></TeacherRoute>} />
 
       {/* Student routes */}
       <Route path="/student/dashboard"     element={<StudentRoute><StudentDashboard /></StudentRoute>} />
@@ -148,6 +151,7 @@ function AppRoutes() {
       <Route path="/admin/classes"     element={<RegularAdminRoute><AdminClasses /></RegularAdminRoute>} />
       <Route path="/admin/students"    element={<RegularAdminRoute><AdminStudents /></RegularAdminRoute>} />
       <Route path="/admin/assignments" element={<RegularAdminRoute><AdminAssignments /></RegularAdminRoute>} />
+      <Route path="/admin/assessments" element={<RegularAdminRoute><AdminAssessments /></RegularAdminRoute>} />
       <Route path="/admin/settings"    element={<RegularAdminRoute><AdminSettingsPage /></RegularAdminRoute>} />
       <Route path="/admin/admins"      element={<SuperAdminRoute><ManageAdmins /></SuperAdminRoute>} />
 

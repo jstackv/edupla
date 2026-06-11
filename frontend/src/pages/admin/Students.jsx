@@ -264,6 +264,8 @@ export default function AdminStudents() {
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [toggleTarget, setToggleTarget] = useState(null);
+  const [toggling, setToggling] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [classes, setClasses] = useState([]);
@@ -341,12 +343,20 @@ export default function AdminStudents() {
     finally { setSaving(false); }
   };
 
-  const handleToggle = async (student) => {
+  const handleToggle = (student) => {
+    setToggleTarget(student);
+  };
+
+  const handleToggleConfirm = async () => {
+    if (!toggleTarget) return;
+    setToggling(true);
     try {
-      const res = await api.patch(`/admin/students/${student._id || student.id}/toggle-status`);
+      const res = await api.patch(`/admin/students/${toggleTarget._id || toggleTarget.id}/toggle-status`);
       toast.success(res.data.message);
+      setToggleTarget(null);
       fetchStudents();
     } catch (err) { toast.error(err.response?.data?.message || 'Failed to update status'); }
+    finally { setToggling(false); }
   };
 
   const handleDelete = async () => {
@@ -811,6 +821,16 @@ export default function AdminStudents() {
         )}
       </Modal>
 
+      <ConfirmDialog
+        isOpen={!!toggleTarget} onClose={() => setToggleTarget(null)}
+        onConfirm={handleToggleConfirm} loading={toggling}
+        title={toggleTarget?.is_active !== false ? 'Deactivate Student' : 'Activate Student'}
+        message={toggleTarget?.is_active !== false
+          ? `Deactivate "${toggleTarget?.name}"? They will lose access to EDUPLA immediately.`
+          : `Activate "${toggleTarget?.name}"? They will regain full access to EDUPLA.`}
+        confirmText={toggleTarget?.is_active !== false ? 'Deactivate' : 'Activate'}
+        variant="danger"
+      />
       <ConfirmDialog
         isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete} loading={deleting}

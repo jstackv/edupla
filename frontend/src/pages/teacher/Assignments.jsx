@@ -405,6 +405,8 @@ export default function Assignments() {
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [toggleTarget, setToggleTarget] = useState(null);
+  const [toggling, setToggling] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [classes, setClasses] = useState([]);
   const [viewingSubs, setViewingSubs] = useState(null);
@@ -476,12 +478,20 @@ export default function Assignments() {
     finally { setDeleting(false); }
   };
 
-  const handleToggleStatus = async (assignment) => {
+  const handleToggleStatus = (assignment) => {
+    setToggleTarget(assignment);
+  };
+
+  const handleToggleConfirm = async () => {
+    if (!toggleTarget) return;
+    setToggling(true);
     try {
-      const res = await api.patch(`/assignments/${assignment.id}/toggle-status`);
+      const res = await api.patch(`/assignments/${toggleTarget.id}/toggle-status`);
       toast.success(res.data.message);
+      setToggleTarget(null);
       fetchAssignments();
     } catch (err) { toast.error(err.response?.data?.message || 'Failed to toggle status'); }
+    finally { setToggling(false); }
   };
 
   return (
@@ -699,6 +709,18 @@ export default function Assignments() {
         </form>
       </Modal>
 
+      <ConfirmDialog
+        isOpen={!!toggleTarget}
+        onClose={() => setToggleTarget(null)}
+        onConfirm={handleToggleConfirm}
+        loading={toggling}
+        title={toggleTarget?.is_active ? 'Deactivate Assignment' : 'Activate Assignment'}
+        message={toggleTarget?.is_active
+          ? `Deactivate "${toggleTarget?.title}"? Students will no longer be able to view or submit this assignment.`
+          : `Activate "${toggleTarget?.title}"? Students will be able to view and submit this assignment.`}
+        confirmText={toggleTarget?.is_active ? 'Deactivate' : 'Activate'}
+        variant="danger"
+      />
       <ConfirmDialog
         isOpen={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}

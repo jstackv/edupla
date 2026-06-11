@@ -353,6 +353,22 @@ function ConfirmModal({ type, admin, onConfirm, onCancel, loading }) {
   );
 }
 
+// ── FormField — stable top-level to prevent focus loss on every keystroke ─
+function FormField({ label, icon: Icon, error, hint, children }) {
+  return (
+    <div className="space-y-1.5">
+      <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
+        {Icon && <Icon className="w-3 h-3" />} {label}
+      </label>
+      {children}
+      {error
+        ? <p className="text-xs flex items-center gap-1 text-rose-500"><AlertCircle className="w-3 h-3" />{error}</p>
+        : hint && <p className="text-xs flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>{hint}</p>
+      }
+    </div>
+  );
+}
+
 // ── Edit Admin Modal ───────────────────────────────────────────────────────
 function EditAdminModal({ admin, onSave, onClose }) {
   const [form, setForm] = useState({ name: admin.name || '', email: admin.email || '', password: '' });
@@ -384,19 +400,6 @@ function EditAdminModal({ admin, onSave, onClose }) {
       toast.error(err.response?.data?.message || 'Failed to update admin');
     } finally { setSaving(false); }
   };
-
-  const Field = ({ label, id, icon: Icon, children, error, hint }) => (
-    <div className="space-y-1.5">
-      <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
-        {Icon && <Icon className="w-3 h-3" />} {label}
-      </label>
-      {children}
-      {error
-        ? <p className="text-xs flex items-center gap-1 text-rose-500"><AlertCircle className="w-3 h-3" />{error}</p>
-        : hint && <p className="text-xs flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>{hint}</p>
-      }
-    </div>
-  );
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4"
@@ -437,15 +440,15 @@ function EditAdminModal({ admin, onSave, onClose }) {
           </div>
 
           <div className="space-y-4">
-            <Field label="Full Name" icon={User} error={errors.name}>
+            <FormField label="Full Name" icon={User} error={errors.name}>
               <input className="input-field" placeholder="e.g. Admin Kigali Branch"
                 value={form.name} onChange={e => { setForm(f => ({ ...f, name: e.target.value })); setErrors(ev => ({ ...ev, name: '' })); }} />
-            </Field>
-            <Field label="Email Address" icon={Mail} error={errors.email}>
+            </FormField>
+            <FormField label="Email Address" icon={Mail} error={errors.email}>
               <input type="email" className="input-field" placeholder="admin@school.com"
                 value={form.email} onChange={e => { setForm(f => ({ ...f, email: e.target.value })); setErrors(ev => ({ ...ev, email: '' })); }} />
-            </Field>
-            <Field label="New Password" icon={Lock} error={errors.password}
+            </FormField>
+            <FormField label="New Password" icon={Lock} error={errors.password}
               hint={<><Lock className="w-3 h-3" /> Leave blank to keep current password</>}>
               <div className="relative">
                 <input type={showPass ? 'text' : 'password'} className="input-field pr-10"
@@ -456,7 +459,7 @@ function EditAdminModal({ admin, onSave, onClose }) {
                   {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-            </Field>
+            </FormField>
           </div>
 
           <div className="flex gap-3 mt-6">
@@ -1133,15 +1136,6 @@ function CreateAdminModal({ onClose, onCreate }) {
   };
 
   const isValid = form.name.trim() && form.email.trim() && form.password.length >= 6;
-  const Field = ({ label, icon: Icon, error, children }) => (
-    <div className="space-y-1.5">
-      <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
-        {Icon && <Icon className="w-3 h-3" />} {label}
-      </label>
-      {children}
-      {error && <p className="text-xs flex items-center gap-1 text-rose-500"><AlertCircle className="w-3 h-3" />{error}</p>}
-    </div>
-  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -1176,15 +1170,15 @@ function CreateAdminModal({ onClose, onCreate }) {
           </AlertBanner>
 
           <form onSubmit={handleSubmit} className="space-y-4 mt-4">
-            <Field label="Full Name" icon={User} error={errors.name}>
+            <FormField label="Full Name" icon={User} error={errors.name}>
               <input className="input-field" placeholder="e.g. Admin Kigali Branch"
                 value={form.name} onChange={e => { setForm(f => ({ ...f, name: e.target.value })); setErrors(v => ({ ...v, name: '' })); }} />
-            </Field>
-            <Field label="Email Address" icon={Mail} error={errors.email}>
+            </FormField>
+            <FormField label="Email Address" icon={Mail} error={errors.email}>
               <input type="email" className="input-field" placeholder="admin@school.com"
                 value={form.email} onChange={e => { setForm(f => ({ ...f, email: e.target.value })); setErrors(v => ({ ...v, email: '' })); }} />
-            </Field>
-            <Field label="Password" icon={Lock} error={errors.password}>
+            </FormField>
+            <FormField label="Password" icon={Lock} error={errors.password}>
               <div className="relative">
                 <input type={showPass ? 'text' : 'password'} className="input-field pr-10"
                   placeholder="Min. 6 characters"
@@ -1194,7 +1188,7 @@ function CreateAdminModal({ onClose, onCreate }) {
                   {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-            </Field>
+            </FormField>
 
             {/* Password strength */}
             {form.password && (

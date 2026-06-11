@@ -118,6 +118,41 @@ const tradeSchema = new mongoose.Schema({
 }, { timestamps: { createdAt: 'created_at' } });
 tradeSchema.index({ value: 1, created_by: 1 }, { unique: true });
 
+// ── Assessment Feature Schemas ──────────────────────────────────────────
+
+// Course: subject/course created by admin and assigned to a teacher
+const courseSchema = new mongoose.Schema({
+  name:        { type: String, required: true },
+  code:        { type: String, default: null },
+  description: { type: String, default: null },
+  class_id:    { type: mongoose.Schema.Types.ObjectId, ref: 'Class', default: null },
+  teacher_id:  { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  created_by:  { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  is_active:   { type: Boolean, default: true },
+}, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
+
+// Assessment: created by teacher for a specific course and term
+const assessmentSchema = new mongoose.Schema({
+  title:          { type: String, required: true },
+  course_id:      { type: mongoose.Schema.Types.ObjectId, ref: 'Course', required: true },
+  teacher_id:     { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  type:           { type: String, enum: ['FA', 'CA'], required: true }, // FA = Formative, CA = Continuous
+  term:           { type: String, enum: ['Term 1', 'Term 2', 'Term 3'], required: true },
+  academic_year:  { type: String, required: true }, // e.g. "2024-2025"
+  max_marks:      { type: Number, default: 100 },
+  created_by:     { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+}, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
+
+// Mark: a student's mark in an assessment
+const markSchema = new mongoose.Schema({
+  assessment_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Assessment', required: true },
+  student_id:    { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  marks:         { type: Number, default: null },
+  remarks:       { type: String, default: null },
+  entered_by:    { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+}, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
+markSchema.index({ assessment_id: 1, student_id: 1 }, { unique: true });
+
 // ── Models ─────────────────────────────────────────────────────────────
 const User         = mongoose.model('User',         userSchema);
 const Class        = mongoose.model('Class',        classSchema);
@@ -128,8 +163,13 @@ const Announcement = mongoose.model('Announcement', announcementSchema);
 const Notification = mongoose.model('Notification', notificationSchema);
 const Level        = mongoose.model('Level',        levelSchema);
 const Trade        = mongoose.model('Trade',        tradeSchema);
+const Course       = mongoose.model('Course',       courseSchema);
+const Assessment   = mongoose.model('Assessment',   assessmentSchema);
+const Mark         = mongoose.model('Mark',         markSchema);
 
 module.exports = {
   connectDB,
   User, Class, Document, Assignment, Submission, Announcement, Notification, Level, Trade,
+  Course, Assessment, Mark,
 };
+// This line intentionally left blank - models appended below

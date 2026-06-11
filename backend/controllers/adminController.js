@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const { User, Class, Assignment, Document, Announcement, Level, Trade, Submission } = require('../models/db');
+const { notifyAccountStatus, notifyWelcome } = require('../services/emailService');
 
 // ── Dashboard Stats ────────────────────────────────────────────────────
 const getDashboardStats = async (req, res) => {
@@ -88,6 +89,11 @@ const createTeacher = async (req, res) => {
     const hashed = await bcrypt.hash(defaultPassword, 10);
     const t = await User.create({ name, email: email.toLowerCase(), password: hashed, role: 'teacher', phone: phone || null, created_by: req.user.id });
     res.status(201).json({ message: 'Teacher created successfully', id: t._id, defaultPassword });
+    // Welcome email
+    try {
+      const admin = await User.findById(req.user.id, 'name').lean();
+      notifyWelcome({ to: t.email, name: t.name, role: 'teacher', defaultPassword, adminName: admin?.name }).catch(() => {});
+    } catch (_) {}
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
@@ -263,6 +269,11 @@ const adminCreateStudent = async (req, res) => {
       await Class.updateMany({ _id: { $in: classIds } }, { $addToSet: { students: s._id } });
     }
     res.status(201).json({ message: 'Student created successfully', id: s._id, defaultPassword });
+    // Welcome email
+    try {
+      const admin = await User.findById(req.user.id, 'name').lean();
+      notifyWelcome({ to: s.email, name: s.name, role: 'student', defaultPassword, adminName: admin?.name }).catch(() => {});
+    } catch (_) {}
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
@@ -433,6 +444,7 @@ const toggleTeacherStatus = async (req, res) => {
     teacher.deactivated_at = teacher.is_active ? null : new Date();
     await teacher.save();
     res.json({ message: `Teacher ${teacher.is_active ? 'activated' : 'deactivated'} successfully`, is_active: teacher.is_active });
+    notifyAccountStatus({ to: teacher.email, name: teacher.name, role: 'teacher', isActive: teacher.is_active }).catch(() => {});
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
@@ -444,6 +456,7 @@ const toggleStudentStatus = async (req, res) => {
     student.deactivated_at = student.is_active ? null : new Date();
     await student.save();
     res.json({ message: `Student ${student.is_active ? 'activated' : 'deactivated'} successfully`, is_active: student.is_active });
+    notifyAccountStatus({ to: student.email, name: student.name, role: 'student', isActive: student.is_active }).catch(() => {});
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
@@ -485,6 +498,15 @@ const toggleAdminStatus = async (req, res) => {
       message: `Admin ${admin.is_active ? 'activated' : 'deactivated'} successfully. All their teachers and students have been ${admin.is_active ? 'reactivated' : 'deactivated'} and their sessions terminated.`,
       is_active: admin.is_active,
     });
+
+    // Notify admin + all their teachers + all their students by email
+    try {
+      notifyAccountStatus({ to: admin.email, name: admin.name, role: 'admin', isActive: admin.is_active }).catch(() => {});
+      const affected = await User.find({ created_by: admin._id, role: { $in: ['teacher', 'student'] } }, 'name email role').lean();
+      for (const u of affected) {
+        notifyAccountStatus({ to: u.email, name: u.name, role: u.role, isActive: admin.is_active }).catch(() => {});
+      }
+    } catch (_) {}
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 

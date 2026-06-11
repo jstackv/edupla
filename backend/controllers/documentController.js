@@ -1,6 +1,8 @@
 const mongoose = require('mongoose');
-const { Document, Class } = require('../models/db');
+const { Document, Class, User } = require('../models/db');
 const { cloudinary } = require('../middleware/upload');
+const { notifyDocumentPosted } = require('../services/emailService');
+const { createInAppNotification, getStudentEmails, getTeacherEmail } = require('../services/notificationHelpers');
 
 const getDocuments = async (req, res) => {
   try {
@@ -73,13 +75,43 @@ const uploadDocument = async (req, res) => {
     const doc = await Document.create({
       title, description, class_id: classId || null,
       teacher_id: req.session.user.id,
-      filename: req.file.filename,            // Cloudinary public_id
+      filename: req.file.filename,
       original_name: req.file.originalname,
       file_size: req.file.size || null,
       mime_type: req.file.mimetype,
-      file_url: req.file.path,               // Persistent Cloudinary URL
+      file_url: req.file.path,
     });
     res.status(201).json({ message: 'Document uploaded', id: doc._id });
+
+    // Fire notifications async
+    try {
+      const [teacher, teacherEmail] = await Promise.all([
+        User.findById(req.session.user.id, 'name').lean(),
+        getTeacherEmail(req.session.user.id),
+      ]);
+      let studentEmails = [];
+      let className = null;
+      if (classId) {
+        const cls = await Class.findById(classId).populate('students', 'email').lean();
+        studentEmails = cls?.students?.map(s => s.email).filter(Boolean) || [];
+        className = cls?.name || null;
+      }
+      await createInAppNotification({
+        title: 'New Document: ' + title,
+        message: (teacher?.name || 'Your teacher') + ' shared "' + title + '"' + (className ? ' in ' + className : '') + '.',
+        type: 'info',
+        classId: classId || null,
+        teacherId: req.session.user.id,
+      });
+      if (studentEmails.length) {
+        notifyDocumentPosted({
+          studentEmails, teacherEmail,
+          documentTitle: title, className,
+          teacherName: teacher?.name || 'Your teacher',
+          description,
+        }).catch(err => console.error('Email error:', err.message));
+      }
+    } catch (err) { console.error('Notification error (document):', err.message); }
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
