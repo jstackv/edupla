@@ -186,3 +186,33 @@ html { scroll-behavior: smooth; }
 .animate-slide-up { animation: slide-up 0.25s ease both; }
 .animate-scale-in { animation: scale-in 0.2s ease both; }
 .animate-fade-in  { animation: fade-in 0.2s ease both; }
+
+/* ── Global Print Styles ───────────────────────────────────────────────
+   Used by report pages (e.g. Admin Assessments → Reports) to hide app
+   navigation chrome and print only the report content with clean margins. */
+@media print {
+  @page { margin: 14mm 12mm; size: A4; }
+
+  html, body { background: #fff !important; }
+
+  /* Hide app shell elements */
+  .edupla-sidebar,
+  .mobile-overlay,
+  .edupla-topbar,
+  .no-print {
+    display: none !important;
+  }
+
+  /* Let the report content take the full page */
+  .edupla-layout {
+    display: block !important;
+  }
+  .edupla-main {
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #fff !important;
+  }
+}

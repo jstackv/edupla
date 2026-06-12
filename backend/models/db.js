@@ -122,13 +122,14 @@ tradeSchema.index({ value: 1, created_by: 1 }, { unique: true });
 
 // Course: subject/course created by admin and assigned to a teacher
 const courseSchema = new mongoose.Schema({
-  name:        { type: String, required: true },
-  code:        { type: String, default: null },
-  description: { type: String, default: null },
-  class_id:    { type: mongoose.Schema.Types.ObjectId, ref: 'Class', default: null },
-  teacher_id:  { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
-  created_by:  { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  is_active:   { type: Boolean, default: true },
+  name:         { type: String, required: true },
+  code:         { type: String, default: null },
+  description:  { type: String, default: null },
+  total_marks:  { type: Number, default: 100 }, // module weight / max marks for this course
+  class_id:     { type: mongoose.Schema.Types.ObjectId, ref: 'Class', default: null },
+  teacher_id:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  created_by:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  is_active:    { type: Boolean, default: true },
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
 // Assessment: created by teacher for a specific course and term
@@ -148,10 +149,23 @@ const markSchema = new mongoose.Schema({
   assessment_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Assessment', required: true },
   student_id:    { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   marks:         { type: Number, default: null },
+  // Approved marks snapshot — this is what reports use until a new submission is approved
+  approved_marks: { type: Number, default: null },
   remarks:       { type: String, default: null },
   entered_by:    { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 markSchema.index({ assessment_id: 1, student_id: 1 }, { unique: true });
+
+// Assessment submission workflow: tracks the review status of an assessment's marks as a whole
+const assessmentSubmissionSchema = new mongoose.Schema({
+  assessment_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Assessment', required: true, unique: true },
+  status:        { type: String, enum: ['draft', 'submitted', 'approved', 'rejected'], default: 'draft' },
+  submitted_by:  { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  submitted_at:  { type: Date, default: null },
+  reviewed_by:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  reviewed_at:   { type: Date, default: null },
+  review_note:   { type: String, default: null },
+}, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
 // ── Models ─────────────────────────────────────────────────────────────
 const User         = mongoose.model('User',         userSchema);
@@ -166,10 +180,11 @@ const Trade        = mongoose.model('Trade',        tradeSchema);
 const Course       = mongoose.model('Course',       courseSchema);
 const Assessment   = mongoose.model('Assessment',   assessmentSchema);
 const Mark         = mongoose.model('Mark',         markSchema);
+const AssessmentSubmission = mongoose.model('AssessmentSubmission', assessmentSubmissionSchema);
 
 module.exports = {
   connectDB,
   User, Class, Document, Assignment, Submission, Announcement, Notification, Level, Trade,
-  Course, Assessment, Mark,
+  Course, Assessment, Mark, AssessmentSubmission,
 };
 // This line intentionally left blank - models appended below

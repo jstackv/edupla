@@ -740,7 +740,7 @@ export default function Layout({ children }) {
         {/* MAIN */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
           {/* TOPBAR */}
-          <header style={{
+          <header className="edupla-topbar" style={{
             height: 52, flexShrink: 0,
             background: dark ? '#13161f' : '#ffffff',
             borderBottom: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}`,
@@ -810,7 +810,7 @@ export default function Layout({ children }) {
           </header>
 
           {/* PAGE CONTENT */}
-          <main style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', background: dark ? '#0f1117' : '#f4f5f7' }}>
+          <main className="edupla-main" style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', background: dark ? '#0f1117' : '#f4f5f7' }}>
             {children}
           </main>
         </div>

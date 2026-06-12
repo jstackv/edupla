@@ -30,6 +30,12 @@ router.get('/admin/assessments', isAuthenticated, isAdmin, async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
+// Admin — assessment submission review workflow
+router.get('/admin/submissions',                          isAuthenticated, isAdmin, ctrl.adminListSubmissions);
+router.get('/admin/submissions/:assessmentId',             isAuthenticated, isAdmin, ctrl.adminViewSubmission);
+router.post('/admin/submissions/:assessmentId/approve',    isAuthenticated, isAdmin, ctrl.adminApproveSubmission);
+router.post('/admin/submissions/:assessmentId/reject',     isAuthenticated, isAdmin, ctrl.adminRejectSubmission);
+
 // ── TEACHER routes ────────────────────────────────────────────────────────
 router.get('/teacher/courses',           isAuthenticated, isTeacher, ctrl.teacherGetCourses);
 router.get('/teacher/assessments',       isAuthenticated, isTeacher, ctrl.teacherGetAssessments);
@@ -39,6 +45,7 @@ router.delete('/teacher/assessments/:id',isAuthenticated, isTeacher, ctrl.teache
 
 router.get('/teacher/assessments/:id/marks',  isAuthenticated, isTeacher, ctrl.teacherGetMarks);
 router.post('/teacher/assessments/:id/marks', isAuthenticated, isTeacher, ctrl.teacherSaveMarks);
+router.post('/teacher/assessments/:id/submit',isAuthenticated, isTeacher, ctrl.teacherSubmitMarks);
 router.get('/teacher/reports/:assessmentId',  isAuthenticated, isTeacher, ctrl.teacherAssessmentReport);
 
 module.exports = router;
