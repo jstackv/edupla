@@ -47,8 +47,15 @@ function pctColor(pct) {
   return '#ef4444';
 }
 
+/* FIX: clamp to 100 so percentage never exceeds 100% */
+function calcPct(obtained, max) {
+  if (max == null || max <= 0 || obtained == null) return null;
+  return Math.min(Math.round((obtained / max) * 100), 100);
+}
+
 function getGrade(obtained, max) {
-  const pct = (obtained / max) * 100;
+  /* FIX: clamp pct before grading */
+  const pct = Math.min((obtained / max) * 100, 100);
   if (pct >= 90) return 'A+';
   if (pct >= 80) return 'A';
   if (pct >= 70) return 'B';
@@ -320,7 +327,6 @@ export default function AdminAssessments() {
   const [editingCourse, setEditingCourse] = useState(null);
   const [courseForm, setCourseForm] = useState({ name: '', code: '', description: '', total_marks: 100, class_id: '', teacher_id: '' });
 
-  // Confirmation modal state
   const [confirmModal, setConfirmModal] = useState({ open: false, variant: 'warning', title: '', message: '', onConfirm: null, loading: false, confirmText: 'Confirm' });
 
   /* ── Shared styles ── */
@@ -681,7 +687,6 @@ export default function AdminAssessments() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               <span style={{ fontSize: 12, color: dark ? '#7b839a' : '#6b7280', fontWeight: 700, marginRight: 4 }}>Filters:</span>
 
-              {/* Filter by teacher */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <label style={{ fontSize: 10, fontWeight: 700, color: dark ? '#7b839a' : '#9ca3af', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Teacher</label>
                 <select
@@ -694,7 +699,6 @@ export default function AdminAssessments() {
                 </select>
               </div>
 
-              {/* Filter by course */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <label style={{ fontSize: 10, fontWeight: 700, color: dark ? '#7b839a' : '#9ca3af', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Course</label>
                 <select
@@ -707,7 +711,6 @@ export default function AdminAssessments() {
                 </select>
               </div>
 
-              {/* Filter by status */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <label style={{ fontSize: 10, fontWeight: 700, color: dark ? '#7b839a' : '#9ca3af', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Status</label>
                 <select
@@ -792,8 +795,8 @@ export default function AdminAssessments() {
                                 <>
                                   {a.submission_status === 'submitted' && (
                                     <button onClick={() => approveSubmission(a._id)} disabled={submissionActionLoading} title="Approve" style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 8, border: 'none', background: 'linear-gradient(135deg,#10b981,#059669)', color: '#fff', fontSize: 11, fontWeight: 600, cursor: 'pointer', opacity: submissionActionLoading ? 0.6 : 1 }}>
-                                    <CheckCircle size={11} /> Approve
-                                  </button>
+                                      <CheckCircle size={11} /> Approve
+                                    </button>
                                   )}
                                   <button onClick={() => openRejectModal(a._id)} disabled={submissionActionLoading} title="Reject" style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.07)', color: '#ef4444', fontSize: 11, fontWeight: 600, cursor: 'pointer', opacity: submissionActionLoading ? 0.6 : 1 }}>
                                     <XCircle size={11} /> Reject
@@ -850,7 +853,7 @@ export default function AdminAssessments() {
                               <td style={{ padding: '8px 12px', fontSize: 13, fontWeight: 600, color: dark ? '#e2e8f0' : '#374151', borderBottom: `1px solid ${dark ? '#1e2130' : '#f1f5f9'}` }}>{s.name}</td>
                               <td style={{ padding: '8px 12px', fontSize: 13, fontWeight: 700, color: pctColor(s.percentage), borderBottom: `1px solid ${dark ? '#1e2130' : '#f1f5f9'}` }}>{s.marks ?? '—'}</td>
                               <td style={{ padding: '8px 12px', fontSize: 13, color: dark ? '#e2e8f0' : '#374151', borderBottom: `1px solid ${dark ? '#1e2130' : '#f1f5f9'}` }}>{s.max_marks}</td>
-                              <td style={{ padding: '8px 12px', fontSize: 13, fontWeight: 700, color: pctColor(s.percentage), borderBottom: `1px solid ${dark ? '#1e2130' : '#f1f5f9'}` }}>{s.percentage != null ? s.percentage + '%' : '—'}</td>
+                              <td style={{ padding: '8px 12px', fontSize: 13, fontWeight: 700, color: pctColor(s.percentage), borderBottom: `1px solid ${dark ? '#1e2130' : '#f1f5f9'}` }}>{s.percentage != null ? Math.min(s.percentage, 100) + '%' : '—'}</td>
                               <td style={{ padding: '8px 12px', borderBottom: `1px solid ${dark ? '#1e2130' : '#f1f5f9'}` }}><GradeBadge grade={s.grade} /></td>
                             </tr>
                           ))}
@@ -1039,7 +1042,6 @@ export default function AdminAssessments() {
       {/* ══════════ CONFIG TAB ══════════ */}
       {tab === 'config' && (
         <div className="no-print" style={{ animation: 'fadeUp 0.3s ease' }}>
-          {/* Hero Banner */}
           <div style={{ ...card, marginBottom: 20, background: 'linear-gradient(135deg,#6366f118,#4f46e508)', borderColor: '#6366f130', position: 'relative', overflow: 'hidden' }}>
             <div style={{ position: 'absolute', top: -30, right: -30, width: 160, height: 160, borderRadius: '50%', background: 'radial-gradient(circle,#6366f120 0%,transparent 70%)' }} />
             <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -1058,7 +1060,6 @@ export default function AdminAssessments() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: 20, alignItems: 'start' }}>
             <ReportConfigPanel config={reportConfig} onChange={cfg => { setReportConfig(cfg); }} dark={dark} />
 
-            {/* Live Preview card */}
             <div style={{ position: 'sticky', top: 20 }}>
               <div style={{ ...card, marginBottom: 12 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
@@ -1143,7 +1144,6 @@ export default function AdminAssessments() {
         </div>
       )}
 
-      {/* Confirmation Modal (covers delete, approve, reject, save) */}
       <ConfirmModal
         open={confirmModal.open}
         onClose={closeConfirm}
@@ -1155,7 +1155,6 @@ export default function AdminAssessments() {
         confirmText={confirmModal.confirmText}
         cancelText={confirmModal.cancelText || 'Cancel'}
       >
-        {/* Rejection note textarea — shown only when rejecting */}
         {confirmModal.variant === 'reject' && (
           <div>
             <label style={{ fontSize: 11, fontWeight: 600, color: dark ? '#7b839a' : '#6b7280', marginBottom: 5, display: 'block', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
@@ -1187,7 +1186,6 @@ function ReportHeaderPreview({ config }) {
   const pc = config.primaryColor || '#6366f1';
   return (
     <div style={{ fontFamily: "'Segoe UI', Arial, sans-serif", fontSize: 9, color: '#1a1a2e', border: '1px solid #e5e7eb', borderRadius: 10, overflow: 'hidden' }}>
-      {/* Header strip */}
       <div style={{ height: 2, background: `linear-gradient(90deg, ${pc}, ${config.accentColor || '#4f46e5'})` }} />
       <div style={{ padding: '10px 12px', background: '#f8faff', borderBottom: '1px solid #e0e7ff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1212,7 +1210,6 @@ function ReportHeaderPreview({ config }) {
         <div style={{ fontSize: 9, fontWeight: 800, color: pc, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Learner's Termly Assessment Report</div>
         <div style={{ fontSize: 7, color: '#6b7280' }}>{config.termLabel} · {config.academicYear}</div>
       </div>
-      {/* Mock footer */}
       <div style={{ padding: '8px 12px', borderTop: '1px dashed #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', background: '#fafafa' }}>
         <div style={{ fontSize: 7, color: '#9ca3af', maxWidth: '60%', lineHeight: 1.5 }}>{config.footerNote?.substring(0, 80)}…</div>
         <div style={{ textAlign: 'center' }}>
@@ -1253,7 +1250,7 @@ function ReportView({ data, dark, students, classes, config }) {
       <div>
         <style>{printStyle}</style>
         {reportStudents.map((student, idx) => (
-          <StudentProgressReport key={student.student_id} student={student} cls={cls} faAssessments={faAssessments} caAssessments={caAssessments} allStudents={reportStudents} dark={dark} config={config} isLast={idx === reportStudents.length - 1} />
+          <StudentProgressReport key={student.student_id} student={student} cls={cls} faAssessments={faAssessments} caAssessments={caAssessments} allStudents={reportStudents} dark={dark} config={config} isLast={idx === reportStudents.length - 1} classTeacher={cls.teacher || null} />
         ))}
       </div>
     );
@@ -1264,7 +1261,8 @@ function ReportView({ data, dark, students, classes, config }) {
     const scored = (report || []).filter(r => r.marks_obtained != null);
     const totalObt = scored.reduce((s, r) => s + r.marks_obtained, 0);
     const totalMax = scored.reduce((s, r) => s + r.max_marks, 0);
-    const pct = totalMax > 0 ? Math.round((totalObt / totalMax) * 100) : null;
+    /* FIX: use calcPct to clamp to 100 */
+    const pct = calcPct(totalObt, totalMax);
     const fakeStudent = {
       student_id: student._id || student.id, name: student.name, email: student.email,
       level: student.level, trade: student.trade,
@@ -1277,7 +1275,7 @@ function ReportView({ data, dark, students, classes, config }) {
     return (
       <div>
         <style>{printStyle}</style>
-        <StudentProgressReport student={fakeStudent} cls={{ name: student.class_year || 'N/A' }} faAssessments={faA} caAssessments={caA} allStudents={[fakeStudent]} dark={dark} config={config} isLast />
+        <StudentProgressReport student={fakeStudent} cls={{ name: student.class_year || 'N/A' }} faAssessments={faA} caAssessments={caA} allStudents={[fakeStudent]} dark={dark} config={config} isLast classTeacher={null} />
       </div>
     );
   }
@@ -1298,25 +1296,29 @@ function ReportView({ data, dark, students, classes, config }) {
             {[['Course', assessment?.course_id?.name], ['Term', assessment?.term], ['Year', assessment?.academic_year], ['Teacher', assessment?.teacher_id?.name]].map(([k, v]) => v && (
               <span key={k} style={{ fontSize: 12, color: dark ? '#7b839a' : '#9ca3af' }}>{k}: <strong style={{ color: dark ? '#e2e8f0' : '#374151' }}>{v}</strong></span>
             ))}
-            {avg != null && <span style={{ fontSize: 13, fontWeight: 700, color: pctColor(avg) }}>Class Avg: {avg}%</span>}
+            {avg != null && <span style={{ fontSize: 13, fontWeight: 700, color: pctColor(Math.min(avg, 100)) }}>Class Avg: {Math.min(avg, 100)}%</span>}
           </div>
         </div>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead><tr>{['#', 'Student', 'Marks', 'Max', '%', 'Grade', 'Rank', 'Decision'].map(h => <th key={h} style={th}>{h}</th>)}</tr></thead>
             <tbody>
-              {(sData || []).sort((a, b) => (b.percentage ?? -1) - (a.percentage ?? -1)).map((s, i) => (
-                <tr key={i} style={{ background: i % 2 === 0 ? 'transparent' : (dark ? '#ffffff05' : '#f9fafb50') }}>
-                  <td style={{ ...td, color: dark ? '#7b839a' : '#9ca3af' }}>{i + 1}</td>
-                  <td style={{ ...td, fontWeight: 600 }}>{s.student_name}<div style={{ fontSize: 11, color: dark ? '#7b839a' : '#9ca3af' }}>{s.student_email}</div></td>
-                  <td style={{ ...td, fontWeight: 700, color: pctColor(s.percentage) }}>{s.marks_obtained ?? '—'}</td>
-                  <td style={td}>{s.max_marks}</td>
-                  <td style={{ ...td, fontWeight: 700, color: pctColor(s.percentage) }}>{s.percentage != null ? s.percentage + '%' : '—'}</td>
-                  <td style={td}><GradeBadge grade={s.grade} /></td>
-                  <td style={td}>{s.rank ? <span style={{ fontWeight: 700, color: s.rank <= 3 ? '#f59e0b' : dark ? '#e2e8f0' : '#374151' }}>#{s.rank}</span> : '—'}</td>
-                  <td style={td}><span style={{ fontSize: 12, fontWeight: 700, color: getRwandanDecision(s.percentage) === 'C' ? '#10b981' : getRwandanDecision(s.percentage) === 'P' ? '#f59e0b' : '#ef4444' }}>{getRwandanDecision(s.percentage)}</span></td>
-                </tr>
-              ))}
+              {(sData || []).sort((a, b) => (b.percentage ?? -1) - (a.percentage ?? -1)).map((s, i) => {
+                /* FIX: clamp displayed percentage */
+                const displayPct = s.percentage != null ? Math.min(s.percentage, 100) : null;
+                return (
+                  <tr key={i} style={{ background: i % 2 === 0 ? 'transparent' : (dark ? '#ffffff05' : '#f9fafb50') }}>
+                    <td style={{ ...td, color: dark ? '#7b839a' : '#9ca3af' }}>{i + 1}</td>
+                    <td style={{ ...td, fontWeight: 600 }}>{s.student_name}<div style={{ fontSize: 11, color: dark ? '#7b839a' : '#9ca3af' }}>{s.student_email}</div></td>
+                    <td style={{ ...td, fontWeight: 700, color: pctColor(displayPct) }}>{s.marks_obtained ?? '—'}</td>
+                    <td style={td}>{s.max_marks}</td>
+                    <td style={{ ...td, fontWeight: 700, color: pctColor(displayPct) }}>{displayPct != null ? displayPct + '%' : '—'}</td>
+                    <td style={td}><GradeBadge grade={s.grade} /></td>
+                    <td style={td}>{s.rank ? <span style={{ fontWeight: 700, color: s.rank <= 3 ? '#f59e0b' : dark ? '#e2e8f0' : '#374151' }}>#{s.rank}</span> : '—'}</td>
+                    <td style={td}><span style={{ fontSize: 12, fontWeight: 700, color: getRwandanDecision(displayPct) === 'C' ? '#10b981' : getRwandanDecision(displayPct) === 'P' ? '#f59e0b' : '#ef4444' }}>{getRwandanDecision(displayPct)}</span></td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -1327,13 +1329,15 @@ function ReportView({ data, dark, students, classes, config }) {
 }
 
 /* ══════════════════════════════════════════════════════════
-   STUDENT PROGRESS REPORT — CAMIS-style layout
+   STUDENT PROGRESS REPORT — simplified two-column header
 ══════════════════════════════════════════════════════════ */
-function StudentProgressReport({ student, cls, faAssessments, caAssessments, allStudents, dark, config, isLast }) {
+function StudentProgressReport({ student, cls, faAssessments, caAssessments, allStudents, dark, config, isLast, classTeacher }) {
   const pc = config?.primaryColor || '#6366f1';
   const ac = config?.accentColor || '#4f46e5';
   const schoolName = config?.schoolName || 'EDUPLA Academy';
-  const pct = student.percentage;
+
+  /* FIX: use calcPct to clamp to 100 */
+  const pct = calcPct(student.total_obtained, student.total_max);
   const grade = student.grade;
   const rank = student.rank;
   const totalStudents = allStudents.filter(s => s.percentage != null).length;
@@ -1349,10 +1353,11 @@ function StudentProgressReport({ student, cls, faAssessments, caAssessments, all
   const caTotal = caSored.reduce((s, v) => s + v, 0);
 
   const reportDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-  const faAvg = faMax > 0 ? Math.round((faTotal / faMax) * 100) : null;
-  const caAvg = caMax > 0 ? Math.round((caTotal / caMax) * 100) : null;
+  /* FIX: clamp FA and CA percentages */
+  const faAvg = faMax > 0 ? Math.min(Math.round((faTotal / faMax) * 100), 100) : null;
+  const caAvg = caMax > 0 ? Math.min(Math.round((caTotal / caMax) * 100), 100) : null;
 
-  /* ── Build one row per module (course), combining its FA and CA marks ── */
+  /* ── Build one row per module (course), combining FA and CA marks ── */
   const moduleMap = new Map();
   function moduleKey(a) {
     return String(a.course_id?._id || a.course_id || a.code || a.title);
@@ -1379,9 +1384,13 @@ function StudentProgressReport({ student, cls, faAssessments, caAssessments, all
     const obtained = (row.faMarks ?? 0) + (row.caMarks ?? 0);
     const hasAny = row.faMarks != null || row.caMarks != null;
     const max = row.weight;
-    const pct = hasAny && max > 0 ? Math.round((obtained / max) * 100) : null;
-    return { ...row, obtained: hasAny ? obtained : null, max, pct, decision: getRwandanDecision(pct) };
+    /* FIX: clamp module pct to 100 */
+    const rowPct = hasAny && max > 0 ? Math.min(Math.round((obtained / max) * 100), 100) : null;
+    return { ...row, obtained: hasAny ? obtained : null, max, pct: rowPct, decision: getRwandanDecision(rowPct) };
   });
+
+  /* Initials for student avatar */
+  const initials = (student.name || '?').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
 
   return (
     <div className="report-student-page" style={{
@@ -1392,175 +1401,169 @@ function StudentProgressReport({ student, cls, faAssessments, caAssessments, all
       {/* ── Top color bar ── */}
       <div style={{ height: 4, background: `linear-gradient(90deg, ${pc}, ${ac}, #ec4899)`, borderRadius: 2, marginBottom: 20 }} />
 
-      {/* ── School Header ── */}
-      <div style={{ display: 'flex', alignItems: 'stretch', gap: 0, marginBottom: 0, border: '1px solid #e0e7ff', borderRadius: 12, overflow: 'hidden' }}>
-        {/* Logo / Name */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 20px', background: '#f8faff', flex: 1, borderRight: '1px solid #e0e7ff' }}>
-          {config?.schoolLogoUrl ? (
-            <img src={config.schoolLogoUrl} style={{ width: 56, height: 56, borderRadius: 10, objectFit: 'contain', flexShrink: 0 }} alt="School Logo" onError={e => { e.target.style.display = 'none'; }} />
-          ) : (
-            <div style={{ width: 56, height: 56, borderRadius: 14, background: `linear-gradient(135deg,${pc},${ac})`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <School size={26} color="#fff" />
-            </div>
-          )}
-          <div>
-            <div style={{ fontSize: 20, fontWeight: 900, color: '#1e1b4b', letterSpacing: '0.01em', fontFamily: "'Sora',sans-serif" }}>{schoolName}</div>
-            <div style={{ fontSize: 10, color: pc, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 2 }}>{config?.schoolMotto || 'Student Progressive Report'}</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 14px', marginTop: 6 }}>
-              {config?.schoolAddress && <span style={{ fontSize: 10, color: '#9ca3af' }}>📍 {config.schoolAddress}</span>}
-              {config?.schoolPhone && <span style={{ fontSize: 10, color: '#9ca3af' }}>📞 {config.schoolPhone}</span>}
-              {config?.schoolEmail && <span style={{ fontSize: 10, color: '#9ca3af' }}>✉ {config.schoolEmail}</span>}
-            </div>
-          </div>
-        </div>
-        {/* Report title block */}
-        <div style={{ padding: '14px 20px', background: `linear-gradient(135deg, ${pc}18, ${ac}10)`, minWidth: 180, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
-          <div style={{ fontSize: 11, fontWeight: 800, color: pc, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>Termly Report</div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: '#374151' }}>{config?.termLabel || '2nd TERM'}</div>
-          <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{config?.academicYear || ''}</div>
-          <div style={{ marginTop: 8, padding: '3px 10px', borderRadius: 20, background: pc + '20', border: `1px solid ${pc}40` }}>
-            <span style={{ fontSize: 9, fontWeight: 700, color: pc }}>Report Date: {reportDate}</span>
-          </div>
-        </div>
-      </div>
+      {/* ════════════════════════════════════════════════
+          SIMPLIFIED TWO-COLUMN HEADER
+          Left: school info  |  Right: student info
+      ════════════════════════════════════════════════ */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
 
-      {/* ── Divider with title ── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '16px 0 14px' }}>
-        <div style={{ height: 1, flex: 1, background: '#e0e7ff' }} />
-        <span style={{ fontSize: 10, fontWeight: 800, color: pc, letterSpacing: '0.1em', textTransform: 'uppercase' }}>LEARNER'S ASSESSMENT REPORT</span>
-        <div style={{ height: 1, flex: 1, background: '#e0e7ff' }} />
-      </div>
-
-      {/* ── Qualification + Student Info row ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 14, marginBottom: 16 }}>
-        {/* Student info table */}
-        <div style={{ border: '1px solid #e0e7ff', borderRadius: 10, overflow: 'hidden' }}>
-          <div style={{ background: pc + '15', padding: '7px 14px', borderBottom: '1px solid #e0e7ff' }}>
-            <span style={{ fontSize: 10, fontWeight: 800, color: pc, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Student Information</span>
+        {/* ── Left: School Info ── */}
+        <div style={{ border: '1px solid #e0e7ff', borderRadius: 12, overflow: 'hidden' }}>
+          {/* School name row */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', background: '#f8faff', borderBottom: '1px solid #e0e7ff' }}>
+            {config?.schoolLogoUrl ? (
+              <img src={config.schoolLogoUrl} style={{ width: 46, height: 46, borderRadius: 10, objectFit: 'contain', flexShrink: 0 }} alt="School Logo" onError={e => { e.target.style.display = 'none'; }} />
+            ) : (
+              <div style={{ width: 46, height: 46, borderRadius: 12, background: `linear-gradient(135deg,${pc},${ac})`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <School size={22} color="#fff" />
+              </div>
+            )}
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 900, color: '#1e1b4b', letterSpacing: '0.01em', fontFamily: "'Sora',sans-serif" }}>{schoolName}</div>
+              <div style={{ fontSize: 10, color: pc, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', marginTop: 2 }}>{config?.schoolMotto || ''}</div>
+            </div>
           </div>
-          <div style={{ padding: '10px 14px' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-              <tbody>
-                {[
-                  ['Full Name', student.name],
-                  ['Email', student.email || '—'],
-                  ['Class', cls?.name || '—'],
-                  ['Level / Trade', [student.level, student.trade].filter(Boolean).join(' · ') || '—'],
-                ].map(([label, value]) => (
-                  <tr key={label}>
-                    <td style={{ padding: '4px 0', color: '#6b7280', fontWeight: 600, width: 120, fontSize: 11 }}>{label}:</td>
-                    <td style={{ padding: '4px 0', color: '#1e1b4b', fontWeight: 700 }}>{value}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          {/* Contact details */}
+          <div style={{ padding: '10px 16px', display: 'flex', flexDirection: 'column', gap: 5 }}>
+            {config?.schoolAddress && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#6b7280' }}>
+                <MapPin size={12} color={pc} /> {config.schoolAddress}
+              </div>
+            )}
+            {config?.schoolPhone && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#6b7280' }}>
+                <Phone size={12} color={pc} /> {config.schoolPhone}
+              </div>
+            )}
+            {config?.schoolEmail && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#6b7280' }}>
+                <Mail size={12} color={pc} /> {config.schoolEmail}
+              </div>
+            )}
+          </div>
+          {/* Term / year / date pills */}
+          <div style={{ padding: '8px 16px', borderTop: '1px solid #e0e7ff', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 9px', borderRadius: 20, background: pc + '15', color: pc, border: `1px solid ${pc}30` }}>{config?.termLabel || '2nd TERM'}</span>
+            <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 9px', borderRadius: 20, background: '#f1f5f9', color: '#64748b', border: '1px solid #e2e8f0' }}>{config?.academicYear || ''}</span>
+            <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 9px', borderRadius: 20, background: '#f1f5f9', color: '#64748b', border: '1px solid #e2e8f0' }}>{reportDate}</span>
           </div>
         </div>
 
-        {/* Score summary */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 200 }}>
-          <div style={{
-            background: pct != null ? (pct >= 80 ? '#f0fdf4' : pct >= 60 ? '#eff6ff' : pct >= 50 ? '#fffbeb' : '#fef2f2') : '#f9fafb',
-            border: `1px solid ${pct != null ? (pct >= 80 ? '#bbf7d0' : pct >= 60 ? '#bfdbfe' : pct >= 50 ? '#fde68a' : '#fecaca') : '#e5e7eb'}`,
-            borderRadius: 12, padding: '12px 16px', textAlign: 'center',
-          }}>
-            <div style={{ fontSize: 9, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Overall Score</div>
-            <div style={{ fontSize: 36, fontWeight: 900, color: pctColor(pct), lineHeight: 1 }}>{pct != null ? pct + '%' : '—'}</div>
-            <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{student.total_obtained} / {student.total_max} marks</div>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            <div style={{ background: '#f9fafb', borderRadius: 9, padding: '8px 10px', textAlign: 'center', border: '1px solid #e5e7eb' }}>
-              <div style={{ fontSize: 9, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase' }}>Grade</div>
-              <div style={{ fontSize: 22, fontWeight: 900, color: pctColor(pct), lineHeight: 1.1 }}>{grade || '—'}</div>
+        {/* ── Right: Student Info ── */}
+        <div style={{ border: '1px solid #e0e7ff', borderRadius: 12, overflow: 'hidden' }}>
+          {/* Student name row */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', background: '#f8faff', borderBottom: '1px solid #e0e7ff' }}>
+            <div style={{ width: 46, height: 46, borderRadius: '50%', background: pc + '20', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 15, fontWeight: 800, color: pc, border: `2px solid ${pc}30` }}>
+              {initials}
             </div>
-            <div style={{ background: '#fefbf0', borderRadius: 9, padding: '8px 10px', textAlign: 'center', border: '1px solid #fde68a' }}>
-              <div style={{ fontSize: 9, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase' }}>Rank</div>
-              <div style={{ fontSize: 22, fontWeight: 900, color: '#f59e0b', lineHeight: 1.1 }}>{rank ? `#${rank}` : '—'}</div>
-              {rank && totalStudents > 0 && <div style={{ fontSize: 9, color: '#9ca3af' }}>of {totalStudents}</div>}
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 900, color: '#1e1b4b', fontFamily: "'Sora',sans-serif" }}>{student.name}</div>
+              {student.email && <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 2 }}>{student.email}</div>}
             </div>
           </div>
-          <div style={{ background: getRwandanDecision(pct) === 'C' ? '#f0fdf4' : getRwandanDecision(pct) === 'P' ? '#fffbeb' : '#fef2f2', border: `1px solid ${getRwandanDecision(pct) === 'C' ? '#bbf7d0' : getRwandanDecision(pct) === 'P' ? '#fde68a' : '#fecaca'}`, borderRadius: 9, padding: '7px 12px', textAlign: 'center' }}>
-            <div style={{ fontSize: 9, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase' }}>Decision</div>
-            <div style={{ fontSize: 16, fontWeight: 900, color: getRwandanDecision(pct) === 'C' ? '#10b981' : getRwandanDecision(pct) === 'P' ? '#f59e0b' : '#ef4444' }}>
-              {getRwandanDecision(pct)} · {getRwandanDecision(pct) === 'C' ? 'Competent' : getRwandanDecision(pct) === 'P' ? 'In Progress' : 'Not Yet Competent'}
+          {/* Student details */}
+          <div style={{ padding: '10px 16px', display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#6b7280' }}>
+              <School size={12} color={pc} />
+              <span>Class: <strong style={{ color: '#374151' }}>{cls?.name || '—'}</strong></span>
+            </div>
+            {(student.level || student.trade) && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#6b7280' }}>
+                <GraduationCap size={12} color={pc} />
+                <span>Level / Trade: <strong style={{ color: '#374151' }}>{[student.level, student.trade].filter(Boolean).join(' · ')}</strong></span>
+              </div>
+            )}
+          </div>
+          {/* Summary metrics */}
+          <div style={{ padding: '8px 16px', borderTop: '1px solid #e0e7ff', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+            <div style={{ textAlign: 'center', padding: '6px 4px', background: '#f8faff', borderRadius: 8, border: '1px solid #e0e7ff' }}>
+              <div style={{ fontSize: 9, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Score</div>
+              <div style={{ fontSize: 17, fontWeight: 900, color: pctColor(pct), lineHeight: 1.1 }}>{pct != null ? pct + '%' : '—'}</div>
+              <div style={{ fontSize: 9, color: '#9ca3af' }}>{student.total_obtained}/{student.total_max}</div>
+            </div>
+            <div style={{ textAlign: 'center', padding: '6px 4px', background: '#f8faff', borderRadius: 8, border: '1px solid #e0e7ff' }}>
+              <div style={{ fontSize: 9, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Grade</div>
+              <div style={{ fontSize: 17, fontWeight: 900, color: pctColor(pct), lineHeight: 1.1 }}>{grade || '—'}</div>
+              <div style={{ fontSize: 9, color: '#9ca3af' }}>{rank ? `Rank #${rank}` : 'N/A'}</div>
+            </div>
+            <div style={{ textAlign: 'center', padding: '6px 4px', background: getRwandanDecision(pct) === 'C' ? '#f0fdf4' : getRwandanDecision(pct) === 'P' ? '#fffbeb' : '#fef2f2', borderRadius: 8, border: `1px solid ${getRwandanDecision(pct) === 'C' ? '#bbf7d0' : getRwandanDecision(pct) === 'P' ? '#fde68a' : '#fecaca'}` }}>
+              <div style={{ fontSize: 9, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Decision</div>
+              <div style={{ fontSize: 13, fontWeight: 900, color: getRwandanDecision(pct) === 'C' ? '#10b981' : getRwandanDecision(pct) === 'P' ? '#f59e0b' : '#ef4444', lineHeight: 1.2, marginTop: 2 }}>
+                {getRwandanDecision(pct)}
+              </div>
+              <div style={{ fontSize: 9, color: '#9ca3af' }}>{getRwandanDecision(pct) === 'C' ? 'Competent' : getRwandanDecision(pct) === 'P' ? 'In Progress' : 'Not Yet'}</div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Summary row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 16 }}>
-        {[
-          { label: 'FA Score', value: faMax > 0 ? `${faTotal}/${faMax}` : '—', sub: faAvg != null ? faAvg + '%' : '—', color: '#3b82f6' },
-          { label: 'CA Score', value: caMax > 0 ? `${caTotal}/${caMax}` : '—', sub: caAvg != null ? caAvg + '%' : '—', color: '#8b5cf6' },
-          { label: 'Total Marks', value: `${student.total_obtained}/${student.total_max}`, sub: pct != null ? pct + '%' : '—', color: '#10b981' },
-          { label: 'Modules', value: faAssessments.length + caAssessments.length, sub: `${faAssessments.length} FA · ${caAssessments.length} CA`, color: '#f59e0b' },
-        ].map(({ label, value, sub, color }) => (
-          <div key={label} style={{ background: color + '10', border: `1px solid ${color}30`, borderRadius: 9, padding: '9px 12px', textAlign: 'center' }}>
-            <div style={{ fontSize: 9, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</div>
-            <div style={{ fontSize: 16, fontWeight: 900, color, lineHeight: 1.2 }}>{value}</div>
-            <div style={{ fontSize: 10, color: '#9ca3af', fontWeight: 600 }}>{sub}</div>
-          </div>
-        ))}
       </div>
+      {/* ── END SIMPLIFIED HEADER ── */}
 
       {/* Module Results Table */}
       <ModuleResultsTable rows={moduleRows} />
 
-      {/* Summary block: Total / Percentage / Position */}
-      <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 14 }}>
-        <div style={{ border: '1px solid #e0e7ff', borderRadius: 10, overflow: 'hidden' }}>
-          <div style={{ background: '#f8faff', padding: '7px 14px', borderBottom: '1px solid #e0e7ff' }}>
-            <span style={{ fontSize: 10, fontWeight: 800, color: '#6366f1', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Class Trainer's Comments &amp; Signature</span>
+      {/* ── Summary rows ── */}
+      <div style={{ marginTop: 14, border: `1px solid ${pc}25`, borderRadius: 10, overflow: 'hidden' }}>
+        {[
+          { label: 'Total', value: `${student.total_obtained} / ${student.total_max}`, color: '#10b981' },
+          { label: 'Percentage', value: pct != null ? `${pct}%` : '—', color: pctColor(pct) },
+          { label: 'Position', value: rank ? `${rank} / ${totalStudents}` : '—', color: '#f59e0b' },
+        ].map(({ label, value, color }, i) => (
+          <div key={label} style={{
+            display: 'grid', gridTemplateColumns: '1fr auto',
+            alignItems: 'center', padding: '9px 16px',
+            background: i % 2 === 0 ? `${pc}06` : '#fff',
+            borderTop: i > 0 ? `1px solid ${pc}15` : 'none',
+          }}>
+            <span style={{ fontSize: 11, fontWeight: 800, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.07em' }}>{label}</span>
+            <span style={{ fontSize: 17, fontWeight: 900, color, minWidth: 100, textAlign: 'right' }}>{value}</span>
           </div>
-          <div style={{ padding: '12px 16px', minHeight: 50, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 20 }}>
-            <div style={{ flex: 1, borderBottom: '1px dashed #d1d5db', minHeight: 36, color: '#9ca3af', fontSize: 11, fontStyle: 'italic' }}>Comments:</div>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ width: 80, borderBottom: '1px solid #374151', marginBottom: 4, height: 30 }} />
-              <div style={{ fontSize: 9, color: '#9ca3af' }}>Trainer Signature</div>
-            </div>
-          </div>
-        </div>
+        ))}
+      </div>
 
-        <div style={{ borderRadius: 10, overflow: 'hidden', border: `1px solid ${pc}30` }}>
-          {[
-            ['Total', `${student.total_obtained} / ${student.total_max}`, '#10b981'],
-            ['Percentage', pct != null ? pct + '%' : '—', pctColor(pct)],
-            ['Position', rank ? `${rank} / ${totalStudents}` : '—', '#f59e0b'],
-          ].map(([label, value, color], i) => (
-            <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 14px', background: i % 2 === 0 ? (pc + '08') : '#fff', borderTop: i > 0 ? '1px solid #f1f5f9' : 'none' }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</span>
-              <span style={{ fontSize: 16, fontWeight: 900, color }}>{value}</span>
-            </div>
-          ))}
+      {/* ── Class Teacher Signature ── */}
+      <div style={{ marginTop: 14, border: '1px solid #e0e7ff', borderRadius: 10, overflow: 'hidden' }}>
+        <div style={{ background: `${pc}12`, padding: '7px 14px', borderBottom: '1px solid #e0e7ff', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 10, fontWeight: 800, color: pc, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Class Teacher</span>
+          {classTeacher?.name
+            ? <span style={{ fontSize: 11, fontWeight: 700, color: '#1e1b4b' }}>— {classTeacher.name}</span>
+            : <span style={{ fontSize: 10, color: '#9ca3af', fontStyle: 'italic' }}>Not assigned</span>
+          }
+        </div>
+        <div style={{ padding: '14px 20px', display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'flex-end', gap: 24 }}>
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 24 }}>Comments:</div>
+            <div style={{ borderBottom: '1px dashed #d1d5db', width: '100%' }} />
+          </div>
+          <div style={{ textAlign: 'center', flexShrink: 0 }}>
+            <div style={{ height: 36, minWidth: 160 }} />
+            <div style={{ borderBottom: '1px solid #374151', marginBottom: 5 }} />
+            <div style={{ fontSize: 11, fontWeight: 800, color: '#1e1b4b' }}>{classTeacher?.name || '________________________'}</div>
+            <div style={{ fontSize: 9, color: '#6b7280', fontWeight: 600, marginTop: 2 }}>Class Teacher Signature</div>
+          </div>
         </div>
       </div>
 
-      {/* ── Footer ── */}
+      {/* ── Footer: legend · stamp · school manager ── */}
       <div style={{ marginTop: 16, paddingTop: 14, borderTop: `2px dashed ${pc}30`, display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'end', gap: 16 }}>
-        {/* Footer note */}
-        <div style={{ fontSize: 9, color: '#9ca3af', lineHeight: 1.6 }}>
+        <div style={{ fontSize: 9, color: '#9ca3af', lineHeight: 1.7 }}>
           {config?.footerNote || 'N/A: Not Applicable · C: Competent · NYC: Not Yet Competent · P: In Progress'}
         </div>
-
-        {/* Stamp area */}
         <div style={{ textAlign: 'center' }}>
-          <div style={{ width: 70, height: 70, borderRadius: '50%', border: `2px dashed ${pc}60`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 4px' }}>
-            <span style={{ fontSize: 9, color: pc + '80', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'center', lineHeight: 1.3 }}>OFFICIAL<br />STAMP</span>
+          <div style={{ width: 74, height: 74, borderRadius: '50%', border: `2px dashed ${pc}55`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 4px', background: `${pc}06` }}>
+            <span style={{ fontSize: 8, color: `${pc}90`, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center', lineHeight: 1.4 }}>OFFICIAL<br />STAMP</span>
           </div>
         </div>
-
-        {/* Manager signature */}
         <div style={{ textAlign: 'right' }}>
           <div style={{ display: 'inline-block', textAlign: 'center' }}>
-            <div style={{ height: 36, borderBottom: '1px solid #374151', minWidth: 160, marginBottom: 4 }} />
-            <div style={{ fontSize: 11, fontWeight: 800, color: '#1e1b4b' }}>{config?.managerName || 'School Manager'}</div>
-            <div style={{ fontSize: 9, color: '#6b7280', fontWeight: 600 }}>{config?.managerTitle || 'Director General'}</div>
+            <div style={{ height: 40, minWidth: 170 }} />
+            <div style={{ borderBottom: '1px solid #374151', marginBottom: 5 }} />
+            <div style={{ fontSize: 12, fontWeight: 900, color: '#1e1b4b', letterSpacing: '0.01em' }}>{config?.managerName || 'School Manager'}</div>
+            <div style={{ fontSize: 9, color: '#6b7280', fontWeight: 600, marginTop: 2 }}>{config?.managerTitle || 'Director General'}</div>
           </div>
         </div>
       </div>
 
-      {/* Generated by line */}
       <div style={{ marginTop: 10, textAlign: 'center' }}>
         <span style={{ fontSize: 9, color: '#d1d5db' }}>Generated by {schoolName} Academic Management System · {reportDate}</span>
       </div>
@@ -1569,9 +1572,7 @@ function StudentProgressReport({ student, cls, faAssessments, caAssessments, all
 }
 
 /* ══════════════════════════════════════════════════════════
-   MODULE RESULTS TABLE — single table with FA / CA columns
-   Matches the school's hand-drawn report layout:
-   #, Module Code, Module Name, Weight, FA, CA, Total, %, Decision
+   MODULE RESULTS TABLE
 ══════════════════════════════════════════════════════════ */
 function ModuleResultsTable({ rows }) {
   const color = '#6366f1';
@@ -1586,7 +1587,8 @@ function ModuleResultsTable({ rows }) {
   const totalObtained = rows.reduce((s, r) => s + (r.obtained ?? 0), 0);
   const totalFA = rows.reduce((s, r) => s + (r.faMarks ?? 0), 0);
   const totalCA = rows.reduce((s, r) => s + (r.caMarks ?? 0), 0);
-  const totalPct = totalWeight > 0 ? Math.round((totalObtained / totalWeight) * 100) : null;
+  /* FIX: clamp total pct to 100 */
+  const totalPct = totalWeight > 0 ? Math.min(Math.round((totalObtained / totalWeight) * 100), 100) : null;
   const totalDec = getRwandanDecision(totalPct);
 
   return (

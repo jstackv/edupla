@@ -141,7 +141,10 @@ exports.adminAssessmentReport = async (req, res) => {
 // GET /api/assessments/admin/reports/class/:classId
 exports.adminClassReport = async (req, res) => {
   try {
-    const cls = await Class.findById(req.params.classId).populate('students', 'name email level trade').lean();
+    const cls = await Class.findById(req.params.classId)
+      .populate('students', 'name email level trade')
+      .populate('teacher_id', 'name email')
+      .lean();
     if (!cls) return res.status(404).json({ message: 'Class not found' });
 
     const { term, year, studentIds } = req.query;
@@ -218,7 +221,13 @@ exports.adminClassReport = async (req, res) => {
     });
 
     res.json({
-      class: { id: cls._id, name: cls.name },
+      class: {
+        id: cls._id,
+        name: cls.name,
+        teacher: cls.teacher_id
+          ? { name: cls.teacher_id.name, email: cls.teacher_id.email }
+          : null,
+      },
       assessments,
       courses,
       students,

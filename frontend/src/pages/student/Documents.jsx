@@ -27,12 +27,79 @@ const FILE_TYPE_CONFIG = {
   mp3:  { bg: 'bg-cyan-100 dark:bg-cyan-900/30',   text: 'text-cyan-600',   label: 'AUD' },
 };
 
-function FileIcon({ name }) {
+function FileIconBlock({ name }) {
   const ext = (name || '').split('.').pop().toLowerCase();
   const style = FILE_TYPE_CONFIG[ext] || { bg: 'bg-slate-100 dark:bg-slate-900/30', text: 'text-slate-600', label: ext.toUpperCase().slice(0, 4) || 'FILE' };
   return (
-    <div className={`w-11 h-11 rounded-xl ${style.bg} flex items-center justify-center flex-shrink-0`}>
-      <span className={`text-xs font-bold ${style.text}`}>{style.label}</span>
+    <div className={`w-12 h-12 rounded-xl ${style.bg} flex items-center justify-center flex-shrink-0`}>
+      <FileText className={`w-6 h-6 ${style.text}`} />
+    </div>
+  );
+}
+
+/* CAMIS-style document card row */
+function DocumentCard({ doc, onPreview, onDownload, isNew }) {
+  return (
+    <div
+      className="flex items-center gap-4 px-4 py-3.5 rounded-xl transition-colors hover:bg-primary-50/40 dark:hover:bg-primary-900/10"
+      style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}
+    >
+      {/* Icon */}
+      <FileIconBlock name={doc.original_name} />
+
+      {/* Meta */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <p className="font-semibold text-sm truncate" style={{ color: 'var(--text-primary)' }}>
+            {doc.title}
+          </p>
+          {isNew && (
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
+              style={{ background: '#fef9c3', color: '#854d0e' }}>
+              New
+            </span>
+          )}
+          {doc.class_name && (
+            <span className="badge text-xs bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300 flex items-center gap-1">
+              <BookOpen className="w-3 h-3" />{doc.class_name}
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-muted mt-0.5 truncate">{doc.original_name}</p>
+        {doc.description && (
+          <p className="text-xs text-muted truncate">{doc.description}</p>
+        )}
+      </div>
+
+      {/* Actions — CAMIS style */}
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <button
+          onClick={() => onPreview(doc)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+          style={{
+            background: 'var(--card-border)',
+            color: 'var(--text-primary)',
+            border: '1px solid var(--input-border)',
+          }}
+          title="Preview in new tab"
+        >
+          <Eye className="w-3.5 h-3.5" />
+          Preview
+        </button>
+        <button
+          onClick={() => onDownload(doc)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+          style={{
+            background: 'var(--primary-600, #6366f1)',
+            color: '#fff',
+            border: 'none',
+          }}
+          title="Download file"
+        >
+          <Download className="w-3.5 h-3.5" />
+          Download
+        </button>
+      </div>
     </div>
   );
 }
@@ -46,6 +113,10 @@ export default function StudentDocuments() {
   const [loading, setLoading] = useState(true);
   const [classes, setClasses] = useState([]);
   const [viewingFile, setViewingFile] = useState(null);
+  const [seenIds, setSeenIds] = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('edupla_seen_docs') || '[]')); }
+    catch { return new Set(); }
+  });
 
   const fetchDocs = useCallback(async () => {
     setLoading(true);
@@ -63,6 +134,20 @@ export default function StudentDocuments() {
   useEffect(() => {
     api.get('/classes/my').then(r => setClasses(r.data.classes || [])).catch(() => {});
   }, []);
+
+  const markSeen = (id) => {
+    setSeenIds(prev => {
+      const next = new Set(prev);
+      next.add(id);
+      try { localStorage.setItem('edupla_seen_docs', JSON.stringify([...next])); } catch {}
+      return next;
+    });
+  };
+
+  const handlePreview = (doc) => {
+    markSeen(doc.id);
+    setViewingFile(doc);
+  };
 
   const handleDownload = (doc) => downloadFile(doc);
 
@@ -99,63 +184,17 @@ export default function StudentDocuments() {
           <p className="text-sm text-muted">Your teacher hasn't uploaded any study materials yet.</p>
         </div>
       ) : (
-        <div className="card overflow-hidden p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr style={{ background: 'var(--table-header)' }}>
-                  <th className="table-header">Document</th>
-                  <th className="table-header hidden md:table-cell">Class</th>
-                  <th className="table-header hidden lg:table-cell">Size</th>
-                  <th className="table-header text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {documents.map(doc => (
-                  <tr key={doc.id} className="table-row">
-                    <td className="table-cell">
-                      <div className="flex items-center gap-3">
-                        <FileIcon name={doc.original_name} />
-                        <div className="min-w-0">
-                          <p className="font-medium text-sm truncate max-w-[200px]" style={{ color: 'var(--text-primary)' }}>{doc.title}</p>
-                          {doc.description && (
-                            <p className="text-xs text-muted truncate max-w-[200px]">{doc.description}</p>
-                          )}
-                          <p className="text-xs text-muted">{doc.original_name}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="table-cell hidden md:table-cell">
-                      {doc.class_name ? (
-                        <span className="badge text-xs bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300">
-                          <BookOpen className="w-3 h-3 inline mr-1" />{doc.class_name}
-                        </span>
-                      ) : <span className="text-muted text-xs">All Classes</span>}
-                    </td>
-                    <td className="table-cell hidden lg:table-cell text-sm text-muted">
-                      {formatSize(doc.file_size)}
-                    </td>
-                    <td className="table-cell">
-                      <div className="flex items-center gap-1 justify-end">
-                        <button
-                          onClick={() => setViewingFile(doc)}
-                          className="p-1.5 rounded-lg hover:bg-primary-50 hover:text-primary-600 transition-colors"
-                          title="Preview file">
-                          <Eye className="w-4 h-4 text-muted" />
-                        </button>
-                        <button
-                          onClick={() => handleDownload(doc)}
-                          className="p-1.5 rounded-lg hover:bg-surface-100 transition-colors"
-                          title="Download">
-                          <Download className="w-4 h-4 text-muted" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        <div className="card p-4 space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted mb-3">Materials</p>
+          {documents.map(doc => (
+            <DocumentCard
+              key={doc.id}
+              doc={doc}
+              isNew={!seenIds.has(doc.id)}
+              onPreview={handlePreview}
+              onDownload={handleDownload}
+            />
+          ))}
         </div>
       )}
 

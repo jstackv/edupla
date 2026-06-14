@@ -337,12 +337,24 @@ function SubmissionsModal({ assignment, onClose }) {
               <div className="flex gap-2 mt-3">
                 {sub.filename && (
                   <>
-                    <button onClick={() => setViewingSub({ ...sub, type: 'submission', assignmentId: assignment.id })}
-                      className="btn-secondary py-1.5 text-xs flex-1 justify-center">
+                    <button
+                      onClick={() => setViewingSub({ ...sub, type: 'submission', assignmentId: assignment.id })}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium flex-1 justify-center transition-colors"
+                      style={{
+                        background: 'var(--card-border)',
+                        color: 'var(--text-primary)',
+                        border: '1px solid var(--input-border)',
+                      }}
+                      title="Preview submission in new tab"
+                    >
                       <Eye className="w-3.5 h-3.5" /> Preview
                     </button>
-                    <button onClick={() => handleDownload(sub)}
-                      className="btn-secondary py-1.5 text-xs flex-1 justify-center">
+                    <button
+                      onClick={() => handleDownload(sub)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium flex-1 justify-center transition-colors"
+                      style={{ background: '#6366f1', color: '#fff', border: 'none' }}
+                      title="Download submission"
+                    >
                       <Download className="w-3.5 h-3.5" /> Download
                     </button>
                   </>
@@ -412,7 +424,7 @@ export default function Assignments() {
   const [viewingSubs, setViewingSubs] = useState(null);
   const [viewingGrades, setViewingGrades] = useState(null);
   const [viewingFile, setViewingFile] = useState(null);
-  const [form, setForm] = useState({ title: '', description: '', deadline: '', classId: '', max_score: 100, start_date: '', end_date: '', is_active: false });
+  const [form, setForm] = useState({ title: '', description: '', deadline: '', classId: '', max_score: 100, start_date: '', end_date: '', is_active: true });
   const [file, setFile] = useState(null);
   const [saving, setSaving] = useState(false);
 
@@ -441,7 +453,7 @@ export default function Assignments() {
       const end_date = a.end_date ? new Date(a.end_date).toISOString().slice(0, 16) : '';
       setForm({ title: a.title, description: a.description || '', deadline, classId: String(a.class_id), max_score: a.max_score || 100, start_date, end_date, is_active: a.is_active || false });
     } else {
-      setForm({ title: '', description: '', deadline: '', classId: '', max_score: 100, start_date: '', end_date: '', is_active: false });
+      setForm({ title: '', description: '', deadline: '', classId: '', max_score: 100, start_date: '', end_date: '', is_active: true });
     }
     setFile(null);
     setModal(true);
@@ -566,21 +578,32 @@ export default function Assignments() {
                         </span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 flex-shrink-0">
+                    <div className="flex items-center gap-2 flex-shrink-0">
                       {a.filename && (
-                        <button onClick={() => setViewingFile(a)}
-                          className="p-1.5 rounded-lg hover:bg-primary-50 hover:text-primary-600 transition-colors" title="Preview file">
-                          <Eye className="w-4 h-4 text-muted" />
+                        <button
+                          onClick={() => setViewingFile(a)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                          style={{
+                            background: 'var(--card-border)',
+                            color: 'var(--text-primary)',
+                            border: '1px solid var(--input-border)',
+                          }}
+                          title="Preview assignment file in new tab"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          Preview
                         </button>
                       )}
-                      <button onClick={() => openModal(a)}
-                        className="p-1.5 rounded-lg hover:bg-surface-100 transition-colors" title="Edit">
-                        <Edit2 className="w-4 h-4 text-muted" />
-                      </button>
-                      <button onClick={() => setDeleteTarget(a)}
-                        className="p-1.5 rounded-lg hover:bg-red-50 hover:text-red-500 transition-colors" title="Delete">
-                        <Trash2 className="w-4 h-4 text-muted" />
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => openModal(a)}
+                          className="p-1.5 rounded-lg hover:bg-surface-100 transition-colors" title="Edit">
+                          <Edit2 className="w-4 h-4 text-muted" />
+                        </button>
+                        <button onClick={() => setDeleteTarget(a)}
+                          className="p-1.5 rounded-lg hover:bg-red-50 hover:text-red-500 transition-colors" title="Delete">
+                          <Trash2 className="w-4 h-4 text-muted" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                   {a.description && (

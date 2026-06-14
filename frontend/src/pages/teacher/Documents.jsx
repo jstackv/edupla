@@ -7,7 +7,7 @@ import Pagination from '../../components/common/Pagination';
 import FileViewer, { downloadFile } from '../../components/common/FileViewer';
 import {
   Plus, Search, Upload, FileText, Download, Eye, Edit2, Trash2,
-  CloudUpload, X, BookOpen
+  CloudUpload, X, BookOpen, ExternalLink
 } from 'lucide-react';
 
 function formatSize(bytes) {
@@ -171,67 +171,76 @@ export default function Documents() {
           </button>
         </div>
       ) : (
-        <div className="card overflow-hidden p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr style={{ background: 'var(--table-header)' }}>
-                  <th className="table-header">Document</th>
-                  <th className="table-header hidden md:table-cell">Class</th>
-                  <th className="table-header hidden lg:table-cell">Size</th>
-                  <th className="table-header hidden lg:table-cell">Downloads</th>
-                  <th className="table-header text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {documents.map(doc => (
-                  <tr key={doc.id} className="table-row">
-                    <td className="table-cell">
-                      <div className="flex items-center gap-3">
-                        <FileIcon name={doc.original_name} />
-                        <div className="min-w-0">
-                          <p className="font-medium text-sm truncate max-w-[200px]" style={{ color: 'var(--text-primary)' }}>{doc.title}</p>
-                          {doc.description && (
-                            <p className="text-xs text-muted truncate max-w-[200px]">{doc.description}</p>
-                          )}
-                          <p className="text-xs text-muted">{doc.original_name}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="table-cell hidden md:table-cell">
-                      {doc.class_name ? (
-                        <span className="badge text-xs bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300">
-                          {doc.class_name}
-                        </span>
-                      ) : <span className="text-muted text-xs">All Classes</span>}
-                    </td>
-                    <td className="table-cell hidden lg:table-cell text-sm text-muted">{formatSize(doc.file_size)}</td>
-                    <td className="table-cell hidden lg:table-cell text-sm text-muted">{doc.download_count || 0}</td>
-                    <td className="table-cell">
-                      <div className="flex items-center gap-1 justify-end">
-                        <button onClick={() => setViewingFile(doc)}
-                          className="p-1.5 rounded-lg hover:bg-primary-50 hover:text-primary-600 transition-colors" title="Preview">
-                          <Eye className="w-4 h-4 text-muted" />
-                        </button>
-                        <button onClick={() => downloadFile(doc)}
-                          className="p-1.5 rounded-lg hover:bg-surface-100 transition-colors" title="Download">
-                          <Download className="w-4 h-4 text-muted" />
-                        </button>
-                        <button onClick={() => openEdit(doc)}
-                          className="p-1.5 rounded-lg hover:bg-surface-100 transition-colors" title="Edit">
-                          <Edit2 className="w-4 h-4 text-muted" />
-                        </button>
-                        <button onClick={() => setDeleteTarget(doc)}
-                          className="p-1.5 rounded-lg hover:bg-red-50 hover:text-red-500 transition-colors" title="Delete">
-                          <Trash2 className="w-4 h-4 text-muted" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        <div className="card p-4 space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted mb-3">Materials</p>
+          {documents.map(doc => (
+            <div
+              key={doc.id}
+              className="flex items-center gap-4 px-4 py-3.5 rounded-xl transition-colors hover:bg-primary-50/40 dark:hover:bg-primary-900/10"
+              style={{ background: 'var(--surface-50, var(--card-bg))', border: '1px solid var(--card-border)' }}
+            >
+              {/* File icon */}
+              <div className="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
+                <FileText className="w-6 h-6 text-blue-600" />
+              </div>
+
+              {/* Meta */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-semibold text-sm truncate" style={{ color: 'var(--text-primary)' }}>
+                    {doc.title}
+                  </p>
+                  {doc.class_name ? (
+                    <span className="badge text-xs bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300">
+                      {doc.class_name}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted">All Classes</span>
+                  )}
+                </div>
+                <p className="text-xs text-muted mt-0.5 truncate">{doc.original_name}</p>
+                <p className="text-xs text-muted">{formatSize(doc.file_size)} · {doc.download_count || 0} downloads</p>
+              </div>
+
+              {/* CAMIS-style Preview + Download buttons */}
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button
+                  onClick={() => setViewingFile(doc)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+                  style={{
+                    background: 'var(--card-border)',
+                    color: 'var(--text-primary)',
+                    border: '1px solid var(--input-border)',
+                  }}
+                  title="Preview in new tab"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  Preview
+                </button>
+                <button
+                  onClick={() => downloadFile(doc)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+                  style={{ background: '#6366f1', color: '#fff', border: 'none' }}
+                  title="Download file"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  Download
+                </button>
+
+                {/* Edit / Delete remain as icon buttons */}
+                <div className="flex items-center gap-1 ml-1 pl-2" style={{ borderLeft: '1px solid var(--card-border)' }}>
+                  <button onClick={() => openEdit(doc)}
+                    className="p-1.5 rounded-lg hover:bg-surface-100 transition-colors" title="Edit">
+                    <Edit2 className="w-4 h-4 text-muted" />
+                  </button>
+                  <button onClick={() => setDeleteTarget(doc)}
+                    className="p-1.5 rounded-lg hover:bg-red-50 hover:text-red-500 transition-colors" title="Delete">
+                    <Trash2 className="w-4 h-4 text-muted" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 

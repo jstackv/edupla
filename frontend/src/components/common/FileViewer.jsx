@@ -1,10 +1,13 @@
 /**
  * FileViewer utilities
  *
- * openFileInNewTab(file) → opens the file in a styled viewer in a new browser tab
- * downloadFile(file)     → triggers a real browser download (saves to local storage)
+ * openFileInNewTab(file) → opens the file for VIEWING in a new browser tab
+ * downloadFile(file)     → triggers a real browser download
  *
- * Both use file.file_url (Cloudinary) directly — no backend auth roundtrip.
+ * KEY FIX: Cloudinary stores all files as resource_type:'raw', which means
+ * the URL forces a download. To display PDFs/images inline we must transform
+ * the URL: replace /raw/upload/ with /image/upload/ (for images) or add
+ * fl_inline flag (for PDFs). Office docs go through Google Docs Viewer.
  */
 
 export function getViewUrl(file) {
@@ -36,60 +39,121 @@ export function getFileType(filename, mimeType) {
 }
 
 /**
+ * Transform a Cloudinary raw URL so the browser renders the file INLINE
+ * instead of forcing a download.
+ *
+ * Cloudinary raw URLs look like:
+ *   https://res.cloudinary.com/<cloud>/raw/upload/<public_id>
+ *
+ * Transformations:
+ *  - PDF   → insert fl_inline so browser renders it:
+ *              /raw/upload/ → /raw/upload/fl_inline/
+ *  - Image → swap resource type to image for native rendering:
+ *              /raw/upload/ → /image/upload/
+ *  - Video → swap to video:
+ *              /raw/upload/ → /video/upload/
+ *  - Audio → swap to video (Cloudinary uses video resource type for audio):
+ *              /raw/upload/ → /video/upload/
+ *  - Others → keep as-is (will go through Google Docs Viewer or download)
+ */
+function toInlineUrl(cloudUrl, fileType) {
+  if (!cloudUrl) return cloudUrl;
+  if (!cloudUrl.includes('res.cloudinary.com')) return cloudUrl; // not Cloudinary, leave alone
+
+  switch (fileType) {
+    case 'pdf':
+      // Add fl_inline flag so Cloudinary serves with Content-Disposition: inline
+      return cloudUrl.replace('/raw/upload/', '/raw/upload/fl_inline/');
+    case 'image':
+      // Images: change resource type from raw → image
+      return cloudUrl.replace('/raw/upload/', '/image/upload/');
+    case 'video':
+      // Videos: change resource type from raw → video
+      return cloudUrl.replace('/raw/upload/', '/video/upload/');
+    case 'audio':
+      // Audio: Cloudinary uses video resource type for audio too
+      return cloudUrl.replace('/raw/upload/', '/video/upload/');
+    default:
+      return cloudUrl; // raw URL fine for download / Google Docs Viewer
+  }
+}
+
+/**
  * Opens the file for VIEWING in a new tab.
- * Uses Cloudinary URL directly — no auth needed.
- * - PDFs, images, video, audio, text → styled ViewerPage wrapper
- * - Office docs → Google Docs Viewer (production) or direct Cloudinary (localhost)
+ * Transforms Cloudinary raw URLs to inline-viewable URLs first.
+ * - PDFs, images, video, audio, text → styled ViewerPage wrapper (/view-doc)
+ * - Office docs → Google Docs Viewer (deployed) or Download prompt (localhost)
  */
 export function openFileInNewTab(file) {
   if (!file) return;
-  const cloudUrl = file.file_url;
-  const origin   = window.location.origin;
+  const rawCloudUrl = file.file_url;
+  const origin = window.location.origin;
   const fileType = getFileType(file.original_name || file.name || file.filename, file.mime_type);
   const fileName = file.original_name || file.name || file.filename || 'Document';
   const fileTitle = file.title || fileName;
 
-  if (cloudUrl) {
+  if (rawCloudUrl) {
+    // Transform raw Cloudinary URL to inline-viewable URL
+    const inlineUrl = toInlineUrl(rawCloudUrl, fileType);
+
     if (['pdf', 'image', 'video', 'audio', 'text'].includes(fileType)) {
       const params = new URLSearchParams({
-        url:   cloudUrl,
-        type:  fileType,
-        name:  fileName,
-        title: fileTitle,
+        url:    inlineUrl,
+        type:   fileType,
+        name:   fileName,
+        title:  fileTitle,
+        direct: '1',
         ...(file.description ? { description: file.description } : {}),
         ...(file.class_name  ? { class_name:  file.class_name  } : {}),
-        direct: '1',
       });
       window.open(`/view-doc?${params.toString()}`, '_blank', 'noopener,noreferrer');
-    } else if (['word','excel','powerpoint'].includes(fileType)) {
+
+    } else if (['word', 'excel', 'powerpoint'].includes(fileType)) {
+      // Office docs: use Google Docs Viewer with the raw Cloudinary URL
+      // (Google Docs Viewer fetches from Cloudinary directly — raw URL works fine)
       const isLocal = origin.includes('localhost') || origin.includes('127.0.0.1');
       if (isLocal) {
-        // Google Docs Viewer can't reach localhost — open Cloudinary URL directly
-        window.open(cloudUrl, '_blank', 'noopener,noreferrer');
+        // Google Docs Viewer can't reach localhost — show download page
+        const params = new URLSearchParams({
+          url:    rawCloudUrl,
+          type:   fileType,
+          name:   fileName,
+          title:  fileTitle,
+          direct: '1',
+          ...(file.description ? { description: file.description } : {}),
+          ...(file.class_name  ? { class_name:  file.class_name  } : {}),
+        });
+        window.open(`/view-doc?${params.toString()}`, '_blank', 'noopener,noreferrer');
       } else {
-        const gv = `https://docs.google.com/viewer?url=${encodeURIComponent(cloudUrl)}&embedded=false`;
+        const gv = `https://docs.google.com/viewer?url=${encodeURIComponent(rawCloudUrl)}&embedded=false`;
         window.open(gv, '_blank', 'noopener,noreferrer');
       }
+
     } else {
-      // Unknown type — open Cloudinary URL directly
-      window.open(cloudUrl, '_blank', 'noopener,noreferrer');
+      // Unknown type — open raw URL (browser will decide what to do)
+      window.open(rawCloudUrl, '_blank', 'noopener,noreferrer');
     }
     return;
   }
 
-  // Legacy fallback (no Cloudinary URL stored yet)
-  const viewUrl = `${origin}${getViewUrl(file)}`;
-  const dlUrl   = `${origin}${getDownloadUrl(file)}`;
-  const params  = new URLSearchParams({
+  // ── Legacy fallback: no Cloudinary URL stored (old uploads) ──
+  const viewUrl  = `${origin}${getViewUrl(file)}`;
+  const dlUrl    = `${origin}${getDownloadUrl(file)}`;
+  const params   = new URLSearchParams({
     url: getViewUrl(file), type: fileType, name: fileName, title: fileTitle,
     ...(file.description ? { description: file.description } : {}),
     ...(file.class_name  ? { class_name:  file.class_name  } : {}),
   });
-  if (['pdf','image','video','audio','text'].includes(fileType)) {
+  if (['pdf', 'image', 'video', 'audio', 'text'].includes(fileType)) {
     window.open(`/view-doc?${params.toString()}`, '_blank', 'noopener,noreferrer');
-  } else if (['word','excel','powerpoint'].includes(fileType)) {
+  } else if (['word', 'excel', 'powerpoint'].includes(fileType)) {
     const isLocal = origin.includes('localhost') || origin.includes('127.0.0.1');
-    window.open(isLocal ? dlUrl : `https://docs.google.com/viewer?url=${encodeURIComponent(viewUrl)}&embedded=false`, '_blank', 'noopener,noreferrer');
+    window.open(
+      isLocal
+        ? dlUrl
+        : `https://docs.google.com/viewer?url=${encodeURIComponent(viewUrl)}&embedded=false`,
+      '_blank', 'noopener,noreferrer'
+    );
   } else {
     window.open(dlUrl, '_blank', 'noopener,noreferrer');
   }
@@ -97,17 +161,15 @@ export function openFileInNewTab(file) {
 
 /**
  * Triggers a real browser DOWNLOAD (saves file to user's local storage).
- * Uses Cloudinary URL with a hidden <a download> trick.
- * For cross-origin Cloudinary URLs, fetches the file as a blob first
- * so the browser treats it as a download rather than navigation.
+ * Always uses the raw Cloudinary URL (not the inline-transformed one).
  */
 export async function downloadFile(file) {
   if (!file) return;
   const fileName = file.original_name || file.name || file.filename || 'download';
+  // Always use the raw file_url for downloads (not the fl_inline transformed version)
   const url = file.file_url || `${window.location.origin}${getDownloadUrl(file)}`;
 
   try {
-    // Fetch as blob so browser always saves it (even for cross-origin Cloudinary URLs)
     const response = await fetch(url);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const blob = await response.blob();
@@ -121,7 +183,6 @@ export async function downloadFile(file) {
     document.body.removeChild(a);
     URL.revokeObjectURL(blobUrl);
   } catch (err) {
-    // Fallback: open in new tab (browser will prompt download for most file types)
     console.warn('Blob download failed, falling back to direct URL:', err.message);
     const a = document.createElement('a');
     a.href = url;

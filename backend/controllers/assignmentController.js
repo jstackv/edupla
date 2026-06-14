@@ -51,15 +51,22 @@ const getAssignments = async (req, res) => {
     }
 
     // Student view — only return active, in-window assignments
-    const enrolledClasses = await Class.find({ students: userId, is_active: true }, '_id').lean();
+    // Note: do NOT filter by class is_active here — a class being inactive
+    // should not hide assignments that are themselves active.
+    const enrolledClasses = await Class.find({ students: userId }, '_id').lean();
     const enrolledClassIds = enrolledClasses.map(c => c._id);
+
+    // If a classId filter is requested, scope it within the student's enrolled
+    // classes rather than overwriting the enrollment guard entirely.
+    const classIdFilter = classId
+      ? enrolledClassIds.filter(id => id.toString() === classId)
+      : enrolledClassIds;
 
     const now = new Date();
     const filter = {
-      class_id: { $in: enrolledClassIds },
+      class_id: { $in: classIdFilter },
       is_active: true,
       $or: [{ title: searchRegex }, { description: searchRegex }],
-      ...(classId && { class_id: classId }),
       $and: [
         { $or: [{ start_date: null }, { start_date: { $lte: now } }] },
         { $or: [{ end_date: null }, { end_date: { $gte: now } }] },
@@ -96,7 +103,7 @@ const createAssignment = async (req, res) => {
       title, description, deadline,
       start_date: start_date || null,
       end_date: end_date || null,
-      is_active: is_active === true || is_active === 'true',
+      is_active: (is_active === undefined || is_active === null || is_active === "") ? true : (is_active === true || is_active === "true"),
       class_id: classId, teacher_id: req.session.user.id,
       max_score: max_score || 100,
       filename:      req.file?.filename      || null,

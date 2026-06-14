@@ -250,9 +250,18 @@ export default function StudentAssignments() {
                       {/* Actions */}
                       <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap justify-end">
                         {a.filename && (
-                          <button onClick={() => setViewingFile({ ...a, original_name: a.original_name || a.filename })}
-                            className="p-1.5 rounded-lg hover:bg-primary-50 hover:text-primary-600 transition-colors" title="Preview assignment file">
-                            <Eye className="w-4 h-4 text-muted" />
+                          <button
+                            onClick={() => setViewingFile({ ...a, original_name: a.original_name || a.filename })}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                            style={{
+                              background: 'var(--card-border)',
+                              color: 'var(--text-primary)',
+                              border: '1px solid var(--input-border)',
+                            }}
+                            title="Preview assignment file in new tab"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            Preview
                           </button>
                         )}
                         {!isSubmitted && !overdue && (
