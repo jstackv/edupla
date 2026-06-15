@@ -67,7 +67,7 @@ const assignmentSchema = new mongoose.Schema({
   deadline:      { type: Date, required: true },
   start_date:    { type: Date, default: null },
   end_date:      { type: Date, default: null },
-  is_active:     { type: Boolean, default: false },
+  is_active:     { type: Boolean, default: true },
   class_id:      { type: mongoose.Schema.Types.ObjectId, ref: 'Class', required: true },
   teacher_id:    { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   max_score:     { type: Number, default: 100 },

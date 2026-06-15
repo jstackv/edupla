@@ -439,13 +439,16 @@ export default function AdminClasses() {
       let extraIds = [];
       try {
         const r = await api.get(`/admin/classes/${cls.id}/teachers`);
-        extraIds = (r.data.teachers || []).map(t => t.id).filter(id => id !== cls.teacher_id);
+        const classTeacherId = String(cls.teacher_id?._id || cls.teacher_id || '');
+        extraIds = (r.data.teachers || [])
+          .map(t => String(t._id || t.id || ''))
+          .filter(id => id && id !== classTeacherId);
       } catch {}
       setForm({
         name: cls.name, description: cls.description || '',
         level: cls.level || '', trade: cls.trade || '',
-        teacher_id: String(cls.teacher_id),
-        extra_teacher_ids: extraIds.map(String),
+        teacher_id: String(cls.teacher_id?._id || cls.teacher_id || ''),
+        extra_teacher_ids: extraIds,
       });
     } else {
       setForm({ name: '', description: '', level: '', trade: '', teacher_id: '', extra_teacher_ids: [] });
@@ -495,7 +498,7 @@ export default function AdminClasses() {
     e.preventDefault();
     setSaving(true);
     try {
-      const payload = { ...form, extra_teacher_ids: form.extra_teacher_ids.map(Number).filter(Boolean) };
+      const payload = { ...form, extra_teacher_ids: form.extra_teacher_ids.filter(Boolean) };
       if (editing) {
         await api.put(`/admin/classes/${editing.id}`, payload);
         toast.success('Class updated');
@@ -553,10 +556,11 @@ export default function AdminClasses() {
   };
 
   const toggleExtraTeacher = (tid) => {
-    const ids = form.extra_teacher_ids;
+    const tidStr = String(tid);
+    const ids = form.extra_teacher_ids.map(String);
     setForm(f => ({
       ...f,
-      extra_teacher_ids: ids.includes(tid) ? ids.filter(x => x !== tid) : [...ids, tid],
+      extra_teacher_ids: ids.includes(tidStr) ? ids.filter(x => x !== tidStr) : [...ids, tidStr],
     }));
   };
 

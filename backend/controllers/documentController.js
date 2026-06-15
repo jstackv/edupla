@@ -72,6 +72,14 @@ const uploadDocument = async (req, res) => {
     if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
     const { title, description, classId } = req.body;
     if (!title) return res.status(400).json({ message: 'Title is required' });
+    // If a class is specified, verify the teacher is assigned to it
+    if (classId) {
+      const teacherClass = await Class.findOne({
+        _id: classId,
+        $or: [{ teacher_id: req.session.user.id }, { extra_teachers: req.session.user.id }]
+      }).lean();
+      if (!teacherClass) return res.status(403).json({ message: 'You are not assigned to this class.' });
+    }
     const doc = await Document.create({
       title, description, class_id: classId || null,
       teacher_id: req.session.user.id,

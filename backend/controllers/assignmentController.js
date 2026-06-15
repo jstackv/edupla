@@ -22,10 +22,16 @@ const getAssignments = async (req, res) => {
     const searchRegex = new RegExp(search, 'i');
 
     if (role === 'teacher') {
+      // Find all classes this teacher is assigned to (as class teacher OR extra teacher)
+      const assignedClasses = await Class.find({
+        $or: [{ teacher_id: userId }, { extra_teachers: userId }]
+      }, '_id').lean();
+      const assignedClassIds = assignedClasses.map(c => c._id);
+
+      const classFilter = classId ? { class_id: classId } : { class_id: { $in: assignedClassIds } };
       const filter = {
-        teacher_id: userId,
+        ...classFilter,
         $or: [{ title: searchRegex }, { description: searchRegex }],
-        ...(classId && { class_id: classId }),
       };
       const [assignments, total] = await Promise.all([
         Assignment.find(filter).sort({ created_at: -1 }).skip(skip).limit(parseInt(limit))
@@ -99,6 +105,12 @@ const createAssignment = async (req, res) => {
   try {
     const { title, description, deadline, classId, max_score, start_date, end_date, is_active } = req.body;
     if (!title || !deadline || !classId) return res.status(400).json({ message: 'Title, deadline, and class are required' });
+    // Verify teacher is assigned to this class (as class teacher or extra teacher)
+    const teacherClass = await Class.findOne({
+      _id: classId,
+      $or: [{ teacher_id: req.session.user.id }, { extra_teachers: req.session.user.id }]
+    }).lean();
+    if (!teacherClass) return res.status(403).json({ message: 'You are not assigned to this class.' });
     const a = await Assignment.create({
       title, description, deadline,
       start_date: start_date || null,
@@ -352,9 +364,14 @@ const getGradesReport = async (req, res) => {
     const { studentId } = req.query;
     const assignmentId = req.params.id;
 
-    const a = await Assignment.findOne({ _id: assignmentId, teacher_id: req.session.user.id })
+    const a = await Assignment.findById(assignmentId)
       .populate('class_id', 'name students').lean();
     if (!a) return res.status(404).json({ message: 'Assignment not found' });
+    // Allow access to assignment owner OR extra teachers of the class
+    const teacherId = req.session.user.id;
+    const isOwner = a.teacher_id?.toString() === teacherId;
+    const isExtraTeacher = a.class_id?.extra_teachers?.some?.(id => id?.toString() === teacherId);
+    if (!isOwner && !isExtraTeacher) return res.status(404).json({ message: 'Assignment not found' });
 
     let students = await User.find(
       { _id: { $in: a.class_id.students }, role: 'student', ...(studentId && { _id: studentId }) },

@@ -148,10 +148,18 @@ const adminCreateClass = async (req, res) => {
   try {
     const { name, description, level, trade, teacher_id, extra_teacher_ids = [] } = req.body;
     if (!name || !teacher_id) return res.status(400).json({ message: 'Name and teacher are required' });
-    const allTeacherIds = [...new Set([teacher_id, ...extra_teacher_ids])];
+    const toObjectId = (id) => {
+      try { return new mongoose.Types.ObjectId(String(id)); } catch { return null; }
+    };
+    const teacherObjId = toObjectId(teacher_id);
+    const teacherIdStr = teacherObjId ? teacherObjId.toString() : '';
+    const extraIds = extra_teacher_ids
+      .map(toObjectId)
+      .filter(id => id && id.toString() !== teacherIdStr);
+
     const cls = await Class.create({
       name, description: description || null, level: level || null, trade: trade || null,
-      teacher_id, extra_teachers: allTeacherIds.slice(1),
+      teacher_id: teacherObjId, extra_teachers: extraIds,
       created_by: req.user.id,
     });
     res.status(201).json({ message: 'Class created', id: cls._id });
@@ -161,10 +169,19 @@ const adminCreateClass = async (req, res) => {
 const adminUpdateClass = async (req, res) => {
   try {
     const { name, description, level, trade, teacher_id, extra_teacher_ids = [] } = req.body;
-    const allExtraIds = extra_teacher_ids.filter(id => id !== teacher_id);
+    // Cast IDs to ObjectId safely, exclude the class teacher from extra_teachers
+    const toObjectId = (id) => {
+      try { return new mongoose.Types.ObjectId(String(id)); } catch { return null; }
+    };
+    const teacherObjId = toObjectId(teacher_id);
+    const teacherIdStr = teacherObjId ? teacherObjId.toString() : '';
+    const allExtraIds = extra_teacher_ids
+      .map(toObjectId)
+      .filter(id => id && id.toString() !== teacherIdStr);
+
     const result = await Class.findByIdAndUpdate(req.params.id, {
       name, description: description || null, level: level || null, trade: trade || null,
-      teacher_id, extra_teachers: allExtraIds,
+      teacher_id: teacherObjId, extra_teachers: allExtraIds,
     });
     if (!result) return res.status(404).json({ message: 'Class not found' });
     res.json({ message: 'Class updated' });
