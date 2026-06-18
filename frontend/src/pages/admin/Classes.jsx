@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import Modal from '../../components/common/Modal';
@@ -233,8 +233,17 @@ function ClassCard({ cls, onEdit, onDelete, onToggle, onViewStudents, onEnroll, 
 
         {/* Badges */}
         <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 12 }}>
-          {cls.level && <LevelBadge level={cls.level} levels={levels} />}
+          {cls.level && !cls.program_config_id && <LevelBadge level={cls.level} levels={levels} />}
           {cls.trade && <TradeBadge trade={cls.trade} trades={trades} />}
+          {cls.program_config_id && (
+            <span title={cls.program_qualification_title || ''} style={{
+              fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6,
+              background: '#ede9fe', color: '#7c3aed', display: 'inline-flex', alignItems: 'center', gap: 4,
+              maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              <Award size={10} /> {cls.program_rtqf_level || cls.level || 'Linked'}
+            </span>
+          )}
         </div>
 
         {/* Teacher */}
@@ -337,9 +346,17 @@ function ClassRow({ cls, onEdit, onDelete, onToggle, onViewStudents, onEnroll, a
         )}
       </div>
 
-      <div style={{ display: 'flex', gap: 5, flex: 0.8, minWidth: 80 }}>
-        {cls.level && <LevelBadge level={cls.level} levels={levels} />}
+      <div style={{ display: 'flex', gap: 5, flex: 0.8, minWidth: 80, flexWrap: 'wrap' }}>
+        {cls.level && !cls.program_config_id && <LevelBadge level={cls.level} levels={levels} />}
         {cls.trade && <TradeBadge trade={cls.trade} trades={trades} />}
+        {cls.program_config_id && (
+          <span title={cls.program_qualification_title || ''} style={{
+            fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6,
+            background: '#ede9fe', color: '#7c3aed', display: 'inline-flex', alignItems: 'center', gap: 4,
+          }}>
+            <Award size={10} /> {cls.program_rtqf_level || cls.level || 'Linked'}
+          </span>
+        )}
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 7, flex: 1, minWidth: 120 }}>
@@ -390,6 +407,23 @@ export default function AdminClasses() {
   const [allStudents, setAllStudents] = useState([]);
   const [levels, setLevels] = useState([]);
   const [trades, setTrades] = useState([]);
+  const [programConfigs, setProgramConfigs] = useState([]);
+
+  // Trade and RTQF Level chip options for the class form are derived from the
+  // TVET Program Configs created in Admin Settings, so every trade/level an admin
+  // sets up there is selectable here — instead of relying on the separate,
+  // disconnected Level/Trade list.
+  const programTradeOptions = useMemo(() => {
+    const seen = new Map();
+    programConfigs.forEach(p => { if (p.trade && !seen.has(p.trade)) seen.set(p.trade, p.trade); });
+    return Array.from(seen.keys()).map(value => ({ value, label: value }));
+  }, [programConfigs]);
+
+  const programRtqfLevelOptions = useMemo(() => {
+    const seen = new Map();
+    programConfigs.forEach(p => { if (p.rtqfLevel && !seen.has(p.rtqfLevel)) seen.set(p.rtqfLevel, p.rtqfLevel); });
+    return Array.from(seen.keys()).map(value => ({ value, label: value }));
+  }, [programConfigs]);
   const [modal, setModal] = useState(false);
   const [studentsModal, setStudentsModal] = useState(false);
   const [enrollModal, setEnrollModal] = useState(false);
@@ -410,7 +444,7 @@ export default function AdminClasses() {
   const [loadingEnrollSearch, setLoadingEnrollSearch] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [form, setForm] = useState({
-    name: '', description: '', level: '', trade: '', teacher_id: '', extra_teacher_ids: [],
+    name: '', description: '', level: '', trade: '', teacher_id: '', extra_teacher_ids: [], programConfigId: '',
   });
 
   const fetchClasses = useCallback(async () => {
@@ -431,6 +465,7 @@ export default function AdminClasses() {
     api.get('/admin/students?limit=500').then(r => setAllStudents(r.data.students || [])).catch(() => {});
     api.get('/admin/levels').then(r => setLevels(r.data.levels || [])).catch(() => {});
     api.get('/admin/trades').then(r => setTrades(r.data.trades || [])).catch(() => {});
+    api.get('/admin/program-configs').then(r => setProgramConfigs(r.data.programConfigs || [])).catch(() => {});
   }, []);
 
   const openModal = async (cls = null) => {
@@ -449,9 +484,10 @@ export default function AdminClasses() {
         level: cls.level || '', trade: cls.trade || '',
         teacher_id: String(cls.teacher_id?._id || cls.teacher_id || ''),
         extra_teacher_ids: extraIds,
+        programConfigId: String(cls.program_config_id?._id || cls.program_config_id || ''),
       });
     } else {
-      setForm({ name: '', description: '', level: '', trade: '', teacher_id: '', extra_teacher_ids: [] });
+      setForm({ name: '', description: '', level: '', trade: '', teacher_id: '', extra_teacher_ids: [], programConfigId: '' });
     }
     setModal(true);
   };
@@ -842,9 +878,9 @@ export default function AdminClasses() {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
-              <label className="label">Level</label>
+              <label className="label">RTQF Level</label>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
-                {[{ value: '', label: 'None' }, ...levels].map((l, i) => {
+                {[{ value: '', label: 'None' }, ...programRtqfLevelOptions].map((l, i) => {
                   const active = form.level === l.value;
                   const color = i === 0 ? 'var(--card-border)' : LEVEL_COLORS[(i - 1) % LEVEL_COLORS.length];
                   const bg = i === 0 ? 'var(--surface-50)' : LEVEL_BG[(i - 1) % LEVEL_BG.length];
@@ -862,11 +898,16 @@ export default function AdminClasses() {
                   );
                 })}
               </div>
+              {programRtqfLevelOptions.length === 0 && (
+                <p style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 6 }}>
+                  No RTQF levels yet — add a program in Admin Settings first.
+                </p>
+              )}
             </div>
             <div>
               <label className="label">Trade</label>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
-                {[{ value: '', label: 'None' }, ...trades].map((t, i) => {
+                {[{ value: '', label: 'None' }, ...programTradeOptions].map((t, i) => {
                   const active = form.trade === t.value;
                   const color = i === 0 ? 'var(--card-border)' : TRADE_COLORS[(i - 1) % TRADE_COLORS.length];
                   const bg = i === 0 ? 'var(--surface-50)' : TRADE_BG[(i - 1) % TRADE_BG.length];
@@ -884,7 +925,43 @@ export default function AdminClasses() {
                   );
                 })}
               </div>
+              {programTradeOptions.length === 0 && (
+                <p style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 6 }}>
+                  No trades yet — add a program in Admin Settings first.
+                </p>
+              )}
             </div>
+          </div>
+
+          <div>
+            <label className="label">TVET Program / Qualification</label>
+            <select
+              value={form.programConfigId}
+              onChange={e => {
+                const id = e.target.value;
+                const picked = programConfigs.find(p => p._id === id);
+                setForm(f => ({
+                  ...f,
+                  programConfigId: id,
+                  // Keep the RTQF Level / Trade chips above in sync with the chosen program
+                  level: picked ? picked.rtqfLevel : f.level,
+                  trade: picked ? picked.trade : f.trade,
+                }));
+              }}
+              className="input-field"
+            >
+              <option value="">None — not linked to a program</option>
+              {programConfigs.map(p => (
+                <option key={p._id} value={p._id}>
+                  {p.trade} · {p.rtqfLevel} — {p.qualificationTitle}
+                </option>
+              ))}
+            </select>
+            <p style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
+              {programConfigs.length === 0
+                ? 'No programs configured yet — add one in Admin Settings to populate this list.'
+                : "Sector, qualification title and RTQF level from this program will appear on this class's student reports."}
+            </p>
           </div>
 
           <div>

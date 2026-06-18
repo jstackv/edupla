@@ -42,6 +42,14 @@ const classSchema = new mongoose.Schema({
   students:    [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   is_active:   { type: Boolean, default: true },
   created_by:  { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  // Link to the TVET program configuration (sector/trade/qualification/RTQF level) chosen at class creation.
+  program_config_id: { type: mongoose.Schema.Types.ObjectId, ref: 'ProgramConfig', default: null },
+  // Snapshot of the program fields at the time they were assigned — keeps reports stable
+  // even if the ProgramConfig is later edited or removed.
+  program_sector:              { type: String, default: null },
+  program_trade:                { type: String, default: null },
+  program_qualification_title:  { type: String, default: null },
+  program_rtqf_level:           { type: String, default: null },
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
 const documentSchema = new mongoose.Schema({
@@ -103,6 +111,15 @@ const notificationSchema = new mongoose.Schema({
   read_by:    [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
+// ── ProgramConfig — one document per program row (sector + trade + qualTitle + rtqfLevel) ──
+const programConfigSchema = new mongoose.Schema({
+  sector:             { type: String, required: true },
+  trade:              { type: String, required: true },
+  qualificationTitle: { type: String, required: true },
+  rtqfLevel:          { type: String, required: true },
+  created_by:         { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+}, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
+
 // Levels & Trades are now admin-scoped: created_by links to the admin who owns them
 const levelSchema = new mongoose.Schema({
   value:      { type: String, required: true, uppercase: true },
@@ -126,6 +143,7 @@ const courseSchema = new mongoose.Schema({
   code:         { type: String, default: null },
   description:  { type: String, default: null },
   total_marks:  { type: Number, default: 100 }, // module weight / max marks for this course
+  category:     { type: String, default: 'Complementary modules' }, // module type: Complementary / General / Specific / Elective Non Examinable
   class_id:     { type: mongoose.Schema.Types.ObjectId, ref: 'Class', default: null },
   teacher_id:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   created_by:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -175,6 +193,7 @@ const Assignment   = mongoose.model('Assignment',   assignmentSchema);
 const Submission   = mongoose.model('Submission',   submissionSchema);
 const Announcement = mongoose.model('Announcement', announcementSchema);
 const Notification = mongoose.model('Notification', notificationSchema);
+const ProgramConfig = mongoose.model('ProgramConfig', programConfigSchema);
 const Level        = mongoose.model('Level',        levelSchema);
 const Trade        = mongoose.model('Trade',        tradeSchema);
 const Course       = mongoose.model('Course',       courseSchema);
@@ -185,6 +204,7 @@ const AssessmentSubmission = mongoose.model('AssessmentSubmission', assessmentSu
 module.exports = {
   connectDB,
   User, Class, Document, Assignment, Submission, Announcement, Notification, Level, Trade,
+  ProgramConfig,
   Course, Assessment, Mark, AssessmentSubmission,
 };
 // This line intentionally left blank - models appended below

@@ -10,6 +10,7 @@ const {
   getAdminAssignments,
   getLevels, createLevel, deleteLevel, updateLevel,
   getTrades, createTrade, deleteTrade, updateTrade,
+  getProgramConfigs, createProgramConfig, updateProgramConfig, deleteProgramConfig,
   toggleTeacherStatus, toggleStudentStatus, toggleClassStatus, toggleAdminStatus,
 } = require('../controllers/adminController');
 
@@ -255,5 +256,11 @@ router.get('/trades', getTrades);
 router.post('/trades', createTrade);
 router.put('/trades/:value', updateTrade);
 router.delete('/trades/:value', deleteTrade);
+
+// Program configurations (sector + trade + qualificationTitle + rtqfLevel)
+router.get('/program-configs', getProgramConfigs);
+router.post('/program-configs', createProgramConfig);
+router.put('/program-configs/:id', updateProgramConfig);
+router.delete('/program-configs/:id', deleteProgramConfig);
 
 module.exports = router;

@@ -43,8 +43,8 @@ export default function StudentClasses() {
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="font-display font-bold text-lg" style={{ color: 'var(--text-primary)' }}>My Classes</h2>
-        <p className="text-sm text-muted">{classes.length} class{classes.length !== 1 ? 'es' : ''} enrolled</p>
+        <h2 className="font-display font-bold text-lg" style={{ color: 'var(--text-primary)' }}>My Class</h2>
+        <p className="text-sm text-muted">class enrolled</p>
       </div>
 
       {classes.length === 0 ? (
@@ -75,14 +75,10 @@ export default function StudentClasses() {
               <div className="pt-3 space-y-2" style={{ borderTop: '1px solid var(--card-border)' }}>
                 {cls.teacher_name && (
                   <div className="flex items-center gap-2 text-xs text-muted">
-                    <User className="w-3.5 h-3.5" />
+                    <User className="w-3.5 h-3.5" />Class Teacher:
                     <span>{cls.teacher_name}</span>
                   </div>
                 )}
-                <div className="flex items-center gap-2 text-xs text-muted">
-                  <Users className="w-3.5 h-3.5" />
-                  <span>{cls.student_count || 0} student{cls.student_count !== 1 ? 's' : ''}</span>
-                </div>
               </div>
             </div>
           ))}

@@ -36,7 +36,7 @@ const AdminLinks = [
   { to: '/admin/students',    icon: GraduationCap,   label: 'Students',      section: 'main' },
   { to: '/admin/assignments', icon: ClipboardList,   label: 'Assignments',   section: 'manage' },
   { to: '/admin/assessments', icon: BookMarked,      label: 'Assessments',   section: 'manage' },
-  { to: '/admin/settings',    icon: Layers,          label: 'Trades',        section: 'manage' },
+  { to: '/admin/settings',    icon: GraduationCap,          label: 'TVET Info',        section: 'manage' },
 ];
 const SuperAdminLinks = [
   { to: '/admin/dashboard',   icon: LayoutDashboard, label: 'Overview',      section: 'main' },

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -7,62 +7,6 @@ import toast from 'react-hot-toast';
 /* ─────────────────────────────────────────────
    CONSTANTS
 ───────────────────────────────────────────── */
-const ROLES = [
-  {
-    role: 'student',
-    label: 'Student',
-    description: 'Access courses & assignments',
-    color: '#6366f1',
-    lightBg: '#eef2ff',
-    darkBg: 'rgba(99,102,241,0.15)',
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>
-      </svg>
-    ),
-  },
-  {
-    role: 'teacher',
-    label: 'Teacher',
-    description: 'Manage classes & grades',
-    color: '#0ea5e9',
-    lightBg: '#f0f9ff',
-    darkBg: 'rgba(14,165,233,0.15)',
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>
-      </svg>
-    ),
-  },
-  {
-    role: 'admin',
-    label: 'Admin',
-    description: 'School-wide oversight',
-    color: '#f59e0b',
-    lightBg: '#fffbeb',
-    darkBg: 'rgba(245,158,11,0.15)',
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/>
-        <circle cx="12" cy="8" r="1" fill="currentColor"/>
-      </svg>
-    ),
-  },
-  {
-    role: 'superadmin',
-    label: 'Super Admin',
-    description: 'Full platform control',
-    color: '#ef4444',
-    lightBg: '#fef2f2',
-    darkBg: 'rgba(239,68,68,0.15)',
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-      </svg>
-    ),
-  },
-];
-
 const STATS = [
   { value: '2.4K', label: 'Students' },
   { value: '180',  label: 'Courses'  },
@@ -85,26 +29,6 @@ const ACTIVITY = [
   'New course: Advanced Biology added',
   'Term report cards are now available',
 ];
-
-/* ─────────────────────────────────────────────
-   PASSWORD STRENGTH
-───────────────────────────────────────────── */
-function passwordStrength(pw) {
-  if (!pw) return { score: 0, label: '', color: '' };
-  let s = 0;
-  if (pw.length >= 8)           s++;
-  if (/[A-Z]/.test(pw))         s++;
-  if (/[0-9]/.test(pw))         s++;
-  if (/[^A-Za-z0-9]/.test(pw))  s++;
-  const meta = [
-    null,
-    { label: 'Weak',   color: '#ef4444' },
-    { label: 'Fair',   color: '#f59e0b' },
-    { label: 'Good',   color: '#0ea5e9' },
-    { label: 'Strong', color: '#10b981' },
-  ];
-  return { score: s, ...meta[s] };
-}
 
 /* ─────────────────────────────────────────────
    ANIMATED PARTICLES BACKGROUND
@@ -143,7 +67,7 @@ function ParticleBg({ dark }) {
         for (let j = i + 1; j < pts.length; j++) {
           const dx = pts[i].x - pts[j].x;
           const dy = pts[i].y - pts[j].y;
-          const d = Math.hypot(dx, dy);
+          const d  = Math.hypot(dx, dy);
           if (d < 110) {
             ctx.beginPath();
             ctx.strokeStyle = `rgba(${accentR},${(1 - d / 110) * (dark ? 0.18 : 0.1)})`;
@@ -163,8 +87,12 @@ function ParticleBg({ dark }) {
       id = requestAnimationFrame(draw);
     };
     draw();
-    return () => { cancelAnimationFrame(id); window.removeEventListener('resize', resize); };
+    return () => {
+      cancelAnimationFrame(id);
+      window.removeEventListener('resize', resize);
+    };
   }, [dark]);
+
   return (
     <canvas
       ref={ref}
@@ -186,6 +114,7 @@ function Ticker({ dark }) {
     }, 3600);
     return () => clearInterval(id);
   }, []);
+
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 8,
@@ -194,7 +123,10 @@ function Ticker({ dark }) {
       border: `1px solid ${dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)'}`,
       overflow: 'hidden',
     }}>
-      <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', flexShrink: 0, animation: 'ep-pulse 2s infinite' }} />
+      <span style={{
+        width: 6, height: 6, borderRadius: '50%', background: '#10b981',
+        flexShrink: 0, animation: 'ep-pulse 2s infinite',
+      }} />
       <span style={{
         fontSize: 11.5, color: dark ? '#9ca3af' : '#6b7280',
         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
@@ -207,34 +139,18 @@ function Ticker({ dark }) {
 }
 
 /* ─────────────────────────────────────────────
-   ROLE CHIP (small badge in creds step)
-───────────────────────────────────────────── */
-function RoleChip({ role, dark }) {
-  if (!role) return null;
-  return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 5,
-      padding: '3px 10px', borderRadius: 100, fontSize: 11.5, fontWeight: 600,
-      color: role.color,
-      background: dark ? role.darkBg : role.lightBg,
-      border: `1px solid ${role.color}30`,
-    }}>
-      {role.icon}
-      {role.label}
-    </span>
-  );
-}
-
-/* ─────────────────────────────────────────────
-   TOAST NOTIFICATION (internal)
+   INLINE TOAST
 ───────────────────────────────────────────── */
 function InlineToast({ msg, type, onClose }) {
   useEffect(() => {
+    if (!msg) return;
     const t = setTimeout(onClose, 4000);
     return () => clearTimeout(t);
   }, [msg]);
+
   if (!msg) return null;
   const isErr = type === 'error';
+
   return (
     <div style={{
       display: 'flex', alignItems: 'flex-start', gap: 10,
@@ -245,7 +161,10 @@ function InlineToast({ msg, type, onClose }) {
     }}>
       <span style={{ fontSize: 15, lineHeight: 1, flexShrink: 0 }}>{isErr ? '⚠️' : '✅'}</span>
       <span style={{ fontSize: 12.5, color: isErr ? '#b91c1c' : '#166534', flex: 1, lineHeight: 1.55 }}>{msg}</span>
-      <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: isErr ? '#b91c1c' : '#166534', fontSize: 18, lineHeight: 1, padding: 0, flexShrink: 0 }}>×</button>
+      <button
+        onClick={onClose}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', color: isErr ? '#b91c1c' : '#166534', fontSize: 18, lineHeight: 1, padding: 0, flexShrink: 0 }}
+      >×</button>
     </div>
   );
 }
@@ -255,24 +174,22 @@ function InlineToast({ msg, type, onClose }) {
 ───────────────────────────────────────────── */
 export default function Login() {
   // ── state ──
-  const [step,         setStep]         = useState('role');   // 'role' | 'creds' | 'forgot'
-  const [selectedRole, setSelectedRole] = useState(null);
-  const [form,         setForm]         = useState({ email: '', password: '' });
-  const [forgotEmail,  setForgotEmail]  = useState('');
-  const [loading,      setLoading]      = useState(false);
-  const [showPass,     setShowPass]     = useState(false);
-  const [remember,     setRemember]     = useState(false);
-  const [focused,      setFocused]      = useState(null);
-  const [toast2,       setToast2]       = useState({ msg: '', type: '' });
-  const [onlineCount,  setOnlineCount]  = useState(247);
-  const [forgotSent,   setForgotSent]   = useState(false);
-  const [deactivMsg,   setDeactivMsg]   = useState('');
+  const [step,        setStep]        = useState('creds');  // 'creds' | 'forgot'
+  const [form,        setForm]        = useState({ email: '', password: '' });
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [loading,     setLoading]     = useState(false);
+  const [showPass,    setShowPass]    = useState(false);
+  const [remember,    setRemember]    = useState(false);
+  const [focused,     setFocused]     = useState(null);
+  const [toast2,      setToast2]      = useState({ msg: '', type: '' });
+  const [onlineCount, setOnlineCount] = useState(247);
+  const [forgotSent,  setForgotSent]  = useState(false);
+  const [deactivMsg,  setDeactivMsg]  = useState('');
 
   // ── hooks ──
   const { login }             = useAuth();
   const { dark, toggleTheme } = useTheme();
   const navigate              = useNavigate();
-  const strength              = passwordStrength(form.password);
 
   // live count flicker
   useEffect(() => {
@@ -288,28 +205,25 @@ export default function Login() {
 
   // ── palette ──
   const C = {
-    bg:           dark ? '#080b1a'               : '#f4f6ff',
-    panel:        dark ? 'rgba(12,16,36,0.92)'   : 'rgba(255,255,255,0.94)',
-    panelBorder:  dark ? 'rgba(255,255,255,0.07)': 'rgba(79,70,229,0.1)',
-    card:         dark ? 'rgba(18,22,48,0.95)'   : '#ffffff',
-    cardBorder:   dark ? 'rgba(255,255,255,0.08)': 'rgba(79,70,229,0.12)',
-    cardShadow:   dark ? '0 32px 80px rgba(0,0,0,0.6)' : '0 24px 60px rgba(79,70,229,0.14)',
-    input:        dark ? 'rgba(255,255,255,0.06)': '#f5f7ff',
-    inputBorder:  dark ? 'rgba(255,255,255,0.1)' : '#dde5f5',
-    inputFocus:   '#6366f1',
-    text:         dark ? '#f0f4ff'               : '#0f172a',
-    text2:        dark ? '#7480a8'               : '#475569',
-    text3:        dark ? '#3a4060'               : '#94a3b8',
-    divider:      dark ? 'rgba(255,255,255,0.07)': '#e2e8f4',
-    rowHover:     dark ? 'rgba(255,255,255,0.04)': 'rgba(0,0,0,0.02)',
-    accent:       '#6366f1',
-    accentDark:   '#4f46e5',
+    bg:          dark ? '#080b1a'               : '#f4f6ff',
+    panel:       dark ? 'rgba(12,16,36,0.92)'   : 'rgba(255,255,255,0.94)',
+    panelBorder: dark ? 'rgba(255,255,255,0.07)': 'rgba(79,70,229,0.1)',
+    card:        dark ? 'rgba(12,16,36,0.92)'   : '#ffffff',
+    cardBorder:  dark ? 'rgba(255,255,255,0.07)': 'rgba(79,70,229,0.12)',
+    cardShadow:  dark ? '0 32px 80px rgba(0,0,0,0.6)' : '0 24px 60px rgba(79,70,229,0.14)',
+    input:       dark ? 'rgba(255,255,255,0.06)': '#f5f7ff',
+    inputBorder: dark ? 'rgba(255,255,255,0.1)' : '#dde5f5',
+    inputFocus:  '#6366f1',
+    text:        dark ? '#f0f4ff'               : '#0f172a',
+    text2:       dark ? '#7480a8'               : '#475569',
+    text3:       dark ? '#3a4060'               : '#94a3b8',
+    divider:     dark ? 'rgba(255,255,255,0.07)': '#e2e8f4',
+    rowHover:    dark ? 'rgba(255,255,255,0.04)': 'rgba(0,0,0,0.02)',
+    accent:      '#6366f1',
+    accentDark:  '#4f46e5',
   };
 
   // ── handlers ──
-  const selectRole = (r) => { setSelectedRole(r); setForm({ email: '', password: '' }); setStep('creds'); };
-  const goBack     = ()  => { setStep('role'); setSelectedRole(null); setForm({ email: '', password: '' }); setToast2({ msg: '', type: '' }); };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.email || !form.password) {
@@ -319,13 +233,8 @@ export default function Login() {
     setLoading(true);
     setToast2({ msg: '', type: '' });
     try {
+      // No role passed — backend determines user role from credentials
       const user = await login(form.email, form.password);
-      // Role mismatch guard (optional — remove if your backend handles it)
-      if (selectedRole && user.role !== selectedRole.role) {
-        setToast2({ msg: `This account is not a ${selectedRole.label}. Please use the correct role.`, type: 'error' });
-        setLoading(false);
-        return;
-      }
       toast.success(`Welcome back, ${user.name}!`);
       const dest = {
         teacher:    '/teacher/dashboard',
@@ -343,11 +252,15 @@ export default function Login() {
 
   const handleForgot = async (e) => {
     e.preventDefault();
-    if (!forgotEmail) { setToast2({ msg: 'Please enter your email address.', type: 'error' }); return; }
+    if (!forgotEmail) {
+      setToast2({ msg: 'Please enter your email address.', type: 'error' });
+      return;
+    }
     setLoading(true);
     try {
-      // Replace with your real endpoint: await api.post('/auth/forgot-password', { email: forgotEmail });
-      await new Promise(r => setTimeout(r, 1200)); // mock delay
+      // Replace with your real endpoint:
+      // await api.post('/auth/forgot-password', { email: forgotEmail });
+      await new Promise(r => setTimeout(r, 1200));
       setForgotSent(true);
       setToast2({ msg: '', type: '' });
     } catch {
@@ -356,7 +269,7 @@ export default function Login() {
     setLoading(false);
   };
 
-  // ── input style ──
+  // ── input styles ──
   const inputStyle = (field) => ({
     width: '100%',
     padding: '11px 14px 11px 40px',
@@ -423,18 +336,6 @@ export default function Login() {
 
         .ep-step { padding: 28px 28px 20px; animation: ep-slideup 0.36s cubic-bezier(0.22,1,0.36,1) both; }
 
-        /* role card */
-        .ep-role-btn {
-          width: 100%; display: flex; align-items: center; gap: 14px;
-          padding: 13px 16px; border-radius: 14px;
-          border: 1.5px solid; cursor: pointer; text-align: left;
-          background: none; font-family: 'DM Sans', sans-serif;
-          transition: transform 0.16s, border-color 0.16s, background 0.16s, box-shadow 0.16s;
-        }
-        .ep-role-btn:hover { transform: translateX(5px); }
-        .ep-role-btn:focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; }
-
-        /* submit */
         .ep-submit {
           width: 100%; padding: 13px;
           border-radius: 14px; border: none;
@@ -457,7 +358,6 @@ export default function Login() {
         .ep-submit:disabled { opacity: 0.5; cursor: not-allowed; }
         .ep-submit:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 
-        /* back */
         .ep-back {
           display: inline-flex; align-items: center; gap: 5px;
           padding: 5px 10px; border-radius: 9px;
@@ -481,9 +381,6 @@ export default function Login() {
           transition: background 0.15s;
         }
         .ep-feat-row:hover { background: rgba(255,255,255,0.04); }
-
-        /* step dots */
-        .ep-dot { height: 6px; border-radius: 3px; transition: width 0.3s, background 0.3s; }
 
         @keyframes ep-slideup {
           from { opacity: 0; transform: translateY(18px); }
@@ -698,124 +595,39 @@ export default function Login() {
                   <p style={{ fontSize: 9.5, color: C.text3, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', margin: '1px 0 0' }}>Secure Portal</p>
                 </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                {/* step indicator */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  {['role', 'creds'].map(s => (
-                    <div key={s} className="ep-dot" style={{
-                      width: step === s ? 20 : 6,
-                      background: step === s ? 'linear-gradient(90deg,#6366f1,#7c3aed)' : C.text3,
-                    }} />
-                  ))}
-                </div>
-                {/* theme toggle */}
-                <button
-                  onClick={toggleTheme}
-                  style={{
-                    width: 32, height: 32, borderRadius: 9, flexShrink: 0,
-                    background: dark ? 'rgba(255,255,255,0.06)' : '#f5f7ff',
-                    border: `1px solid ${C.cardBorder}`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    cursor: 'pointer', transition: 'all 0.2s',
-                  }}
-                  title={dark ? 'Light mode' : 'Dark mode'}
-                  aria-label="Toggle theme"
-                >
-                  {dark
-                    ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={C.text2} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-                    : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={C.text2} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-                  }
-                </button>
-              </div>
+              {/* theme toggle */}
+              <button
+                onClick={toggleTheme}
+                style={{
+                  width: 32, height: 32, borderRadius: 9, flexShrink: 0,
+                  background: dark ? 'rgba(255,255,255,0.06)' : '#f5f7ff',
+                  border: `1px solid ${C.cardBorder}`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer', transition: 'all 0.2s',
+                }}
+                title={dark ? 'Light mode' : 'Dark mode'}
+                aria-label="Toggle theme"
+              >
+                {dark
+                  ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={C.text2} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                  : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={C.text2} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                }
+              </button>
             </div>
-
-            {/* ── STEP: ROLE SELECTION ── */}
-            {step === 'role' && (
-              <div className="ep-step">
-                <p style={{ fontFamily: "'Sora',sans-serif", fontSize: 21, fontWeight: 800, color: C.text, letterSpacing: '-0.025em', margin: '0 0 4px' }}>Who are you?</p>
-                <p style={{ fontSize: 12.5, color: C.text2, margin: '0 0 18px' }}>Select your role to continue.</p>
-
-                {deactivMsg && (
-                  <InlineToast msg={`Account deactivated: ${deactivMsg}`} type="error" onClose={() => setDeactivMsg('')} />
-                )}
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-                  {ROLES.map(r => (
-                    <button
-                      key={r.role}
-                      className="ep-role-btn"
-                      onClick={() => selectRole(r)}
-                      style={{ borderColor: C.cardBorder, background: C.rowHover }}
-                      onMouseEnter={e => {
-                        e.currentTarget.style.borderColor = r.color + '55';
-                        e.currentTarget.style.background = dark ? r.darkBg : r.lightBg;
-                      }}
-                      onMouseLeave={e => {
-                        e.currentTarget.style.borderColor = C.cardBorder;
-                        e.currentTarget.style.background = C.rowHover;
-                      }}
-                    >
-                      <div style={{
-                        width: 38, height: 38, borderRadius: 11, flexShrink: 0,
-                        background: dark ? r.darkBg : r.lightBg,
-                        border: `1px solid ${r.color}30`,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        color: r.color,
-                      }}>
-                        {r.icon}
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <p style={{ fontSize: 13.5, fontWeight: 700, color: C.text, margin: 0, fontFamily: "'Sora',sans-serif" }}>{r.label}</p>
-                        <p style={{ fontSize: 11.5, color: C.text2, margin: '2px 0 0' }}>{r.description}</p>
-                      </div>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.text3} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="9 18 15 12 9 6" />
-                      </svg>
-                    </button>
-                  ))}
-                </div>
-
-                {/* or divider */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '16px 0 10px' }}>
-                  <div style={{ height: 1, flex: 1, background: C.divider }} />
-                  <span style={{ fontSize: 10.5, color: C.text3, fontWeight: 600, letterSpacing: '0.04em' }}>or</span>
-                  <div style={{ height: 1, flex: 1, background: C.divider }} />
-                </div>
-
-                <button
-                  onClick={() => { setSelectedRole(null); setForm({ email: '', password: '' }); setStep('creds'); }}
-                  style={{
-                    width: '100%', background: 'none',
-                    border: `1.5px solid ${C.cardBorder}`,
-                    borderRadius: 12, padding: '10px 20px',
-                    color: C.text2, fontSize: 13, fontWeight: 600,
-                    fontFamily: "'DM Sans',sans-serif", cursor: 'pointer',
-                    transition: 'border-color 0.18s, color 0.18s',
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = '#6366f1'; e.currentTarget.style.color = '#818cf8'; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = C.cardBorder; e.currentTarget.style.color = C.text2; }}
-                >
-                  Sign in with my own credentials
-                </button>
-              </div>
-            )}
 
             {/* ── STEP: CREDENTIALS ── */}
             {step === 'creds' && (
               <div className="ep-step">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-                  <button className="ep-back" onClick={goBack} style={{ color: C.text2, background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }}>
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
-                    Back
-                  </button>
-                  {selectedRole && <div style={{ marginLeft: 'auto' }}><RoleChip role={selectedRole} dark={dark} /></div>}
-                </div>
-
-                <p style={{ fontFamily: "'Sora',sans-serif", fontSize: 21, fontWeight: 800, color: C.text, letterSpacing: '-0.025em', margin: '0 0 4px' }}>Welcome back</p>
+                <p style={{ fontFamily: "'Sora',sans-serif", fontSize: 21, fontWeight: 800, color: C.text, letterSpacing: '-0.025em', margin: '0 0 4px' }}>
+                  Welcome back
+                </p>
                 <p style={{ fontSize: 12.5, color: C.text2, margin: '0 0 18px' }}>
-                  {selectedRole ? `Signing in as ${selectedRole.label}` : 'Enter your credentials to continue.'}
+                  Sign in to your EDUPLA account.
                 </p>
 
+                {deactivMsg && (
+                  <InlineToast msg={`Account deactivated: ${deactivMsg}`} type="error" onClose={() => setDeactivMsg('')} />
+                )}
                 <InlineToast msg={toast2.msg} type={toast2.type} onClose={() => setToast2({ msg: '', type: '' })} />
 
                 <form onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -829,10 +641,14 @@ export default function Login() {
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 7L2 7"/></svg>
                       </span>
                       <input
-                        type="email" value={form.email} required
+                        type="email"
+                        value={form.email}
+                        required
                         onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                        onFocus={() => setFocused('email')} onBlur={() => setFocused(null)}
-                        placeholder="you@school.edu" autoComplete="email"
+                        onFocus={() => setFocused('email')}
+                        onBlur={() => setFocused(null)}
+                        placeholder="you@school.edu"
+                        autoComplete="email"
                         style={inputStyle('email')}
                         aria-label="Email address"
                       />
@@ -843,8 +659,11 @@ export default function Login() {
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 7 }}>
                       <label style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', color: C.text3, textTransform: 'uppercase' }}>Password</label>
-                      <button type="button" onClick={() => { setStep('forgot'); setForgotEmail(form.email); setForgotSent(false); setToast2({ msg: '', type: '' }); }}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11.5, color: '#818cf8', fontWeight: 600, fontFamily: "'DM Sans',sans-serif" }}>
+                      <button
+                        type="button"
+                        onClick={() => { setStep('forgot'); setForgotEmail(form.email); setForgotSent(false); setToast2({ msg: '', type: '' }); }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11.5, color: '#818cf8', fontWeight: 600, fontFamily: "'DM Sans',sans-serif" }}
+                      >
                         Forgot password?
                       </button>
                     </div>
@@ -853,37 +672,30 @@ export default function Login() {
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                       </span>
                       <input
-                        type={showPass ? 'text' : 'password'} value={form.password} required
+                        type={showPass ? 'text' : 'password'}
+                        value={form.password}
+                        required
                         onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-                        onFocus={() => setFocused('password')} onBlur={() => setFocused(null)}
-                        placeholder="••••••••" autoComplete="current-password"
+                        onFocus={() => setFocused('password')}
+                        onBlur={() => setFocused(null)}
+                        placeholder="••••••••"
+                        autoComplete="current-password"
                         style={{ ...inputStyle('password'), paddingRight: 42 }}
                         aria-label="Password"
                       />
-                      <button type="button" onClick={() => setShowPass(s => !s)}
+                      <button
+                        type="button"
+                        onClick={() => setShowPass(s => !s)}
                         aria-label={showPass ? 'Hide password' : 'Show password'}
-                        style={{ position: 'absolute', right: 11, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: C.text3, display: 'flex', padding: 3 }}>
+                        style={{ position: 'absolute', right: 11, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: C.text3, display: 'flex', padding: 3 }}
+                      >
                         {showPass
                           ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
                           : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                         }
                       </button>
                     </div>
-                    {/* strength meter */}
-                    {form.password.length > 0 && (
-                      <div style={{ marginTop: 8 }}>
-                        <div style={{ display: 'flex', gap: 4, marginBottom: 4 }}>
-                          {[1, 2, 3, 4].map(n => (
-                            <div key={n} style={{
-                              flex: 1, height: 3, borderRadius: 2,
-                              background: n <= strength.score ? strength.color : C.divider,
-                              transition: 'background 0.25s',
-                            }} />
-                          ))}
-                        </div>
-                        <p style={{ fontSize: 11, color: strength.color, fontWeight: 600, margin: 0 }}>{strength.label} password</p>
-                      </div>
-                    )}
+
                   </div>
 
                   {/* remember + ssl */}
@@ -892,7 +704,9 @@ export default function Login() {
                     padding: '9px 0', borderTop: `1px solid ${C.divider}`, borderBottom: `1px solid ${C.divider}`,
                   }}>
                     <div
-                      role="checkbox" aria-checked={remember} tabIndex={0}
+                      role="checkbox"
+                      aria-checked={remember}
+                      tabIndex={0}
                       className="ep-checkbox"
                       onClick={() => setRemember(r => !r)}
                       onKeyDown={e => e.key === ' ' && setRemember(r => !r)}
@@ -919,7 +733,10 @@ export default function Login() {
                   {/* submit */}
                   <button type="submit" disabled={loading} className="ep-submit">
                     <div className="ep-shimmer" />
-                    {loading ? <><div className="ep-spinner" />Signing in…</> : <>Sign in <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></>}
+                    {loading
+                      ? <><div className="ep-spinner" />Signing in…</>
+                      : <>Sign in <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></>
+                    }
                   </button>
                 </form>
 
@@ -942,8 +759,11 @@ export default function Login() {
             {step === 'forgot' && (
               <div className="ep-step">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-                  <button className="ep-back" onClick={() => { setStep('creds'); setForgotSent(false); setToast2({ msg: '', type: '' }); }}
-                    style={{ color: C.text2, background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }}>
+                  <button
+                    className="ep-back"
+                    onClick={() => { setStep('creds'); setForgotSent(false); setToast2({ msg: '', type: '' }); }}
+                    style={{ color: C.text2, background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }}
+                  >
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
                     Back to sign in
                   </button>
@@ -993,10 +813,14 @@ export default function Login() {
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 7L2 7"/></svg>
                         </span>
                         <input
-                          type="email" value={forgotEmail} required
+                          type="email"
+                          value={forgotEmail}
+                          required
                           onChange={e => setForgotEmail(e.target.value)}
-                          onFocus={() => setFocused('forgot-email')} onBlur={() => setFocused(null)}
-                          placeholder="you@school.edu" autoComplete="email"
+                          onFocus={() => setFocused('forgot-email')}
+                          onBlur={() => setFocused(null)}
+                          placeholder="you@school.edu"
+                          autoComplete="email"
                           style={inputStyle('forgot-email')}
                           aria-label="Email address for password reset"
                         />
@@ -1004,7 +828,10 @@ export default function Login() {
                     </div>
                     <button type="submit" disabled={loading} className="ep-submit">
                       <div className="ep-shimmer" />
-                      {loading ? <><div className="ep-spinner" />Sending…</> : <>Send reset link <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></>}
+                      {loading
+                        ? <><div className="ep-spinner" />Sending…</>
+                        : <>Send reset link <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></>
+                      }
                     </button>
                   </form>
                 )}

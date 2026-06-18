@@ -5,11 +5,11 @@ import Modal from '../../components/common/Modal';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import Pagination from '../../components/common/Pagination';
 import {
-  Plus, Search, Users, Edit2, Trash2, LayoutGrid, List,
-  BookOpen, GraduationCap, Filter, X, Phone, Mail,
-  Calendar, TrendingUp, Award, Layers, Hash, CheckCircle2,
-  ArrowUpRight, Copy, Eye, EyeOff,
-  ToggleLeft, ToggleRight,
+  Plus, Search, Edit2, Trash2, LayoutGrid, List,
+  BookOpen, GraduationCap, Filter, X,
+  Award, Layers, CheckCircle2,
+  Copy, Eye, EyeOff,
+  ToggleLeft, ToggleRight, Info,
 } from 'lucide-react';
 
 /* ── Constants ── */
@@ -256,8 +256,6 @@ export default function AdminStudents() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
-  const [filterLevel, setFilterLevel] = useState('');
-  const [filterTrade, setFilterTrade] = useState('');
   const [filterClass, setFilterClass] = useState('');
   const [viewMode, setViewMode] = useState('table');
   const [loading, setLoading] = useState(true);
@@ -269,32 +267,26 @@ export default function AdminStudents() {
   const [deleting, setDeleting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [classes, setClasses] = useState([]);
-  const [levels, setLevels] = useState([]);
-  const [trades, setTrades] = useState([]);
   const [defaultPassword, setDefaultPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  const [form, setForm] = useState({ name: '', email: '', classIds: [], level: '', trade: '', class_year: '', phone: '' });
+  const [form, setForm] = useState({ name: '', email: '', classIds: [], class_year: '' });
 
   const fetchStudents = useCallback(async () => {
     setLoading(true);
     try {
       const params = { search, page, limit: 12 };
-      if (filterLevel) params.level = filterLevel;
-      if (filterTrade) params.trade = filterTrade;
       if (filterClass) params.classId = filterClass;
       const res = await api.get('/admin/students', { params });
       setStudents(res.data.students);
       setTotal(res.data.total);
     } catch { toast.error('Failed to load students'); }
     finally { setLoading(false); }
-  }, [search, page, filterLevel, filterTrade, filterClass]);
+  }, [search, page, filterClass]);
 
   useEffect(() => { fetchStudents(); }, [fetchStudents]);
   useEffect(() => {
     api.get('/admin/classes?limit=100').then(r => setClasses(r.data.classes || [])).catch(() => {});
-    api.get('/admin/levels').then(r => setLevels(r.data.levels || [])).catch(() => {});
-    api.get('/admin/trades').then(r => setTrades(r.data.trades || [])).catch(() => {});
   }, []);
 
   const openModal = async (student = null) => {
@@ -305,12 +297,12 @@ export default function AdminStudents() {
       try {
         const res = await api.get(`/admin/students/${student.id}`);
         const s = res.data.student;
-        setForm({ name: s.name, email: s.email, classIds: s.classes.map(c => String(c.id)), level: s.level || '', trade: s.trade || '', class_year: s.class_year || '', phone: s.phone || '' });
+        setForm({ name: s.name, email: s.email, classIds: s.classes.map(c => String(c.id)), class_year: s.class_year || '' });
       } catch {
-        setForm({ name: student.name, email: student.email, classIds: [], level: student.level || '', trade: student.trade || '', class_year: '', phone: '' });
+        setForm({ name: student.name, email: student.email, classIds: [], class_year: '' });
       }
     } else {
-      setForm({ name: '', email: '', classIds: [], level: '', trade: '', class_year: '', phone: '' });
+      setForm({ name: '', email: '', classIds: [], class_year: '' });
     }
     setModal(true);
   };
@@ -374,7 +366,7 @@ export default function AdminStudents() {
     navigator.clipboard.writeText(text).then(() => toast.success('Copied!'));
   };
 
-  const activeFilters = [filterLevel, filterTrade, filterClass].filter(Boolean).length;
+  const activeFilters = [filterClass].filter(Boolean).length;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -409,35 +401,11 @@ export default function AdminStudents() {
             </p>
           </div>
 
-          {/* Level counters */}
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            {levels.map((l, i) => {
-              const count = students.filter(s => s.level === l.value).length;
-              return (
-                <div key={l.value} style={{
-                  textAlign: 'center', padding: '10px 16px', borderRadius: 14,
-                  background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', minWidth: 62,
-                }}>
-                  <p style={{ fontSize: 18, fontWeight: 800, color: '#fff', lineHeight: 1 }}>{count}</p>
-                  <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', marginTop: 3, fontWeight: 600 }}>{l.value}</p>
-                </div>
-              );
-            })}
-          </div>
+
         </div>
 
-        {/* Trade breakdown strip */}
-        <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'center' }}>
-          {trades.map((t, i) => {
-            const count = students.filter(s => s.trade === t.value).length;
-            return (
-              <div key={t.value} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <div style={{ width: 6, height: 6, borderRadius: '50%', background: TRADE_COLORS[i % TRADE_COLORS.length] }} />
-                <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', fontWeight: 500 }}>{t.value}</span>
-                <span style={{ fontSize: 12, fontWeight: 700, color: '#fff' }}>{count}</span>
-              </div>
-            );
-          })}
+        {/* Action strip */}
+        <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end' }}>
           <button
             onClick={() => openModal()}
             style={{
@@ -455,7 +423,7 @@ export default function AdminStudents() {
       </div>
 
       {/* ── Stat Strip ── */}
-      {!loading && students.length > 0 && <StatStrip students={students} levels={levels} trades={trades} />}
+      {!loading && students.length > 0 && <StatStrip students={students} />}
 
       {/* ── Toolbar ── */}
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -520,44 +488,6 @@ export default function AdminStudents() {
         <div className="card" style={{ padding: '14px 18px', display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'center', animation: 'slideUp 0.2s ease' }}>
           <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>Filter by:</span>
 
-          {/* Level pills */}
-          <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
-            <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Level</span>
-            {levels.map((l, i) => {
-              const active = filterLevel === l.value;
-              return (
-                <button key={l.value} onClick={() => { setFilterLevel(active ? '' : l.value); setPage(1); }}
-                  style={{
-                    padding: '4px 10px', borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700,
-                    background: active ? LEVEL_BG[i % LEVEL_BG.length] : 'var(--surface-100)',
-                    color: active ? LEVEL_COLORS[i % LEVEL_COLORS.length] : 'var(--text-secondary)',
-                    transition: 'all 0.15s',
-                  }}>{l.value}</button>
-              );
-            })}
-          </div>
-
-          <div style={{ width: 1, height: 20, background: 'var(--card-border)' }} />
-
-          {/* Trade pills */}
-          <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
-            <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Trade</span>
-            {trades.map((t, i) => {
-              const active = filterTrade === t.value;
-              return (
-                <button key={t.value} onClick={() => { setFilterTrade(active ? '' : t.value); setPage(1); }}
-                  style={{
-                    padding: '4px 10px', borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700,
-                    background: active ? TRADE_BG[i % TRADE_BG.length] : 'var(--surface-100)',
-                    color: active ? TRADE_COLORS[i % TRADE_COLORS.length] : 'var(--text-secondary)',
-                    transition: 'all 0.15s',
-                  }}>{t.value}</button>
-              );
-            })}
-          </div>
-
-          <div style={{ width: 1, height: 20, background: 'var(--card-border)' }} />
-
           {/* Class select */}
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
             <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Class</span>
@@ -569,7 +499,7 @@ export default function AdminStudents() {
           </div>
 
           {activeFilters > 0 && (
-            <button onClick={() => { setFilterLevel(''); setFilterTrade(''); setFilterClass(''); setPage(1); }}
+            <button onClick={() => { setFilterClass(''); setPage(1); }}
               style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600, color: '#ef4444', background: '#fef2f2', border: 'none', cursor: 'pointer', padding: '4px 10px', borderRadius: 7 }}>
               <X size={11} /> Clear all
             </button>
@@ -603,7 +533,7 @@ export default function AdminStudents() {
       ) : viewMode === 'grid' ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 }}>
           {students.map((s, i) => (
-            <StudentCard key={s.id} student={s} levels={levels} trades={trades} animDelay={i * 45}
+            <StudentCard key={s.id} student={s} animDelay={i * 45}
               onEdit={openModal} onDelete={setDeleteTarget} onToggle={handleToggle} />
           ))}
         </div>
@@ -623,7 +553,7 @@ export default function AdminStudents() {
             </thead>
             <tbody>
               {students.map((s, i) => (
-                <StudentRow key={s.id} student={s} levels={levels} trades={trades} animDelay={i * 35}
+                <StudentRow key={s.id} student={s} animDelay={i * 35}
                   onEdit={openModal} onDelete={setDeleteTarget} onToggle={handleToggle} />
               ))}
             </tbody>
@@ -682,7 +612,7 @@ export default function AdminStudents() {
               <button onClick={() => { setModal(false); setDefaultPassword(''); }} className="btn-secondary">Close</button>
               <button onClick={() => {
                 setDefaultPassword('');
-                setForm({ name: '', email: '', classIds: [], level: '', trade: '', class_year: '', phone: '' });
+                setForm({ name: '', email: '', classIds: [], class_year: '' });
                 setEditing(null);
               }} className="btn-primary">
                 <Plus size={14} /> Add Another
@@ -706,69 +636,19 @@ export default function AdminStudents() {
               </div>
             </div>
 
-            {/* Level pills */}
+            {/* Class Year */}
             <div>
-              <label className="label">Level</label>
-              <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-                {[{ value: '', label: 'None' }, ...levels].map((l, i) => {
-                  const active = form.level === l.value;
-                  const color = i === 0 ? 'var(--card-border)' : LEVEL_COLORS[(i - 1) % LEVEL_COLORS.length];
-                  const bg = i === 0 ? 'var(--surface-50)' : LEVEL_BG[(i - 1) % LEVEL_BG.length];
-                  return (
-                    <button key={l.value} type="button"
-                      onClick={() => setForm(f => ({ ...f, level: l.value }))}
-                      style={{
-                        padding: '5px 10px', borderRadius: 8, border: active ? `1.5px solid ${color}` : '1.5px solid var(--card-border)',
-                        background: active ? bg : 'var(--surface-50)',
-                        color: active ? color : 'var(--text-secondary)',
-                        fontSize: 11, fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s',
-                      }}>
-                      {l.value || 'None'}
-                    </button>
-                  );
-                })}
-              </div>
+              <label className="label">Intake Year</label>
+              <select value={form.class_year} onChange={e => setForm(f => ({ ...f, class_year: e.target.value }))}
+                className="input-field">
+                <option value="">Select year…</option>
+                {Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - 2 + i).map(y => (
+                  <option key={y} value={String(y)}>{y}</option>
+                ))}
+              </select>
             </div>
 
-            {/* Trade pills */}
-            <div>
-              <label className="label">Trade</label>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
-                {[{ value: '', label: 'None' }, ...trades].map((t, i) => {
-                  const active = form.trade === t.value;
-                  const color = i === 0 ? 'var(--card-border)' : TRADE_COLORS[(i - 1) % TRADE_COLORS.length];
-                  const bg = i === 0 ? 'var(--surface-50)' : TRADE_BG[(i - 1) % TRADE_BG.length];
-                  return (
-                    <button key={t.value} type="button"
-                      onClick={() => setForm(f => ({ ...f, trade: t.value }))}
-                      style={{
-                        padding: '5px 10px', borderRadius: 8, border: active ? `1.5px solid ${color}` : '1.5px solid var(--card-border)',
-                        background: active ? bg : 'var(--surface-50)',
-                        color: active ? color : 'var(--text-secondary)',
-                        fontSize: 11, fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s',
-                      }}>
-                      {t.value || 'None'}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Year & Phone */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div>
-                <label className="label">Class Year</label>
-                <input value={form.class_year} onChange={e => setForm(f => ({ ...f, class_year: e.target.value }))}
-                  className="input-field" placeholder="e.g. 2024" />
-              </div>
-              <div>
-                <label className="label">Phone</label>
-                <input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
-                  className="input-field" placeholder="+250 xxx xxx xxx" />
-              </div>
-            </div>
-
-            {/* Classes */}
+            {/* Enroll in Classes */}
             <div>
               <label className="label">
                 Enroll in Classes
@@ -780,7 +660,7 @@ export default function AdminStudents() {
               </label>
               <div style={{
                 display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6,
-                marginTop: 6, maxHeight: 160, overflowY: 'auto', paddingRight: 2,
+                marginTop: 6, maxHeight: 180, overflowY: 'auto', paddingRight: 2,
               }}>
                 {classes.map(c => {
                   const selected = form.classIds.includes(String(c.id));
@@ -797,9 +677,17 @@ export default function AdminStudents() {
                         style={{ accentColor: from, width: 14, height: 14, flexShrink: 0 }} />
                       <div style={{ minWidth: 0 }}>
                         <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</p>
-                        {c.teacher_name && (
-                          <p style={{ fontSize: 10, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.teacher_name}</p>
-                        )}
+                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 2 }}>
+                          {c.teacher_name && (
+                            <span style={{ fontSize: 10, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.teacher_name}</span>
+                          )}
+                          {c.level && (
+                            <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: '#dbeafe', color: '#3b82f6' }}>{c.level}</span>
+                          )}
+                          {c.trade && (
+                            <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: '#fef3c7', color: '#d97706' }}>{c.trade}</span>
+                          )}
+                        </div>
                       </div>
                     </label>
                   );
@@ -809,6 +697,27 @@ export default function AdminStudents() {
                 )}
               </div>
             </div>
+
+            {/* TVET info auto-derived hint */}
+            {form.classIds.length > 0 && (() => {
+              const primaryClass = classes.find(c => String(c.id) === String(form.classIds[0]));
+              if (!primaryClass) return null;
+              const hasInfo = primaryClass.level || primaryClass.trade;
+              if (!hasInfo) return null;
+              return (
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '10px 12px', borderRadius: 10, background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+                  <Info size={14} style={{ color: '#16a34a', flexShrink: 0, marginTop: 1 }} />
+                  <div>
+                    <p style={{ fontSize: 11, fontWeight: 700, color: '#15803d', marginBottom: 2 }}>TVET info assigned automatically</p>
+                    <p style={{ fontSize: 11, color: '#166534' }}>
+                      From <strong>{primaryClass.name}</strong>:{' '}
+                      {primaryClass.level && <span>Level: <strong>{primaryClass.level}</strong>{primaryClass.trade ? ' · ' : ''}</span>}
+                      {primaryClass.trade && <span>Trade: <strong>{primaryClass.trade}</strong></span>}
+                    </p>
+                  </div>
+                </div>
+              );
+            })()}
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, paddingTop: 4 }}>
               <button type="button" onClick={() => setModal(false)} className="btn-secondary">Cancel</button>

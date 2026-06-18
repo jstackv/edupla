@@ -1,6 +1,25 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
-const { User, Class, Assignment, Document, Announcement, Level, Trade, Submission } = require('../models/db');
+const { User, Class, Assignment, Document, Announcement, Level, Trade, Submission, ProgramConfig } = require('../models/db');
+
+// Resolves a programConfigId (scoped to this admin) into the snapshot fields
+// stored directly on the Class document. Returns nulls if no id given or not found.
+const resolveProgramConfig = async (programConfigId, adminId) => {
+  if (!programConfigId) {
+    return { program_config_id: null, program_sector: null, program_trade: null, program_qualification_title: null, program_rtqf_level: null };
+  }
+  const cfg = await ProgramConfig.findOne({ _id: programConfigId, created_by: adminId }).lean();
+  if (!cfg) {
+    return { program_config_id: null, program_sector: null, program_trade: null, program_qualification_title: null, program_rtqf_level: null };
+  }
+  return {
+    program_config_id: cfg._id,
+    program_sector: cfg.sector,
+    program_trade: cfg.trade,
+    program_qualification_title: cfg.qualificationTitle,
+    program_rtqf_level: cfg.rtqfLevel,
+  };
+};
 const { notifyAccountStatus, notifyWelcome } = require('../services/emailService');
 
 // ── Dashboard Stats ────────────────────────────────────────────────────
@@ -130,7 +149,9 @@ const getAllClasses = async (req, res) => {
 
     const [classes, total] = await Promise.all([
       Class.find(filter).sort({ created_at: -1 }).skip(skip).limit(parseInt(limit))
-        .populate('teacher_id', 'name').lean(),
+        .populate('teacher_id', 'name')
+        .populate('program_config_id', 'sector trade qualificationTitle rtqfLevel')
+        .lean(),
       Class.countDocuments(filter),
     ]);
 
@@ -146,7 +167,7 @@ const getAllClasses = async (req, res) => {
 
 const adminCreateClass = async (req, res) => {
   try {
-    const { name, description, level, trade, teacher_id, extra_teacher_ids = [] } = req.body;
+    const { name, description, level, trade, teacher_id, extra_teacher_ids = [], programConfigId } = req.body;
     if (!name || !teacher_id) return res.status(400).json({ message: 'Name and teacher are required' });
     const toObjectId = (id) => {
       try { return new mongoose.Types.ObjectId(String(id)); } catch { return null; }
@@ -157,10 +178,13 @@ const adminCreateClass = async (req, res) => {
       .map(toObjectId)
       .filter(id => id && id.toString() !== teacherIdStr);
 
+    const program = await resolveProgramConfig(programConfigId, req.user.id);
+
     const cls = await Class.create({
       name, description: description || null, level: level || null, trade: trade || null,
       teacher_id: teacherObjId, extra_teachers: extraIds,
       created_by: req.user.id,
+      ...program,
     });
     res.status(201).json({ message: 'Class created', id: cls._id });
   } catch (err) { res.status(500).json({ message: err.message }); }
@@ -168,7 +192,7 @@ const adminCreateClass = async (req, res) => {
 
 const adminUpdateClass = async (req, res) => {
   try {
-    const { name, description, level, trade, teacher_id, extra_teacher_ids = [] } = req.body;
+    const { name, description, level, trade, teacher_id, extra_teacher_ids = [], programConfigId } = req.body;
     // Cast IDs to ObjectId safely, exclude the class teacher from extra_teachers
     const toObjectId = (id) => {
       try { return new mongoose.Types.ObjectId(String(id)); } catch { return null; }
@@ -179,10 +203,17 @@ const adminUpdateClass = async (req, res) => {
       .map(toObjectId)
       .filter(id => id && id.toString() !== teacherIdStr);
 
-    const result = await Class.findByIdAndUpdate(req.params.id, {
+    const update = {
       name, description: description || null, level: level || null, trade: trade || null,
       teacher_id: teacherObjId, extra_teachers: allExtraIds,
-    });
+    };
+
+    // Only touch program fields if the client included the key at all (covers explicit clearing too)
+    if (Object.prototype.hasOwnProperty.call(req.body, 'programConfigId')) {
+      Object.assign(update, await resolveProgramConfig(programConfigId, req.user.id));
+    }
+
+    const result = await Class.findByIdAndUpdate(req.params.id, update);
     if (!result) return res.status(404).json({ message: 'Class not found' });
     res.json({ message: 'Class updated' });
   } catch (err) { res.status(500).json({ message: err.message }); }
@@ -224,9 +255,10 @@ const adminGetClassStudents = async (req, res) => {
   try {
     const cls = await Class.findById(req.params.id)
       .populate('students', 'name email level trade created_at')
+      .populate('program_config_id', 'sector trade qualificationTitle rtqfLevel')
       .lean();
     if (!cls) return res.status(404).json({ message: 'Class not found' });
-    res.json({ students: cls.students });
+    res.json({ students: cls.students, class: { id: cls._id, name: cls.name, program: cls.program_config_id || null } });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
@@ -269,16 +301,25 @@ const getAllStudents = async (req, res) => {
 
 const adminCreateStudent = async (req, res) => {
   try {
-    const { name, email, classIds = [], level, trade, class_year, phone } = req.body;
+    const { name, email, classIds = [], class_year } = req.body;
     if (!name || !email) return res.status(400).json({ message: 'Name and email are required' });
     const existing = await User.findOne({ email: email.toLowerCase() });
     if (existing) return res.status(400).json({ message: 'Email already exists' });
+
+    // Derive level & trade from the primary (first) enrolled class
+    let derivedLevel = null;
+    let derivedTrade = null;
+    if (classIds.length > 0) {
+      const primaryClass = await Class.findById(classIds[0], 'level trade').lean();
+      derivedLevel = primaryClass?.level || null;
+      derivedTrade = primaryClass?.trade || null;
+    }
 
     const defaultPassword = process.env.STUDENT_DEFAULT_PASSWORD || 'student123';
     const hashed = await bcrypt.hash(defaultPassword, 10);
     const s = await User.create({
       name, email: email.toLowerCase(), password: hashed, role: 'student',
-      level: level || null, trade: trade || null, class_year: class_year || null, phone: phone || null,
+      level: derivedLevel, trade: derivedTrade, class_year: class_year || null, phone: null,
       created_by: req.user.id,
     });
 
@@ -296,10 +337,20 @@ const adminCreateStudent = async (req, res) => {
 
 const adminUpdateStudent = async (req, res) => {
   try {
-    const { name, email, classIds = [], level, trade, class_year, phone } = req.body;
+    const { name, email, classIds = [], class_year } = req.body;
+
+    // Derive level & trade from the primary (first) enrolled class
+    let derivedLevel = null;
+    let derivedTrade = null;
+    if (classIds.length > 0) {
+      const primaryClass = await Class.findById(classIds[0], 'level trade').lean();
+      derivedLevel = primaryClass?.level || null;
+      derivedTrade = primaryClass?.trade || null;
+    }
+
     await User.updateOne(
       { _id: req.params.id, role: 'student' },
-      { name, email: email?.toLowerCase(), level: level || null, trade: trade || null, class_year: class_year || null, phone: phone || null }
+      { name, email: email?.toLowerCase(), level: derivedLevel, trade: derivedTrade, class_year: class_year || null }
     );
     await Class.updateMany({}, { $pull: { students: new mongoose.Types.ObjectId(req.params.id) } });
     if (classIds.length > 0) {
@@ -527,6 +578,56 @@ const toggleAdminStatus = async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
+// ── ProgramConfig CRUD ──────────────────────────────────────────────────
+const getProgramConfigs = async (req, res) => {
+  try {
+    const adminId = req.user.id;
+    const configs = await ProgramConfig.find({ created_by: adminId }).sort({ created_at: -1 }).lean();
+    res.json({ programConfigs: configs });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+const createProgramConfig = async (req, res) => {
+  try {
+    const { sector, trade, qualificationTitle, rtqfLevel } = req.body;
+    if (!sector || !trade || !qualificationTitle || !rtqfLevel)
+      return res.status(400).json({ message: 'All four fields are required' });
+    const adminId = req.user.id;
+    const doc = await ProgramConfig.create({
+      sector: sector.trim(),
+      trade: trade.trim(),
+      qualificationTitle: qualificationTitle.trim(),
+      rtqfLevel: rtqfLevel.trim(),
+      created_by: adminId,
+    });
+    res.status(201).json({ programConfig: doc });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+const updateProgramConfig = async (req, res) => {
+  try {
+    const { sector, trade, qualificationTitle, rtqfLevel } = req.body;
+    if (!sector || !trade || !qualificationTitle || !rtqfLevel)
+      return res.status(400).json({ message: 'All four fields are required' });
+    const adminId = req.user.id;
+    const doc = await ProgramConfig.findOneAndUpdate(
+      { _id: req.params.id, created_by: adminId },
+      { sector: sector.trim(), trade: trade.trim(), qualificationTitle: qualificationTitle.trim(), rtqfLevel: rtqfLevel.trim() },
+      { new: true }
+    );
+    if (!doc) return res.status(404).json({ message: 'Program config not found' });
+    res.json({ programConfig: doc });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+const deleteProgramConfig = async (req, res) => {
+  try {
+    const adminId = req.user.id;
+    await ProgramConfig.findOneAndDelete({ _id: req.params.id, created_by: adminId });
+    res.json({ message: 'Program configuration deleted' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
 module.exports = {
   getDashboardStats, getTeachers, createTeacher, updateTeacher, deleteTeacher,
   getAllClasses, adminCreateClass, adminUpdateClass, adminDeleteClass, adminAssignClassToTeacher,
@@ -536,5 +637,6 @@ module.exports = {
   getAdminAssignments,
   getLevels, createLevel, deleteLevel, updateLevel,
   getTrades, createTrade, deleteTrade, updateTrade,
+  getProgramConfigs, createProgramConfig, updateProgramConfig, deleteProgramConfig,
   toggleTeacherStatus, toggleStudentStatus, toggleClassStatus, toggleAdminStatus,
 };

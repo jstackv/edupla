@@ -1,6 +1,16 @@
 const { Course, Assessment, Mark, Class, User, AssessmentSubmission } = require('../models/db');
 const mongoose = require('mongoose');
 
+/* ─────────────────────────────────────────────────────────
+   Assessment title is derived from the assessment type.
+   This is the single source of truth.
+───────────────────────────────────────────────────────── */
+const TYPE_TITLES = {
+  FA: 'Formative Assessment',
+  IA: 'Integrated Assessment',
+  CA: 'Comprehensive Assessment',
+};
+
 /* ═══════════════════════════════════════════════════
    ADMIN — COURSE MANAGEMENT
 ═══════════════════════════════════════════════════ */
@@ -18,13 +28,14 @@ exports.adminGetCourses = async (req, res) => {
 
 exports.adminCreateCourse = async (req, res) => {
   try {
-    const { name, code, description, class_id, teacher_id, total_marks } = req.body;
+    const { name, code, description, class_id, teacher_id, total_marks, category } = req.body;
     if (!name) return res.status(400).json({ message: 'Course name is required' });
     const course = await Course.create({
       name: name.trim(),
       code: code?.trim() || null,
       description: description?.trim() || null,
       total_marks: total_marks ? Number(total_marks) : 100,
+      category: category || 'Complementary modules',
       class_id: class_id || null,
       teacher_id: teacher_id || null,
       created_by: req.user.id,
@@ -35,12 +46,13 @@ exports.adminCreateCourse = async (req, res) => {
 
 exports.adminUpdateCourse = async (req, res) => {
   try {
-    const { name, code, description, class_id, teacher_id, total_marks } = req.body;
+    const { name, code, description, class_id, teacher_id, total_marks, category } = req.body;
     const update = {};
     if (name) update.name = name.trim();
     if (code !== undefined) update.code = code?.trim() || null;
     if (description !== undefined) update.description = description?.trim() || null;
     if (total_marks !== undefined) update.total_marks = total_marks ? Number(total_marks) : 100;
+    if (category !== undefined) update.category = category || 'Complementary modules';
     if (class_id !== undefined) update.class_id = class_id || null;
     if (teacher_id !== undefined) update.teacher_id = teacher_id || null;
     const course = await Course.findOneAndUpdate(
@@ -64,7 +76,6 @@ exports.adminDeleteCourse = async (req, res) => {
    ADMIN — REPORT VIEWING
 ═══════════════════════════════════════════════════ */
 
-// GET /api/assessments/admin/reports/student/:studentId
 exports.adminStudentReport = async (req, res) => {
   try {
     const { term, year } = req.query;
@@ -72,25 +83,103 @@ exports.adminStudentReport = async (req, res) => {
     const student = await User.findById(studentId).select('name email level trade class_year').lean();
     if (!student) return res.status(404).json({ message: 'Student not found' });
 
+    const studentClass = await Class.findOne({ students: studentId })
+      .select('name program_sector program_trade program_qualification_title program_rtqf_level students')
+      .populate('students', '_id name')
+      .lean();
+
     const assessmentFilter = {};
     if (term) assessmentFilter.term = term;
     if (year) assessmentFilter.academic_year = year;
 
-    let assessments = await Assessment.find(assessmentFilter)
-      .populate({ path: 'course_id', select: 'name code total_marks' })
+    const assessments = await Assessment.find(assessmentFilter)
+      .populate({ path: 'course_id', select: 'name code total_marks category' })
       .lean();
 
     const assessmentIds = assessments.map(a => a._id);
-    const marks = await Mark.find({ student_id: studentId, assessment_id: { $in: assessmentIds } }).lean();
+
+    /* ── All marks for all students in the class (for ranking) ── */
+    const allClassStudentIds = (studentClass?.students || []).map(s => s._id);
+    const allMarks = await Mark.find({
+      assessment_id: { $in: assessmentIds },
+      student_id: { $in: allClassStudentIds.length ? allClassStudentIds : [studentId] },
+    }).lean();
+
+    /* Build per-student mark totals for ranking within same filter */
+    const studentTotalsMap = {};
+    allMarks.forEach(m => {
+      const sid = m.student_id.toString();
+      if (!studentTotalsMap[sid]) studentTotalsMap[sid] = { obtained: 0, max: 0 };
+      const a = assessments.find(x => x._id.toString() === m.assessment_id.toString());
+      if (!a) return;
+      if (m.approved_marks != null) {
+        studentTotalsMap[sid].obtained += m.approved_marks;
+        studentTotalsMap[sid].max      += a.max_marks;
+      }
+    });
+
+    /* Rank: sort all students by percentage descending */
+    const rankedStudents = Object.entries(studentTotalsMap)
+      .map(([sid, { obtained, max }]) => ({
+        sid,
+        pct: max > 0 ? Math.round((obtained / max) * 100) : null,
+      }))
+      .filter(x => x.pct != null)
+      .sort((a, b) => b.pct - a.pct);
+
+    const myRankEntry = rankedStudents.find(x => x.sid === studentId.toString());
+    const myRank = myRankEntry
+      ? rankedStudents.findIndex(x => x.sid === studentId.toString()) + 1
+      : null;
+
+    /* Per-term ranks */
+    const TERMS = ['Term 1', 'Term 2', 'Term 3'];
+    const termRanks = {};
+    for (const t of TERMS) {
+      const termAssessments = assessments.filter(a => a.term === t);
+      if (termAssessments.length === 0) continue;
+      const termAssIds = termAssessments.map(a => a._id);
+
+      const termMarks = allMarks.filter(m =>
+        termAssIds.some(id => id.toString() === m.assessment_id.toString())
+      );
+
+      const termTotals = {};
+      termMarks.forEach(m => {
+        const sid = m.student_id.toString();
+        if (!termTotals[sid]) termTotals[sid] = { obtained: 0, max: 0 };
+        const a = termAssessments.find(x => x._id.toString() === m.assessment_id.toString());
+        if (!a) return;
+        if (m.approved_marks != null) {
+          termTotals[sid].obtained += m.approved_marks;
+          termTotals[sid].max      += a.max_marks;
+        }
+      });
+
+      const ranked = Object.entries(termTotals)
+        .map(([sid, { obtained, max }]) => ({ sid, pct: max > 0 ? Math.round((obtained / max) * 100) : null }))
+        .filter(x => x.pct != null)
+        .sort((a, b) => b.pct - a.pct);
+
+      const myTermEntry = ranked.find(x => x.sid === studentId.toString());
+      termRanks[t] = myTermEntry
+        ? { rank: ranked.findIndex(x => x.sid === studentId.toString()) + 1, total: ranked.length }
+        : null;
+    }
+
+    /* Marks for the requested student */
+    const myMarks = await Mark.find({ student_id: studentId, assessment_id: { $in: assessmentIds } }).lean();
     const markMap = {};
-    marks.forEach(m => { markMap[m.assessment_id.toString()] = m; });
+    myMarks.forEach(m => { markMap[m.assessment_id.toString()] = m; });
 
     const reportData = assessments.map(a => ({
       assessment_id: a._id,
       title: a.title,
       course: a.course_id?.name || 'N/A',
+      course_id: a.course_id?._id,
       course_code: a.course_id?.code || '',
       course_total_marks: a.course_id?.total_marks || 100,
+      course_category: a.course_id?.category || 'Complementary modules',
       type: a.type,
       term: a.term,
       year: a.academic_year,
@@ -98,15 +187,26 @@ exports.adminStudentReport = async (req, res) => {
       marks_obtained: markMap[a._id.toString()]?.approved_marks ?? null,
     }));
 
-    res.json({ student: { ...student, id: student._id }, report: reportData });
+    res.json({
+      student: { ...student, id: student._id, class_name: studentClass?.name || student.class_year || null },
+      report: reportData,
+      rank: myRank,
+      total_students: rankedStudents.length,
+      term_ranks: termRanks,
+      program: {
+        sector: studentClass?.program_sector || null,
+        trade: studentClass?.program_trade || null,
+        qualificationTitle: studentClass?.program_qualification_title || null,
+        rtqfLevel: studentClass?.program_rtqf_level || null,
+      },
+    });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
-// GET /api/assessments/admin/reports/assessment/:assessmentId
 exports.adminAssessmentReport = async (req, res) => {
   try {
     const assessment = await Assessment.findById(req.params.assessmentId)
-      .populate('course_id', 'name code total_marks')
+      .populate('course_id', 'name code total_marks category')
       .populate('teacher_id', 'name')
       .lean();
     if (!assessment) return res.status(404).json({ message: 'Assessment not found' });
@@ -125,7 +225,6 @@ exports.adminAssessmentReport = async (req, res) => {
       grade: m.marks != null ? getGrade(m.marks, assessment.max_marks) : 'N/A',
     }));
 
-    // Add rank
     const sorted = [...reportData].filter(s => s.percentage != null).sort((a, b) => b.percentage - a.percentage);
     reportData.forEach(s => {
       if (s.percentage != null) {
@@ -138,7 +237,6 @@ exports.adminAssessmentReport = async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
-// GET /api/assessments/admin/reports/class/:classId
 exports.adminClassReport = async (req, res) => {
   try {
     const cls = await Class.findById(req.params.classId)
@@ -156,25 +254,59 @@ exports.adminClassReport = async (req, res) => {
     if (year) assessmentFilter.academic_year = year;
 
     const assessments = await Assessment.find(assessmentFilter)
-      .populate('course_id', 'name code total_marks')
+      .populate('course_id', 'name code total_marks category')
       .lean();
 
     const assessmentIds = assessments.map(a => a._id);
-    const allMarks = await Mark.find({ assessment_id: { $in: assessmentIds } }).lean();
+    const allClassStudentIds = (cls.students || []).map(s => s._id);
 
+    /* All marks for all class students across all assessments in filter */
+    const allMarks = await Mark.find({ assessment_id: { $in: assessmentIds } }).lean();
     const markIndex = {};
     allMarks.forEach(m => {
       const key = m.student_id.toString() + '_' + m.assessment_id.toString();
       markIndex[key] = m;
     });
 
-    // Filter students if specific ones requested
+    /* ── Per-term ranking across ALL class students ──
+       Build: termRankMap[studentId][term] = { rank, total } */
+    const TERMS_ALL = ['Term 1', 'Term 2', 'Term 3'];
+    const termRankMap = {};
+
+    for (const t of TERMS_ALL) {
+      const termAssessments = assessments.filter(a => a.term === t);
+      if (termAssessments.length === 0) continue;
+
+      /* Compute each class student's total for this term */
+      const termTotals = cls.students.map(s => {
+        let obtained = 0;
+        let max = 0;
+        termAssessments.forEach(a => {
+          const key = s._id.toString() + '_' + a._id.toString();
+          const m = markIndex[key];
+          if (m?.approved_marks != null) {
+            obtained += m.approved_marks;
+            max      += a.max_marks;
+          }
+        });
+        return { sid: s._id.toString(), obtained, max, pct: max > 0 ? Math.round((obtained / max) * 100) : null };
+      });
+
+      const ranked = [...termTotals]
+        .filter(x => x.pct != null)
+        .sort((a, b) => b.pct - a.pct);
+
+      ranked.forEach((entry, idx) => {
+        if (!termRankMap[entry.sid]) termRankMap[entry.sid] = {};
+        termRankMap[entry.sid][t] = { rank: idx + 1, total: ranked.length };
+      });
+    }
+
+    /* ── Filter to target students for the response ── */
     let targetStudents = cls.students;
     if (studentIds) {
       const ids = studentIds.split(',').filter(Boolean);
-      if (ids.length > 0) {
-        targetStudents = cls.students.filter(s => ids.includes(s._id.toString()));
-      }
+      if (ids.length > 0) targetStudents = cls.students.filter(s => ids.includes(s._id.toString()));
     }
 
     const students = targetStudents.map(s => {
@@ -187,6 +319,7 @@ exports.adminClassReport = async (req, res) => {
           course: a.course_id?.name,
           course_code: a.course_id?.code,
           course_total_marks: a.course_id?.total_marks || 100,
+          course_category: a.course_id?.category || 'Complementary modules',
           type: a.type,
           term: a.term,
           marks: mark?.approved_marks ?? null,
@@ -195,42 +328,54 @@ exports.adminClassReport = async (req, res) => {
       });
       const scored = studentMarks.filter(m => m.marks != null);
       const totalObtained = scored.reduce((s, m) => s + m.marks, 0);
-      const totalMax = scored.reduce((s, m) => s + m.max_marks, 0);
-      const percentage = totalMax > 0 ? Math.round((totalObtained / totalMax) * 100) : null;
+      const totalMax      = scored.reduce((s, m) => s + m.max_marks, 0);
+      const percentage    = totalMax > 0 ? Math.round((totalObtained / totalMax) * 100) : null;
       return {
-        student_id: s._id,
-        name: s.name,
-        email: s.email,
-        level: s.level,
-        trade: s.trade,
-        marks: studentMarks,
-        total_obtained: totalObtained,
-        total_max: totalMax,
-        percentage,
+        student_id: s._id, name: s.name, email: s.email, level: s.level, trade: s.trade,
+        marks: studentMarks, total_obtained: totalObtained, total_max: totalMax, percentage,
         grade: totalMax > 0 ? getGrade(totalObtained, totalMax) : 'N/A',
+        term_ranks: termRankMap[s._id.toString()] || {},
       };
     });
 
-    // Assign ranks
-    const sorted = [...students].filter(s => s.percentage != null).sort((a, b) => b.percentage - a.percentage);
+    /* ── Annual rank across ALL class students (not just target filter) ── */
+    const allStudentTotals = cls.students.map(s => {
+      const scored = assessments.map(a => {
+        const key = s._id.toString() + '_' + a._id.toString();
+        const m = markIndex[key];
+        return m?.approved_marks != null ? { marks: m.approved_marks, max: a.max_marks } : null;
+      }).filter(Boolean);
+      const totalObt = scored.reduce((acc, x) => acc + x.marks, 0);
+      const totalMx  = scored.reduce((acc, x) => acc + x.max, 0);
+      return {
+        sid: s._id.toString(),
+        pct: totalMx > 0 ? Math.round((totalObt / totalMx) * 100) : null,
+      };
+    });
+
+    const annualRanked = [...allStudentTotals]
+      .filter(x => x.pct != null)
+      .sort((a, b) => b.pct - a.pct);
+
+    /* Attach annual rank to each target student */
     students.forEach(s => {
-      if (s.percentage != null) {
-        s.rank = sorted.findIndex(x => x.student_id?.toString() === s.student_id?.toString()) + 1;
-        s.rank_percent = sorted.length > 0 ? Math.round(((sorted.length - s.rank + 1) / sorted.length) * 100) : null;
-      }
+      const idx = annualRanked.findIndex(x => x.sid === s.student_id.toString());
+      s.rank = idx >= 0 ? idx + 1 : null;
+      s.rank_total = annualRanked.length;
     });
 
     res.json({
       class: {
-        id: cls._id,
-        name: cls.name,
-        teacher: cls.teacher_id
-          ? { name: cls.teacher_id.name, email: cls.teacher_id.email }
-          : null,
+        id: cls._id, name: cls.name,
+        teacher: cls.teacher_id ? { name: cls.teacher_id.name, email: cls.teacher_id.email } : null,
+        program: {
+          sector: cls.program_sector || null,
+          trade: cls.program_trade || null,
+          qualificationTitle: cls.program_qualification_title || null,
+          rtqfLevel: cls.program_rtqf_level || null,
+        },
       },
-      assessments,
-      courses,
-      students,
+      assessments, courses, students,
     });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
@@ -256,7 +401,7 @@ exports.teacherGetAssessments = async (req, res) => {
     if (course_id) filter.course_id = course_id;
 
     const assessments = await Assessment.find(filter)
-      .populate('course_id', 'name code class_id total_marks')
+      .populate('course_id', 'name code class_id total_marks category')
       .sort({ created_at: -1 })
       .lean();
 
@@ -265,15 +410,14 @@ exports.teacherGetAssessments = async (req, res) => {
     const subMap = {};
     submissions.forEach(s => { subMap[s.assessment_id.toString()] = s; });
 
-    // For each assessment, compute progress (how many students have marks)
     const enriched = await Promise.all(assessments.map(async a => {
       const course = a.course_id;
       let studentCount = 0;
-      let markedCount = 0;
+      let markedCount  = 0;
       if (course?.class_id) {
         const cls = await Class.findById(course.class_id, 'students').lean();
         studentCount = cls?.students?.length || 0;
-        markedCount = await Mark.countDocuments({ assessment_id: a._id, marks: { $ne: null } });
+        markedCount  = await Mark.countDocuments({ assessment_id: a._id, marks: { $ne: null } });
       }
       const sub = subMap[a._id.toString()];
       return {
@@ -289,15 +433,21 @@ exports.teacherGetAssessments = async (req, res) => {
 
 exports.teacherCreateAssessment = async (req, res) => {
   try {
-    const { title, course_id, type, term, academic_year, max_marks } = req.body;
-    if (!title || !course_id || !type || !term || !academic_year) {
-      return res.status(400).json({ message: 'Title, course, type, term, and year are required' });
+    const { course_id, type, term, academic_year, max_marks } = req.body;
+
+    if (!course_id || !type || !term || !academic_year) {
+      return res.status(400).json({ message: 'Course, type, term, and year are required' });
     }
+
+    if (!TYPE_TITLES[type]) {
+      return res.status(400).json({ message: `Invalid assessment type "${type}". Must be FA, IA, or CA.` });
+    }
+
+    const autoTitle = TYPE_TITLES[type];
+
     const course = await Course.findOne({ _id: course_id, teacher_id: req.user.id });
     if (!course) return res.status(403).json({ message: 'Course not assigned to you' });
 
-    // The admin-set module weight (total_marks) is the hard ceiling for max_marks.
-    // Teachers cannot override it — we always use the course's total_marks.
     const courseWeight = course.total_marks || 100;
     if (max_marks && Number(max_marks) > courseWeight) {
       return res.status(400).json({
@@ -305,33 +455,74 @@ exports.teacherCreateAssessment = async (req, res) => {
       });
     }
 
-    const assessment = await Assessment.create({
-      title: title.trim(),
+    /* ── Server-side duplicate guard ── */
+    const existing = await Assessment.findOne({
       course_id,
       teacher_id: req.user.id,
       type,
       term,
       academic_year,
-      max_marks: courseWeight, // always locked to the admin-defined weight
+    });
+    if (existing) {
+      return res.status(409).json({
+        message: `A "${autoTitle}" already exists for this module in ${term} ${academic_year}.`,
+      });
+    }
+
+    const assessment = await Assessment.create({
+      title: autoTitle,
+      course_id,
+      teacher_id: req.user.id,
+      type,
+      term,
+      academic_year,
+      max_marks: courseWeight,
       created_by: req.user.id,
     });
+
     res.status(201).json({ message: 'Assessment created', id: assessment._id });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
 exports.teacherUpdateAssessment = async (req, res) => {
   try {
-    const { title, type, term, academic_year } = req.body;
-    // max_marks is intentionally excluded — it is locked to the course's admin-set total_marks
+    const { type, term, academic_year } = req.body;
+
+    const assessment = await Assessment.findOne({ _id: req.params.id, teacher_id: req.user.id })
+      .populate('course_id', 'total_marks');
+    if (!assessment) return res.status(404).json({ message: 'Assessment not found' });
+
     const update = {};
-    if (title) update.title = title.trim();
-    if (type) update.type = type;
+    if (type) {
+      if (!TYPE_TITLES[type]) {
+        return res.status(400).json({ message: `Invalid assessment type "${type}". Must be FA, IA, or CA.` });
+      }
+      update.type  = type;
+      update.title = TYPE_TITLES[type];
+    }
     if (term) update.term = term;
     if (academic_year) update.academic_year = academic_year;
-    // Re-sync max_marks from the course in case admin changed it after creation
-    const assessment = await Assessment.findOne({ _id: req.params.id, teacher_id: req.user.id }).populate('course_id', 'total_marks');
-    if (!assessment) return res.status(404).json({ message: 'Assessment not found' });
+
+    /* Server-side duplicate guard for edits */
+    const checkType  = type         || assessment.type;
+    const checkTerm  = term         || assessment.term;
+    const checkYear  = academic_year || assessment.academic_year;
+    const duplicate = await Assessment.findOne({
+      _id: { $ne: req.params.id },
+      course_id: assessment.course_id?._id || assessment.course_id,
+      teacher_id: req.user.id,
+      type: checkType,
+      term: checkTerm,
+      academic_year: checkYear,
+    });
+    if (duplicate) {
+      return res.status(409).json({
+        message: `A "${TYPE_TITLES[checkType]}" already exists for this module in ${checkTerm} ${checkYear}.`,
+      });
+    }
+
     update.max_marks = assessment.course_id?.total_marks || assessment.max_marks || 100;
+
     const updated = await Assessment.findOneAndUpdate(
       { _id: req.params.id, teacher_id: req.user.id },
       update, { new: true }
@@ -346,7 +537,6 @@ exports.teacherDeleteAssessment = async (req, res) => {
     const assessment = await Assessment.findOne({ _id: req.params.id, teacher_id: req.user.id });
     if (!assessment) return res.status(404).json({ message: 'Assessment not found' });
 
-    // Check if any marks have been recorded for this assessment
     const marksCount = await Mark.countDocuments({ assessment_id: req.params.id, marks: { $ne: null } });
     if (marksCount > 0) {
       return res.status(400).json({
@@ -364,7 +554,7 @@ exports.teacherDeleteAssessment = async (req, res) => {
 exports.teacherGetMarks = async (req, res) => {
   try {
     const assessment = await Assessment.findOne({ _id: req.params.id, teacher_id: req.user.id })
-      .populate('course_id', 'name code class_id total_marks')
+      .populate('course_id', 'name code class_id total_marks category')
       .lean();
     if (!assessment) return res.status(404).json({ message: 'Assessment not found' });
 
@@ -392,15 +582,13 @@ exports.teacherGetMarks = async (req, res) => {
       submission: {
         status,
         submitted_at: submission?.submitted_at ?? null,
-        reviewed_at: submission?.reviewed_at ?? null,
-        review_note: submission?.review_note ?? null,
+        reviewed_at:  submission?.reviewed_at  ?? null,
+        review_note:  submission?.review_note  ?? null,
       },
     });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
-// POST /api/assessment/teacher/assessments/:id/marks
-// Saves marks as a draft. Allowed while status is draft or rejected (i.e. teacher has edit access).
 exports.teacherSaveMarks = async (req, res) => {
   try {
     const assessment = await Assessment.findOne({ _id: req.params.id, teacher_id: req.user.id })
@@ -415,9 +603,8 @@ exports.teacherSaveMarks = async (req, res) => {
     const { marks } = req.body;
     if (!Array.isArray(marks)) return res.status(400).json({ message: 'marks must be an array' });
 
-    // Validate: no individual mark may exceed the admin-set module weight
     const maxAllowed = assessment.course_id?.total_marks || assessment.max_marks || 100;
-    const overLimit = marks.filter(m => m.marks != null && Number(m.marks) > maxAllowed);
+    const overLimit  = marks.filter(m => m.marks != null && Number(m.marks) > maxAllowed);
     if (overLimit.length > 0) {
       return res.status(400).json({
         message: `One or more marks exceed the maximum allowed (${maxAllowed}). Please correct them before saving.`,
@@ -427,19 +614,13 @@ exports.teacherSaveMarks = async (req, res) => {
     const ops = marks.map(m => ({
       updateOne: {
         filter: { assessment_id: req.params.id, student_id: m.student_id },
-        update: {
-          $set: {
-            marks: m.marks,
-            entered_by: req.user.id,
-          },
-        },
+        update: { $set: { marks: m.marks, entered_by: req.user.id } },
         upsert: true,
       },
     }));
 
     if (ops.length > 0) await Mark.bulkWrite(ops);
 
-    // Ensure submission record exists and is in draft status
     await AssessmentSubmission.findOneAndUpdate(
       { assessment_id: req.params.id },
       { $setOnInsert: { assessment_id: req.params.id, status: 'draft' } },
@@ -450,8 +631,6 @@ exports.teacherSaveMarks = async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
-// POST /api/assessment/teacher/assessments/:id/submit
-// Saves the latest marks, then locks editing by marking the assessment as submitted.
 exports.teacherSubmitMarks = async (req, res) => {
   try {
     const assessment = await Assessment.findOne({ _id: req.params.id, teacher_id: req.user.id })
@@ -464,9 +643,8 @@ exports.teacherSubmitMarks = async (req, res) => {
     }
 
     const { marks } = req.body;
-
-    // Validate marks against admin-set module weight before submitting
     const maxAllowed = assessment.course_id?.total_marks || assessment.max_marks || 100;
+
     if (Array.isArray(marks) && marks.length > 0) {
       const overLimit = marks.filter(m => m.marks != null && Number(m.marks) > maxAllowed);
       if (overLimit.length > 0) {
@@ -474,8 +652,6 @@ exports.teacherSubmitMarks = async (req, res) => {
           message: `One or more marks exceed the maximum allowed (${maxAllowed}). Please correct them before submitting.`,
         });
       }
-    }
-    if (Array.isArray(marks) && marks.length > 0) {
       const ops = marks.map(m => ({
         updateOne: {
           filter: { assessment_id: req.params.id, student_id: m.student_id },
@@ -493,9 +669,9 @@ exports.teacherSubmitMarks = async (req, res) => {
           status: 'submitted',
           submitted_by: req.user.id,
           submitted_at: new Date(),
-          reviewed_by: null,
-          reviewed_at: null,
-          review_note: null,
+          reviewed_by:  null,
+          reviewed_at:  null,
+          review_note:  null,
         },
       },
       { upsert: true }
@@ -509,8 +685,6 @@ exports.teacherSubmitMarks = async (req, res) => {
    ADMIN — ASSESSMENT SUBMISSION REVIEW
 ═══════════════════════════════════════════════════ */
 
-// GET /api/assessment/admin/submissions
-// Lists all assessments (for courses created by this admin) with their submission status.
 exports.adminListSubmissions = async (req, res) => {
   try {
     const { status } = req.query;
@@ -518,7 +692,7 @@ exports.adminListSubmissions = async (req, res) => {
     const courseIds = courses.map(c => c._id);
 
     const assessments = await Assessment.find({ course_id: { $in: courseIds } })
-      .populate('course_id', 'name code total_marks class_id')
+      .populate('course_id', 'name code total_marks class_id category')
       .populate('teacher_id', 'name email')
       .sort({ created_at: -1 })
       .lean();
@@ -540,31 +714,27 @@ exports.adminListSubmissions = async (req, res) => {
     let result = assessments.map(a => {
       const sub = subMap[a._id.toString()];
       return {
-        ...a,
-        id: a._id,
+        ...a, id: a._id,
         submission_status: sub?.status || 'draft',
-        submitted_at: sub?.submitted_at || null,
-        reviewed_at: sub?.reviewed_at || null,
-        review_note: sub?.review_note || null,
-        marked_count: markCount[a._id.toString()] || 0,
+        submitted_at:  sub?.submitted_at  || null,
+        reviewed_at:   sub?.reviewed_at   || null,
+        review_note:   sub?.review_note   || null,
+        marked_count:  markCount[a._id.toString()] || 0,
       };
     });
 
     if (status) result = result.filter(a => a.submission_status === status);
-
     res.json({ assessments: result });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
-// GET /api/assessment/admin/submissions/:assessmentId
-// "View" — preview all marks submitted for an assessment.
 exports.adminViewSubmission = async (req, res) => {
   try {
     const courses = await Course.find({ created_by: req.user.id }, '_id').lean();
     const courseIds = courses.map(c => c._id.toString());
 
     const assessment = await Assessment.findById(req.params.assessmentId)
-      .populate('course_id', 'name code total_marks class_id')
+      .populate('course_id', 'name code total_marks class_id category')
       .populate('teacher_id', 'name email')
       .lean();
     if (!assessment || !courseIds.includes(assessment.course_id?._id?.toString()))
@@ -584,12 +754,8 @@ exports.adminViewSubmission = async (req, res) => {
       const marksVal = m?.marks ?? null;
       const max = assessment.max_marks;
       return {
-        student_id: s._id,
-        name: s.name,
-        email: s.email,
-        marks: marksVal,
-        approved_marks: m?.approved_marks ?? null,
-        max_marks: max,
+        student_id: s._id, name: s.name, email: s.email,
+        marks: marksVal, approved_marks: m?.approved_marks ?? null, max_marks: max,
         percentage: marksVal != null ? Math.round((marksVal / max) * 100) : null,
         grade: marksVal != null ? getGrade(marksVal, max) : 'N/A',
       };
@@ -599,18 +765,16 @@ exports.adminViewSubmission = async (req, res) => {
       assessment: { ...assessment, id: assessment._id },
       students: result,
       submission: {
-        status: submission?.status || 'draft',
+        status:       submission?.status       || 'draft',
         submitted_at: submission?.submitted_at || null,
         submitted_by: submission?.submitted_by || null,
-        reviewed_at: submission?.reviewed_at || null,
-        review_note: submission?.review_note || null,
+        reviewed_at:  submission?.reviewed_at  || null,
+        review_note:  submission?.review_note  || null,
       },
     });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
-// POST /api/assessment/admin/submissions/:assessmentId/approve
-// Approves the submission — marks become the "approved_marks" used in reports.
 exports.adminApproveSubmission = async (req, res) => {
   try {
     const courses = await Course.find({ created_by: req.user.id }, '_id').lean();
@@ -624,14 +788,10 @@ exports.adminApproveSubmission = async (req, res) => {
     if (!submission || submission.status !== 'submitted')
       return res.status(400).json({ message: 'This assessment has not been submitted for review.' });
 
-    // Copy current marks into approved_marks for every mark of this assessment
     const marks = await Mark.find({ assessment_id: req.params.assessmentId });
-    await Promise.all(marks.map(m => {
-      m.approved_marks = m.marks;
-      return m.save();
-    }));
+    await Promise.all(marks.map(m => { m.approved_marks = m.marks; return m.save(); }));
 
-    submission.status = 'approved';
+    submission.status      = 'approved';
     submission.reviewed_by = req.user.id;
     submission.reviewed_at = new Date();
     submission.review_note = null;
@@ -641,8 +801,6 @@ exports.adminApproveSubmission = async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
-// POST /api/assessment/admin/submissions/:assessmentId/reject
-// Rejects the submission — teacher regains edit access.
 exports.adminRejectSubmission = async (req, res) => {
   try {
     const courses = await Course.find({ created_by: req.user.id }, '_id').lean();
@@ -657,7 +815,7 @@ exports.adminRejectSubmission = async (req, res) => {
       return res.status(400).json({ message: 'Only submitted or approved assessments can be rejected.' });
 
     const { note } = req.body;
-    submission.status = 'rejected';
+    submission.status      = 'rejected';
     submission.reviewed_by = req.user.id;
     submission.reviewed_at = new Date();
     submission.review_note = note || null;
@@ -670,7 +828,7 @@ exports.adminRejectSubmission = async (req, res) => {
 exports.teacherAssessmentReport = async (req, res) => {
   try {
     const assessment = await Assessment.findOne({ _id: req.params.assessmentId, teacher_id: req.user.id })
-      .populate('course_id', 'name code class_id total_marks')
+      .populate('course_id', 'name code class_id total_marks category')
       .lean();
     if (!assessment) return res.status(404).json({ message: 'Assessment not found or not yours' });
 
@@ -699,11 +857,9 @@ exports.teacherAssessmentReport = async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
-/* ═══════════════════════════════════════════════════
-   HELPERS
-═══════════════════════════════════════════════════ */
+/* ─────────── Helpers ─────────── */
 function getGrade(obtained, max) {
-  const pct = (obtained / max) * 100;
+  const pct = Math.min((obtained / max) * 100, 100);
   if (pct >= 90) return 'A+';
   if (pct >= 80) return 'A';
   if (pct >= 70) return 'B';

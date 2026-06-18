@@ -1,896 +1,864 @@
+/**
+ * TeacherAssessments.jsx
+ *
+ * CHANGES:
+ * 1. Assessment title is auto-generated from type — no title field in form.
+ * 2. Class picker first, then module filtered by class.
+ * 3. Duplicate prevention: same course+type+term+year combo is blocked
+ *    both at save time (toast) and visually (type button grayed + "Used").
+ * 4. Marks modal now shows a marking-progress bar (X / Y students marked)
+ *    at the top, and blocks Save Draft / Submit for Review with an error
+ *    modal until every student has a mark entered.
+ */
+
 import { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import ConfirmModal from '../../components/common/ConfirmModal';
 import {
-  BookOpen, Plus, Edit2, Trash2, BarChart2, X, Save,
-  ClipboardList, Award, Printer, ArrowLeft, Users, Check,
-  AlertCircle, Clock, CheckCircle, TrendingUp, Hash, Target,
-  ChevronRight, Filter, Lock,
+  Plus, Edit2, Trash2, X, BookOpen, FileText, Users,
+  ChevronRight, Send, Save, Clock, CheckCircle, XCircle,
+  AlertCircle, School, GraduationCap, RefreshCw,
 } from 'lucide-react';
 
+/* ─────────── Constants ─────────── */
 const TERMS = ['Term 1', 'Term 2', 'Term 3'];
 const CURRENT_YEAR = new Date().getFullYear();
-const YEARS = [`${CURRENT_YEAR-1}-${CURRENT_YEAR}`, `${CURRENT_YEAR}-${CURRENT_YEAR+1}`];
+const YEARS = [
+  `${CURRENT_YEAR - 1}-${CURRENT_YEAR}`,
+  `${CURRENT_YEAR}-${CURRENT_YEAR + 1}`,
+  `${CURRENT_YEAR + 1}-${CURRENT_YEAR + 2}`,
+];
 
-function getGrade(obtained, max) {
-  const pct = (obtained / max) * 100;
-  if (pct >= 90) return 'A+';
-  if (pct >= 80) return 'A';
-  if (pct >= 70) return 'B';
-  if (pct >= 60) return 'C';
-  if (pct >= 50) return 'D';
-  return 'F';
-}
+const ASSESSMENT_TYPES = [
+  { key: 'FA', label: 'Formative Assessment',    color: '#3b82f6', desc: 'Ongoing evaluation during the learning process' },
+  { key: 'IA', label: 'Integrated Assessment',   color: '#10b981', desc: 'Holistic evaluation across multiple competencies' },
+  { key: 'CA', label: 'Comprehensive Assessment',color: '#8b5cf6', desc: 'End-of-term summative evaluation' },
+];
+
+/* ─────────── Tiny helpers ─────────── */
 function pctColor(pct) {
-  if (pct == null) return '#9ca3af';
-  if (pct >= 80) return '#10b981';
-  if (pct >= 60) return '#3b82f6';
-  if (pct >= 50) return '#f59e0b';
-  return '#ef4444';
+  if (pct == null) return '#374151';
+  if (pct >= 70) return '#059669';
+  if (pct >= 50) return '#b45309';
+  return '#dc2626';
 }
 
 function TypeBadge({ type }) {
-  const color = type === 'FA' ? '#3b82f6' : '#8b5cf6';
-  const label = type === 'FA' ? 'Formative' : 'Continuous';
-  return <span title={label} style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6, background: color + '20', color, border: '1px solid ' + color + '40' }}>{type}</span>;
-}
-function GradeBadge({ grade }) {
-  const color = grade === 'A+' || grade === 'A' ? '#10b981' : grade === 'B' ? '#3b82f6' : grade === 'C' ? '#f59e0b' : grade === 'D' ? '#f97316' : grade === 'F' ? '#ef4444' : '#9ca3af';
-  return <span style={{ fontSize: 11, fontWeight: 800, padding: '2px 8px', borderRadius: 6, background: color + '20', color }}>{grade}</span>;
+  const found = ASSESSMENT_TYPES.find(t => t.key === type);
+  const color = found?.color || '#9ca3af';
+  return (
+    <span title={found?.label || type} style={{
+      fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 5,
+      background: color + '20', color, border: '1px solid ' + color + '40',
+    }}>{type}</span>
+  );
 }
 
-function SubmissionStatusBadge({ status }) {
-  const info = {
-    draft:     { label: 'Draft',     color: '#9ca3af' },
-    submitted: { label: 'Submitted', color: '#f59e0b' },
-    approved:  { label: 'Approved',  color: '#10b981' },
-    rejected:  { label: 'Rejected',  color: '#ef4444' },
-  }[status] || { label: status, color: '#9ca3af' };
+function StatusBadge({ status }) {
+  const map = {
+    draft:     { label: 'Draft',     color: '#9ca3af', Icon: Clock },
+    submitted: { label: 'Submitted', color: '#f59e0b', Icon: Clock },
+    approved:  { label: 'Approved',  color: '#10b981', Icon: CheckCircle },
+    rejected:  { label: 'Rejected',  color: '#ef4444', Icon: XCircle },
+  };
+  const { label, color, Icon } = map[status] || map.draft;
   return (
-    <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 7, background: info.color + '18', color: info.color, border: `1px solid ${info.color}40` }}>
-      {info.label}
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 4,
+      fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 7,
+      background: color + '18', color, border: `1px solid ${color}40`,
+    }}>
+      <Icon size={11} /> {label}
     </span>
   );
 }
 
-// Progress indicator with color-coded status
-function ProgressIndicator({ marked, total, dark }) {
-  if (total === 0) return <span style={{ fontSize: 11, color: dark ? '#7b839a' : '#9ca3af' }}>No students</span>;
-  const pct = Math.round((marked / total) * 100);
-  const isComplete = marked === total;
-  const hasNone = marked === 0;
-  const color = isComplete ? '#10b981' : hasNone ? '#ef4444' : '#f59e0b';
-  const bg = isComplete ? '#f0fdf4' : hasNone ? '#fef2f2' : '#fffbeb';
-  const border = isComplete ? '#bbf7d0' : hasNone ? '#fecaca' : '#fde68a';
-
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <div style={{ flex: 1, height: 6, borderRadius: 3, background: dark ? '#2a3042' : '#e5e7eb', overflow: 'hidden', minWidth: 60 }}>
-        <div style={{ height: '100%', width: pct + '%', background: color, borderRadius: 3, transition: 'width 0.3s ease' }} />
-      </div>
-      <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 7px', borderRadius: 6, background: bg, color, border: '1px solid ' + border, whiteSpace: 'nowrap' }}>
-        {isComplete ? <><Check size={9} style={{ display: 'inline', marginRight: 3 }} />Done</> : `${marked}/${total}`}
-      </span>
-    </div>
-  );
-}
-
+/* ═══════════════════════════════════════════════════════════════
+   MAIN COMPONENT
+═══════════════════════════════════════════════════════════════ */
 export default function TeacherAssessments() {
   const { dark } = useTheme();
+  const { user } = useAuth();
 
-  const [view, setView] = useState('list');
-  const [courses, setCourses] = useState([]);
+  const [courses, setCourses]         = useState([]);
   const [assessments, setAssessments] = useState([]);
-  const [selectedCourse, setSelectedCourse] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [activeAssessment, setActiveAssessment] = useState(null);
-  const [marksData, setMarksData] = useState(null);
-  const [marksEdits, setMarksEdits] = useState({});
-  const [savingMarks, setSavingMarks] = useState(false);
-  const [submittingMarks, setSubmittingMarks] = useState(false);
-  const [reportData, setReportData] = useState(null);
-  const [reportLoading, setReportLoading] = useState(false);
+  const [loading, setLoading]         = useState(false);
 
+  /* ── Unique classes derived from teacher's courses ── */
+  const teacherClasses = (() => {
+    const seen = new Set();
+    const result = [];
+    courses.forEach(c => {
+      const cls = c.class_id;
+      if (!cls) return;
+      const id = cls._id || cls;
+      if (!seen.has(String(id))) {
+        seen.add(String(id));
+        result.push({ _id: String(id), name: cls.name || 'Class' });
+      }
+    });
+    return result;
+  })();
+
+  /* ── Modal state ── */
   const [showModal, setShowModal] = useState(false);
-  const [editingAssessment, setEditingAssessment] = useState(null);
-  const [form, setForm] = useState({ title: '', course_id: '', type: 'FA', term: 'Term 1', academic_year: YEARS[1], max_marks: 100 });
+  const [editingId, setEditingId] = useState(null);
 
-  // Confirmation modal state
-  const [confirmModal, setConfirmModal] = useState({ open: false, variant: 'warning', title: '', message: '', onConfirm: null, loading: false, confirmText: 'Confirm' });
+  const [form, setForm] = useState({
+    selectedClassId: '',
+    course_id: '',
+    type: '',
+    term: '',
+    academic_year: YEARS[1],
+  });
 
-  const card = { background: dark ? '#13161f' : '#fff', border: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}`, borderRadius: 16, padding: 20 };
-  const inputStyle = { width: '100%', padding: '9px 12px', borderRadius: 10, border: `1px solid ${dark ? '#2a3042' : '#d1d5db'}`, background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#e2e8f0' : '#111827', fontSize: 13, outline: 'none', boxSizing: 'border-box' };
-  const labelStyle = { fontSize: 11, fontWeight: 600, color: dark ? '#7b839a' : '#6b7280', marginBottom: 4, display: 'block', textTransform: 'uppercase', letterSpacing: '0.06em' };
-  const th = { padding: '10px 14px', background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#7b839a' : '#6b7280', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: 'left' };
-  const td = { padding: '10px 14px', borderBottom: `1px solid ${dark ? '#1e2130' : '#f1f5f9'}`, color: dark ? '#e2e8f0' : '#374151', fontSize: 13 };
+  /* ── Marks modal state ── */
+  const [marksModal, setMarksModal]   = useState(null);
+  const [marksData, setMarksData]     = useState({});
+  const [marksLoading, setMarksLoading]   = useState(false);
+  const [marksSaving, setMarksSaving]     = useState(false);
 
+  /* ── Confirm modal ── */
+  const [confirmModal, setConfirmModal] = useState({ open: false });
+
+  /* ── Styles ── */
+  const card = {
+    background: dark ? '#13161f' : '#fff',
+    border: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}`,
+    borderRadius: 16, padding: 20,
+  };
+  const inp = {
+    width: '100%', padding: '9px 12px', borderRadius: 10, boxSizing: 'border-box',
+    border: `1px solid ${dark ? '#2a3042' : '#d1d5db'}`,
+    background: dark ? '#1a1f2e' : '#f9fafb',
+    color: dark ? '#e2e8f0' : '#111827', fontSize: 13, outline: 'none',
+  };
+  const lbl = {
+    fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em',
+    color: dark ? '#7b839a' : '#6b7280', marginBottom: 4, display: 'block',
+  };
+
+  function openConfirm(opts) { setConfirmModal({ open: true, loading: false, ...opts }); }
+  function closeConfirm()    { setConfirmModal(prev => ({ ...prev, open: false, loading: false })); }
+
+  /* ── Fetch ── */
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const [cRes, aRes] = await Promise.all([
         api.get('/assessment/teacher/courses'),
-        api.get('/assessment/teacher/assessments', { params: selectedCourse ? { course_id: selectedCourse } : {} }),
+        api.get('/assessment/teacher/assessments'),
       ]);
       setCourses(cRes.data.courses || []);
       setAssessments(aRes.data.assessments || []);
-    } catch (e) { toast.error('Failed to load assessments'); }
+    } catch { toast.error('Failed to load data'); }
     finally { setLoading(false); }
-  }, [selectedCourse]);
+  }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  function openConfirm(opts) {
-    setConfirmModal({ open: true, loading: false, confirmText: 'Confirm', cancelText: 'Cancel', ...opts });
-  }
-  function closeConfirm() {
-    setConfirmModal(prev => ({ ...prev, open: false, loading: false }));
+  /* ── Modules filtered by selected class ── */
+  const classModules = form.selectedClassId
+    ? courses.filter(c => {
+        const cid = c.class_id?._id || c.class_id;
+        return String(cid) === String(form.selectedClassId);
+      })
+    : [];
+
+  /* ── Duplicate checker: returns true if this type is already used ──
+     Checks course_id + type + term + academic_year, excluding current editingId */
+  function isTypeUsed(typeKey) {
+    if (!form.course_id || !form.term || !form.academic_year) return false;
+    return assessments.some(a =>
+      String(a.course_id?._id || a.course_id) === String(form.course_id) &&
+      a.type === typeKey &&
+      a.term === form.term &&
+      a.academic_year === form.academic_year &&
+      (a._id || a.id) !== editingId
+    );
   }
 
+  /* ── Open create modal ── */
   function openCreate() {
-    setEditingAssessment(null);
-    const firstCourse = courses[0];
-    setForm({ title: 'FA', course_id: firstCourse?._id || '', type: 'FA', term: 'Term 1', academic_year: YEARS[1], max_marks: firstCourse?.total_marks || 100 });
+    setEditingId(null);
+    setForm({ selectedClassId: '', course_id: '', type: '', term: '', academic_year: YEARS[1] });
     setShowModal(true);
   }
+
+  /* ── Open edit modal ── */
   function openEdit(a) {
-    setEditingAssessment(a);
-    setForm({ title: a.title, course_id: a.course_id?._id || a.course_id, type: a.type, term: a.term, academic_year: a.academic_year, max_marks: a.max_marks });
+    setEditingId(a._id || a.id);
+    const course = courses.find(c => String(c._id || c.id) === String(a.course_id?._id || a.course_id));
+    const classId = course?.class_id?._id || course?.class_id || '';
+    setForm({
+      selectedClassId: String(classId),
+      course_id: String(a.course_id?._id || a.course_id || ''),
+      type: a.type || '',
+      term: a.term || '',
+      academic_year: a.academic_year || YEARS[1],
+    });
     setShowModal(true);
   }
 
-  function handleCourseSelect(courseId) {
-    const c = courses.find(c => c._id === courseId);
-    setForm(f => ({ ...f, course_id: courseId, max_marks: c?.total_marks || f.max_marks }));
-  }
-
+  /* ── Save assessment ── */
   async function saveAssessment() {
-    if (!form.title.trim()) { toast.error('Title required'); return; }
-    if (!form.course_id) { toast.error('Select a course'); return; }
+    if (!form.course_id)      { toast.error('Please select a module'); return; }
+    if (!form.type)           { toast.error('Please select an assessment type'); return; }
+    if (!form.term)           { toast.error('Please select a term'); return; }
+    if (!form.academic_year)  { toast.error('Please select an academic year'); return; }
 
-    if (editingAssessment) {
-      openConfirm({
-        variant: 'info',
-        title: 'Save Changes',
-        message: 'Update this assessment with the new details?',
-        confirmText: 'Save Changes',
-        onConfirm: async () => {
-          setConfirmModal(prev => ({ ...prev, loading: true }));
-          try {
-            await api.put('/assessment/teacher/assessments/' + editingAssessment._id, form);
-            toast.success('Assessment updated');
-            setShowModal(false);
-            fetchData();
-            closeConfirm();
-          } catch (e) {
-            toast.error(e.response?.data?.message || 'Error');
-            setConfirmModal(prev => ({ ...prev, loading: false }));
-          }
-        },
-      });
-    } else {
-      openConfirm({
-        variant: 'info',
-        title: 'Create Assessment',
-        message: `Create a new ${form.title} assessment for this course?`,
-        confirmText: 'Create Assessment',
-        onConfirm: async () => {
-          setConfirmModal(prev => ({ ...prev, loading: true }));
-          try {
-            await api.post('/assessment/teacher/assessments', form);
-            toast.success('Assessment created');
-            setShowModal(false);
-            fetchData();
-            closeConfirm();
-          } catch (e) {
-            toast.error(e.response?.data?.message || 'Error');
-            setConfirmModal(prev => ({ ...prev, loading: false }));
-          }
-        },
-      });
+    /* ── Duplicate guard ── */
+    const duplicate = assessments.find(a =>
+      String(a.course_id?._id || a.course_id) === String(form.course_id) &&
+      a.type === form.type &&
+      a.term === form.term &&
+      a.academic_year === form.academic_year &&
+      (a._id || a.id) !== editingId
+    );
+    if (duplicate) {
+      toast.error(
+        `A "${ASSESSMENT_TYPES.find(t => t.key === form.type)?.label || form.type}" already exists for this module in ${form.term} ${form.academic_year}.`
+      );
+      return;
     }
+
+    const autoTitle = ASSESSMENT_TYPES.find(t => t.key === form.type)?.label || form.type;
+    const payload = {
+      title: autoTitle,
+      course_id: form.course_id,
+      type: form.type,
+      term: form.term,
+      academic_year: form.academic_year,
+    };
+
+    try {
+      if (editingId) {
+        await api.put('/assessment/teacher/assessments/' + editingId, payload);
+        toast.success('Assessment updated');
+      } else {
+        await api.post('/assessment/teacher/assessments', payload);
+        toast.success('Assessment created');
+      }
+      setShowModal(false);
+      fetchData();
+    } catch (e) { toast.error(e.response?.data?.message || 'Error saving'); }
   }
 
-  async function deleteAssessment(id) {
+  /* ── Delete assessment ── */
+  function confirmDelete(a) {
     openConfirm({
       variant: 'danger',
       title: 'Delete Assessment',
-      message: 'This will permanently delete the assessment and all its recorded marks. This action cannot be undone.',
+      message: `Delete "${a.title}"? This cannot be undone.`,
       confirmText: 'Yes, Delete',
       onConfirm: async () => {
         setConfirmModal(prev => ({ ...prev, loading: true }));
         try {
-          await api.delete('/assessment/teacher/assessments/' + id);
+          await api.delete('/assessment/teacher/assessments/' + (a._id || a.id));
           toast.success('Assessment deleted');
           fetchData();
           closeConfirm();
         } catch (e) {
-          toast.error('Error deleting');
+          toast.error(e.response?.data?.message || 'Error deleting');
           setConfirmModal(prev => ({ ...prev, loading: false }));
         }
       },
     });
   }
 
-  async function openMarks(assessment) {
-    setActiveAssessment(assessment); setView('marks');
+  /* ── Open marks modal ── */
+  async function openMarks(a) {
+    setMarksLoading(true);
+    setMarksModal(null);
     try {
-      const res = await api.get('/assessment/teacher/assessments/' + assessment._id + '/marks');
-      setMarksData(res.data);
-      const edits = {};
-      res.data.students.forEach(s => { edits[s.student_id] = { marks: s.marks ?? '' }; });
-      setMarksEdits(edits);
-    } catch (e) { toast.error('Failed to load marks'); }
+      const res = await api.get('/assessment/teacher/assessments/' + (a._id || a.id) + '/marks');
+      const { assessment, students, submission } = res.data;
+      const initMarks = {};
+      students.forEach(s => { initMarks[s.student_id] = s.marks ?? ''; });
+      setMarksData(initMarks);
+      setMarksModal({ assessment, students, submission });
+    } catch (e) { toast.error(e.response?.data?.message || 'Failed to load marks'); }
+    finally { setMarksLoading(false); }
   }
 
-  async function saveMarks() {
-    // Validate marks before confirming
-    const courseMaxMarks = marksData?.assessment?.course_id?.total_marks || activeAssessment?.max_marks || 100;
-    const overLimit = Object.entries(marksEdits).filter(([, v]) => v.marks !== '' && v.marks != null && Number(v.marks) > courseMaxMarks);
-    if (overLimit.length > 0) {
-      toast.error(`${overLimit.length} mark(s) exceed the maximum of ${courseMaxMarks}. Please correct before saving.`);
-      return;
-    }
+  const marksLocked = marksModal?.submission?.status === 'submitted' || marksModal?.submission?.status === 'approved';
 
-    openConfirm({
-      variant: 'save',
-      title: 'Save Marks Draft',
-      message: 'Marks will be saved as a draft. You can continue editing or submit for admin review later.',
-      confirmText: 'Save Draft',
-      onConfirm: async () => {
-        setConfirmModal(prev => ({ ...prev, loading: true }));
-        try {
-          const marks = Object.entries(marksEdits).map(([student_id, v]) => ({
-            student_id,
-            marks: v.marks !== '' ? Number(v.marks) : null,
-          }));
-          await api.post('/assessment/teacher/assessments/' + activeAssessment._id + '/marks', { marks });
-          toast.success('Marks saved as draft');
-          fetchData();
-          const res = await api.get('/assessment/teacher/assessments/' + activeAssessment._id + '/marks');
-          setMarksData(res.data);
-          closeConfirm();
-        } catch (e) {
-          toast.error(e.response?.data?.message || 'Error saving marks');
-          setConfirmModal(prev => ({ ...prev, loading: false }));
-        }
-      },
+  /* ── Marking progress: how many of the loaded students currently have
+     a non-blank mark entered in marksData. Drives the progress bar at
+     the top of the marks modal and the save/submit guard below. ── */
+  const markingProgress = (() => {
+    const students = marksModal?.students || [];
+    const total = students.length;
+    const markedCount = students.filter(s => {
+      const v = marksData[s.student_id];
+      return v !== '' && v != null;
+    }).length;
+    const pct = total > 0 ? Math.round((markedCount / total) * 100) : 0;
+    const missingStudents = students.filter(s => {
+      const v = marksData[s.student_id];
+      return v === '' || v == null;
     });
+    return { total, markedCount, pct, missingStudents, complete: total > 0 && markedCount === total };
+  })();
+
+  /* ── Guard: blocks save/submit until every student has a mark.
+     Shows an error modal (reusing ConfirmModal as a single-button alert)
+     listing how many / which students are missing marks.
+     Returns true if blocked (caller should stop), false if OK to proceed. ── */
+  function blockIfIncomplete() {
+    if (markingProgress.complete) return false;
+    const names = markingProgress.missingStudents.map(s => s.name);
+    const preview = names.slice(0, 6).join(', ') + (names.length > 6 ? `, and ${names.length - 6} more` : '');
+    openConfirm({
+      variant: 'danger',
+      title: 'Marks Incomplete',
+      message: `${markingProgress.missingStudents.length} of ${markingProgress.total} student${markingProgress.total === 1 ? '' : 's'} still need marks entered before you can save or submit: ${preview}.`,
+      confirmText: 'Got it',
+      onConfirm: closeConfirm,
+    });
+    return true;
   }
 
-  async function submitMarks() {
-    // Validate marks before confirming
-    const courseMaxMarks = marksData?.assessment?.course_id?.total_marks || activeAssessment?.max_marks || 100;
-    const overLimit = Object.entries(marksEdits).filter(([, v]) => v.marks !== '' && v.marks != null && Number(v.marks) > courseMaxMarks);
-    if (overLimit.length > 0) {
-      toast.error(`${overLimit.length} mark(s) exceed the maximum of ${courseMaxMarks}. Please correct before submitting.`);
-      return;
-    }
+  /* ── Save marks as draft ── */
+  async function saveDraft() {
+    if (blockIfIncomplete()) return;
+    setMarksSaving(true);
+    try {
+      const marks = Object.entries(marksData).map(([student_id, marks]) => ({
+        student_id, marks: marks === '' ? null : Number(marks),
+      }));
+      await api.post('/assessment/teacher/assessments/' + marksModal.assessment._id + '/marks', { marks });
+      toast.success('Marks saved as draft');
+      fetchData();
+    } catch (e) { toast.error(e.response?.data?.message || 'Error saving'); }
+    finally { setMarksSaving(false); }
+  }
 
+  /* ── Submit marks ── */
+  async function submitMarks() {
+    if (blockIfIncomplete()) return;
     openConfirm({
-      variant: 'submit',
+      variant: 'warning',
       title: 'Submit Marks for Review',
-      message: 'Marks will be submitted to the admin for approval. You will lose edit access until the admin approves or rejects this submission.',
+      message: 'Once submitted, marks will be locked until an admin reviews them. Are you sure?',
       confirmText: 'Submit for Review',
       onConfirm: async () => {
         setConfirmModal(prev => ({ ...prev, loading: true }));
         try {
-          const marks = Object.entries(marksEdits).map(([student_id, v]) => ({
-            student_id,
-            marks: v.marks !== '' ? Number(v.marks) : null,
+          const marks = Object.entries(marksData).map(([student_id, marks]) => ({
+            student_id, marks: marks === '' ? null : Number(marks),
           }));
-          await api.post('/assessment/teacher/assessments/' + activeAssessment._id + '/submit', { marks });
+          await api.post('/assessment/teacher/assessments/' + marksModal.assessment._id + '/submit', { marks });
           toast.success('Marks submitted for review');
-          fetchData();
-          const res = await api.get('/assessment/teacher/assessments/' + activeAssessment._id + '/marks');
-          setMarksData(res.data);
           closeConfirm();
+          setMarksModal(null);
+          fetchData();
         } catch (e) {
-          toast.error(e.response?.data?.message || 'Error submitting marks');
+          toast.error(e.response?.data?.message || 'Error submitting');
           setConfirmModal(prev => ({ ...prev, loading: false }));
         }
       },
     });
   }
 
-  async function openReport(assessment) {
-    setActiveAssessment(assessment); setView('report');
-    setReportLoading(true); setReportData(null);
-    try {
-      const res = await api.get('/assessment/teacher/reports/' + assessment._id);
-      setReportData(res.data);
-    } catch (e) { toast.error('Failed to load report'); }
-    finally { setReportLoading(false); }
-  }
+  /* ══════════════════════════════════════════════════════════════
+     RENDER
+  ══════════════════════════════════════════════════════════════ */
+  return (
+    <div>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}} @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}`}</style>
 
-  /* ── MARKS VIEW ── */
-  if (view === 'marks' && marksData) {
-    const enteredCount = Object.values(marksEdits).filter(v => v.marks !== '' && v.marks != null).length;
-    const totalStudents = marksData.students.length;
-    const completePct = totalStudents > 0 ? Math.round((enteredCount / totalStudents) * 100) : 0;
-    const courseMaxMarks = marksData.assessment?.course_id?.total_marks || activeAssessment?.course_id?.total_marks || activeAssessment?.max_marks || 100;
-    const subStatus = marksData.submission?.status || 'draft';
-    const isLocked = subStatus === 'submitted' || subStatus === 'approved';
-
-    // Count marks exceeding the max
-    const overLimitCount = Object.values(marksEdits).filter(v => v.marks !== '' && v.marks != null && Number(v.marks) > courseMaxMarks).length;
-
-    const statusInfo = {
-      draft:     { label: 'Draft — editable',          color: '#9ca3af', bg: '#9ca3af15' },
-      submitted: { label: 'Submitted — pending review', color: '#f59e0b', bg: '#f59e0b15' },
-      approved:  { label: 'Approved',                   color: '#10b981', bg: '#10b98115' },
-      rejected:  { label: 'Rejected — editable',        color: '#ef4444', bg: '#ef444415' },
-    }[subStatus] || { label: subStatus, color: '#9ca3af', bg: '#9ca3af15' };
-
-    return (
-      <>
-      <div>
-        <style>{`.mark-input:focus { border-color: #6366f1 !important; box-shadow: 0 0 0 3px rgba(99,102,241,0.15); }`}</style>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
-          <button onClick={() => { setView('list'); setMarksData(null); }} style={{ display: 'flex', alignItems: 'center', gap: 6, border: 'none', background: dark ? '#1a1f2e' : '#f3f4f6', borderRadius: 10, padding: '7px 14px', cursor: 'pointer', color: dark ? '#94a3b8' : '#6b7280', fontSize: 13, fontWeight: 500 }}>
-            <ArrowLeft size={14} /> Back
+      {/* ── Header ── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ width: 40, height: 40, borderRadius: 12, background: 'linear-gradient(135deg,#1a3a6b,#1565c0)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <FileText size={20} color="#fff" />
+          </div>
+          <div>
+            <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: dark ? '#f1f5f9' : '#111827' }}>My Assessments</h1>
+            <p style={{ margin: 0, fontSize: 13, color: dark ? '#7b839a' : '#6b7280' }}>Create and manage assessments for your assigned modules</p>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={fetchData} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 10, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#7b839a' : '#6b7280', fontSize: 13, cursor: 'pointer' }}>
+            <RefreshCw size={13} /> Refresh
           </button>
-          <div style={{ flex: 1, minWidth: 200 }}>
-            <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: dark ? '#f1f5f9' : '#111827', fontFamily: "'Sora',sans-serif" }}>{activeAssessment?.title}</h2>
-            <p style={{ margin: 0, fontSize: 12, color: dark ? '#7b839a' : '#9ca3af' }}>
-              {activeAssessment?.course_id?.name} · {activeAssessment?.term} · {activeAssessment?.academic_year}
-            </p>
-          </div>
-          <span style={{ fontSize: 11, fontWeight: 700, padding: '6px 12px', borderRadius: 8, background: statusInfo.bg, color: statusInfo.color, border: `1px solid ${statusInfo.color}40` }}>
-            {statusInfo.label}
-          </span>
-          {!isLocked && (
-            <>
-              <button onClick={saveMarks} style={{
-                display: 'flex', alignItems: 'center', gap: 7, padding: '9px 20px', borderRadius: 10, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`,
-                background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#e2e8f0' : '#374151', fontSize: 13, fontWeight: 600,
-                cursor: 'pointer',
-              }}>
-                <Save size={14} />Save Draft
-              </button>
-              <button onClick={submitMarks} style={{
-                display: 'flex', alignItems: 'center', gap: 7, padding: '9px 20px', borderRadius: 10, border: 'none',
-                background: 'linear-gradient(135deg,#10b981,#059669)', color: '#fff', fontSize: 13, fontWeight: 600,
-                cursor: 'pointer', boxShadow: '0 4px 12px rgba(16,185,129,0.35)',
-              }}>
-                <CheckCircle size={14} />Submit for Review
-              </button>
-            </>
-          )}
+          <button onClick={openCreate} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 20px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg,#1a3a6b,#1565c0)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 16px rgba(26,58,107,0.35)' }}>
+            <Plus size={14} /> New Assessment
+          </button>
         </div>
+      </div>
 
-        {subStatus === 'rejected' && marksData.submission?.review_note && (
-          <div style={{ ...card, marginBottom: 16, padding: '12px 18px', borderColor: '#ef444440', background: dark ? '#1a1112' : '#fef2f2' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-              <AlertCircle size={14} color="#ef4444" />
-              <span style={{ fontSize: 12, fontWeight: 700, color: '#ef4444' }}>Rejected by admin — please review and resubmit</span>
-            </div>
-            <p style={{ margin: 0, fontSize: 12, color: dark ? '#c4c9d4' : '#374151' }}>{marksData.submission.review_note}</p>
+      {/* ── Stats pills ── */}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20 }}>
+        {[
+          { label: 'Total',     val: assessments.length,                                              color: '#1a3a6b' },
+          { label: 'Draft',     val: assessments.filter(a => a.submission_status === 'draft').length,     color: '#9ca3af' },
+          { label: 'Submitted', val: assessments.filter(a => a.submission_status === 'submitted').length, color: '#f59e0b' },
+          { label: 'Approved',  val: assessments.filter(a => a.submission_status === 'approved').length,  color: '#10b981' },
+          { label: 'Rejected',  val: assessments.filter(a => a.submission_status === 'rejected').length,  color: '#ef4444' },
+        ].map(s => (
+          <div key={s.label} style={{ padding: '7px 16px', borderRadius: 10, background: s.color + '15', border: `1px solid ${s.color}30`, display: 'flex', gap: 8, alignItems: 'center' }}>
+            <span style={{ fontSize: 16, fontWeight: 800, color: s.color }}>{s.val}</span>
+            <span style={{ fontSize: 11, fontWeight: 600, color: dark ? '#7b839a' : '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{s.label}</span>
           </div>
-        )}
+        ))}
+      </div>
 
-        {isLocked && (
-          <div style={{ ...card, marginBottom: 16, padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Clock size={14} color={statusInfo.color} />
-            <span style={{ fontSize: 12, color: dark ? '#94a3b8' : '#6b7280' }}>
-              {subStatus === 'approved'
-                ? 'These marks have been approved and are reflected in reports.'
-                : 'These marks are locked while pending admin review. The admin can reject this submission to give you edit access again.'}
-            </span>
-          </div>
-        )}
-
-        {/* Over-limit warning banner */}
-        {!isLocked && overLimitCount > 0 && (
-          <div style={{ ...card, marginBottom: 16, padding: '12px 18px', borderColor: '#ef444440', background: dark ? '#1a1112' : '#fef2f2', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <AlertCircle size={14} color="#ef4444" />
-            <span style={{ fontSize: 12, fontWeight: 600, color: '#ef4444' }}>
-              {overLimitCount} student mark{overLimitCount > 1 ? 's exceed' : ' exceeds'} the maximum of <strong>{courseMaxMarks}</strong>. Correct the highlighted entries before saving.
-            </span>
-          </div>
-        )}
-
-        {/* Progress bar */}
-        <div style={{ ...card, marginBottom: 16, padding: '14px 20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              {completePct === 100
-                ? <CheckCircle size={16} color="#10b981" />
-                : enteredCount === 0
-                  ? <AlertCircle size={16} color="#ef4444" />
-                  : <Clock size={16} color="#f59e0b" />
-              }
-              <span style={{ fontSize: 13, fontWeight: 600, color: dark ? '#e8ecf4' : '#111827' }}>
-                Recording Progress: {enteredCount} of {totalStudents} students
-              </span>
-            </div>
-            <span style={{ fontSize: 13, fontWeight: 700, color: completePct === 100 ? '#10b981' : completePct > 0 ? '#f59e0b' : '#ef4444' }}>{completePct}%</span>
-          </div>
-          <div style={{ height: 8, borderRadius: 4, background: dark ? '#2a3042' : '#e5e7eb', overflow: 'hidden' }}>
-            <div style={{ height: '100%', width: completePct + '%', background: completePct === 100 ? '#10b981' : completePct > 0 ? '#f59e0b' : '#ef4444', borderRadius: 4, transition: 'width 0.4s ease' }} />
-          </div>
-          <div style={{ display: 'flex', gap: 14, marginTop: 8 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <Lock size={11} color={dark ? '#7b839a' : '#9ca3af'} />
-              <span style={{ fontSize: 11, color: dark ? '#7b839a' : '#9ca3af' }}>
-                Module weight (admin-set): <strong style={{ color: dark ? '#e2e8f0' : '#374151' }}>{courseMaxMarks}</strong>
-              </span>
-            </div>
-            <TypeBadge type={activeAssessment?.type} />
-          </div>
+      {/* ── Assessment list ── */}
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: 80 }}>
+          <div style={{ width: 40, height: 40, border: '3px solid #1a3a6b', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
+          <p style={{ color: dark ? '#7b839a' : '#9ca3af' }}>Loading…</p>
         </div>
-
-        {/* Marks table */}
-        <div style={{ ...card }}>
+      ) : assessments.length === 0 ? (
+        <div style={{ ...card, textAlign: 'center', padding: 60 }}>
+          <div style={{ width: 64, height: 64, borderRadius: 20, background: 'linear-gradient(135deg,#1a3a6b,#1565c0)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}><FileText size={28} color="#fff" /></div>
+          <p style={{ color: dark ? '#e8ecf4' : '#111827', fontWeight: 800, fontSize: 16, margin: '0 0 6px' }}>No Assessments Yet</p>
+          <p style={{ color: dark ? '#7b839a' : '#9ca3af', margin: '0 0 20px' }}>Create your first assessment to start recording marks.</p>
+          <button onClick={openCreate} style={{ padding: '9px 20px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#1a3a6b,#1565c0)', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>
+            <Plus size={13} style={{ verticalAlign: 'middle', marginRight: 6 }} />New Assessment
+          </button>
+        </div>
+      ) : (
+        <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
-                  <th style={{ ...th, width: 36 }}>#</th>
-                  <th style={th}>Student</th>
-                  <th style={{ ...th, width: 160 }}>Marks (/{courseMaxMarks})</th>
-                  <th style={{ ...th, width: 100 }}>%</th>
-                  <th style={{ ...th, width: 80 }}>Grade</th>
-                  <th style={{ ...th, width: 80 }}>Status</th>
+                  {['Assessment', 'Module', 'Type', 'Term', 'Year', 'Progress', 'Status', 'Actions'].map(h => (
+                    <th key={h} style={{ padding: '11px 14px', background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#7b839a' : '#6b7280', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: 'left', borderBottom: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}` }}>{h}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                  {marksData.students.map((s, i) => {
-                    const edit = marksEdits[s.student_id] || {};
-                    const pct = edit.marks !== '' && edit.marks != null ? Math.round((Number(edit.marks) / courseMaxMarks) * 100) : null;
-                    const grade = pct != null ? getGrade(Number(edit.marks), courseMaxMarks) : null;
-                    const hasMarks = edit.marks !== '' && edit.marks != null;
-                    const isOverLimit = hasMarks && Number(edit.marks) > courseMaxMarks;
-
-                    return (
-                      <tr key={s.student_id} style={{ background: i % 2 === 0 ? 'transparent' : (dark ? '#ffffff04' : '#f9fafb40') }}>
-                        <td style={{ ...td, color: dark ? '#7b839a' : '#9ca3af' }}>{i + 1}</td>
-                        <td style={{ ...td, fontWeight: 600 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <div style={{ width: 32, height: 32, borderRadius: 8, background: `hsl(${(i * 47) % 360},65%,55%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
-                              {s.name?.[0]?.toUpperCase()}
-                            </div>
-                            <div>
-                              <div style={{ fontSize: 13, fontWeight: 700 }}>{s.name}</div>
-                              <div style={{ fontSize: 11, color: dark ? '#7b839a' : '#9ca3af' }}>{s.email}</div>
-                            </div>
+                {assessments.map((a, i) => {
+                  const isLocked = a.submission_status === 'submitted' || a.submission_status === 'approved';
+                  const progressPct = a.student_count > 0 ? Math.round((a.marked_count / a.student_count) * 100) : 0;
+                  return (
+                    <tr key={a._id || a.id} style={{ background: i % 2 === 0 ? 'transparent' : (dark ? '#ffffff04' : '#fafafa'), borderBottom: `1px solid ${dark ? '#1e2130' : '#f1f5f9'}` }}>
+                      <td style={{ padding: '11px 14px' }}>
+                        <div style={{ fontWeight: 700, fontSize: 13, color: dark ? '#e8ecf4' : '#111827' }}>{a.title}</div>
+                        {a.review_note && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4, padding: '3px 8px', borderRadius: 6, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
+                            <AlertCircle size={10} color="#ef4444" />
+                            <span style={{ fontSize: 11, color: '#ef4444' }}>{a.review_note}</span>
                           </div>
-                        </td>
-                        <td style={td}>
-                          <div>
-                            <input
-                              className="mark-input"
-                              type="number" min={0} max={courseMaxMarks}
-                              value={edit.marks ?? ''}
-                              disabled={isLocked}
-                              onChange={e => setMarksEdits(prev => ({ ...prev, [s.student_id]: { marks: e.target.value } }))}
-                              placeholder="—"
-                              style={{
-                                ...inputStyle, width: 80, textAlign: 'center', padding: '7px 10px', borderRadius: 8, fontWeight: 600, transition: 'all 0.15s',
-                                opacity: isLocked ? 0.6 : 1,
-                                cursor: isLocked ? 'not-allowed' : 'text',
-                                borderColor: isOverLimit ? '#ef4444' : undefined,
-                                boxShadow: isOverLimit ? '0 0 0 3px rgba(239,68,68,0.18)' : undefined,
-                                color: isOverLimit ? '#ef4444' : undefined,
-                              }}
-                            />
-                            {isOverLimit && (
-                              <div style={{ fontSize: 10, color: '#ef4444', fontWeight: 600, marginTop: 3 }}>
-                                Max: {courseMaxMarks}
-                              </div>
-                            )}
+                        )}
+                      </td>
+                      <td style={{ padding: '11px 14px', fontSize: 12, color: dark ? '#c4c9d4' : '#374151' }}>
+                        <div>{a.course_id?.name || '—'}</div>
+                        {a.course_id?.class_id && <div style={{ fontSize: 10, color: dark ? '#7b839a' : '#9ca3af', marginTop: 2 }}>Class assigned</div>}
+                      </td>
+                      <td style={{ padding: '11px 14px' }}><TypeBadge type={a.type} /></td>
+                      <td style={{ padding: '11px 14px', fontSize: 12, color: dark ? '#c4c9d4' : '#374151' }}>{a.term}</td>
+                      <td style={{ padding: '11px 14px', fontSize: 12, color: dark ? '#c4c9d4' : '#374151' }}>{a.academic_year}</td>
+                      <td style={{ padding: '11px 14px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div style={{ flex: 1, height: 6, borderRadius: 3, background: dark ? '#2a3042' : '#e5e7eb', overflow: 'hidden' }}>
+                            <div style={{ height: '100%', width: progressPct + '%', background: progressPct === 100 ? '#10b981' : '#1a3a6b', borderRadius: 3, transition: 'width 0.4s' }} />
                           </div>
-                        </td>
-                        <td style={{ ...td, fontWeight: 700, color: isOverLimit ? '#ef4444' : pctColor(pct) }}>{pct != null ? (isOverLimit ? '>' + courseMaxMarks + '!' : pct + '%') : '—'}</td>
-                        <td style={td}>{grade && !isOverLimit ? <GradeBadge grade={grade} /> : (isOverLimit ? <span style={{ fontSize: 11, fontWeight: 700, color: '#ef4444' }}>Error</span> : <span style={{ color: dark ? '#7b839a' : '#9ca3af', fontSize: 12 }}>—</span>)}</td>
-                        <td style={td}>
-                          <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 6, background: isOverLimit ? '#ef444420' : (hasMarks ? '#10b98120' : '#ef444420'), color: isOverLimit ? '#ef4444' : (hasMarks ? '#10b981' : '#ef4444'), border: `1px solid ${isOverLimit ? '#ef444440' : (hasMarks ? '#10b98140' : '#ef444440')}` }}>
-                            {isOverLimit ? 'Over Limit' : (hasMarks ? 'Entered' : 'Pending')}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                {marksData.students.length === 0 && (
-                  <tr><td colSpan={6} style={{ ...td, textAlign: 'center', color: dark ? '#7b839a' : '#9ca3af', padding: 40 }}>No students in this class yet.</td></tr>
-                )}
+                          <span style={{ fontSize: 11, fontWeight: 600, color: dark ? '#7b839a' : '#6b7280', whiteSpace: 'nowrap' }}>{a.marked_count}/{a.student_count}</span>
+                        </div>
+                      </td>
+                      <td style={{ padding: '11px 14px' }}><StatusBadge status={a.submission_status} /></td>
+                      <td style={{ padding: '11px 14px' }}>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                          <button onClick={() => openMarks(a)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 8, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#e2e8f0' : '#374151', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                            <Users size={11} /> Marks
+                          </button>
+                          {!isLocked && (
+                            <>
+                              <button onClick={() => openEdit(a)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 8, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#e2e8f0' : '#374151', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                                <Edit2 size={11} /> Edit
+                              </button>
+                              <button onClick={() => confirmDelete(a)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 8, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.07)', color: '#ef4444', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                                <Trash2 size={11} /> Delete
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         </div>
-      </div>
-      <ConfirmModal
-        open={confirmModal.open}
-        onClose={closeConfirm}
-        onConfirm={confirmModal.onConfirm}
-        loading={confirmModal.loading}
-        variant={confirmModal.variant}
-        title={confirmModal.title}
-        message={confirmModal.message}
-        confirmText={confirmModal.confirmText}
-        cancelText={confirmModal.cancelText || 'Cancel'}
-      />
-      </>
-    );
-  }
+      )}
 
-  /* ── REPORT VIEW ── */
-  if (view === 'report') {
-    return (
-      <div>
-        <style>{`@media print { .no-print { display: none !important; } }`}</style>
-        <div className="no-print" style={{ display: 'flex', gap: 10, marginBottom: 20, alignItems: 'center' }}>
-          <button onClick={() => { setView('list'); setReportData(null); }} style={{ display: 'flex', alignItems: 'center', gap: 6, border: 'none', background: dark ? '#1a1f2e' : '#f3f4f6', borderRadius: 10, padding: '7px 14px', cursor: 'pointer', color: dark ? '#94a3b8' : '#6b7280', fontSize: 13, fontWeight: 500 }}>
-            <ArrowLeft size={14} /> Back
-          </button>
-          {reportData && (
-            <button onClick={() => window.print()} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '7px 16px', borderRadius: 10, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#e2e8f0' : '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-              <Printer size={14} /> Print
-            </button>
-          )}
-          {reportData && (
-            <div style={{ display: 'flex', gap: 14, marginLeft: 'auto', flexWrap: 'wrap' }}>
-              {[['Students', reportData.students?.length || 0, '#6366f1'],
-                ['Class Avg', reportData.students?.filter(s => s.percentage != null).length > 0 ? Math.round(reportData.students.filter(s => s.percentage != null).reduce((a, s) => a + s.percentage, 0) / reportData.students.filter(s => s.percentage != null).length) + '%' : '—', '#10b981'],
-              ].map(([k, v, c]) => (
-                <div key={k} style={{ padding: '6px 14px', borderRadius: 10, background: c + '18', border: '1px solid ' + c + '33', textAlign: 'center' }}>
-                  <div style={{ fontSize: 16, fontWeight: 800, color: c }}>{v}</div>
-                  <div style={{ fontSize: 10, color: dark ? '#7b839a' : '#9ca3af', fontWeight: 600 }}>{k}</div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+      {/* ══════════════════════════════════════════════════════════
+          CREATE / EDIT ASSESSMENT MODAL
+          Steps: (1) class → (2) module → (3) type → (4) term/year
+      ══════════════════════════════════════════════════════════ */}
+      {showModal && (
+        <div
+          onClick={e => { if (e.target === e.currentTarget) setShowModal(false); }}
+          style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+        >
+          <div style={{ width: 540, borderRadius: 22, background: dark ? '#13161f' : '#fff', border: `1px solid ${dark ? '#1e2535' : '#e5e7eb'}`, padding: 30, boxShadow: '0 32px 80px rgba(0,0,0,0.4)', maxHeight: '90vh', overflowY: 'auto' }}>
 
-        {reportLoading && (
-          <div style={{ textAlign: 'center', padding: 80 }}>
-            <div style={{ width: 40, height: 40, borderRadius: '50%', border: '3px solid #6366f1', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
-            <p style={{ color: dark ? '#7b839a' : '#9ca3af' }}>Loading report…</p>
-          </div>
-        )}
-
-        {reportData && (
-          <div style={{ ...card }}>
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: dark ? '#f1f5f9' : '#111827', fontFamily: "'Sora',sans-serif" }}>{reportData.assessment?.title}</h2>
-                <TypeBadge type={reportData.assessment?.type} />
+            {/* Modal header */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+              <div style={{ width: 42, height: 42, borderRadius: 12, background: 'linear-gradient(135deg,#1a3a6b,#1565c0)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <FileText size={18} color="#fff" />
               </div>
-              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-                {[['Course', reportData.assessment?.course_id?.name], ['Term', reportData.assessment?.term], ['Year', reportData.assessment?.academic_year]].map(([k, v]) => v && (
-                  <span key={k} style={{ fontSize: 12, color: dark ? '#7b839a' : '#9ca3af' }}>{k}: <strong style={{ color: dark ? '#e2e8f0' : '#374151' }}>{v}</strong></span>
-                ))}
+              <div style={{ flex: 1 }}>
+                <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: dark ? '#f1f5f9' : '#111827' }}>
+                  {editingId ? 'Edit Assessment' : 'New Assessment'}
+                </h2>
+                <p style={{ margin: 0, fontSize: 12, color: dark ? '#7b839a' : '#9ca3af' }}>
+                  {editingId ? 'Update assessment details' : 'Select a class and module, then configure the assessment'}
+                </p>
               </div>
+              <button onClick={() => setShowModal(false)} style={{ border: 'none', background: dark ? '#1e2130' : '#f3f4f6', borderRadius: 8, width: 32, height: 32, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <X size={16} color={dark ? '#94a3b8' : '#6b7280'} />
+              </button>
             </div>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr>{['#', 'Student', 'Marks', 'Max', '%', 'Grade', 'Rank'].map(h => <th key={h} style={th}>{h}</th>)}</tr>
-                </thead>
-                <tbody>
-                  {(reportData.students || []).sort((a, b) => (b.percentage ?? -1) - (a.percentage ?? -1)).map((s, i) => (
-                    <tr key={s.student_id} style={{ background: i % 2 === 0 ? 'transparent' : (dark ? '#ffffff04' : '#f9fafb40') }}>
-                      <td style={{ ...td, color: dark ? '#7b839a' : '#9ca3af' }}>{i + 1}</td>
-                      <td style={{ ...td, fontWeight: 600 }}>
-                        <div>{s.student_name}</div>
-                        <div style={{ fontSize: 11, color: dark ? '#7b839a' : '#9ca3af' }}>{s.student_email}</div>
-                      </td>
-                      <td style={{ ...td, fontWeight: 700, color: pctColor(s.percentage) }}>{s.marks_obtained ?? '—'}</td>
-                      <td style={td}>{s.max_marks}</td>
-                      <td style={{ ...td, fontWeight: 700, color: pctColor(s.percentage) }}>{s.percentage != null ? s.percentage + '%' : '—'}</td>
-                      <td style={td}><GradeBadge grade={s.grade} /></td>
-                      <td style={td}>{s.rank ? <span style={{ fontWeight: 700, color: s.rank === 1 ? '#f59e0b' : (dark ? '#e2e8f0' : '#374151') }}>#{s.rank}</span> : '—'}</td>
-                    </tr>
-                  ))}
-                  {(!reportData.students || reportData.students.length === 0) && (
-                    <tr><td colSpan={7} style={{ ...td, textAlign: 'center', padding: 40, color: dark ? '#7b839a' : '#9ca3af' }}>No marks entered yet.</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  }
 
-  /* ── LIST VIEW ── */
-  // Stats
-  const totalAssessments = assessments.length;
-  const complete = assessments.filter(a => a.student_count > 0 && a.marked_count >= a.student_count).length;
-  const inProgress = assessments.filter(a => a.marked_count > 0 && a.marked_count < a.student_count).length;
-  const notStarted = assessments.filter(a => a.marked_count === 0).length;
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-  return (
-    <div>
-      <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .assessment-row:hover { background: ${dark ? '#1a1f2e' : '#f8faff'} !important; }
-        .assessment-row { transition: background 0.15s; }
-        .action-btn:hover { opacity: 0.85; transform: scale(1.05); }
-        .action-btn { transition: all 0.15s; }
-      `}</style>
-
-      {/* Header */}
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-          <div>
-            <h1 style={{ fontSize: 22, fontWeight: 800, color: dark ? '#f1f5f9' : '#111827', margin: 0, fontFamily: "'Sora',sans-serif" }}>Assessments</h1>
-            <p style={{ fontSize: 13, color: dark ? '#7b839a' : '#6b7280', margin: '4px 0 0' }}>Create assessments and record marks for your courses</p>
-          </div>
-          {courses.length > 0 && (
-            <button onClick={openCreate} style={{
-              display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 10, border: 'none',
-              background: 'linear-gradient(135deg,#6366f1,#4f46e5)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-              boxShadow: '0 4px 14px rgba(99,102,241,0.35)',
-            }}>
-              <Plus size={14} /> New Assessment
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Stats row */}
-      {assessments.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 12, marginBottom: 20 }}>
-          {[
-            { label: 'Total', val: totalAssessments, color: '#6366f1', icon: ClipboardList },
-            { label: 'Complete', val: complete, color: '#10b981', icon: CheckCircle },
-            { label: 'In Progress', val: inProgress, color: '#f59e0b', icon: Clock },
-            { label: 'Not Started', val: notStarted, color: '#ef4444', icon: AlertCircle },
-          ].map(({ label, val, color, icon: Icon }) => (
-            <div key={label} style={{ ...card, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 34, height: 34, borderRadius: 10, background: color + '20', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <Icon size={16} color={color} />
-              </div>
+              {/* STEP 1: Class picker */}
               <div>
-                <div style={{ fontSize: 20, fontWeight: 800, color, lineHeight: 1 }}>{val}</div>
-                <div style={{ fontSize: 11, color: dark ? '#7b839a' : '#9ca3af', fontWeight: 600 }}>{label}</div>
+                <label style={lbl}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <School size={11} /> Step 1 — Select Class *
+                  </span>
+                </label>
+                {teacherClasses.length === 0 ? (
+                  <div style={{ padding: '12px 14px', borderRadius: 10, background: dark ? '#1a1f2e' : '#fef3c7', border: `1px solid ${dark ? '#2a3042' : '#fcd34d'}`, fontSize: 13, color: dark ? '#f59e0b' : '#92400e' }}>
+                    No classes found. Ask your admin to assign modules to you.
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(160px,1fr))', gap: 8 }}>
+                    {teacherClasses.map(cls => {
+                      const selected = form.selectedClassId === cls._id;
+                      return (
+                        <button
+                          key={cls._id}
+                          type="button"
+                          onClick={() => setForm(f => ({ ...f, selectedClassId: cls._id, course_id: '', type: '' }))}
+                          style={{
+                            padding: '10px 12px', borderRadius: 10, cursor: 'pointer', textAlign: 'left',
+                            border: `2px solid ${selected ? '#1a3a6b' : (dark ? '#2a3042' : '#e5e7eb')}`,
+                            background: selected ? 'rgba(26,58,107,0.1)' : 'transparent',
+                            transition: 'all 0.15s',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <School size={13} color={selected ? '#1a3a6b' : (dark ? '#7b839a' : '#9ca3af')} />
+                            <span style={{ fontSize: 12, fontWeight: selected ? 800 : 500, color: selected ? '#1a3a6b' : (dark ? '#e2e8f0' : '#374151') }}>{cls.name}</span>
+                          </div>
+                          {selected && <div style={{ marginTop: 4, fontSize: 10, color: '#1a3a6b', fontWeight: 700 }}>✓ Selected</div>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
+
+              {/* STEP 2: Module picker */}
+              {form.selectedClassId && (
+                <div style={{ animation: 'fadeUp 0.2s ease' }}>
+                  <label style={lbl}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <BookOpen size={11} /> Step 2 — Select Module *
+                    </span>
+                  </label>
+                  {classModules.length === 0 ? (
+                    <div style={{ padding: '12px 14px', borderRadius: 10, background: dark ? '#1a1f2e' : '#f9fafb', border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, fontSize: 13, color: dark ? '#7b839a' : '#6b7280' }}>
+                      No modules found for this class.
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {classModules.map(c => {
+                        const selected = form.course_id === String(c._id || c.id);
+                        return (
+                          <button
+                            key={c._id || c.id}
+                            type="button"
+                            onClick={() => setForm(f => ({ ...f, course_id: String(c._id || c.id), type: '' }))}
+                            style={{
+                              padding: '10px 14px', borderRadius: 10, cursor: 'pointer', textAlign: 'left',
+                              border: `2px solid ${selected ? '#1a3a6b' : (dark ? '#2a3042' : '#e5e7eb')}`,
+                              background: selected ? 'rgba(26,58,107,0.08)' : 'transparent',
+                              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                              transition: 'all 0.15s',
+                            }}
+                          >
+                            <div>
+                              {c.code && <div style={{ fontSize: 10, fontWeight: 800, color: selected ? '#1a3a6b' : (dark ? '#7b839a' : '#9ca3af'), letterSpacing: '0.07em', marginBottom: 2 }}>{c.code}</div>}
+                              <div style={{ fontSize: 13, fontWeight: selected ? 700 : 500, color: selected ? '#1a3a6b' : (dark ? '#e2e8f0' : '#374151') }}>{c.name}</div>
+                              <div style={{ fontSize: 11, color: dark ? '#7b839a' : '#9ca3af', marginTop: 2 }}>
+                                {c.category} · Max: {c.total_marks || 100} marks
+                              </div>
+                            </div>
+                            {selected && <CheckCircle size={16} color="#1a3a6b" style={{ flexShrink: 0 }} />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* STEP 3: Term + Year (needed before type so duplicate check works) */}
+              {form.course_id && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, animation: 'fadeUp 0.2s ease' }}>
+                  <div>
+                    <label style={lbl}>Step 3 — Term *</label>
+                    <select value={form.term} onChange={e => setForm(f => ({ ...f, term: e.target.value, type: '' }))} style={inp}>
+                      <option value="">Select term…</option>
+                      {TERMS.map(t => <option key={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={lbl}>Academic Year *</label>
+                    <select value={form.academic_year} onChange={e => setForm(f => ({ ...f, academic_year: e.target.value, type: '' }))} style={inp}>
+                      {YEARS.map(y => <option key={y}>{y}</option>)}
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 4: Assessment type — with duplicate guard */}
+              {form.course_id && form.term && (
+                <div style={{ animation: 'fadeUp 0.2s ease' }}>
+                  <label style={lbl}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <FileText size={11} /> Step 4 — Assessment Type *
+                      <span style={{ fontSize: 10, fontStyle: 'italic', textTransform: 'none', letterSpacing: 0 }}>(sets title automatically)</span>
+                    </span>
+                  </label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {ASSESSMENT_TYPES.map(t => {
+                      const selected   = form.type === t.key;
+                      const alreadyUsed = isTypeUsed(t.key);
+                      return (
+                        <button
+                          key={t.key}
+                          type="button"
+                          onClick={() => !alreadyUsed && setForm(f => ({ ...f, type: t.key }))}
+                          disabled={alreadyUsed}
+                          style={{
+                            padding: '11px 14px', borderRadius: 10,
+                            cursor: alreadyUsed ? 'not-allowed' : 'pointer',
+                            textAlign: 'left',
+                            border: `2px solid ${selected ? t.color : (dark ? '#2a3042' : '#e5e7eb')}`,
+                            background: selected ? t.color + '12' : alreadyUsed ? (dark ? '#0f1117' : '#f3f4f6') : 'transparent',
+                            display: 'flex', alignItems: 'center', gap: 12,
+                            opacity: alreadyUsed ? 0.55 : 1,
+                            transition: 'all 0.15s',
+                          }}
+                        >
+                          <span style={{ minWidth: 30, textAlign: 'center', fontSize: 10, fontWeight: 800, padding: '3px 7px', borderRadius: 6, background: t.color + '20', color: t.color, border: `1px solid ${t.color}40`, flexShrink: 0 }}>{t.key}</span>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 13, fontWeight: selected ? 800 : 500, color: selected ? t.color : (dark ? '#e2e8f0' : '#374151') }}>{t.label}</div>
+                            <div style={{ fontSize: 11, color: alreadyUsed ? '#ef4444' : (dark ? '#7b839a' : '#9ca3af'), marginTop: 1 }}>
+                              {alreadyUsed
+                                ? `⚠ Already created for this module · ${form.term} · ${form.academic_year}`
+                                : t.desc}
+                            </div>
+                          </div>
+                          {selected    && <CheckCircle size={16} color={t.color} style={{ flexShrink: 0 }} />}
+                          {alreadyUsed && <span style={{ fontSize: 10, fontWeight: 800, color: '#ef4444', flexShrink: 0, whiteSpace: 'nowrap' }}>Used</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Auto-title preview */}
+                  {form.type && (
+                    <div style={{ marginTop: 8, padding: '8px 12px', borderRadius: 9, background: dark ? '#1a1f2e' : '#f0f9ff', border: `1px solid ${dark ? '#2a3042' : '#bae6fd'}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <FileText size={12} color="#0369a1" />
+                      <span style={{ fontSize: 12, color: dark ? '#7b839a' : '#0369a1' }}>
+                        Title will be: <strong style={{ color: dark ? '#e2e8f0' : '#0c4a6e' }}>{ASSESSMENT_TYPES.find(t => t.key === form.type)?.label}</strong>
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-          ))}
+
+            {/* Modal footer */}
+            <div style={{ display: 'flex', gap: 10, marginTop: 24 }}>
+              <button onClick={() => setShowModal(false)} style={{ flex: 1, padding: '11px', borderRadius: 10, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#94a3b8' : '#6b7280', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                Cancel
+              </button>
+              <button
+                onClick={saveAssessment}
+                disabled={!form.course_id || !form.type || !form.term}
+                style={{
+                  flex: 2, padding: '11px', borderRadius: 10, border: 'none',
+                  background: (!form.course_id || !form.type || !form.term)
+                    ? (dark ? '#2a3042' : '#e5e7eb')
+                    : 'linear-gradient(135deg,#1a3a6b,#1565c0)',
+                  color: (!form.course_id || !form.type || !form.term)
+                    ? (dark ? '#4a5568' : '#9ca3af')
+                    : '#fff',
+                  fontSize: 13, fontWeight: 700,
+                  cursor: (!form.course_id || !form.type || !form.term) ? 'not-allowed' : 'pointer',
+                  boxShadow: (!form.course_id || !form.type || !form.term) ? 'none' : '0 4px 14px rgba(26,58,107,0.35)',
+                  transition: 'all 0.2s',
+                }}
+              >
+                {editingId ? 'Save Changes' : 'Create Assessment'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Course filter */}
-      {courses.length > 0 && (
-        <div style={{ ...card, marginBottom: 16, padding: '12px 16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <Filter size={13} color={dark ? '#7b839a' : '#9ca3af'} />
-            <label style={{ fontSize: 12, color: dark ? '#7b839a' : '#6b7280', fontWeight: 600 }}>Filter by course:</label>
-            <select
-              value={selectedCourse}
-              onChange={e => setSelectedCourse(e.target.value)}
-              style={{
-                padding: '7px 12px', borderRadius: 8, border: `1px solid ${selectedCourse ? '#6366f1' : (dark ? '#2a3042' : '#e5e7eb')}`,
-                background: selectedCourse ? 'rgba(99,102,241,0.08)' : (dark ? '#1a1f2e' : '#f9fafb'),
-                color: selectedCourse ? '#6366f1' : (dark ? '#e2e8f0' : '#374151'),
-                fontSize: 12, fontWeight: 600, cursor: 'pointer', outline: 'none', minWidth: 200,
-              }}
-            >
-              <option value="">All Courses</option>
-              {courses.map(c => (
-                <option key={c._id} value={c._id}>
-                  {c.name}{c.class_id?.name ? ' (' + c.class_id.name + ')' : ''}
-                </option>
-              ))}
-            </select>
-            {selectedCourse && (
-              <button onClick={() => setSelectedCourse('')} style={{ padding: '6px 10px', borderRadius: 8, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#7b839a' : '#6b7280', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
-                Clear
-              </button>
+      {/* ══════════════════════════════════════════════════════════
+          MARKS MODAL
+      ══════════════════════════════════════════════════════════ */}
+      {(marksModal || marksLoading) && (
+        <div
+          onClick={e => { if (e.target === e.currentTarget) setMarksModal(null); }}
+          style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+        >
+          <div style={{ width: 700, maxWidth: '100%', maxHeight: '90vh', overflowY: 'auto', borderRadius: 20, background: dark ? '#13161f' : '#fff', border: `1px solid ${dark ? '#1e2535' : '#e5e7eb'}`, padding: 28, boxShadow: '0 32px 80px rgba(0,0,0,0.4)' }}>
+            {marksLoading ? (
+              <div style={{ textAlign: 'center', padding: 60 }}>
+                <div style={{ width: 36, height: 36, border: '3px solid #1a3a6b', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
+                <p style={{ color: dark ? '#7b839a' : '#9ca3af' }}>Loading marks…</p>
+              </div>
+            ) : (
+              <>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: dark ? '#f1f5f9' : '#111827' }}>{marksModal.assessment?.title}</h3>
+                    <div style={{ display: 'flex', gap: 12, marginTop: 6, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 12, color: dark ? '#7b839a' : '#9ca3af' }}>Module: <strong style={{ color: dark ? '#e2e8f0' : '#374151' }}>{marksModal.assessment?.course_id?.name}</strong></span>
+                      <span style={{ fontSize: 12, color: dark ? '#7b839a' : '#9ca3af' }}>{marksModal.assessment?.term} · {marksModal.assessment?.academic_year}</span>
+                      <span style={{ fontSize: 12, color: dark ? '#7b839a' : '#9ca3af' }}>Max: <strong style={{ color: dark ? '#e2e8f0' : '#374151' }}>{marksModal.assessment?.max_marks}</strong></span>
+                      <StatusBadge status={marksModal.submission?.status} />
+                    </div>
+                    {marksModal.submission?.review_note && (
+                      <div style={{ marginTop: 8, padding: '7px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                        <AlertCircle size={13} color="#ef4444" style={{ flexShrink: 0, marginTop: 1 }} />
+                        <span style={{ fontSize: 12, color: '#ef4444' }}><strong>Admin note:</strong> {marksModal.submission.review_note}</span>
+                      </div>
+                    )}
+                  </div>
+                  <button onClick={() => setMarksModal(null)} style={{ border: 'none', background: dark ? '#1e2130' : '#f3f4f6', borderRadius: 8, width: 32, height: 32, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <X size={16} color={dark ? '#94a3b8' : '#6b7280'} />
+                  </button>
+                </div>
+
+                {/* ── Marking progress bar ── */}
+                {!marksLocked && (
+                  <div style={{
+                    marginBottom: 16, padding: '12px 14px', borderRadius: 12,
+                    background: markingProgress.complete ? 'rgba(16,185,129,0.07)' : (dark ? '#1a1f2e' : '#f9fafb'),
+                    border: `1px solid ${markingProgress.complete ? 'rgba(16,185,129,0.3)' : (dark ? '#2a3042' : '#e5e7eb')}`,
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: markingProgress.complete ? '#10b981' : (dark ? '#e2e8f0' : '#374151') }}>
+                        {markingProgress.complete ? <CheckCircle size={13} /> : <Users size={13} />}
+                        Marking Progress
+                      </span>
+                      <span style={{ fontSize: 12, fontWeight: 800, color: markingProgress.complete ? '#10b981' : (dark ? '#7b839a' : '#6b7280') }}>
+                        {markingProgress.markedCount}/{markingProgress.total} students · {markingProgress.pct}%
+                      </span>
+                    </div>
+                    <div style={{ height: 8, borderRadius: 4, background: dark ? '#2a3042' : '#e5e7eb', overflow: 'hidden' }}>
+                      <div style={{
+                        height: '100%', width: markingProgress.pct + '%',
+                        background: markingProgress.complete ? '#10b981' : '#1a3a6b',
+                        borderRadius: 4, transition: 'width 0.4s',
+                      }} />
+                    </div>
+                    {!markingProgress.complete && (
+                      <div style={{ marginTop: 8, fontSize: 11, color: dark ? '#7b839a' : '#9ca3af' }}>
+                        {markingProgress.total - markingProgress.markedCount} student{markingProgress.total - markingProgress.markedCount === 1 ? '' : 's'} still need a mark before you can save or submit.
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {marksLocked && (
+                  <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 10, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <AlertCircle size={14} color="#f59e0b" />
+                    <span style={{ fontSize: 12, color: '#f59e0b', fontWeight: 600 }}>
+                      Marks are locked — this assessment has been {marksModal.submission?.status}. Contact admin to unlock.
+                    </span>
+                  </div>
+                )}
+
+                <div style={{ overflowX: 'auto', marginBottom: 16 }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr>
+                        {['#', 'Student', 'Marks', `Out of ${marksModal.assessment?.max_marks}`, '%'].map(h => (
+                          <th key={h} style={{ padding: '9px 12px', background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#7b839a' : '#6b7280', fontSize: 11, fontWeight: 700, textAlign: 'left', borderBottom: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}` }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(marksModal.students || []).map((s, i) => {
+                        const raw = marksData[s.student_id];
+                        const num = raw === '' || raw == null ? null : Number(raw);
+                        const max = marksModal.assessment?.max_marks || 100;
+                        const pct = num != null ? Math.min(Math.round((num / max) * 100), 100) : null;
+                        const missing = raw === '' || raw == null;
+                        return (
+                          <tr key={s.student_id} style={{ background: i % 2 === 0 ? 'transparent' : (dark ? '#ffffff04' : '#fafafa'), borderBottom: `1px solid ${dark ? '#1e2130' : '#f1f5f9'}` }}>
+                            <td style={{ padding: '9px 12px', fontSize: 12, color: dark ? '#7b839a' : '#9ca3af' }}>{i + 1}</td>
+                            <td style={{ padding: '9px 12px', fontSize: 13, fontWeight: 600, color: dark ? '#e2e8f0' : '#374151' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                {s.name}
+                                {!marksLocked && missing && (
+                                  <span style={{ fontSize: 9, fontWeight: 800, color: '#ef4444', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', padding: '1px 6px', borderRadius: 5 }}>Missing</span>
+                                )}
+                              </div>
+                            </td>
+                            <td style={{ padding: '9px 12px' }}>
+                              <input
+                                type="number"
+                                min={0}
+                                max={max}
+                                value={raw ?? ''}
+                                disabled={marksLocked}
+                                onChange={e => setMarksData(prev => ({ ...prev, [s.student_id]: e.target.value }))}
+                                style={{
+                                  width: 80, padding: '6px 10px', borderRadius: 8,
+                                  border: `1px solid ${num != null && num > max ? '#ef4444' : (missing && !marksLocked ? '#f59e0b' : (dark ? '#2a3042' : '#d1d5db'))}`,
+                                  background: marksLocked ? (dark ? '#0f1117' : '#f3f4f6') : (dark ? '#1a1f2e' : '#fff'),
+                                  color: dark ? '#e2e8f0' : '#111827', fontSize: 13, outline: 'none',
+                                  opacity: marksLocked ? 0.6 : 1,
+                                }}
+                              />
+                            </td>
+                            <td style={{ padding: '9px 12px', fontSize: 12, color: dark ? '#7b839a' : '#9ca3af' }}>{max}</td>
+                            <td style={{ padding: '9px 12px', fontSize: 13, fontWeight: 700, color: pctColor(pct) }}>{pct != null ? pct + '%' : '—'}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {!marksLocked && (
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <button onClick={saveDraft} disabled={marksSaving} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '11px', borderRadius: 10, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#e2e8f0' : '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                      <Save size={14} /> {marksSaving ? 'Saving…' : 'Save Draft'}
+                    </button>
+                    <button onClick={submitMarks} disabled={marksSaving} style={{ flex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '11px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#1a3a6b,#1565c0)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 14px rgba(26,58,107,0.35)' }}>
+                      <Send size={14} /> Submit for Review
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
       )}
 
-      {courses.length === 0 && !loading && (
-        <div style={{ ...card, textAlign: 'center', padding: 60 }}>
-          <div style={{ width: 64, height: 64, borderRadius: 20, background: 'rgba(99,102,241,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-            <BookOpen size={28} color="#6366f1" />
-          </div>
-          <p style={{ color: dark ? '#e8ecf4' : '#111827', fontWeight: 700, fontSize: 15, margin: '0 0 6px' }}>No Courses Assigned</p>
-          <p style={{ color: dark ? '#7b839a' : '#9ca3af', margin: 0, fontSize: 13 }}>Contact your admin to get courses assigned to you.</p>
-        </div>
-      )}
-
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: 80 }}>
-          <div style={{ width: 40, height: 40, borderRadius: '50%', border: '3px solid #6366f1', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
-          <p style={{ color: dark ? '#7b839a' : '#9ca3af' }}>Loading…</p>
-        </div>
-      ) : assessments.length === 0 && courses.length > 0 ? (
-        <div style={{ ...card, textAlign: 'center', padding: 60 }}>
-          <div style={{ width: 64, height: 64, borderRadius: 20, background: 'rgba(139,92,246,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-            <ClipboardList size={28} color="#8b5cf6" />
-          </div>
-          <p style={{ color: dark ? '#e8ecf4' : '#111827', fontWeight: 700, fontSize: 15, margin: '0 0 6px' }}>No Assessments Yet</p>
-          <p style={{ color: dark ? '#7b839a' : '#9ca3af', margin: 0, fontSize: 13 }}>Click "New Assessment" to create your first one.</p>
-        </div>
-      ) : (
-        <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr>
-                {['Assessment', 'Course', 'Type', 'Term', 'Max Marks', 'Progress', 'Status', 'Actions'].map(h => (
-                  <th key={h} style={{ ...th, padding: '12px 16px', borderBottom: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}` }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {assessments.map((a, i) => {
-                const isComplete = a.student_count > 0 && a.marked_count >= a.student_count;
-                const noProgress = a.marked_count === 0;
-
-                return (
-                  <tr key={a._id} className="assessment-row" style={{ borderBottom: `1px solid ${dark ? '#1e2130' : '#f1f5f9'}` }}>
-                    <td style={{ ...td, padding: '12px 16px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div style={{ width: 36, height: 36, borderRadius: 9, flexShrink: 0, background: a.type === 'FA' ? 'linear-gradient(135deg,#3b82f6,#1d4ed8)' : 'linear-gradient(135deg,#8b5cf6,#6d28d9)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <ClipboardList size={16} color="#fff" />
-                        </div>
-                        <div>
-                          <div style={{ fontWeight: 700, color: dark ? '#e8ecf4' : '#111827', fontSize: 13 }}>{a.title}</div>
-                          <div style={{ fontSize: 11, color: dark ? '#7b839a' : '#9ca3af' }}>{a.academic_year}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td style={{ ...td, padding: '12px 16px', fontSize: 12 }}>
-                      <div style={{ fontWeight: 600, color: dark ? '#c4c9d4' : '#374151' }}>{a.course_id?.name}</div>
-                      {a.course_id?.class_id && <div style={{ fontSize: 11, color: dark ? '#7b839a' : '#9ca3af' }}>Class assigned</div>}
-                    </td>
-                    <td style={{ ...td, padding: '12px 16px' }}><TypeBadge type={a.type} /></td>
-                    <td style={{ ...td, padding: '12px 16px', fontSize: 12, color: dark ? '#c4c9d4' : '#374151' }}>{a.term}</td>
-                    <td style={{ ...td, padding: '12px 16px', fontWeight: 700, color: dark ? '#e2e8f0' : '#374151', fontSize: 13 }}>{a.max_marks}</td>
-                    <td style={{ ...td, padding: '12px 16px', minWidth: 140 }}>
-                      <ProgressIndicator marked={a.marked_count || 0} total={a.student_count || 0} dark={dark} />
-                    </td>
-                    <td style={{ ...td, padding: '12px 16px' }}>
-                      <SubmissionStatusBadge status={a.submission_status || 'draft'} />
-                    </td>
-                    <td style={{ ...td, padding: '12px 16px' }}>
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <button className="action-btn" onClick={() => openMarks(a)} title={a.submission_status === 'submitted' || a.submission_status === 'approved' ? 'View Marks' : 'Enter Marks'} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 8, border: 'none', background: 'linear-gradient(135deg,#10b981,#059669)', color: '#fff', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
-                          <Users size={11} /> Marks
-                        </button>
-                        <button className="action-btn" onClick={() => openReport(a)} title="View Report" style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 8, border: 'none', background: 'linear-gradient(135deg,#f59e0b,#d97706)', color: '#fff', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
-                          <BarChart2 size={11} /> Report
-                        </button>
-                        <button className="action-btn" onClick={() => openEdit(a)} title="Edit" style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: dark ? '#1a1f2e' : '#f9fafb', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <Edit2 size={12} color={dark ? '#7b839a' : '#6b7280'} />
-                        </button>
-                        <button className="action-btn" onClick={() => deleteAssessment(a._id)} title="Delete" style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid rgba(239,68,68,0.25)', background: 'rgba(239,68,68,0.06)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <Trash2 size={12} color="#ef4444" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* Modal */}
-      {showModal && (
-        <div onClick={e => { if (e.target === e.currentTarget) setShowModal(false); }} style={{
-          position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(8px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <div style={{ width: 480, borderRadius: 22, background: dark ? '#13161f' : '#fff', border: `1px solid ${dark ? '#1e2535' : '#e5e7eb'}`, padding: 28, boxShadow: '0 32px 80px rgba(0,0,0,0.4)', maxHeight: '90vh', overflowY: 'auto' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 22 }}>
-              <div style={{ width: 40, height: 40, borderRadius: 12, background: 'linear-gradient(135deg,#8b5cf6,#6d28d9)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <ClipboardList size={18} color="#fff" />
-              </div>
-              <div style={{ flex: 1 }}>
-                <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: dark ? '#f1f5f9' : '#111827', fontFamily: "'Sora',sans-serif" }}>
-                  {editingAssessment ? 'Edit Assessment' : 'New Assessment'}
-                </h2>
-                <p style={{ margin: 0, fontSize: 12, color: dark ? '#7b839a' : '#9ca3af' }}>Fill in assessment details</p>
-              </div>
-              <button onClick={() => setShowModal(false)} style={{ border: 'none', background: dark ? '#1e2130' : '#f3f4f6', borderRadius: 8, width: 32, height: 32, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: dark ? '#7b839a' : '#6b7280' }}>
-                <X size={16} />
-              </button>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div>
-                <label style={labelStyle}>Assessment Title *</label>
-                <select value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value, type: e.target.value }))} style={inputStyle}>
-                  <option value="FA">FA — Formative Assessment</option>
-                  <option value="CA">CA — Continuous Assessment</option>
-                </select>
-              </div>
-              <div>
-                <label style={labelStyle}>Course *</label>
-                <select value={form.course_id} onChange={e => handleCourseSelect(e.target.value)} style={inputStyle}>
-                  <option value="">Select course…</option>
-                  {courses.map(c => <option key={c._id} value={c._id}>{c.name}{c.class_id?.name ? ' (' + c.class_id.name + ')' : ''} — {c.total_marks || 100} marks</option>)}
-                </select>
-                {form.course_id && (() => {
-                  const c = courses.find(x => x._id === form.course_id);
-                  return c?.total_marks ? <p style={{ margin: '4px 0 0', fontSize: 11, color: '#10b981' }}>Module weight: {c.total_marks} marks (will be used as default max marks)</p> : null;
-                })()}
-              </div>
-              {/* Assessment type picker: show which types are already created for this course */}
-              <div>
-                <label style={labelStyle}>Assessment Type *</label>
-                <div style={{ display: 'flex', gap: 10 }}>
-                  {['FA', 'CA'].map(t => {
-                    const alreadyExists = !editingAssessment && form.course_id &&
-                      assessments.some(a => (a.course_id?._id || a.course_id) === form.course_id && a.type === t);
-                    const isSelected = form.type === t;
-                    return (
-                      <button
-                        key={t}
-                        type="button"
-                        disabled={alreadyExists}
-                        onClick={() => !alreadyExists && setForm(f => ({ ...f, type: t, title: t }))}
-                        style={{
-                          flex: 1, padding: '10px 14px', borderRadius: 10, border: `2px solid ${alreadyExists ? (dark ? '#2a3042' : '#e5e7eb') : isSelected ? (t === 'FA' ? '#3b82f6' : '#8b5cf6') : (dark ? '#2a3042' : '#e5e7eb')}`,
-                          background: alreadyExists ? (dark ? '#111318' : '#f3f4f6') : isSelected ? (t === 'FA' ? 'rgba(59,130,246,0.1)' : 'rgba(139,92,246,0.1)') : 'transparent',
-                          color: alreadyExists ? (dark ? '#3a4055' : '#c4c9d4') : isSelected ? (t === 'FA' ? '#3b82f6' : '#8b5cf6') : (dark ? '#7b839a' : '#6b7280'),
-                          cursor: alreadyExists ? 'not-allowed' : 'pointer',
-                          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, transition: 'all 0.15s',
-                        }}
-                      >
-                        <span style={{ fontSize: 13, fontWeight: 800 }}>{t}</span>
-                        <span style={{ fontSize: 10, fontWeight: 600 }}>{t === 'FA' ? 'Formative' : 'Continuous'}</span>
-                        {alreadyExists && (
-                          <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 4, background: '#10b98120', color: '#10b981', border: '1px solid #10b98140', display: 'flex', alignItems: 'center', gap: 3 }}>
-                            <Check size={8} /> Created
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-                {!editingAssessment && form.course_id && assessments.some(a => (a.course_id?._id || a.course_id) === form.course_id && a.type === form.type) && (
-                  <p style={{ margin: '6px 0 0', fontSize: 11, color: '#f59e0b' }}>
-                    An assessment of this type already exists for this course. Select a different type.
-                  </p>
-                )}
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <div>
-                  <label style={labelStyle}>Max Marks <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 5, background: '#6366f120', color: '#6366f1', fontWeight: 700, marginLeft: 4 }}>Admin-set</span></label>
-                  <div style={{ position: 'relative' }}>
-                    <input
-                      type="number"
-                      value={form.max_marks}
-                      readOnly
-                      style={{ ...inputStyle, background: dark ? '#111318' : '#f3f4f6', color: dark ? '#7b839a' : '#6b7280', cursor: 'not-allowed', paddingRight: 36 }}
-                    />
-                    <Lock size={13} color={dark ? '#7b839a' : '#9ca3af'} style={{ position: 'absolute', right: 11, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
-                  </div>
-                  <p style={{ margin: '3px 0 0', fontSize: 10, color: '#f59e0b' }}>Locked to module weight set by admin</p>
-                </div>
-                <div>
-                  <label style={labelStyle}>Term *</label>
-                  <select value={form.term} onChange={e => setForm(f => ({ ...f, term: e.target.value }))} style={inputStyle}>
-                    {TERMS.map(t => <option key={t}>{t}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label style={labelStyle}>Academic Year *</label>
-                <select value={form.academic_year} onChange={e => setForm(f => ({ ...f, academic_year: e.target.value }))} style={inputStyle}>
-                  {YEARS.map(y => <option key={y}>{y}</option>)}
-                </select>
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
-              <button onClick={() => setShowModal(false)} style={{ flex: 1, padding: '11px', borderRadius: 10, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#94a3b8' : '#6b7280', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
-              <button onClick={saveAssessment} style={{ flex: 2, padding: '11px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#8b5cf6,#6d28d9)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 14px rgba(139,92,246,0.35)' }}>
-                {editingAssessment ? 'Save Changes' : 'Create Assessment'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Confirmation Modal */}
       <ConfirmModal
         open={confirmModal.open}
         onClose={closeConfirm}
@@ -900,7 +868,7 @@ export default function TeacherAssessments() {
         title={confirmModal.title}
         message={confirmModal.message}
         confirmText={confirmModal.confirmText}
-        cancelText={confirmModal.cancelText || 'Cancel'}
+        cancelText="Cancel"
       />
     </div>
   );

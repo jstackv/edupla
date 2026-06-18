@@ -65,7 +65,7 @@ export default function StudentDashboard() {
   const graded = data?.assignments?.filter(a => a.score !== null && a.score !== undefined) || [];
 
   const statCards = [
-    { icon: BookMarked, label: 'Enrolled Classes', value: data?.classes?.length || 0, to: '/student/classes', color: 'text-primary-600', iconBg: 'bg-primary-100 dark:bg-primary-900/30' },
+    { icon: BookMarked, label: 'Enrolled Class', value: data?.classes?.length || 0, to: '/student/classes', color: 'text-primary-600', iconBg: 'bg-primary-100 dark:bg-primary-900/30' },
     { icon: ClipboardList, label: 'Total Assignments', value: data?.totalAssignments || 0, to: '/student/assignments', color: 'text-amber-600', iconBg: 'bg-amber-100 dark:bg-amber-900/30' },
     { icon: CheckCircle2, label: 'Submitted', value: submitted.length, to: '/student/assignments', color: 'text-emerald-600', iconBg: 'bg-emerald-100 dark:bg-emerald-900/30' },
     { icon: FileText, label: 'Study Materials', value: data?.documents?.length || 0, to: '/student/documents', color: 'text-violet-600', iconBg: 'bg-violet-100 dark:bg-violet-900/30' },
@@ -181,7 +181,7 @@ export default function StudentDashboard() {
       {(data?.classes || []).length > 0 && (
         <div className="card">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-display font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>My Classes</h3>
+            <h3 className="font-display font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>My Class</h3>
             <Link to="/student/classes" className="text-xs text-primary-600 hover:underline flex items-center gap-1">
               View all <ChevronRight className="w-3 h-3" />
             </Link>
