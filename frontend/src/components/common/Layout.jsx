@@ -19,7 +19,7 @@ const TeacherLinks = [
   { to: '/teacher/students',         icon: Users,           label: 'Students',      section: 'main' },
   { to: '/teacher/documents',        icon: FileText,        label: 'Documents',     section: 'manage' },
   { to: '/teacher/assignments',      icon: ClipboardList,   label: 'Assignments',   section: 'manage' },
-  { to: '/teacher/assessments-grade',icon: BookMarked,      label: 'Assessments',   section: 'manage' },
+  { to: '/teacher/assessments-grade',icon: BookMarked,      label: 'Marks Recording',   section: 'manage' },
   { to: '/teacher/announcements',    icon: Megaphone,       label: 'Announcements', section: 'manage' },
 ];
 const StudentLinks = [
@@ -34,9 +34,8 @@ const AdminLinks = [
   { to: '/admin/teachers',    icon: UserCheck,       label: 'Teachers',      section: 'main' },
   { to: '/admin/classes',     icon: BookOpen,        label: 'Classes',       section: 'main' },
   { to: '/admin/students',    icon: GraduationCap,   label: 'Students',      section: 'main' },
-  { to: '/admin/assignments', icon: ClipboardList,   label: 'Assignments',   section: 'manage' },
-  { to: '/admin/assessments', icon: BookMarked,      label: 'Assessments',   section: 'manage' },
-  { to: '/admin/settings',    icon: GraduationCap,          label: 'TVET Info',        section: 'manage' },
+  { to: '/admin/assessments', icon: BookMarked,      label: 'Manage Modules',   section: 'manage' },
+  { to: '/admin/settings',    icon: GraduationCap,   label: 'Manage TVET Info',        section: 'manage' },
 ];
 const SuperAdminLinks = [
   { to: '/admin/dashboard',   icon: LayoutDashboard, label: 'Overview',      section: 'main' },

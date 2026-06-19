@@ -30,7 +30,6 @@ import SuperAdminDashboard from './pages/admin/SuperAdminDashboard';
 import AdminTeachers from './pages/admin/Teachers';
 import AdminClasses from './pages/admin/Classes';
 import AdminStudents from './pages/admin/Students';
-import AdminAssignments from './pages/admin/Assignments';
 import AdminAssessments from './pages/admin/Assessments';
 import AdminSettingsPage from './pages/admin/AdminSettings';
 import ManageAdmins from './pages/admin/ManageAdmins';
@@ -150,7 +149,6 @@ function AppRoutes() {
       <Route path="/admin/teachers"    element={<RegularAdminRoute><AdminTeachers /></RegularAdminRoute>} />
       <Route path="/admin/classes"     element={<RegularAdminRoute><AdminClasses /></RegularAdminRoute>} />
       <Route path="/admin/students"    element={<RegularAdminRoute><AdminStudents /></RegularAdminRoute>} />
-      <Route path="/admin/assignments" element={<RegularAdminRoute><AdminAssignments /></RegularAdminRoute>} />
       <Route path="/admin/assessments" element={<RegularAdminRoute><AdminAssessments /></RegularAdminRoute>} />
       <Route path="/admin/settings"    element={<RegularAdminRoute><AdminSettingsPage /></RegularAdminRoute>} />
       <Route path="/admin/admins"      element={<SuperAdminRoute><ManageAdmins /></SuperAdminRoute>} />

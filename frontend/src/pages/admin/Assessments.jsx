@@ -130,6 +130,87 @@ function catBadge(cat) {
 }
 
 /* ══════════════════════════════════════════════════════════════════════
+   MULTI-CLASS PICKER — tag-style pill selector used in the course modal
+══════════════════════════════════════════════════════════════════════ */
+function MultiClassPicker({ classes, selectedIds, onChange, dark }) {
+  const inputSt = {
+    width: '100%', padding: '9px 12px', borderRadius: 10, border: `1px solid ${dark ? '#2a3042' : '#d1d5db'}`,
+    background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#e2e8f0' : '#111827', fontSize: 13, outline: 'none', boxSizing: 'border-box',
+  };
+
+  const available = classes.filter(c => !selectedIds.includes(c._id || c.id));
+
+  function add(id) {
+    if (id && !selectedIds.includes(id)) onChange([...selectedIds, id]);
+  }
+  function remove(id) {
+    onChange(selectedIds.filter(x => x !== id));
+  }
+
+  return (
+    <div>
+      {/* Selected pills */}
+      {selectedIds.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+          {selectedIds.map(id => {
+            const cls = classes.find(c => (c._id || c.id) === id);
+            if (!cls) return null;
+            return (
+              <span key={id} style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                padding: '4px 10px', borderRadius: 20,
+                background: 'rgba(26,58,107,0.10)', border: '1px solid rgba(26,58,107,0.30)',
+                fontSize: 12, fontWeight: 700, color: '#1a3a6b',
+              }}>
+                <School size={11} />
+                {cls.name}
+                <button
+                  type="button"
+                  onClick={() => remove(id)}
+                  style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '0 0 0 2px', color: '#1a3a6b', display: 'flex', alignItems: 'center', lineHeight: 1 }}
+                  title={`Remove ${cls.name}`}
+                >
+                  <X size={11} />
+                </button>
+              </span>
+            );
+          })}
+          <button
+            type="button"
+            onClick={() => onChange([])}
+            style={{ padding: '4px 10px', borderRadius: 20, border: '1px solid rgba(239,68,68,0.25)', background: 'rgba(239,68,68,0.06)', fontSize: 11, fontWeight: 600, color: '#ef4444', cursor: 'pointer' }}
+          >
+            Clear all
+          </button>
+        </div>
+      )}
+
+      {/* Dropdown to add more */}
+      <select
+        value=""
+        onChange={e => { add(e.target.value); e.target.value = ''; }}
+        style={inputSt}
+      >
+        <option value="">
+          {available.length === 0
+            ? selectedIds.length > 0 ? 'All classes assigned' : 'No classes available'
+            : `Add a class… (${available.length} remaining)`}
+        </option>
+        {available.map(c => (
+          <option key={c._id || c.id} value={c._id || c.id}>{c.name}</option>
+        ))}
+      </select>
+
+      {selectedIds.length === 0 && (
+        <p style={{ margin: '5px 0 0', fontSize: 11, color: dark ? '#7b839a' : '#9ca3af' }}>
+          No classes assigned. Use the dropdown above to assign one or more.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════════
    REPORT CONFIG PANEL  — removed: Programme/Qualification, Brand Colors
 ══════════════════════════════════════════════════════════════════════ */
 function ReportConfigPanel({ config, onChange, dark }) {
@@ -172,8 +253,6 @@ function ReportConfigPanel({ config, onChange, dark }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-      {/* Government / Authority Header */}
       <div style={cardSt}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
           <div style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg,#1a3a6b,#1565c0)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -194,7 +273,6 @@ function ReportConfigPanel({ config, onChange, dark }) {
         </div>
       </div>
 
-      {/* Contact Information */}
       <div style={cardSt}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
           <div style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg,#10b981,#059669)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -210,7 +288,6 @@ function ReportConfigPanel({ config, onChange, dark }) {
         </div>
       </div>
 
-      {/* Report Signatory */}
       <div style={cardSt}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
           <div style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg,#f59e0b,#d97706)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -224,7 +301,6 @@ function ReportConfigPanel({ config, onChange, dark }) {
         </div>
       </div>
 
-      {/* Footer Legend */}
       <div style={cardSt}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
           <div style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg,#06b6d4,#0891b2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -268,7 +344,7 @@ export default function AdminAssessments() {
   const [loading,     setLoading]     = useState(false);
 
   /* ── Course tab filters + view mode ── */
-  const [courseView,           setCourseView]           = useState('cards'); // 'cards' | 'table'
+  const [courseView,           setCourseView]           = useState('cards');
   const [courseFilterTeacher,  setCourseFilterTeacher]  = useState('');
   const [courseFilterCategory, setCourseFilterCategory] = useState('');
   const [courseFilterClass,    setCourseFilterClass]    = useState('');
@@ -295,9 +371,16 @@ export default function AdminAssessments() {
   /* ── Course modal ── */
   const [showCourseModal, setShowCourseModal] = useState(false);
   const [editingCourse,   setEditingCourse]   = useState(null);
+
+  /*
+   * class_ids: string[]  — array of class IDs (replaces single class_id)
+   * We still send class_id (first entry) to the API for backwards compat,
+   * plus class_ids for the new multi-class endpoint.
+   */
   const [courseForm, setCourseForm] = useState({
     name: '', code: '', description: '', total_marks: 100,
-    class_id: '', teacher_id: '', category: 'Complementary modules',
+    class_ids: [],          // ← NEW: multiple classes
+    teacher_id: '', category: 'Complementary modules',
   });
 
   const [confirmModal, setConfirmModal] = useState({
@@ -410,43 +493,69 @@ export default function AdminAssessments() {
   /* ── Course CRUD ── */
   function openCreateCourse() {
     setEditingCourse(null);
-    setCourseForm({ name: '', code: '', description: '', total_marks: 100, class_id: '', teacher_id: '', category: 'Complementary modules' });
+    setCourseForm({
+      name: '', code: '', description: '', total_marks: 100,
+      class_ids: [], teacher_id: '', category: 'Complementary modules',
+    });
     setShowCourseModal(true);
   }
+
   function openEditCourse(c) {
     setEditingCourse(c);
+    /*
+     * Support both old (single class_id) and new (class_ids array) shapes
+     * coming back from the API.
+     */
+    let class_ids = [];
+    if (Array.isArray(c.class_ids) && c.class_ids.length > 0) {
+      class_ids = c.class_ids.map(id => (typeof id === 'object' ? id._id || id.id : id));
+    } else if (c.class_id) {
+      const single = typeof c.class_id === 'object' ? c.class_id._id || c.class_id.id : c.class_id;
+      if (single) class_ids = [single];
+    }
     setCourseForm({
       name: c.name || '', code: c.code || '', description: c.description || '',
       total_marks: c.total_marks || 100,
-      class_id: c.class_id?._id || c.class_id || '',
+      class_ids,
       teacher_id: c.teacher_id?._id || c.teacher_id || '',
       category: c.category || 'Complementary modules',
     });
     setShowCourseModal(true);
   }
+
   async function saveCourse() {
     if (!courseForm.name.trim()) { toast.error('Course name is required'); return; }
+    /*
+     * Send both class_ids (new) and class_id (first entry, backward compat)
+     * so older API versions continue to work.
+     */
+    const payload = {
+      ...courseForm,
+      class_ids: courseForm.class_ids,
+      class_id: courseForm.class_ids[0] || '',
+    };
     try {
       if (editingCourse) {
-        await api.put('/assessment/admin/courses/' + editingCourse._id, courseForm);
-        toast.success('Course updated');
+        await api.put('/assessment/admin/courses/' + editingCourse._id, payload);
+        toast.success('Module updated');
       } else {
-        await api.post('/assessment/admin/courses', courseForm);
-        toast.success('Course created');
+        await api.post('/assessment/admin/courses', payload);
+        toast.success('Module created');
       }
       setShowCourseModal(false); fetchAll();
-    } catch (e) { toast.error(e.response?.data?.message || 'Error saving course'); }
+    } catch (e) { toast.error(e.response?.data?.message || 'Error saving module'); }
   }
+
   async function deleteCourse(id) {
     openConfirm({
-      variant: 'danger', title: 'Delete Course',
-      message: 'This will permanently delete the course and all its assessments.',
-      confirmText: 'Yes, Delete Course',
+      variant: 'danger', title: 'Delete Module',
+      message: 'This will permanently delete the module and all its assessments.',
+      confirmText: 'Yes, Delete Module',
       onConfirm: async () => {
         setConfirmModal(prev => ({ ...prev, loading: true }));
         try {
           await api.delete('/assessment/admin/courses/' + id);
-          toast.success('Course deleted');
+          toast.success('Module deleted');
           fetchAll();
           closeConfirm();
         } catch (e) {
@@ -490,7 +599,12 @@ export default function AdminAssessments() {
 
   /* ── Derived: courses belonging to selected class (submissions tab) ── */
   const coursesForSubmissionClass = submissionClassFilter
-    ? courses.filter(c => (c.class_id?._id || c.class_id) === submissionClassFilter)
+    ? courses.filter(c => {
+        const ids = Array.isArray(c.class_ids) && c.class_ids.length > 0
+          ? c.class_ids.map(x => typeof x === 'object' ? x._id || x.id : x)
+          : [c.class_id?._id || c.class_id].filter(Boolean);
+        return ids.includes(submissionClassFilter);
+      })
     : courses;
 
   const tabs = [
@@ -508,8 +622,11 @@ export default function AdminAssessments() {
     }
     if (courseFilterCategory && (c.category || 'Complementary modules') !== courseFilterCategory) return false;
     if (courseFilterClass) {
-      const cid = c.class_id?._id || c.class_id;
-      if (cid !== courseFilterClass) return false;
+      // A course matches if it's assigned to this class (single or multi)
+      const ids = Array.isArray(c.class_ids) && c.class_ids.length > 0
+        ? c.class_ids.map(x => typeof x === 'object' ? x._id || x.id : x)
+        : [c.class_id?._id || c.class_id].filter(Boolean);
+      if (!ids.includes(courseFilterClass)) return false;
     }
     return true;
   });
@@ -525,19 +642,33 @@ export default function AdminAssessments() {
       const cid = a.course_id?._id || a.course_id;
       if (cid !== submissionCourseFilter) return false;
     }
-    // Class filter: keep only assessments whose course belongs to selected class
     if (submissionClassFilter) {
       const courseId = a.course_id?._id || a.course_id;
       const inClass  = coursesForSubmissionClass.some(c => (c._id || c.id) === courseId);
       if (!inClass) return false;
     }
-    // Category filter: match the course's module category
     if (submissionCategoryFilter) {
       const cat = a.course_id?.category || '';
       if (cat !== submissionCategoryFilter) return false;
     }
     return true;
   });
+
+  /* ── Helper: resolve class names for a course (multi or single) ── */
+  function getCourseClassNames(c) {
+    if (Array.isArray(c.class_ids) && c.class_ids.length > 0) {
+      return c.class_ids.map(x => {
+        if (typeof x === 'object') return x.name || x._id || x.id;
+        const found = classes.find(cl => (cl._id || cl.id) === x);
+        return found ? found.name : x;
+      });
+    }
+    if (c.class_id) {
+      const name = typeof c.class_id === 'object' ? c.class_id.name : null;
+      return [name || c.class_id];
+    }
+    return [];
+  }
 
   /* ── shared select style ── */
   const filterSelect = (active) => ({
@@ -571,7 +702,7 @@ export default function AdminAssessments() {
                 <GraduationCap size={20} color="#fff" />
               </div>
               <h1 style={{ fontSize: 22, fontWeight: 800, color: dark ? '#f1f5f9' : '#111827', margin: 0, fontFamily: "'Sora',sans-serif" }}>
-                Assessment Management
+                Modules, Submissions and Report Management
               </h1>
             </div>
             <p style={{ fontSize: 13, color: dark ? '#7b839a' : '#6b7280', margin: '0 0 0 50px' }}>
@@ -619,7 +750,6 @@ export default function AdminAssessments() {
               <span style={{ fontSize: 11, fontWeight: 700, color: dark ? '#7b839a' : '#6b7280', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Filter</span>
             </div>
 
-            {/* ── Class filter (NEW) ── */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
               <label style={{ fontSize: 10, fontWeight: 700, color: dark ? '#7b839a' : '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Class</label>
               <select value={courseFilterClass} onChange={e => setCourseFilterClass(e.target.value)} style={filterSelect(courseFilterClass)}>
@@ -655,7 +785,7 @@ export default function AdminAssessments() {
               </div>
             )}
 
-            {/* ── View toggle ── */}
+            {/* View toggle */}
             <div style={{ alignSelf: 'flex-end', display: 'flex', gap: 2, padding: 3, borderRadius: 9, background: dark ? '#1a1f2e' : '#f1f5f9', border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}` }}>
               {[
                 { key: 'cards', icon: '⊞', title: 'Card view' },
@@ -728,39 +858,57 @@ export default function AdminAssessments() {
                   </div>
 
                   {courseView === 'cards' ? (
-                    /* ── Card grid ── */
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))', gap: 14 }}>
-                      {catCourses.map(c => (
-                        <div key={c._id} className="course-card" style={{ ...card, position: 'relative', overflow: 'hidden', boxShadow: dark ? '0 4px 24px rgba(0,0,0,0.3)' : '0 2px 12px rgba(0,0,0,0.06)', padding: 16 }}>
-                          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: cb.dot }} />
-                          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
-                            <div style={{ flex: 1 }}>
-                              {c.code && <div style={{ fontSize: 10, fontWeight: 800, color: cb.text, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 3 }}>{c.code}</div>}
-                              <p style={{ fontSize: 13, fontWeight: 700, color: dark ? '#e8ecf4' : '#111827', margin: 0, lineHeight: 1.4 }}>{c.name}</p>
+                      {catCourses.map(c => {
+                        const classNames = getCourseClassNames(c);
+                        return (
+                          <div key={c._id} className="course-card" style={{ ...card, position: 'relative', overflow: 'hidden', boxShadow: dark ? '0 4px 24px rgba(0,0,0,0.3)' : '0 2px 12px rgba(0,0,0,0.06)', padding: 16 }}>
+                            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: cb.dot }} />
+                            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
+                              <div style={{ flex: 1 }}>
+                                {c.code && <div style={{ fontSize: 10, fontWeight: 800, color: cb.text, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 3 }}>{c.code}</div>}
+                                <p style={{ fontSize: 13, fontWeight: 700, color: dark ? '#e8ecf4' : '#111827', margin: 0, lineHeight: 1.4 }}>{c.name}</p>
+                              </div>
+                              <div style={{ display: 'flex', gap: 5, marginLeft: 8 }}>
+                                <button onClick={() => openEditCourse(c)} style={{ width: 28, height: 28, borderRadius: 7, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: dark ? '#1a1f2e' : '#f9fafb', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                  <Edit2 size={11} color={dark ? '#7b839a' : '#6b7280'} />
+                                </button>
+                                <button onClick={() => deleteCourse(c._id)} style={{ width: 28, height: 28, borderRadius: 7, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.07)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                  <Trash2 size={11} color="#ef4444" />
+                                </button>
+                              </div>
                             </div>
-                            <div style={{ display: 'flex', gap: 5, marginLeft: 8 }}>
-                              <button onClick={() => openEditCourse(c)} style={{ width: 28, height: 28, borderRadius: 7, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: dark ? '#1a1f2e' : '#f9fafb', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <Edit2 size={11} color={dark ? '#7b839a' : '#6b7280'} />
-                              </button>
-                              <button onClick={() => deleteCourse(c._id)} style={{ width: 28, height: 28, borderRadius: 7, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.07)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <Trash2 size={11} color="#ef4444" />
-                              </button>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                              <div style={{ padding: '2px 8px', borderRadius: 6, background: cb.bg, border: `1px solid ${cb.border}` }}>
+                                <span style={{ fontSize: 9, fontWeight: 800, color: cb.text, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{cat.replace(' modules', '')}</span>
+                              </div>
+                              <div style={{ padding: '3px 9px', borderRadius: 6, background: cb.bg, border: `1px solid ${cb.border}` }}>
+                                <span style={{ fontSize: 10, fontWeight: 700, color: cb.text }}>Weight: {c.total_marks || 100} marks</span>
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                              {classNames.length > 0 && (
+                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 5, fontSize: 11, color: dark ? '#7b839a' : '#6b7280' }}>
+                                  <School size={10} color={dark ? '#7b839a' : '#9ca3af'} style={{ marginTop: 2, flexShrink: 0 }} />
+                                  <div>
+                                    {classNames.length === 1
+                                      ? <span>Class: <strong style={{ color: dark ? '#e2e8f0' : '#374151' }}>{classNames[0]}</strong></span>
+                                      : (
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center' }}>
+                                          <span style={{ marginRight: 2 }}>Classes:</span>
+                                          {classNames.map((n, i) => (
+                                            <span key={i} style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 5, background: 'rgba(26,58,107,0.08)', border: '1px solid rgba(26,58,107,0.2)', color: '#1a3a6b' }}>{n}</span>
+                                          ))}
+                                        </div>
+                                      )}
+                                  </div>
+                                </div>
+                              )}
+                              {c.teacher_id && <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: dark ? '#7b839a' : '#6b7280' }}><UserCheck size={10} color={dark ? '#7b839a' : '#9ca3af'} />Teacher: <strong style={{ color: dark ? '#e2e8f0' : '#374151' }}>{c.teacher_id?.name || 'Assigned'}</strong></div>}
                             </div>
                           </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                            <div style={{ padding: '2px 8px', borderRadius: 6, background: cb.bg, border: `1px solid ${cb.border}` }}>
-                              <span style={{ fontSize: 9, fontWeight: 800, color: cb.text, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{cat.replace(' modules', '')}</span>
-                            </div>
-                            <div style={{ padding: '3px 9px', borderRadius: 6, background: cb.bg, border: `1px solid ${cb.border}` }}>
-                              <span style={{ fontSize: 10, fontWeight: 700, color: cb.text }}>Weight: {c.total_marks || 100} marks</span>
-                            </div>
-                          </div>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            {c.class_id   && <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: dark ? '#7b839a' : '#6b7280' }}><School size={10} color={dark ? '#7b839a' : '#9ca3af'} />Class: <strong style={{ color: dark ? '#e2e8f0' : '#374151' }}>{c.class_id?.name || 'Assigned'}</strong></div>}
-                            {c.teacher_id && <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: dark ? '#7b839a' : '#6b7280' }}><UserCheck size={10} color={dark ? '#7b839a' : '#9ca3af'} />Teacher: <strong style={{ color: dark ? '#e2e8f0' : '#374151' }}>{c.teacher_id?.name || 'Assigned'}</strong></div>}
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : (
                     /* ── Table view ── */
@@ -768,44 +916,55 @@ export default function AdminAssessments() {
                       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
                           <tr style={{ background: dark ? '#1a1f2e' : '#f9fafb', borderBottom: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}` }}>
-                            {['Code', 'Module Name', 'Weight', 'Class', 'Teacher', 'Actions'].map(h => (
+                            {['Code', 'Module Name', 'Weight', 'Classes', 'Teacher', 'Actions'].map(h => (
                               <th key={h} style={{ padding: '9px 14px', fontSize: 10, fontWeight: 700, color: dark ? '#7b839a' : '#6b7280', textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
                             ))}
                           </tr>
                         </thead>
                         <tbody>
-                          {catCourses.map((c, i) => (
-                            <tr key={c._id} style={{ background: i % 2 === 0 ? 'transparent' : (dark ? '#ffffff04' : '#fafbfd'), borderBottom: `1px solid ${dark ? '#1e2130' : '#f1f5f9'}`, transition: 'background 0.12s' }}>
-                              <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
-                                {c.code
-                                  ? <span style={{ fontSize: 11, fontWeight: 800, fontFamily: 'monospace', color: cb.text, background: cb.bg, padding: '2px 7px', borderRadius: 5, border: `1px solid ${cb.border}` }}>{c.code}</span>
-                                  : <span style={{ color: dark ? '#4a5068' : '#d1d5db', fontSize: 12 }}>—</span>}
-                              </td>
-                              <td style={{ padding: '10px 14px' }}>
-                                <span style={{ fontSize: 13, fontWeight: 600, color: dark ? '#e8ecf4' : '#111827' }}>{c.name}</span>
-                              </td>
-                              <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
-                                <span style={{ fontSize: 12, fontWeight: 700, color: cb.text }}>{c.total_marks || 100}</span>
-                                <span style={{ fontSize: 11, color: dark ? '#7b839a' : '#9ca3af', marginLeft: 3 }}>marks</span>
-                              </td>
-                              <td style={{ padding: '10px 14px', fontSize: 12, color: dark ? '#c4c9d4' : '#374151', whiteSpace: 'nowrap' }}>
-                                {c.class_id?.name || <span style={{ color: dark ? '#4a5068' : '#d1d5db' }}>—</span>}
-                              </td>
-                              <td style={{ padding: '10px 14px', fontSize: 12, color: dark ? '#c4c9d4' : '#374151', whiteSpace: 'nowrap' }}>
-                                {c.teacher_id?.name || <span style={{ color: dark ? '#4a5068' : '#d1d5db' }}>—</span>}
-                              </td>
-                              <td style={{ padding: '10px 14px' }}>
-                                <div style={{ display: 'flex', gap: 6 }}>
-                                  <button onClick={() => openEditCourse(c)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 7, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#94a3b8' : '#6b7280', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
-                                    <Edit2 size={10} /> Edit
-                                  </button>
-                                  <button onClick={() => deleteCourse(c._id)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 7, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.07)', color: '#ef4444', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
-                                    <Trash2 size={10} /> Delete
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
+                          {catCourses.map((c, i) => {
+                            const classNames = getCourseClassNames(c);
+                            return (
+                              <tr key={c._id} style={{ background: i % 2 === 0 ? 'transparent' : (dark ? '#ffffff04' : '#fafbfd'), borderBottom: `1px solid ${dark ? '#1e2130' : '#f1f5f9'}` }}>
+                                <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
+                                  {c.code
+                                    ? <span style={{ fontSize: 11, fontWeight: 800, fontFamily: 'monospace', color: cb.text, background: cb.bg, padding: '2px 7px', borderRadius: 5, border: `1px solid ${cb.border}` }}>{c.code}</span>
+                                    : <span style={{ color: dark ? '#4a5068' : '#d1d5db', fontSize: 12 }}>—</span>}
+                                </td>
+                                <td style={{ padding: '10px 14px' }}>
+                                  <span style={{ fontSize: 13, fontWeight: 600, color: dark ? '#e8ecf4' : '#111827' }}>{c.name}</span>
+                                </td>
+                                <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
+                                  <span style={{ fontSize: 12, fontWeight: 700, color: cb.text }}>{c.total_marks || 100}</span>
+                                  <span style={{ fontSize: 11, color: dark ? '#7b839a' : '#9ca3af', marginLeft: 3 }}>marks</span>
+                                </td>
+                                <td style={{ padding: '10px 14px' }}>
+                                  {classNames.length === 0
+                                    ? <span style={{ color: dark ? '#4a5068' : '#d1d5db', fontSize: 12 }}>—</span>
+                                    : (
+                                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                                        {classNames.map((n, idx) => (
+                                          <span key={idx} style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 6, background: 'rgba(26,58,107,0.08)', border: '1px solid rgba(26,58,107,0.2)', color: '#1a3a6b', whiteSpace: 'nowrap' }}>{n}</span>
+                                        ))}
+                                      </div>
+                                    )}
+                                </td>
+                                <td style={{ padding: '10px 14px', fontSize: 12, color: dark ? '#c4c9d4' : '#374151', whiteSpace: 'nowrap' }}>
+                                  {c.teacher_id?.name || <span style={{ color: dark ? '#4a5068' : '#d1d5db' }}>—</span>}
+                                </td>
+                                <td style={{ padding: '10px 14px' }}>
+                                  <div style={{ display: 'flex', gap: 6 }}>
+                                    <button onClick={() => openEditCourse(c)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 7, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#94a3b8' : '#6b7280', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                                      <Edit2 size={10} /> Edit
+                                    </button>
+                                    <button onClick={() => deleteCourse(c._id)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 7, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.07)', color: '#ef4444', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                                      <Trash2 size={10} /> Delete
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -824,15 +983,11 @@ export default function AdminAssessments() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               <span style={{ fontSize: 12, color: dark ? '#7b839a' : '#6b7280', fontWeight: 700 }}>Filters:</span>
 
-              {/* ── Class filter (NEW) ── */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <label style={{ fontSize: 10, fontWeight: 700, color: dark ? '#7b839a' : '#9ca3af', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Class</label>
                 <select
                   value={submissionClassFilter}
-                  onChange={e => {
-                    setSubmissionClassFilter(e.target.value);
-                    setSubmissionCourseFilter(''); // reset course when class changes
-                  }}
+                  onChange={e => { setSubmissionClassFilter(e.target.value); setSubmissionCourseFilter(''); }}
                   style={filterSelect(submissionClassFilter)}
                 >
                   <option value="">All Classes</option>
@@ -840,7 +995,6 @@ export default function AdminAssessments() {
                 </select>
               </div>
 
-              {/* Teacher */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <label style={{ fontSize: 10, fontWeight: 700, color: dark ? '#7b839a' : '#9ca3af', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Teacher</label>
                 <select value={submissionTeacherFilter} onChange={e => setSubmissionTeacherFilter(e.target.value)} style={filterSelect(submissionTeacherFilter)}>
@@ -849,7 +1003,6 @@ export default function AdminAssessments() {
                 </select>
               </div>
 
-              {/* Course — list narrows to selected class */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <label style={{ fontSize: 10, fontWeight: 700, color: dark ? '#7b839a' : '#9ca3af', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
                   Course {submissionClassFilter ? `(${coursesForSubmissionClass.length})` : ''}
@@ -860,7 +1013,6 @@ export default function AdminAssessments() {
                 </select>
               </div>
 
-              {/* Module Category (NEW) */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <label style={{ fontSize: 10, fontWeight: 700, color: dark ? '#7b839a' : '#9ca3af', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Module Type</label>
                 <select value={submissionCategoryFilter} onChange={e => setSubmissionCategoryFilter(e.target.value)} style={filterSelect(submissionCategoryFilter)}>
@@ -869,7 +1021,6 @@ export default function AdminAssessments() {
                 </select>
               </div>
 
-              {/* Status */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <label style={{ fontSize: 10, fontWeight: 700, color: dark ? '#7b839a' : '#9ca3af', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Status</label>
                 <select value={submissionFilter} onChange={e => setSubmissionFilter(e.target.value)} style={filterSelect(submissionFilter)}>
@@ -1224,22 +1375,26 @@ export default function AdminAssessments() {
       {/* ══════════ COURSE MODAL ══════════ */}
       {showCourseModal && (
         <div onClick={e => { if (e.target === e.currentTarget) setShowCourseModal(false); }} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ width: 540, borderRadius: 22, background: dark ? '#13161f' : '#fff', border: `1px solid ${dark ? '#1e2535' : '#e5e7eb'}`, padding: 30, boxShadow: '0 32px 80px rgba(0,0,0,0.4)', maxHeight: '90vh', overflowY: 'auto' }}>
+          <div style={{ width: 560, borderRadius: 22, background: dark ? '#13161f' : '#fff', border: `1px solid ${dark ? '#1e2535' : '#e5e7eb'}`, padding: 30, boxShadow: '0 32px 80px rgba(0,0,0,0.4)', maxHeight: '90vh', overflowY: 'auto' }}>
+            {/* Modal header */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 22 }}>
               <div style={{ width: 42, height: 42, borderRadius: 12, background: 'linear-gradient(135deg,#1a3a6b,#1565c0)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <BookOpen size={18} color="#fff" />
               </div>
               <div style={{ flex: 1 }}>
                 <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: dark ? '#f1f5f9' : '#111827' }}>{editingCourse ? 'Edit Module' : 'Add New Module'}</h2>
-                <p style={{ margin: 0, fontSize: 12, color: dark ? '#7b839a' : '#9ca3af' }}>Fill in the module details</p>
+                <p style={{ margin: 0, fontSize: 12, color: dark ? '#7b839a' : '#9ca3af' }}>Fill in the module details below</p>
               </div>
               <button onClick={() => setShowCourseModal(false)} style={{ border: 'none', background: dark ? '#1e2130' : '#f3f4f6', borderRadius: 8, width: 32, height: 32, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <X size={16} />
               </button>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+              {/* Module Type */}
               <div>
-                <label style={labelStyle}>Module Type *</label>
+                <label style={{ ...labelStyle, marginBottom: 8 }}>Module Type *</label>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
                   {MODULE_CATEGORIES.map(cat => {
                     const cb = catBadge(cat);
@@ -1261,6 +1416,8 @@ export default function AdminAssessments() {
                   {courseForm.category === 'Elective Non Examinable' && <span style={{ fontSize: 9, color: '#4a044e', fontWeight: 700, marginLeft: 'auto' }}>✓ Selected</span>}
                 </button>
               </div>
+
+              {/* Name + Code + Weight */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div style={{ gridColumn: '1/-1' }}>
                   <label style={labelStyle}>Module Name *</label>
@@ -1275,17 +1432,41 @@ export default function AdminAssessments() {
                   <input type="number" min={1} max={1000} value={courseForm.total_marks} onChange={e => setCourseForm(f => ({ ...f, total_marks: e.target.value }))} style={inputStyle} />
                 </div>
               </div>
+
+              {/* Description */}
               <div>
                 <label style={labelStyle}>Description</label>
                 <textarea value={courseForm.description} onChange={e => setCourseForm(f => ({ ...f, description: e.target.value }))} placeholder="Optional…" rows={2} style={{ ...inputStyle, resize: 'vertical' }} />
               </div>
+
+              {/* ── Multi-class assignment ── */}
               <div>
-                <label style={labelStyle}>Assign to Class</label>
-                <select value={courseForm.class_id} onChange={e => setCourseForm(f => ({ ...f, class_id: e.target.value }))} style={inputStyle}>
-                  <option value="">No class assigned</option>
-                  {classes.map(c => <option key={c._id || c.id} value={c._id || c.id}>{c.name}</option>)}
-                </select>
+                <label style={{ ...labelStyle, marginBottom: 6 }}>
+                  Assign to Classes
+                  {courseForm.class_ids.length > 0 && (
+                    <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: 'rgba(26,58,107,0.10)', color: '#1a3a6b', border: '1px solid rgba(26,58,107,0.25)' }}>
+                      {courseForm.class_ids.length} selected
+                    </span>
+                  )}
+                </label>
+
+                {/* Info tip */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 10px', borderRadius: 8, background: dark ? '#1a1f2e' : '#f0f9ff', border: `1px solid ${dark ? '#2a3042' : '#bae6fd'}`, marginBottom: 10 }}>
+                  <Users size={12} color="#0369a1" />
+                  <span style={{ fontSize: 11, color: dark ? '#7b839a' : '#0369a1' }}>
+                    This module will be available to all selected classes simultaneously.
+                  </span>
+                </div>
+
+                <MultiClassPicker
+                  classes={classes}
+                  selectedIds={courseForm.class_ids}
+                  onChange={ids => setCourseForm(f => ({ ...f, class_ids: ids }))}
+                  dark={dark}
+                />
               </div>
+
+              {/* Teacher */}
               <div>
                 <label style={labelStyle}>Assign to Teacher</label>
                 <select value={courseForm.teacher_id} onChange={e => setCourseForm(f => ({ ...f, teacher_id: e.target.value }))} style={inputStyle}>
@@ -1294,6 +1475,18 @@ export default function AdminAssessments() {
                 </select>
               </div>
             </div>
+
+            {/* Summary badge when multiple classes selected */}
+            {courseForm.class_ids.length > 1 && (
+              <div style={{ marginTop: 14, padding: '10px 14px', borderRadius: 10, background: 'rgba(26,58,107,0.06)', border: '1px solid rgba(26,58,107,0.18)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <CheckCircle2 size={14} color="#1a3a6b" />
+                <span style={{ fontSize: 12, color: '#1a3a6b', fontWeight: 600 }}>
+                  This module will be assigned to {courseForm.class_ids.length} classes at once.
+                </span>
+              </div>
+            )}
+
+            {/* Actions */}
             <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
               <button onClick={() => setShowCourseModal(false)} style={{ flex: 1, padding: '11px', borderRadius: 10, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#94a3b8' : '#6b7280', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
               <button onClick={saveCourse} style={{ flex: 2, padding: '11px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#1a3a6b,#1565c0)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 14px rgba(26,58,107,0.35)' }}>
@@ -1509,13 +1702,12 @@ function ReportView({ data, dark, students, classes, config }) {
 }
 
 /* ══════════════════════════════════════════════════════════
-   TVET STUDENT REPORT
+   TVET STUDENT REPORT  (unchanged from original)
 ══════════════════════════════════════════════════════════ */
 function TVETStudentReport({ student, cls, allAssessments, allStudents, config, isLast }) {
   const pc = config?.primaryColor || '#1a3a6b';
   const reportDate = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
 
-  /* ── Build per-module multi-term data ── */
   const courseMap = new Map();
   allAssessments.forEach(a => {
     const cid = String(a.course_id?._id || a.course_id || a._id);
@@ -1588,7 +1780,6 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
   const termRanks   = student.term_ranks || {};
   const behaviourMarks = student.behaviour || null;
 
-  /* ── Styles ── */
   const border   = '1px solid #c8cdd8';
   const headerBg = '#e8ecf0';
   const cellPad  = '3px 4px';
@@ -1601,7 +1792,6 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
   const hCell    = { padding: cellPad, fontSize: fs, background: headerBg, fontWeight: 700, borderRight: border, borderBottom: border, textAlign: 'center', verticalAlign: 'middle' };
   const vHeaderCell = { ...hCell, padding: '4px 2px', width: 20, minWidth: 20, maxWidth: 24 };
 
-  /* Vertical label — full names, no formula */
   function VLabel({ text, bg }) {
     return (
       <div style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', transform: 'rotate(180deg)', fontSize: 6.5, fontWeight: 700, whiteSpace: 'nowrap', lineHeight: 1, padding: '4px 1px', background: bg || 'transparent', color: '#374151' }}>
@@ -1612,8 +1802,6 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
 
   return (
     <div className="report-student-page" style={{ background: '#fff', padding: '12px 14px', marginBottom: isLast ? 0 : 32, fontFamily: 'Arial, Helvetica, sans-serif', color: '#1a1a2e', fontSize: fs, boxShadow: '0 2px 20px rgba(0,0,0,0.08)' }}>
-
-      {/* ══ Header ══ */}
       <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 5 }}>
         <tbody>
           <tr>
@@ -1648,12 +1836,10 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
         </tbody>
       </table>
 
-      {/* Report title */}
       <div style={{ border, background: '#f8f9fa', padding: '4px', textAlign: 'center', fontWeight: 900, fontSize: 11, letterSpacing: '0.04em', marginBottom: 0, borderBottom: 'none' }}>
         LEARNER'S ASSESSMENT REPORT
       </div>
 
-      {/* Programme rows */}
       <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 0 }}>
         <tbody>
           <tr>
@@ -1671,14 +1857,13 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
         </tbody>
       </table>
 
-      {/* ══ Main Marks Table ══ */}
       <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', border, marginTop: 0 }}>
         <colgroup>
           <col style={{ width: 16 }} /><col style={{ width: 34 }} /><col style={{ width: 80 }} /><col style={{ width: 22 }} />
-          {/* T1 */}<col style={{ width: 18 }} /><col style={{ width: 18 }} /><col style={{ width: 18 }} /><col style={{ width: 22 }} />
-          {/* T2 */}<col style={{ width: 18 }} /><col style={{ width: 18 }} /><col style={{ width: 18 }} /><col style={{ width: 22 }} />
-          {/* T3 */}<col style={{ width: 18 }} /><col style={{ width: 18 }} /><col style={{ width: 18 }} /><col style={{ width: 22 }} />
-          {/* Annual */}<col style={{ width: 22 }} /><col style={{ width: 22 }} /><col style={{ width: 22 }} />
+          <col style={{ width: 18 }} /><col style={{ width: 18 }} /><col style={{ width: 18 }} /><col style={{ width: 22 }} />
+          <col style={{ width: 18 }} /><col style={{ width: 18 }} /><col style={{ width: 18 }} /><col style={{ width: 22 }} />
+          <col style={{ width: 18 }} /><col style={{ width: 18 }} /><col style={{ width: 18 }} /><col style={{ width: 22 }} />
+          <col style={{ width: 22 }} /><col style={{ width: 22 }} /><col style={{ width: 22 }} />
         </colgroup>
         <thead>
           <tr>
@@ -1694,7 +1879,6 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
           <tr>
             {TERMS.map((_, ti) => (
               <>
-                {/* ── Full assessment names, no formula on Average ── */}
                 <th key={`h${ti}fa`}  style={{ ...vHeaderCell, background: ti % 2 === 0 ? '#dde8f0' : '#d4e1ec' }}><VLabel text="Formative Assessment" /></th>
                 <th key={`h${ti}ia`}  style={{ ...vHeaderCell, background: ti % 2 === 0 ? '#dde8f0' : '#d4e1ec' }}><VLabel text="Integrated Assessment" /></th>
                 <th key={`h${ti}ca`}  style={{ ...vHeaderCell, background: ti % 2 === 0 ? '#dde8f0' : '#d4e1ec' }}><VLabel text="Comprehensive Assessment" /></th>
@@ -1705,8 +1889,6 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
             <th style={{ ...vHeaderCell, background: '#b0c8dc' }}><VLabel text="Annual Marks" bg="#b0c8dc" /></th>
             <th style={{ ...vHeaderCell, background: '#b0c8dc' }}><VLabel text="Decision" bg="#b0c8dc" /></th>
           </tr>
-
-          {/* Behaviour row */}
           <tr style={{ background: '#f5f7fa' }}>
             <td style={{ ...hCell, fontSize: 6 }} />
             <td style={{ ...cellLeft, fontWeight: 700, fontSize: 6 }} colSpan={2}>Behaviour</td>
@@ -1760,7 +1942,6 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
         </tbody>
 
         <tfoot>
-          {/* Totals */}
           <tr style={{ background: headerBg }}>
             <td colSpan={3} style={{ ...hCell, textAlign: 'right', fontSize: 6 }}>Total Weights assessed:</td>
             <td style={{ ...hCell, fontSize: 6 }}>{moduleRows.reduce((s, r) => s + r.weight, 0)}</td>
@@ -1776,7 +1957,6 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
             <td style={{ ...hCell, background: '#b0c8dc', color: pctColor(annualPct), fontSize: 6 }}>{annualObtained || '—'}</td>
             <td style={{ ...hCell, background: '#b0c8dc', color: decColor(getRwandanDecision(annualPct)), fontSize: 6 }}>{getRwandanDecision(annualPct)}</td>
           </tr>
-          {/* TOTAL */}
           <tr style={{ background: '#f5f7fa' }}>
             <td colSpan={3} style={{ ...hCell, textAlign: 'right', fontSize: 6 }}>TOTAL :</td>
             <td style={{ ...hCell, fontSize: 6 }}>{moduleRows.reduce((s, r) => s + r.weight, 0)}</td>
@@ -1792,7 +1972,6 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
             <td style={{ ...hCell, background: '#b0c8dc', color: pctColor(annualPct), fontSize: 6 }}>{annualObtained}</td>
             <td style={{ ...hCell, background: '#b0c8dc', fontSize: 6 }}>{annualMax}</td>
           </tr>
-          {/* PERCENTAGE */}
           <tr>
             <td colSpan={3} style={{ ...hCell, textAlign: 'right', fontSize: 6 }}>PERCENTAGE :</td>
             <td style={{ ...cell, fontSize: 6 }} />
@@ -1806,7 +1985,6 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
             ))}
             <td colSpan={3} style={{ ...hCell, background: '#b0c8dc', color: pctColor(annualPct), fontWeight: 900, fontSize: 7 }}>{annualPct != null ? annualPct.toFixed(2) + '%' : '—'}</td>
           </tr>
-          {/* POSITION */}
           <tr>
             <td colSpan={3} style={{ ...hCell, textAlign: 'right', fontSize: 6 }}>POSITION :</td>
             <td style={{ ...cell, fontSize: 6 }} />
@@ -1826,7 +2004,6 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
               {annualRank ? `${annualRank}/${totalRanked}` : '—'}
             </td>
           </tr>
-          {/* Class trainer comment */}
           <tr>
             <td colSpan={19} style={{ padding: '4px 8px', fontSize: 7, borderBottom: border, background: '#f8f9fa' }}>
               <strong>{cls?.teacher?.name || config?.classTrainer || 'Class Trainer'}</strong> (Class Trainer)'s Comments &amp; signature :
@@ -1836,7 +2013,6 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
         </tfoot>
       </table>
 
-      {/* ══ Footer: Legend + Deliberation + Signature ══ */}
       <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 5 }}>
         <tbody>
           <tr>
