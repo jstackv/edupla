@@ -11,6 +11,26 @@ const TYPE_TITLES = {
   CA: 'Comprehensive Assessment',
 };
 
+/* ─────────────────────────────────────────────────────────
+   Helper: normalise class_ids from the request body.
+   Accepts:
+     • class_ids: ['id1', 'id2']          (new multi-class UI)
+     • class_id:  'id1'                   (legacy single-class)
+     • class_ids: []  / class_id: ''      → empty array (no class)
+   Always returns a plain array of non-empty strings.
+───────────────────────────────────────────────────────── */
+function resolveClassIds(body) {
+  const { class_ids, class_id } = body;
+
+  if (Array.isArray(class_ids) && class_ids.length > 0) {
+    return class_ids.filter(Boolean);          // trust the new multi-class payload
+  }
+
+  if (class_id) return [class_id];             // legacy single value
+
+  return [];                                   // nothing assigned
+}
+
 /* ═══════════════════════════════════════════════════
    ADMIN — COURSE MANAGEMENT
 ═══════════════════════════════════════════════════ */
@@ -18,47 +38,81 @@ const TYPE_TITLES = {
 exports.adminGetCourses = async (req, res) => {
   try {
     const courses = await Course.find({ created_by: req.user.id })
-      .populate('class_id', 'name')
+      /*
+       * Populate both fields so the frontend can use whichever it finds:
+       *   course.class_ids  → array of populated class objects  (new)
+       *   course.class_id   → single populated class object     (legacy)
+       */
+      .populate('class_ids', 'name')
+      .populate('class_id',  'name')
       .populate('teacher_id', 'name email')
       .sort({ created_at: -1 })
       .lean();
+
     res.json({ courses: courses.map(c => ({ ...c, id: c._id })) });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
 exports.adminCreateCourse = async (req, res) => {
   try {
-    const { name, code, description, class_id, teacher_id, total_marks, category } = req.body;
+    const { name, description, code, teacher_id, total_marks, category } = req.body;
     if (!name) return res.status(400).json({ message: 'Course name is required' });
+
+    const classIds = resolveClassIds(req.body);
+
     const course = await Course.create({
-      name: name.trim(),
-      code: code?.trim() || null,
+      name:        name.trim(),
+      code:        code?.trim()        || null,
       description: description?.trim() || null,
       total_marks: total_marks ? Number(total_marks) : 100,
-      category: category || 'Complementary modules',
-      class_id: class_id || null,
-      teacher_id: teacher_id || null,
-      created_by: req.user.id,
+      category:    category || 'Complementary modules',
+
+      /* ── multi-class (new) ── */
+      class_ids: classIds,
+
+      /* ── legacy single-class: keep the first entry so old code still works ── */
+      class_id: classIds[0] || null,
+
+      teacher_id:  teacher_id || null,
+      created_by:  req.user.id,
     });
+
     res.status(201).json({ message: 'Course created', id: course._id });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
 exports.adminUpdateCourse = async (req, res) => {
   try {
-    const { name, code, description, class_id, teacher_id, total_marks, category } = req.body;
+    const { name, code, description, teacher_id, total_marks, category } = req.body;
     const update = {};
-    if (name) update.name = name.trim();
-    if (code !== undefined) update.code = code?.trim() || null;
+
+    if (name        !== undefined) update.name        = name.trim();
+    if (code        !== undefined) update.code        = code?.trim()        || null;
     if (description !== undefined) update.description = description?.trim() || null;
     if (total_marks !== undefined) update.total_marks = total_marks ? Number(total_marks) : 100;
-    if (category !== undefined) update.category = category || 'Complementary modules';
-    if (class_id !== undefined) update.class_id = class_id || null;
-    if (teacher_id !== undefined) update.teacher_id = teacher_id || null;
+    if (category    !== undefined) update.category    = category    || 'Complementary modules';
+    if (teacher_id  !== undefined) update.teacher_id  = teacher_id  || null;
+
+    /*
+     * class_ids / class_id are only updated when the caller explicitly sends
+     * at least one of them (so a PATCH that only changes the name won't
+     * accidentally wipe the class assignment).
+     */
+    const hasClassPayload =
+      Array.isArray(req.body.class_ids) || req.body.class_id !== undefined;
+
+    if (hasClassPayload) {
+      const classIds = resolveClassIds(req.body);
+      update.class_ids = classIds;
+      update.class_id  = classIds[0] || null;   // keep legacy field in sync
+    }
+
     const course = await Course.findOneAndUpdate(
       { _id: req.params.id, created_by: req.user.id },
-      update, { new: true }
+      update,
+      { new: true }
     );
+
     if (!course) return res.status(404).json({ message: 'Course not found' });
     res.json({ message: 'Course updated' });
   } catch (err) { res.status(500).json({ message: err.message }); }
@@ -246,7 +300,19 @@ exports.adminClassReport = async (req, res) => {
     if (!cls) return res.status(404).json({ message: 'Class not found' });
 
     const { term, year, studentIds } = req.query;
-    const courses = await Course.find({ class_id: req.params.classId, created_by: req.user.id }).lean();
+
+    /*
+     * Find courses assigned to this class.
+     * Support both the legacy single class_id field AND the new class_ids array.
+     */
+    const courses = await Course.find({
+      created_by: req.user.id,
+      $or: [
+        { class_id:  req.params.classId },
+        { class_ids: req.params.classId },
+      ],
+    }).lean();
+
     const courseIds = courses.map(c => c._id);
 
     const assessmentFilter = { course_id: { $in: courseIds } };
@@ -258,7 +324,6 @@ exports.adminClassReport = async (req, res) => {
       .lean();
 
     const assessmentIds = assessments.map(a => a._id);
-    const allClassStudentIds = (cls.students || []).map(s => s._id);
 
     /* All marks for all class students across all assessments in filter */
     const allMarks = await Mark.find({ assessment_id: { $in: assessmentIds } }).lean();
@@ -268,8 +333,7 @@ exports.adminClassReport = async (req, res) => {
       markIndex[key] = m;
     });
 
-    /* ── Per-term ranking across ALL class students ──
-       Build: termRankMap[studentId][term] = { rank, total } */
+    /* ── Per-term ranking across ALL class students ── */
     const TERMS_ALL = ['Term 1', 'Term 2', 'Term 3'];
     const termRankMap = {};
 
@@ -277,7 +341,6 @@ exports.adminClassReport = async (req, res) => {
       const termAssessments = assessments.filter(a => a.term === t);
       if (termAssessments.length === 0) continue;
 
-      /* Compute each class student's total for this term */
       const termTotals = cls.students.map(s => {
         let obtained = 0;
         let max = 0;
@@ -338,7 +401,7 @@ exports.adminClassReport = async (req, res) => {
       };
     });
 
-    /* ── Annual rank across ALL class students (not just target filter) ── */
+    /* ── Annual rank across ALL class students ── */
     const allStudentTotals = cls.students.map(s => {
       const scored = assessments.map(a => {
         const key = s._id.toString() + '_' + a._id.toString();
@@ -357,7 +420,6 @@ exports.adminClassReport = async (req, res) => {
       .filter(x => x.pct != null)
       .sort((a, b) => b.pct - a.pct);
 
-    /* Attach annual rank to each target student */
     students.forEach(s => {
       const idx = annualRanked.findIndex(x => x.sid === s.student_id.toString());
       s.rank = idx >= 0 ? idx + 1 : null;
@@ -387,7 +449,8 @@ exports.adminClassReport = async (req, res) => {
 exports.teacherGetCourses = async (req, res) => {
   try {
     const courses = await Course.find({ teacher_id: req.user.id, is_active: true })
-      .populate('class_id', 'name')
+      .populate('class_ids', 'name')
+      .populate('class_id',  'name')
       .sort({ created_at: -1 })
       .lean();
     res.json({ courses: courses.map(c => ({ ...c, id: c._id })) });
@@ -401,7 +464,7 @@ exports.teacherGetAssessments = async (req, res) => {
     if (course_id) filter.course_id = course_id;
 
     const assessments = await Assessment.find(filter)
-      .populate('course_id', 'name code class_id total_marks category')
+      .populate('course_id', 'name code class_id class_ids total_marks category')
       .sort({ created_at: -1 })
       .lean();
 
@@ -412,13 +475,25 @@ exports.teacherGetAssessments = async (req, res) => {
 
     const enriched = await Promise.all(assessments.map(async a => {
       const course = a.course_id;
+
+      /*
+       * For student count we now check all classes the course is assigned to.
+       * class_ids (array) takes priority; fall back to the legacy class_id.
+       */
+      const assignedClassIds = Array.isArray(course?.class_ids) && course.class_ids.length > 0
+        ? course.class_ids
+        : course?.class_id ? [course.class_id] : [];
+
       let studentCount = 0;
       let markedCount  = 0;
-      if (course?.class_id) {
-        const cls = await Class.findById(course.class_id, 'students').lean();
-        studentCount = cls?.students?.length || 0;
+
+      if (assignedClassIds.length > 0) {
+        const classes = await Class.find({ _id: { $in: assignedClassIds } }, 'students').lean();
+        const allStudentIds = [...new Set(classes.flatMap(c => c.students?.map(s => s.toString()) || []))];
+        studentCount = allStudentIds.length;
         markedCount  = await Mark.countDocuments({ assessment_id: a._id, marks: { $ne: null } });
       }
+
       const sub = subMap[a._id.toString()];
       return {
         ...a, id: a._id, student_count: studentCount, marked_count: markedCount,
@@ -504,8 +579,8 @@ exports.teacherUpdateAssessment = async (req, res) => {
     if (academic_year) update.academic_year = academic_year;
 
     /* Server-side duplicate guard for edits */
-    const checkType  = type         || assessment.type;
-    const checkTerm  = term         || assessment.term;
+    const checkType  = type          || assessment.type;
+    const checkTerm  = term          || assessment.term;
     const checkYear  = academic_year || assessment.academic_year;
     const duplicate = await Assessment.findOne({
       _id: { $ne: req.params.id },
@@ -554,12 +629,35 @@ exports.teacherDeleteAssessment = async (req, res) => {
 exports.teacherGetMarks = async (req, res) => {
   try {
     const assessment = await Assessment.findOne({ _id: req.params.id, teacher_id: req.user.id })
-      .populate('course_id', 'name code class_id total_marks category')
+      .populate('course_id', 'name code class_id class_ids total_marks category')
       .lean();
     if (!assessment) return res.status(404).json({ message: 'Assessment not found' });
 
-    const cls = await Class.findById(assessment.course_id?.class_id).populate('students', 'name email level trade').lean();
-    const students = cls?.students || [];
+    /*
+     * Collect students from ALL classes the course is assigned to.
+     * class_ids (array) takes priority; fall back to the legacy class_id.
+     */
+    const assignedClassIds = Array.isArray(assessment.course_id?.class_ids) && assessment.course_id.class_ids.length > 0
+      ? assessment.course_id.class_ids
+      : assessment.course_id?.class_id ? [assessment.course_id.class_id] : [];
+
+    let students = [];
+    if (assignedClassIds.length > 0) {
+      const classes = await Class.find({ _id: { $in: assignedClassIds } })
+        .populate('students', 'name email level trade')
+        .lean();
+
+      /* Merge students from all classes, deduplicating by _id */
+      const seen = new Set();
+      for (const cls of classes) {
+        for (const s of cls.students || []) {
+          if (!seen.has(s._id.toString())) {
+            seen.add(s._id.toString());
+            students.push(s);
+          }
+        }
+      }
+    }
 
     const marks = await Mark.find({ assessment_id: req.params.id }).lean();
     const markMap = {};
@@ -692,7 +790,7 @@ exports.adminListSubmissions = async (req, res) => {
     const courseIds = courses.map(c => c._id);
 
     const assessments = await Assessment.find({ course_id: { $in: courseIds } })
-      .populate('course_id', 'name code total_marks class_id category')
+      .populate('course_id', 'name code total_marks class_id class_ids category')
       .populate('teacher_id', 'name email')
       .sort({ created_at: -1 })
       .lean();
@@ -734,14 +832,34 @@ exports.adminViewSubmission = async (req, res) => {
     const courseIds = courses.map(c => c._id.toString());
 
     const assessment = await Assessment.findById(req.params.assessmentId)
-      .populate('course_id', 'name code total_marks class_id category')
+      .populate('course_id', 'name code total_marks class_id class_ids category')
       .populate('teacher_id', 'name email')
       .lean();
     if (!assessment || !courseIds.includes(assessment.course_id?._id?.toString()))
       return res.status(404).json({ message: 'Assessment not found' });
 
-    const cls = await Class.findById(assessment.course_id?.class_id).populate('students', 'name email level trade').lean();
-    const students = cls?.students || [];
+    /*
+     * Collect students from ALL assigned classes (multi-class aware).
+     */
+    const assignedClassIds = Array.isArray(assessment.course_id?.class_ids) && assessment.course_id.class_ids.length > 0
+      ? assessment.course_id.class_ids
+      : assessment.course_id?.class_id ? [assessment.course_id.class_id] : [];
+
+    let students = [];
+    if (assignedClassIds.length > 0) {
+      const classes = await Class.find({ _id: { $in: assignedClassIds } })
+        .populate('students', 'name email level trade')
+        .lean();
+      const seen = new Set();
+      for (const cls of classes) {
+        for (const s of cls.students || []) {
+          if (!seen.has(s._id.toString())) {
+            seen.add(s._id.toString());
+            students.push(s);
+          }
+        }
+      }
+    }
 
     const marks = await Mark.find({ assessment_id: req.params.assessmentId }).lean();
     const markMap = {};
@@ -828,7 +946,7 @@ exports.adminRejectSubmission = async (req, res) => {
 exports.teacherAssessmentReport = async (req, res) => {
   try {
     const assessment = await Assessment.findOne({ _id: req.params.assessmentId, teacher_id: req.user.id })
-      .populate('course_id', 'name code class_id total_marks category')
+      .populate('course_id', 'name code class_id class_ids total_marks category')
       .lean();
     if (!assessment) return res.status(404).json({ message: 'Assessment not found or not yours' });
 
@@ -871,13 +989,21 @@ function getGrade(obtained, max) {
 /* ─────────── Student: get all courses for their enrolled class ─────────── */
 exports.studentGetCourses = async (req, res) => {
   try {
-    // Find the class the student belongs to
     const cls = await Class.findOne({ students: req.user.id }).lean();
     if (!cls) return res.json({ courses: [] });
 
-    const courses = await Course.find({ class_id: cls._id })
+    /*
+     * Match courses assigned to this class via either field.
+     */
+    const courses = await Course.find({
+      $or: [
+        { class_id:  cls._id },
+        { class_ids: cls._id },
+      ],
+    })
       .populate('teacher_id', 'name email')
-      .populate('class_id', 'name')
+      .populate('class_ids', 'name')
+      .populate('class_id',  'name')
       .sort({ category: 1, name: 1 })
       .lean();
 

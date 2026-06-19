@@ -146,6 +146,9 @@ const courseSchema = new mongoose.Schema({
   description:  { type: String, default: null },
   total_marks:  { type: Number, default: 100 }, // module weight / max marks for this course
   category:     { type: String, default: 'Complementary modules' }, // module type: Complementary / General / Specific / Elective Non Examinable
+  // Multi-class assignment (new). A module/course can now belong to one or more classes.
+  class_ids:    [{ type: mongoose.Schema.Types.ObjectId, ref: 'Class' }],
+  // Legacy single-class field — kept in sync with class_ids[0] by the controller for backward compatibility.
   class_id:     { type: mongoose.Schema.Types.ObjectId, ref: 'Class', default: null },
   teacher_id:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   created_by:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
