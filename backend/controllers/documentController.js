@@ -6,25 +6,37 @@ const { createInAppNotification, getStudentEmails, getTeacherEmail } = require('
 
 const getDocuments = async (req, res) => {
   try {
-    const { search = '', page = 1, limit = 10, classId } = req.query;
+    const { search = '', page = 1, limit = 10, classId, courseId } = req.query;
     const skip = (page - 1) * limit;
     const userId = new mongoose.Types.ObjectId(req.session.user.id);
     const role = req.session.user.role;
     const searchRegex = new RegExp(search, 'i');
 
+    // Build courseId / classId filter fragment shared by all roles
+    const scopeFilter = {};
+    if (classId)  scopeFilter.class_id  = new mongoose.Types.ObjectId(classId);
+    if (courseId) scopeFilter.course_id = new mongoose.Types.ObjectId(courseId);
+
     if (role === 'teacher') {
       const filter = {
         teacher_id: userId,
         $or: [{ title: searchRegex }, { description: searchRegex }],
-        ...(classId && { class_id: classId }),
+        ...scopeFilter,
       };
       const [docs, total] = await Promise.all([
         Document.find(filter).sort({ created_at: -1 }).skip(skip).limit(parseInt(limit))
-          .populate('class_id', 'name').lean(),
+          .populate('class_id', 'name').populate('course_id', 'name code category').lean(),
         Document.countDocuments(filter),
       ]);
       return res.json({
-        documents: docs.map(d => ({ ...d, id: d._id, class_name: d.class_id?.name, file_url: d.file_url })),
+        documents: docs.map(d => ({
+          ...d, id: d._id,
+          class_name: d.class_id?.name,
+          course_name: d.course_id?.name,
+          course_code: d.course_id?.code,
+          course_category: d.course_id?.category,
+          file_url: d.file_url,
+        })),
         total, page: parseInt(page), limit: parseInt(limit),
       });
     }
@@ -33,15 +45,24 @@ const getDocuments = async (req, res) => {
     if (role === 'admin') {
       const filter = {
         $or: [{ title: searchRegex }, { description: searchRegex }],
-        ...(classId && { class_id: classId }),
+        ...scopeFilter,
       };
       const [docs, total] = await Promise.all([
         Document.find(filter).sort({ created_at: -1 }).skip(skip).limit(parseInt(limit))
-          .populate('class_id', 'name').populate('teacher_id', 'name').lean(),
+          .populate('class_id', 'name').populate('teacher_id', 'name')
+          .populate('course_id', 'name code category').lean(),
         Document.countDocuments(filter),
       ]);
       return res.json({
-        documents: docs.map(d => ({ ...d, id: d._id, class_name: d.class_id?.name, teacher_name: d.teacher_id?.name, file_url: d.file_url })),
+        documents: docs.map(d => ({
+          ...d, id: d._id,
+          class_name: d.class_id?.name,
+          teacher_name: d.teacher_id?.name,
+          course_name: d.course_id?.name,
+          course_code: d.course_id?.code,
+          course_category: d.course_id?.category,
+          file_url: d.file_url,
+        })),
         total, page: parseInt(page), limit: parseInt(limit),
       });
     }
@@ -53,15 +74,24 @@ const getDocuments = async (req, res) => {
     const filter = {
       class_id: { $in: enrolledIds },
       $or: [{ title: searchRegex }, { description: searchRegex }],
-      ...(classId && { class_id: classId }),
+      ...scopeFilter,
     };
     const [docs, total] = await Promise.all([
       Document.find(filter).sort({ created_at: -1 }).skip(skip).limit(parseInt(limit))
-        .populate('class_id', 'name').populate('teacher_id', 'name').lean(),
+        .populate('class_id', 'name').populate('teacher_id', 'name')
+        .populate('course_id', 'name code category').lean(),
       Document.countDocuments(filter),
     ]);
     res.json({
-      documents: docs.map(d => ({ ...d, id: d._id, class_name: d.class_id?.name, teacher_name: d.teacher_id?.name, file_url: d.file_url })),
+      documents: docs.map(d => ({
+        ...d, id: d._id,
+        class_name: d.class_id?.name,
+        teacher_name: d.teacher_id?.name,
+        course_name: d.course_id?.name,
+        course_code: d.course_id?.code,
+        course_category: d.course_id?.category,
+        file_url: d.file_url,
+      })),
       total, page: parseInt(page), limit: parseInt(limit),
     });
   } catch (err) { res.status(500).json({ message: err.message }); }
@@ -70,7 +100,7 @@ const getDocuments = async (req, res) => {
 const uploadDocument = async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
-    const { title, description, classId } = req.body;
+    const { title, description, classId, courseId } = req.body;
     if (!title) return res.status(400).json({ message: 'Title is required' });
     // If a class is specified, verify the teacher is assigned to it
     if (classId) {
@@ -82,6 +112,7 @@ const uploadDocument = async (req, res) => {
     }
     const doc = await Document.create({
       title, description, class_id: classId || null,
+      course_id: courseId || null,
       teacher_id: req.session.user.id,
       filename: req.file.filename,
       original_name: req.file.originalname,
@@ -125,10 +156,10 @@ const uploadDocument = async (req, res) => {
 
 const updateDocument = async (req, res) => {
   try {
-    const { title, description, classId } = req.body;
+    const { title, description, classId, courseId } = req.body;
     const result = await Document.findOneAndUpdate(
       { _id: req.params.id, teacher_id: req.session.user.id },
-      { title, description, class_id: classId || null }
+      { title, description, class_id: classId || null, course_id: courseId || null }
     );
     if (!result) return res.status(404).json({ message: 'Document not found' });
     res.json({ message: 'Document updated' });

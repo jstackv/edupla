@@ -26,16 +26,10 @@ const MODULE_CATEGORIES     = ['Complementary modules', 'General modules', 'Spec
 const ALL_MODULE_CATEGORIES = ['Complementary modules', 'General modules', 'Specific modules', 'Elective Non Examinable'];
 
 const ASSESSMENT_TYPES = [
-  { key: 'FA', label: 'Formative Assessment',    short: 'FA', color: '#3b82f6' },
-  { key: 'IA', label: 'Integrated Assessment',   short: 'IA', color: '#10b981' },
-  { key: 'CA', label: 'Comprehensive Assessment',short: 'CA', color: '#8b5cf6' },
+  { key: 'FA', label: 'Formative Assessment',     short: 'FA', color: '#3b82f6' },
+  { key: 'IA', label: 'Integrated Assessment',    short: 'IA', color: '#10b981' },
+  { key: 'CA', label: 'Comprehensive Assessment', short: 'CA', color: '#8b5cf6' },
 ];
-
-const ASSESSMENT_TYPE_TITLES = {
-  FA: 'Formative Assessment',
-  IA: 'Integrated Assessment',
-  CA: 'Comprehensive Assessment',
-};
 
 const DEFAULT_REPORT_CONFIG = {
   schoolName: 'EDUPLA Academy',
@@ -49,23 +43,19 @@ const DEFAULT_REPORT_CONFIG = {
   managerTitle: 'School Principal',
   footerNote: "Module Weight = Module's learning hours = Credit × 10. Passing Line: 50% for mathematics, sciences and complementary modules while 70% is for core modules (specific and general modules). Module Annual Average: (Average of Integrated A + Average of Comprehensive A) / number of assessed terms.",
   primaryColor: '#1a3a6b',
-  accentColor: '#1565c0',
-  termLabel: '2nd TERM',
+  accentColor:  '#1565c0',
+  termLabel:    '2nd TERM',
   academicYear: `${CURRENT_YEAR}-${CURRENT_YEAR + 1}`,
-  republic: 'REPUBLIC OF RWANDA',
-  ministry: 'MINISTRY OF EDUCATION',
-  district: 'DISTRICT RUHANGO',
-  sector: 'Hospitality and Tourism',
-  qualificationTitle: 'TVET CERTIFICATE III IN FOOD AND BEVERAGE OPERATIONS',
-  trade: 'FOOD AND BEVERAGE OPERATIONS',
-  rtqfLevel: 'Level 3',
+  republic:  'REPUBLIC OF RWANDA',
+  ministry:  'MINISTRY OF EDUCATION',
+  district:  'DISTRICT RUHANGO',
 };
 
 /* ─────────── Helpers ─────────── */
 function pctColor(pct) {
   if (pct == null) return '#374151';
-  if (pct >= 70) return '#059669';
-  if (pct >= 50) return '#b45309';
+  if (pct >= 70)   return '#059669';
+  if (pct >= 50)   return '#b45309';
   return '#dc2626';
 }
 
@@ -129,13 +119,6 @@ function saveReportConfig(cfg) {
 }
 
 /* ─────────── Category helpers ─────────── */
-function catColor(cat) {
-  if (cat === 'Complementary modules') return '#1a3a6b';
-  if (cat === 'General modules')       return '#065f46';
-  if (cat === 'Specific modules')      return '#7c2d12';
-  return '#4a044e';
-}
-
 function catBadge(cat) {
   const colors = {
     'Complementary modules':   { bg: '#1a3a6b18', border: '#1a3a6b30', text: '#1a3a6b', dot: '#1a3a6b' },
@@ -147,25 +130,37 @@ function catBadge(cat) {
 }
 
 /* ══════════════════════════════════════════════════════════════════════
-   REPORT CONFIG PANEL
+   REPORT CONFIG PANEL  — removed: Programme/Qualification, Brand Colors
 ══════════════════════════════════════════════════════════════════════ */
 function ReportConfigPanel({ config, onChange, dark }) {
   const [draft, setDraft] = useState({ ...config });
   const [saved, setSaved] = useState(false);
 
+  const labelSt = {
+    fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
+    color: dark ? '#7b839a' : '#6b7280', display: 'block', marginBottom: 4,
+  };
+  const inputSt = {
+    width: '100%', padding: '9px 12px', borderRadius: 10, boxSizing: 'border-box',
+    border: `1px solid ${dark ? '#2a3042' : '#d1d5db'}`,
+    background: dark ? '#1a1f2e' : '#f9fafb',
+    color: dark ? '#e2e8f0' : '#111827', fontSize: 13, outline: 'none',
+  };
+  const cardSt = {
+    background: dark ? '#13161f' : '#fff',
+    border: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}`,
+    borderRadius: 14, padding: 20,
+  };
+
   const field = (label, key, type = 'text', placeholder = '') => (
     <div>
       <label style={labelSt}>{label}</label>
-      {type === 'textarea' ? (
-        <textarea value={draft[key] || ''} onChange={e => setDraft(d => ({ ...d, [key]: e.target.value }))} rows={3} placeholder={placeholder} style={{ ...inputSt, resize: 'vertical' }} />
-      ) : (
-        <input type={type} value={draft[key] || ''} onChange={e => setDraft(d => ({ ...d, [key]: e.target.value }))} placeholder={placeholder} style={inputSt} />
-      )}
+      {type === 'textarea'
+        ? <textarea value={draft[key] || ''} onChange={e => setDraft(d => ({ ...d, [key]: e.target.value }))} rows={3} placeholder={placeholder} style={{ ...inputSt, resize: 'vertical' }} />
+        : <input type={type} value={draft[key] || ''} onChange={e => setDraft(d => ({ ...d, [key]: e.target.value }))} placeholder={placeholder} style={inputSt} />
+      }
     </div>
   );
-
-  const labelSt = { fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: dark ? '#7b839a' : '#6b7280', display: 'block', marginBottom: 4 };
-  const inputSt = { width: '100%', padding: '9px 12px', borderRadius: 10, boxSizing: 'border-box', border: `1px solid ${dark ? '#2a3042' : '#d1d5db'}`, background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#e2e8f0' : '#111827', fontSize: 13, outline: 'none' };
 
   function handleSave() {
     saveReportConfig(draft);
@@ -175,13 +170,15 @@ function ReportConfigPanel({ config, onChange, dark }) {
     toast.success('Report configuration saved!');
   }
 
-  const cardSt = { background: dark ? '#13161f' : '#fff', border: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}`, borderRadius: 14, padding: 20 };
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+      {/* Government / Authority Header */}
       <div style={cardSt}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg,#1a3a6b,#1565c0)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Globe size={15} color="#fff" /></div>
+          <div style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg,#1a3a6b,#1565c0)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Globe size={15} color="#fff" />
+          </div>
           <div>
             <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: dark ? '#f1f5f9' : '#111827' }}>Government / Authority Header</p>
             <p style={{ margin: 0, fontSize: 11, color: dark ? '#7b839a' : '#9ca3af' }}>Shown top-left of the report</p>
@@ -197,9 +194,12 @@ function ReportConfigPanel({ config, onChange, dark }) {
         </div>
       </div>
 
+      {/* Contact Information */}
       <div style={cardSt}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg,#10b981,#059669)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Phone size={15} color="#fff" /></div>
+          <div style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg,#10b981,#059669)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Phone size={15} color="#fff" />
+          </div>
           <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: dark ? '#f1f5f9' : '#111827' }}>Contact Information</p>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -210,27 +210,12 @@ function ReportConfigPanel({ config, onChange, dark }) {
         </div>
       </div>
 
+      {/* Report Signatory */}
       <div style={cardSt}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg,#8b5cf6,#7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><GraduationCap size={15} color="#fff" /></div>
-          <div>
-            <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: dark ? '#f1f5f9' : '#111827' }}>Programme / Qualification (fallback)</p>
-            <p style={{ margin: 0, fontSize: 11, color: dark ? '#7b839a' : '#9ca3af' }}>Used only when a class has no TVET program linked. Link a program per-class to override automatically.</p>
+          <div style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg,#f59e0b,#d97706)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <User2 size={15} color="#fff" />
           </div>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <div style={{ gridColumn: '1/-1' }}>{field('Sector', 'sector', 'text', 'Hospitality and Tourism')}</div>
-          <div style={{ gridColumn: '1/-1' }}>{field('Qualification Title', 'qualificationTitle', 'text', 'TVET CERTIFICATE III IN ...')}</div>
-          <div style={{ gridColumn: '1/-1' }}>{field('Trade', 'trade', 'text', 'FOOD AND BEVERAGE OPERATIONS')}</div>
-          {field('RTQF Level', 'rtqfLevel', 'text', 'Level 3')}
-          {field('Academic Year', 'academicYear', 'text', '2024-2025')}
-          {field('Term Label', 'termLabel', 'text', '2nd TERM')}
-        </div>
-      </div>
-
-      <div style={cardSt}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg,#f59e0b,#d97706)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><User2 size={15} color="#fff" /></div>
           <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: dark ? '#f1f5f9' : '#111827' }}>Report Signatory</p>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -239,32 +224,12 @@ function ReportConfigPanel({ config, onChange, dark }) {
         </div>
       </div>
 
+      {/* Footer Legend */}
       <div style={cardSt}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg,#ec4899,#db2777)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Sparkles size={15} color="#fff" /></div>
-          <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: dark ? '#f1f5f9' : '#111827' }}>Brand Colors</p>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <div>
-            <label style={labelSt}>Primary Color</label>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <input type="color" value={draft.primaryColor || '#1a3a6b'} onChange={e => setDraft(d => ({ ...d, primaryColor: e.target.value }))} style={{ width: 40, height: 38, borderRadius: 8, border: 'none', cursor: 'pointer', padding: 2 }} />
-              <input value={draft.primaryColor || ''} onChange={e => setDraft(d => ({ ...d, primaryColor: e.target.value }))} style={{ ...inputSt, flex: 1 }} />
-            </div>
+          <div style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg,#06b6d4,#0891b2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <AlignLeft size={15} color="#fff" />
           </div>
-          <div>
-            <label style={labelSt}>Accent Color</label>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <input type="color" value={draft.accentColor || '#1565c0'} onChange={e => setDraft(d => ({ ...d, accentColor: e.target.value }))} style={{ width: 40, height: 38, borderRadius: 8, border: 'none', cursor: 'pointer', padding: 2 }} />
-              <input value={draft.accentColor || ''} onChange={e => setDraft(d => ({ ...d, accentColor: e.target.value }))} style={{ ...inputSt, flex: 1 }} />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div style={cardSt}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg,#06b6d4,#0891b2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><AlignLeft size={15} color="#fff" /></div>
           <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: dark ? '#f1f5f9' : '#111827' }}>Footer Legend / Note</p>
         </div>
         {field('Legend text (shown below the marks table)', 'footerNote', 'textarea')}
@@ -291,35 +256,41 @@ export default function AdminAssessments() {
   const { dark } = useTheme();
   const { user } = useAuth();
 
-  const [tab, setTab]               = useState('courses');
-  const [reportType, setReportType] = useState('class');
+  const [tab, setTab]                   = useState('courses');
+  const [reportType, setReportType]     = useState('class');
   const [reportConfig, setReportConfig] = useState(loadReportConfig);
 
-  const [courses, setCourses]       = useState([]);
-  const [teachers, setTeachers]     = useState([]);
-  const [classes, setClasses]       = useState([]);
-  const [students, setStudents]     = useState([]);
+  const [courses,     setCourses]     = useState([]);
+  const [teachers,    setTeachers]    = useState([]);
+  const [classes,     setClasses]     = useState([]);
+  const [students,    setStudents]    = useState([]);
   const [assessments, setAssessments] = useState([]);
-  const [loading, setLoading]       = useState(false);
+  const [loading,     setLoading]     = useState(false);
 
+  /* ── Course tab filters ── */
   const [courseFilterTeacher,  setCourseFilterTeacher]  = useState('');
   const [courseFilterCategory, setCourseFilterCategory] = useState('');
+  const [courseFilterClass,    setCourseFilterClass]    = useState(''); // NEW
 
-  const [reportFilter, setReportFilter] = useState({ term: '', year: '', studentId: '', studentIds: [], assessmentId: '', classId: '' });
-  const [reportData,   setReportData]   = useState(null);
+  /* ── Report state ── */
+  const [reportFilter,  setReportFilter]  = useState({ term: '', year: '', studentId: '', studentIds: [], assessmentId: '', classId: '' });
+  const [reportData,    setReportData]    = useState(null);
   const [reportLoading, setReportLoading] = useState(false);
 
-  const [submissions, setSubmissions]           = useState([]);
-  const [submissionsLoading, setSubmissionsLoading] = useState(false);
-  const [submissionFilter,        setSubmissionFilter]        = useState('');
-  const [submissionTeacherFilter, setSubmissionTeacherFilter] = useState('');
-  const [submissionCourseFilter,  setSubmissionCourseFilter]  = useState('');
-  const [viewingSubmission,       setViewingSubmission]       = useState(null);
+  /* ── Submissions state ── */
+  const [submissions,              setSubmissions]              = useState([]);
+  const [submissionsLoading,       setSubmissionsLoading]       = useState(false);
+  const [submissionFilter,         setSubmissionFilter]         = useState('');
+  const [submissionTeacherFilter,  setSubmissionTeacherFilter]  = useState('');
+  const [submissionCourseFilter,   setSubmissionCourseFilter]   = useState('');
+  const [submissionClassFilter,    setSubmissionClassFilter]    = useState(''); // NEW
+  const [viewingSubmission,        setViewingSubmission]        = useState(null);
   const [viewingSubmissionLoading, setViewingSubmissionLoading] = useState(false);
-  const [rejectingId,  setRejectingId]  = useState(null);
-  const [rejectNote,   setRejectNote]   = useState('');
-  const [submissionActionLoading, setSubmissionActionLoading] = useState(false);
+  const [rejectingId,              setRejectingId]              = useState(null);
+  const [rejectNote,               setRejectNote]               = useState('');
+  const [submissionActionLoading,  setSubmissionActionLoading]  = useState(false);
 
+  /* ── Course modal ── */
   const [showCourseModal, setShowCourseModal] = useState(false);
   const [editingCourse,   setEditingCourse]   = useState(null);
   const [courseForm, setCourseForm] = useState({
@@ -327,15 +298,18 @@ export default function AdminAssessments() {
     class_id: '', teacher_id: '', category: 'Complementary modules',
   });
 
-  const [confirmModal, setConfirmModal] = useState({ open: false, variant: 'warning', title: '', message: '', onConfirm: null, loading: false, confirmText: 'Confirm' });
+  const [confirmModal, setConfirmModal] = useState({
+    open: false, variant: 'warning', title: '', message: '', onConfirm: null, loading: false, confirmText: 'Confirm',
+  });
 
-  const card = { background: dark ? '#13161f' : '#fff', border: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}`, borderRadius: 16, padding: 20 };
+  const card       = { background: dark ? '#13161f' : '#fff', border: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}`, borderRadius: 16, padding: 20 };
   const inputStyle = { width: '100%', padding: '9px 12px', borderRadius: 10, border: `1px solid ${dark ? '#2a3042' : '#d1d5db'}`, background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#e2e8f0' : '#111827', fontSize: 13, outline: 'none', boxSizing: 'border-box' };
   const labelStyle = { fontSize: 11, fontWeight: 600, color: dark ? '#7b839a' : '#6b7280', marginBottom: 4, display: 'block', textTransform: 'uppercase', letterSpacing: '0.06em' };
 
   function openConfirm(opts) { setConfirmModal({ open: true, loading: false, confirmText: 'Confirm', cancelText: 'Cancel', ...opts }); }
   function closeConfirm()    { setConfirmModal(prev => ({ ...prev, open: false, loading: false })); }
 
+  /* ── Data fetch ── */
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
@@ -441,7 +415,8 @@ export default function AdminAssessments() {
     setEditingCourse(c);
     setCourseForm({
       name: c.name || '', code: c.code || '', description: c.description || '',
-      total_marks: c.total_marks || 100, class_id: c.class_id?._id || c.class_id || '',
+      total_marks: c.total_marks || 100,
+      class_id: c.class_id?._id || c.class_id || '',
       teacher_id: c.teacher_id?._id || c.teacher_id || '',
       category: c.category || 'Complementary modules',
     });
@@ -485,7 +460,6 @@ export default function AdminAssessments() {
     if (type === 'student'    && !filter.studentId)    { setReportData(null); return; }
     if (type === 'assessment' && !filter.assessmentId) { setReportData(null); return; }
     if (type === 'class'      && !filter.classId)      { setReportData(null); return; }
-
     setReportLoading(true); setReportData(null);
     try {
       let res;
@@ -506,49 +480,79 @@ export default function AdminAssessments() {
   useEffect(() => {
     if (tab !== 'reports') return;
     clearTimeout(reportDebounceRef.current);
-    reportDebounceRef.current = setTimeout(() => {
-      fetchReport(reportFilter, reportType);
-    }, 400);
+    reportDebounceRef.current = setTimeout(() => fetchReport(reportFilter, reportType), 400);
     return () => clearTimeout(reportDebounceRef.current);
   }, [reportFilter, reportType, tab]); // eslint-disable-line
 
   const selectedClassStudents = classStudents(reportFilter.classId);
 
+  /* ── Derived: courses belonging to selected class (submissions tab) ── */
+  const coursesForSubmissionClass = submissionClassFilter
+    ? courses.filter(c => (c.class_id?._id || c.class_id) === submissionClassFilter)
+    : courses;
+
   const tabs = [
-    { key: 'courses',     label: 'Courses & Modules',  icon: BookOpen },
-    { key: 'submissions', label: 'Mark Submissions',   icon: ClipboardCheck },
-    { key: 'reports',     label: 'Reports',            icon: BarChart2 },
-    { key: 'config',      label: 'Report Settings',    icon: Settings },
+    { key: 'courses',     label: 'Courses & Modules', icon: BookOpen },
+    { key: 'submissions', label: 'Mark Submissions',  icon: ClipboardCheck },
+    { key: 'reports',     label: 'Reports',           icon: BarChart2 },
+    { key: 'config',      label: 'Report Settings',   icon: Settings },
   ];
 
-  const filteredSubmissions = submissions.filter(a => {
-    if (submissionTeacherFilter && (a.teacher_id?._id || a.teacher_id) !== submissionTeacherFilter) return false;
-    if (submissionCourseFilter  && (a.course_id?._id  || a.course_id)  !== submissionCourseFilter)  return false;
-    return true;
-  });
-
+  /* ── Filtered courses (Courses tab) ── */
   const filteredCourses = courses.filter(c => {
     if (courseFilterTeacher) {
       const tid = c.teacher_id?._id || c.teacher_id;
       if (tid !== courseFilterTeacher) return false;
     }
     if (courseFilterCategory && (c.category || 'Complementary modules') !== courseFilterCategory) return false;
+    if (courseFilterClass) {
+      const cid = c.class_id?._id || c.class_id;
+      if (cid !== courseFilterClass) return false;
+    }
     return true;
   });
-  const hasActiveCourseFilter = courseFilterTeacher || courseFilterCategory;
+  const hasActiveCourseFilter = courseFilterTeacher || courseFilterCategory || courseFilterClass;
+
+  /* ── Filtered submissions ── */
+  const filteredSubmissions = submissions.filter(a => {
+    if (submissionTeacherFilter) {
+      const tid = a.teacher_id?._id || a.teacher_id;
+      if (tid !== submissionTeacherFilter) return false;
+    }
+    if (submissionCourseFilter) {
+      const cid = a.course_id?._id || a.course_id;
+      if (cid !== submissionCourseFilter) return false;
+    }
+    // Class filter: keep only assessments whose course belongs to selected class
+    if (submissionClassFilter) {
+      const courseId = a.course_id?._id || a.course_id;
+      const inClass  = coursesForSubmissionClass.some(c => (c._id || c.id) === courseId);
+      if (!inClass) return false;
+    }
+    return true;
+  });
+
+  /* ── shared select style ── */
+  const filterSelect = (active) => ({
+    padding: '7px 10px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+    cursor: 'pointer', outline: 'none', minWidth: 160,
+    border: `1px solid ${active ? '#1a3a6b' : (dark ? '#2a3042' : '#e5e7eb')}`,
+    background: active ? 'rgba(26,58,107,0.08)' : (dark ? '#1a1f2e' : '#f9fafb'),
+    color: active ? '#1a3a6b' : (dark ? '#e2e8f0' : '#374151'),
+  });
 
   return (
     <div>
       <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes spin  { to { transform: rotate(360deg); } }
+        @keyframes fadeUp{ from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
         @media print {
-          .no-print { display: none !important; }
-          body { background: white !important; }
-          .print-area { padding: 0 !important; }
+          .no-print  { display: none !important; }
+          body       { background: white !important; }
+          .print-area{ padding: 0 !important; }
         }
         .course-card:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(26,58,107,0.18) !important; }
-        .course-card { transition: all 0.2s ease; }
+        .course-card       { transition: all 0.2s ease; }
       `}</style>
 
       {/* ── Page Header ── */}
@@ -569,9 +573,9 @@ export default function AdminAssessments() {
           </div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             {[
-              { label: 'Courses',     val: courses.length,    color: '#1a3a6b' },
-              { label: 'Assessments', val: assessments.length,color: '#8b5cf6' },
-              { label: 'Students',    val: students.length,   color: '#10b981' },
+              { label: 'Courses',     val: courses.length,     color: '#1a3a6b' },
+              { label: 'Assessments', val: assessments.length, color: '#8b5cf6' },
+              { label: 'Students',    val: students.length,    color: '#10b981' },
             ].map(s => (
               <div key={s.label} style={{ padding: '8px 16px', borderRadius: 12, background: s.color + '18', border: '1px solid ' + s.color + '33', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                 <span style={{ fontSize: 18, fontWeight: 800, color: s.color, lineHeight: 1 }}>{s.val}</span>
@@ -607,28 +611,43 @@ export default function AdminAssessments() {
               <Filter size={12} color={dark ? '#7b839a' : '#6b7280'} />
               <span style={{ fontSize: 11, fontWeight: 700, color: dark ? '#7b839a' : '#6b7280', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Filter</span>
             </div>
+
+            {/* ── Class filter (NEW) ── */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <label style={{ fontSize: 10, fontWeight: 700, color: dark ? '#7b839a' : '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Class</label>
+              <select value={courseFilterClass} onChange={e => setCourseFilterClass(e.target.value)} style={filterSelect(courseFilterClass)}>
+                <option value="">All Classes</option>
+                {classes.map(c => <option key={c._id || c.id} value={c._id || c.id}>{c.name}</option>)}
+              </select>
+            </div>
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
               <label style={{ fontSize: 10, fontWeight: 700, color: dark ? '#7b839a' : '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Teacher</label>
-              <select value={courseFilterTeacher} onChange={e => setCourseFilterTeacher(e.target.value)} style={{ padding: '7px 10px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', outline: 'none', minWidth: 170, border: `1px solid ${courseFilterTeacher ? '#1a3a6b' : (dark ? '#2a3042' : '#e5e7eb')}`, background: courseFilterTeacher ? 'rgba(26,58,107,0.08)' : (dark ? '#1a1f2e' : '#f9fafb'), color: courseFilterTeacher ? '#1a3a6b' : (dark ? '#e2e8f0' : '#374151') }}>
+              <select value={courseFilterTeacher} onChange={e => setCourseFilterTeacher(e.target.value)} style={filterSelect(courseFilterTeacher)}>
                 <option value="">All Teachers</option>
                 {teachers.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
               </select>
             </div>
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
               <label style={{ fontSize: 10, fontWeight: 700, color: dark ? '#7b839a' : '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Module Type</label>
-              <select value={courseFilterCategory} onChange={e => setCourseFilterCategory(e.target.value)} style={{ padding: '7px 10px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', outline: 'none', minWidth: 200, border: `1px solid ${courseFilterCategory ? '#1a3a6b' : (dark ? '#2a3042' : '#e5e7eb')}`, background: courseFilterCategory ? 'rgba(26,58,107,0.08)' : (dark ? '#1a1f2e' : '#f9fafb'), color: courseFilterCategory ? '#1a3a6b' : (dark ? '#e2e8f0' : '#374151') }}>
+              <select value={courseFilterCategory} onChange={e => setCourseFilterCategory(e.target.value)} style={filterSelect(courseFilterCategory)}>
                 <option value="">All Types</option>
                 {ALL_MODULE_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
               </select>
             </div>
+
             {hasActiveCourseFilter && (
-              <button onClick={() => { setCourseFilterTeacher(''); setCourseFilterCategory(''); }} style={{ padding: '7px 12px', borderRadius: 8, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#7b839a' : '#6b7280', fontSize: 12, cursor: 'pointer', fontWeight: 600, alignSelf: 'flex-end' }}>Clear</button>
+              <button onClick={() => { setCourseFilterTeacher(''); setCourseFilterCategory(''); setCourseFilterClass(''); }} style={{ padding: '7px 12px', borderRadius: 8, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#7b839a' : '#6b7280', fontSize: 12, cursor: 'pointer', fontWeight: 600, alignSelf: 'flex-end' }}>
+                Clear
+              </button>
             )}
             {hasActiveCourseFilter && (
               <div style={{ alignSelf: 'flex-end', padding: '7px 12px', borderRadius: 8, background: 'rgba(26,58,107,0.08)', border: '1px solid rgba(26,58,107,0.2)' }}>
                 <span style={{ fontSize: 12, fontWeight: 700, color: '#1a3a6b' }}>{filteredCourses.length} module{filteredCourses.length !== 1 ? 's' : ''} found</span>
               </div>
             )}
+
             <button onClick={openCreateCourse} style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 7, padding: '8px 20px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg,#1a3a6b,#1565c0)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 16px rgba(26,58,107,0.4)', alignSelf: 'flex-end' }}>
               <Plus size={14} /> Add Module
             </button>
@@ -663,7 +682,7 @@ export default function AdminAssessments() {
                 {hasActiveCourseFilter ? 'No modules match your filters' : 'No Modules Yet'}
               </p>
               <p style={{ color: dark ? '#7b839a' : '#9ca3af', margin: '0 0 20px', fontSize: 13 }}>
-                {hasActiveCourseFilter ? 'Try adjusting the teacher or type filter above.' : 'Add TVET modules to assign teachers and track assessments.'}
+                {hasActiveCourseFilter ? 'Try adjusting the class, teacher or type filters above.' : 'Add TVET modules to assign teachers and track assessments.'}
               </p>
               {!hasActiveCourseFilter && (
                 <button onClick={openCreateCourse} style={{ padding: '9px 20px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#1a3a6b,#1565c0)', color: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
@@ -730,21 +749,62 @@ export default function AdminAssessments() {
           <div style={{ ...card, marginBottom: 16, padding: '14px 18px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               <span style={{ fontSize: 12, color: dark ? '#7b839a' : '#6b7280', fontWeight: 700 }}>Filters:</span>
-              {[
-                { label: 'Teacher', value: submissionTeacherFilter, setter: setSubmissionTeacherFilter, options: teachers.map(t => ({ value: t._id, label: t.name })), placeholder: 'All Teachers' },
-                { label: 'Course',  value: submissionCourseFilter,  setter: setSubmissionCourseFilter,  options: courses.map(c => ({ value: c._id, label: c.name })),   placeholder: 'All Courses' },
-                { label: 'Status',  value: submissionFilter,        setter: setSubmissionFilter,        options: [{ value: 'submitted', label: 'Pending Review' }, { value: 'approved', label: 'Approved' }, { value: 'rejected', label: 'Rejected' }, { value: 'draft', label: 'Draft' }], placeholder: 'All Statuses' },
-              ].map(({ label, value, setter, options, placeholder }) => (
-                <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <label style={{ fontSize: 10, fontWeight: 700, color: dark ? '#7b839a' : '#9ca3af', letterSpacing: '0.06em', textTransform: 'uppercase' }}>{label}</label>
-                  <select value={value} onChange={e => setter(e.target.value)} style={{ padding: '7px 10px', borderRadius: 8, border: `1px solid ${value ? '#1a3a6b' : (dark ? '#2a3042' : '#e5e7eb')}`, background: value ? 'rgba(26,58,107,0.08)' : (dark ? '#1a1f2e' : '#f9fafb'), color: value ? '#1a3a6b' : (dark ? '#e2e8f0' : '#374151'), fontSize: 12, fontWeight: 600, cursor: 'pointer', outline: 'none', minWidth: 150 }}>
-                    <option value="">{placeholder}</option>
-                    {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
-                </div>
-              ))}
-              {(submissionTeacherFilter || submissionCourseFilter || submissionFilter) && (
-                <button onClick={() => { setSubmissionTeacherFilter(''); setSubmissionCourseFilter(''); setSubmissionFilter(''); }} style={{ marginTop: 14, padding: '7px 12px', borderRadius: 8, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#7b839a' : '#6b7280', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>Clear</button>
+
+              {/* ── Class filter (NEW) ── */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <label style={{ fontSize: 10, fontWeight: 700, color: dark ? '#7b839a' : '#9ca3af', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Class</label>
+                <select
+                  value={submissionClassFilter}
+                  onChange={e => {
+                    setSubmissionClassFilter(e.target.value);
+                    setSubmissionCourseFilter(''); // reset course when class changes
+                  }}
+                  style={filterSelect(submissionClassFilter)}
+                >
+                  <option value="">All Classes</option>
+                  {classes.map(c => <option key={c._id || c.id} value={c._id || c.id}>{c.name}</option>)}
+                </select>
+              </div>
+
+              {/* Teacher */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <label style={{ fontSize: 10, fontWeight: 700, color: dark ? '#7b839a' : '#9ca3af', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Teacher</label>
+                <select value={submissionTeacherFilter} onChange={e => setSubmissionTeacherFilter(e.target.value)} style={filterSelect(submissionTeacherFilter)}>
+                  <option value="">All Teachers</option>
+                  {teachers.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
+                </select>
+              </div>
+
+              {/* Course — list narrows to selected class */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <label style={{ fontSize: 10, fontWeight: 700, color: dark ? '#7b839a' : '#9ca3af', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                  Course {submissionClassFilter ? `(${coursesForSubmissionClass.length})` : ''}
+                </label>
+                <select value={submissionCourseFilter} onChange={e => setSubmissionCourseFilter(e.target.value)} style={filterSelect(submissionCourseFilter)}>
+                  <option value="">{submissionClassFilter ? 'All Class Courses' : 'All Courses'}</option>
+                  {coursesForSubmissionClass.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+                </select>
+              </div>
+
+              {/* Status */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <label style={{ fontSize: 10, fontWeight: 700, color: dark ? '#7b839a' : '#9ca3af', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Status</label>
+                <select value={submissionFilter} onChange={e => setSubmissionFilter(e.target.value)} style={filterSelect(submissionFilter)}>
+                  <option value="">All Statuses</option>
+                  <option value="submitted">Pending Review</option>
+                  <option value="approved">Approved</option>
+                  <option value="rejected">Rejected</option>
+                  <option value="draft">Draft</option>
+                </select>
+              </div>
+
+              {(submissionClassFilter || submissionTeacherFilter || submissionCourseFilter || submissionFilter) && (
+                <button
+                  onClick={() => { setSubmissionClassFilter(''); setSubmissionTeacherFilter(''); setSubmissionCourseFilter(''); setSubmissionFilter(''); }}
+                  style={{ marginTop: 14, padding: '7px 12px', borderRadius: 8, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#7b839a' : '#6b7280', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}
+                >
+                  Clear
+                </button>
               )}
               <button onClick={fetchSubmissions} style={{ marginLeft: 'auto', marginTop: 14, display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 8, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#7b839a' : '#6b7280', fontSize: 12, cursor: 'pointer' }}>
                 <RefreshCw size={12} /> Refresh
@@ -759,9 +819,13 @@ export default function AdminAssessments() {
             </div>
           ) : filteredSubmissions.length === 0 ? (
             <div style={{ ...card, textAlign: 'center', padding: 60 }}>
-              <div style={{ width: 64, height: 64, borderRadius: 20, background: 'rgba(26,58,107,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}><ClipboardCheck size={28} color="#1a3a6b" /></div>
+              <div style={{ width: 64, height: 64, borderRadius: 20, background: 'rgba(26,58,107,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                <ClipboardCheck size={28} color="#1a3a6b" />
+              </div>
               <p style={{ color: dark ? '#e8ecf4' : '#111827', fontWeight: 700, fontSize: 15, margin: '0 0 6px' }}>No Submissions Found</p>
-              <p style={{ color: dark ? '#7b839a' : '#9ca3af', margin: 0, fontSize: 13 }}>Marks submitted by teachers will appear here.</p>
+              <p style={{ color: dark ? '#7b839a' : '#9ca3af', margin: 0, fontSize: 13 }}>
+                {submissionClassFilter ? 'No mark submissions found for this class.' : 'Marks submitted by teachers will appear here.'}
+              </p>
             </div>
           ) : (
             <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
@@ -783,8 +847,8 @@ export default function AdminAssessments() {
                         rejected:  { label: 'Rejected', color: '#ef4444', icon: XCircle },
                       }[a.submission_status] || { label: a.submission_status, color: '#9ca3af', icon: Clock };
                       const StatusIcon = statusInfo.icon;
-                      const courseCat = a.course_id?.category || '';
-                      const cb = catBadge(courseCat);
+                      const courseCat  = a.course_id?.category || '';
+                      const cb         = catBadge(courseCat);
                       return (
                         <tr key={a._id} style={{ background: i % 2 === 0 ? 'transparent' : (dark ? '#ffffff04' : '#f9fafb40'), borderBottom: `1px solid ${dark ? '#1e2130' : '#f1f5f9'}` }}>
                           <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 700, color: dark ? '#e8ecf4' : '#111827' }}>{a.title}</td>
@@ -833,6 +897,7 @@ export default function AdminAssessments() {
             </div>
           )}
 
+          {/* Submission Detail Modal */}
           {(viewingSubmission || viewingSubmissionLoading) && (
             <div onClick={e => { if (e.target === e.currentTarget) setViewingSubmission(null); }} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
               <div style={{ width: 720, maxWidth: '100%', maxHeight: '88vh', overflowY: 'auto', borderRadius: 18, background: dark ? '#13161f' : '#fff', border: `1px solid ${dark ? '#1e2535' : '#e5e7eb'}`, padding: 26, boxShadow: '0 32px 80px rgba(0,0,0,0.4)' }}>
@@ -904,9 +969,9 @@ export default function AdminAssessments() {
             <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: dark ? '#94a3b8' : '#374151' }}>Select Report Type</p>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20 }}>
               {[
-                { key: 'class',      label: 'Class Report',        icon: Users,        desc: 'Full TVET report per student in class' },
-                { key: 'student',    label: 'Single Student',      icon: GraduationCap,desc: 'Individual progress report' },
-                { key: 'assessment', label: 'Assessment Results',  icon: FileText,     desc: 'Results for one assessment' },
+                { key: 'class',      label: 'Class Report',       icon: Users,         desc: 'Full TVET report per student in class' },
+                { key: 'student',    label: 'Single Student',     icon: GraduationCap, desc: 'Individual progress report' },
+                { key: 'assessment', label: 'Assessment Results', icon: FileText,      desc: 'Results for one assessment' },
               ].map(({ key, label, icon: Icon, desc }) => (
                 <button key={key} onClick={() => { setReportType(key); setReportData(null); }} style={{
                   display: 'flex', alignItems: 'center', gap: 10, padding: '12px 18px', borderRadius: 12, cursor: 'pointer',
@@ -1047,7 +1112,7 @@ export default function AdminAssessments() {
               <div>
                 <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: dark ? '#f1f5f9' : '#111827' }}>Report Configuration</h2>
                 <p style={{ margin: '4px 0 0', fontSize: 13, color: dark ? '#7b839a' : '#6b7280' }}>
-                  Customise school branding, TVET programme details, and signatory for all reports.
+                  Customise school branding, contact details, and signatory for all reports.
                 </p>
               </div>
             </div>
@@ -1196,7 +1261,9 @@ function ReportHeaderPreview({ config }) {
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
           <div style={{ width: 32, height: 32, borderRadius: '50%', background: pc + '15', border: '1px solid ' + pc + '30', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {config.schoolLogoUrl ? <img src={config.schoolLogoUrl} style={{ width: 28, height: 28, objectFit: 'contain', borderRadius: '50%' }} alt="" onError={e => e.target.style.display = 'none'} /> : <School size={14} color={pc} />}
+            {config.schoolLogoUrl
+              ? <img src={config.schoolLogoUrl} style={{ width: 28, height: 28, objectFit: 'contain', borderRadius: '50%' }} alt="" onError={e => e.target.style.display = 'none'} />
+              : <School size={14} color={pc} />}
           </div>
         </div>
         <div style={{ fontSize: 7, lineHeight: 1.7, color: '#374151', textAlign: 'right' }}>
@@ -1211,15 +1278,15 @@ function ReportHeaderPreview({ config }) {
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 80px 1fr', fontSize: 7, borderBottom: '1px solid #dee2e6' }}>
         <div style={{ padding: '3px 6px', background: '#f1f5f9', fontWeight: 700, borderRight: '1px solid #dee2e6' }}>Sector</div>
-        <div style={{ padding: '3px 6px', borderRight: '1px solid #dee2e6' }}>{config.sector}</div>
+        <div style={{ padding: '3px 6px', borderRight: '1px solid #dee2e6' }}>—</div>
         <div style={{ padding: '3px 6px', background: '#f1f5f9', fontWeight: 700, borderRight: '1px solid #dee2e6' }}>Qualification</div>
-        <div style={{ padding: '3px 6px' }}>{config.qualificationTitle}</div>
+        <div style={{ padding: '3px 6px' }}>—</div>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 80px 1fr', fontSize: 7 }}>
         <div style={{ padding: '3px 6px', background: '#f1f5f9', fontWeight: 700, borderRight: '1px solid #dee2e6' }}>Trade</div>
-        <div style={{ padding: '3px 6px', borderRight: '1px solid #dee2e6' }}>{config.trade}</div>
+        <div style={{ padding: '3px 6px', borderRight: '1px solid #dee2e6' }}>—</div>
         <div style={{ padding: '3px 6px', background: '#f1f5f9', fontWeight: 700, borderRight: '1px solid #dee2e6' }}>RTQF Level</div>
-        <div style={{ padding: '3px 6px' }}>{config.rtqfLevel}</div>
+        <div style={{ padding: '3px 6px' }}>—</div>
       </div>
     </div>
   );
@@ -1229,7 +1296,6 @@ function ReportHeaderPreview({ config }) {
    REPORT VIEW ROUTER
 ══════════════════════════════════════════════════════════ */
 function ReportView({ data, dark, students, classes, config }) {
-  /* ── Portrait A4 print styles ── */
   const printStyle = `
     @media print {
       @page { margin: 8mm 6mm; size: A4 portrait; }
@@ -1267,10 +1333,10 @@ function ReportView({ data, dark, students, classes, config }) {
 
   if (data.type === 'student') {
     const { student, report, rank, total_students, term_ranks } = data;
-    const scored     = (report || []).filter(r => r.marks_obtained != null);
-    const totalObt   = scored.reduce((s, r) => s + r.marks_obtained, 0);
-    const totalMax   = scored.reduce((s, r) => s + r.max_marks, 0);
-    const pct        = calcPct(totalObt, totalMax);
+    const scored   = (report || []).filter(r => r.marks_obtained != null);
+    const totalObt = scored.reduce((s, r) => s + r.marks_obtained, 0);
+    const totalMax = scored.reduce((s, r) => s + r.max_marks, 0);
+    const pct      = calcPct(totalObt, totalMax);
     const fakeStudent = {
       student_id: student._id || student.id, name: student.name, email: student.email,
       level: student.level, trade: student.trade, class_name: student.class_year,
@@ -1282,9 +1348,7 @@ function ReportView({ data, dark, students, classes, config }) {
       })),
       total_obtained: totalObt, total_max: totalMax, percentage: pct,
       grade: totalMax > 0 ? getGrade(totalObt, totalMax) : 'N/A',
-      rank,
-      rank_total: total_students,
-      term_ranks: term_ranks || {},
+      rank, rank_total: total_students, term_ranks: term_ranks || {},
     };
     const fakeAssessments = report.map(r => ({
       _id: r.assessment_id, title: r.title, type: r.type, term: r.term, max_marks: r.max_marks,
@@ -1307,7 +1371,9 @@ function ReportView({ data, dark, students, classes, config }) {
 
   if (data.type === 'assessment') {
     const { assessment, students: sData } = data;
-    const avg = sData.length ? Math.round(sData.filter(s => s.percentage != null).reduce((s, x) => s + (x.percentage || 0), 0) / (sData.filter(s => s.percentage != null).length || 1)) : null;
+    const avg = sData.length
+      ? Math.round(sData.filter(s => s.percentage != null).reduce((s, x) => s + (x.percentage || 0), 0) / (sData.filter(s => s.percentage != null).length || 1))
+      : null;
     const th = { padding: '10px 14px', background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#7b839a' : '#6b7280', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: 'left' };
     const td = { padding: '10px 14px', borderBottom: `1px solid ${dark ? '#1e2130' : '#f1f5f9'}`, color: dark ? '#e2e8f0' : '#374151', fontSize: 13 };
     return (
@@ -1316,7 +1382,10 @@ function ReportView({ data, dark, students, classes, config }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
             <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: dark ? '#f1f5f9' : '#111827' }}>{assessment?.title}</h2>
             <TypeBadge type={assessment?.type} />
-            {assessment?.course_id?.category && (() => { const cb = catBadge(assessment.course_id.category); return <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 7, background: cb.bg, color: cb.text, border: `1px solid ${cb.border}` }}>{assessment.course_id.category.replace(' modules', '')}</span>; })()}
+            {assessment?.course_id?.category && (() => {
+              const cb = catBadge(assessment.course_id.category);
+              return <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 7, background: cb.bg, color: cb.text, border: `1px solid ${cb.border}` }}>{assessment.course_id.category.replace(' modules', '')}</span>;
+            })()}
           </div>
           <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
             {[['Course', assessment?.course_id?.name], ['Term', assessment?.term], ['Year', assessment?.academic_year], ['Teacher', assessment?.teacher_id?.name]].map(([k, v]) => v && (
@@ -1327,7 +1396,9 @@ function ReportView({ data, dark, students, classes, config }) {
         </div>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead><tr>{['#', 'Student', 'Marks', 'Max', '%', 'Grade', 'Rank', 'Decision'].map(h => <th key={h} style={th}>{h}</th>)}</tr></thead>
+            <thead>
+              <tr>{['#', 'Student', 'Marks', 'Max', '%', 'Grade', 'Rank', 'Decision'].map(h => <th key={h} style={th}>{h}</th>)}</tr>
+            </thead>
             <tbody>
               {(sData || []).sort((a, b) => (b.percentage ?? -1) - (a.percentage ?? -1)).map((s, i) => {
                 const displayPct = s.percentage != null ? Math.min(s.percentage, 100) : null;
@@ -1355,8 +1426,7 @@ function ReportView({ data, dark, students, classes, config }) {
 }
 
 /* ══════════════════════════════════════════════════════════
-   TVET STUDENT REPORT — portrait layout, narrow columns,
-   per-term position from backend term_ranks
+   TVET STUDENT REPORT
 ══════════════════════════════════════════════════════════ */
 function TVETStudentReport({ student, cls, allAssessments, allStudents, config, isLast }) {
   const pc = config?.primaryColor || '#1a3a6b';
@@ -1373,22 +1443,13 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
         name: a.course_id?.name || a.title || '—',
         weight: a.course_id?.total_marks || 100,
         category: a.course_id?.category || 'Complementary modules',
-        termData: {
-          'Term 1': { FA: null, IA: null, CA: null },
-          'Term 2': { FA: null, IA: null, CA: null },
-          'Term 3': { FA: null, IA: null, CA: null },
-        },
-        termMaxData: {
-          'Term 1': { FA: null, IA: null, CA: null },
-          'Term 2': { FA: null, IA: null, CA: null },
-          'Term 3': { FA: null, IA: null, CA: null },
-        },
+        termData:    { 'Term 1': { FA: null, IA: null, CA: null }, 'Term 2': { FA: null, IA: null, CA: null }, 'Term 3': { FA: null, IA: null, CA: null } },
+        termMaxData: { 'Term 1': { FA: null, IA: null, CA: null }, 'Term 2': { FA: null, IA: null, CA: null }, 'Term 3': { FA: null, IA: null, CA: null } },
       });
     }
     const row     = courseMap.get(cid);
     const term    = a.term || 'Term 1';
-    const type    = a.type || 'FA';
-    const slotKey = type === 'FA' ? 'FA' : type === 'IA' ? 'IA' : 'CA';
+    const slotKey = a.type === 'FA' ? 'FA' : a.type === 'IA' ? 'IA' : 'CA';
     if (row.termData[term]) {
       const markEntry = (student.marks || []).find(m => String(m.assessment_id) === String(a._id || a.assessment_id));
       if (row.termData[term][slotKey] == null) {
@@ -1403,77 +1464,61 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
       const d  = row.termData[term];
       const mx = row.termMaxData[term];
       const hasAnyData = d.FA != null || d.IA != null || d.CA != null;
-
       let avg = null;
       if (hasAnyData) {
-        const faMax = mx.FA || 100;
-        const caMax = mx.CA || 100;
-        const faPct = d.FA != null ? (d.FA / faMax) * 100 : 0;
-        const caPct = d.CA != null ? (d.CA / caMax) * 100 : 0;
         if (d.FA == null && d.CA == null && d.IA != null) {
-          const iaMax = mx.IA || 100;
-          avg = Math.min(Math.round((d.IA / iaMax) * 100), 100);
+          avg = Math.min(Math.round((d.IA / (mx.IA || 100)) * 100), 100);
         } else {
+          const faPct = d.FA != null ? (d.FA / (mx.FA || 100)) * 100 : 0;
+          const caPct = d.CA != null ? (d.CA / (mx.CA || 100)) * 100 : 0;
           avg = Math.min(Math.round((faPct + caPct) / 2), 100);
         }
       }
-
-      const scores  = [d.FA, d.IA, d.CA].filter(v => v != null);
-      const maxes   = [mx.FA, mx.IA, mx.CA].filter((v, i) => [d.FA, d.IA, d.CA][i] != null);
+      const scores   = [d.FA, d.IA, d.CA].filter(v => v != null);
+      const maxes    = [mx.FA, mx.IA, mx.CA].filter((_, i) => [d.FA, d.IA, d.CA][i] != null);
       const obtained = scores.reduce((s, v) => s + v, 0);
       const maxTotal = maxes.reduce((s, v) => s + v, 0);
-
       return { ...d, maxData: mx, obtained: scores.length > 0 ? obtained : null, maxTotal: maxTotal || null, avg };
     });
-
-    const termAvgs  = terms.map(t => t.avg).filter(v => v != null);
-    const annualAvg = termAvgs.length > 0 ? Math.min(Math.round(termAvgs.reduce((s, v) => s + v, 0) / termAvgs.length), 100) : null;
+    const termAvgs      = terms.map(t => t.avg).filter(v => v != null);
+    const annualAvg     = termAvgs.length > 0 ? Math.min(Math.round(termAvgs.reduce((s, v) => s + v, 0) / termAvgs.length), 100) : null;
     const totalObtained = terms.reduce((s, t) => s + (t.obtained || 0), 0);
     const totalMax      = terms.reduce((s, t) => s + (t.maxTotal || 0), 0);
-    const annualMarks   = totalMax > 0 ? totalObtained : null;
-
-    return { ...row, terms, annualAvg, annualMarks, annualMax: totalMax, decision: getRwandanDecision(annualAvg) };
+    return { ...row, terms, annualAvg, annualMarks: totalMax > 0 ? totalObtained : null, annualMax: totalMax, decision: getRwandanDecision(annualAvg) };
   });
 
   const grouped = {};
   ALL_MODULE_CATEGORIES.forEach(cat => { grouped[cat] = moduleRows.filter(r => r.category === cat); });
 
-  const termTotals = TERMS.map((term, ti) => {
+  const termTotals = TERMS.map((_, ti) => {
     const allObtained = moduleRows.reduce((s, r) => s + (r.terms[ti].obtained || 0), 0);
     const allMax      = moduleRows.reduce((s, r) => s + (r.terms[ti].maxTotal || 0), 0);
-    const pct         = allMax > 0 ? Math.min(Math.round((allObtained / allMax) * 100), 100) : null;
-    return { obtained: allObtained, max: allMax, pct };
+    return { obtained: allObtained, max: allMax, pct: allMax > 0 ? Math.min(Math.round((allObtained / allMax) * 100), 100) : null };
   });
 
   const annualObtained = moduleRows.reduce((s, r) => s + (r.annualMarks || 0), 0);
-  const annualMax      = moduleRows.reduce((s, r) => s + (r.annualMax || 0), 0);
+  const annualMax      = moduleRows.reduce((s, r) => s + (r.annualMax  || 0), 0);
   const annualPct      = annualMax > 0 ? Math.min(Math.round((annualObtained / annualMax) * 100), 100) : null;
 
-  /* ── Rank data — from backend ──
-     student.rank        = annual rank (integer)
-     student.rank_total  = total students ranked annually
-     student.term_ranks  = { 'Term 1': { rank, total }, 'Term 2': ..., 'Term 3': ... }
-  */
-  const annualRank   = student.rank       || null;
-  const totalRanked  = student.rank_total || allStudents.length;
-  const termRanks    = student.term_ranks || {};
-
+  const annualRank  = student.rank       || null;
+  const totalRanked = student.rank_total || allStudents.length;
+  const termRanks   = student.term_ranks || {};
   const behaviourMarks = student.behaviour || null;
 
   /* ── Styles ── */
-  const border    = '1px solid #c8cdd8';
-  const headerBg  = '#e8ecf0';
-  const cellPad   = '3px 4px';
-  const fs        = 7.5;
+  const border   = '1px solid #c8cdd8';
+  const headerBg = '#e8ecf0';
+  const cellPad  = '3px 4px';
+  const fs       = 7.5;
 
   function decColor(d) { return d === 'C' ? '#059669' : d === 'P' ? '#b45309' : d === 'NYC' ? '#dc2626' : '#374151'; }
 
   const cell     = { padding: cellPad, fontSize: fs, borderRight: border, borderBottom: border, textAlign: 'center', verticalAlign: 'middle' };
   const cellLeft = { ...cell, textAlign: 'left' };
   const hCell    = { padding: cellPad, fontSize: fs, background: headerBg, fontWeight: 700, borderRight: border, borderBottom: border, textAlign: 'center', verticalAlign: 'middle' };
-
   const vHeaderCell = { ...hCell, padding: '4px 2px', width: 20, minWidth: 20, maxWidth: 24 };
 
+  /* Vertical label — full names, no formula */
   function VLabel({ text, bg }) {
     return (
       <div style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', transform: 'rotate(180deg)', fontSize: 6.5, fontWeight: 700, whiteSpace: 'nowrap', lineHeight: 1, padding: '4px 1px', background: bg || 'transparent', color: '#374151' }}>
@@ -1483,17 +1528,9 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
   }
 
   return (
-    <div className="report-student-page" style={{
-      background: '#fff',
-      padding: '12px 14px',
-      marginBottom: isLast ? 0 : 32,
-      fontFamily: 'Arial, Helvetica, sans-serif',
-      color: '#1a1a2e',
-      fontSize: fs,
-      boxShadow: '0 2px 20px rgba(0,0,0,0.08)',
-    }}>
+    <div className="report-student-page" style={{ background: '#fff', padding: '12px 14px', marginBottom: isLast ? 0 : 32, fontFamily: 'Arial, Helvetica, sans-serif', color: '#1a1a2e', fontSize: fs, boxShadow: '0 2px 20px rgba(0,0,0,0.08)' }}>
 
-      {/* ══ TOP SECTION ══ */}
+      {/* ══ Header ══ */}
       <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 5 }}>
         <tbody>
           <tr>
@@ -1528,19 +1565,19 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
         </tbody>
       </table>
 
-      {/* ══ Report Title ══ */}
+      {/* Report title */}
       <div style={{ border, background: '#f8f9fa', padding: '4px', textAlign: 'center', fontWeight: 900, fontSize: 11, letterSpacing: '0.04em', marginBottom: 0, borderBottom: 'none' }}>
         LEARNER'S ASSESSMENT REPORT
       </div>
 
-      {/* ══ Programme rows ══ */}
+      {/* Programme rows */}
       <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 0 }}>
         <tbody>
           <tr>
             <td style={{ ...hCell, width: '8%' }}>Sector</td>
-            <td style={{ ...cellLeft, width: '28%' }}>{cls?.program?.sector || config?.sector || 'Hospitality and Tourism'}</td>
+            <td style={{ ...cellLeft, width: '28%' }}>{cls?.program?.sector || config?.sector || ''}</td>
             <td style={{ ...hCell, width: '12%' }}>Qualification Title</td>
-            <td style={{ ...cellLeft }}>{cls?.program?.qualificationTitle || config?.qualificationTitle || ''}</td>
+            <td style={cellLeft}>{cls?.program?.qualificationTitle || config?.qualificationTitle || ''}</td>
           </tr>
           <tr>
             <td style={hCell}>Trade</td>
@@ -1554,37 +1591,31 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
       {/* ══ Main Marks Table ══ */}
       <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', border, marginTop: 0 }}>
         <colgroup>
-          {/* # */ }<col style={{ width: 16 }} />
-          {/* Code */ }<col style={{ width: 34 }} />
-          {/* Module Title */ }<col style={{ width: 80 }} />
-          {/* Max */ }<col style={{ width: 22 }} />
-          {/* T1: FA IA CA Avg */ }
-          <col style={{ width: 18 }} /><col style={{ width: 18 }} /><col style={{ width: 18 }} /><col style={{ width: 22 }} />
-          {/* T2 */ }
-          <col style={{ width: 18 }} /><col style={{ width: 18 }} /><col style={{ width: 18 }} /><col style={{ width: 22 }} />
-          {/* T3 */ }
-          <col style={{ width: 18 }} /><col style={{ width: 18 }} /><col style={{ width: 18 }} /><col style={{ width: 22 }} />
-          {/* Annual % + Marks + Dec */ }
-          <col style={{ width: 22 }} /><col style={{ width: 22 }} /><col style={{ width: 22 }} />
+          <col style={{ width: 16 }} /><col style={{ width: 34 }} /><col style={{ width: 80 }} /><col style={{ width: 22 }} />
+          {/* T1 */}<col style={{ width: 18 }} /><col style={{ width: 18 }} /><col style={{ width: 18 }} /><col style={{ width: 22 }} />
+          {/* T2 */}<col style={{ width: 18 }} /><col style={{ width: 18 }} /><col style={{ width: 18 }} /><col style={{ width: 22 }} />
+          {/* T3 */}<col style={{ width: 18 }} /><col style={{ width: 18 }} /><col style={{ width: 18 }} /><col style={{ width: 22 }} />
+          {/* Annual */}<col style={{ width: 22 }} /><col style={{ width: 22 }} /><col style={{ width: 22 }} />
         </colgroup>
         <thead>
           <tr>
             <th rowSpan={2} style={{ ...hCell, fontSize: 6 }}>#</th>
-            <th rowSpan={2} style={{ ...hCell, textAlign: 'left', fontSize: 6, overflow: 'hidden' }}>Code</th>
-            <th rowSpan={2} style={{ ...hCell, textAlign: 'left', fontSize: 6, overflow: 'hidden' }}>Module Title</th>
+            <th rowSpan={2} style={{ ...hCell, textAlign: 'left', fontSize: 6 }}>Code</th>
+            <th rowSpan={2} style={{ ...hCell, textAlign: 'left', fontSize: 6 }}>Module Title</th>
             <th rowSpan={2} style={{ ...hCell, fontSize: 6 }}>Max</th>
-            <th colSpan={4} style={{ ...hCell, background: '#d8e3ee', fontSize: 7, letterSpacing: '0.04em' }}>1ST TERM</th>
-            <th colSpan={4} style={{ ...hCell, background: '#d8e3ee', fontSize: 7, letterSpacing: '0.04em' }}>2ND TERM</th>
-            <th colSpan={4} style={{ ...hCell, background: '#d8e3ee', fontSize: 7, letterSpacing: '0.04em' }}>3RD TERM</th>
-            <th colSpan={3} style={{ ...hCell, background: '#b8cfe0', fontSize: 7, letterSpacing: '0.04em' }}>ANNUAL</th>
+            <th colSpan={4} style={{ ...hCell, background: '#d8e3ee', fontSize: 7 }}>1ST TERM</th>
+            <th colSpan={4} style={{ ...hCell, background: '#d8e3ee', fontSize: 7 }}>2ND TERM</th>
+            <th colSpan={4} style={{ ...hCell, background: '#d8e3ee', fontSize: 7 }}>3RD TERM</th>
+            <th colSpan={3} style={{ ...hCell, background: '#b8cfe0', fontSize: 7 }}>ANNUAL</th>
           </tr>
           <tr>
             {TERMS.map((_, ti) => (
               <>
-                <th key={`h${ti}fa`}  style={{ ...vHeaderCell, background: ti % 2 === 0 ? '#dde8f0' : '#d4e1ec' }}><VLabel text="Formative A." /></th>
-                <th key={`h${ti}ia`}  style={{ ...vHeaderCell, background: ti % 2 === 0 ? '#dde8f0' : '#d4e1ec' }}><VLabel text="Integrated A." /></th>
-                <th key={`h${ti}ca`}  style={{ ...vHeaderCell, background: ti % 2 === 0 ? '#dde8f0' : '#d4e1ec' }}><VLabel text="Comprehensive A." /></th>
-                <th key={`h${ti}avg`} style={{ ...vHeaderCell, background: '#c8d8e8' }}><VLabel text="Avg% (FA+CA)/2" bg="#c8d8e8" /></th>
+                {/* ── Full assessment names, no formula on Average ── */}
+                <th key={`h${ti}fa`}  style={{ ...vHeaderCell, background: ti % 2 === 0 ? '#dde8f0' : '#d4e1ec' }}><VLabel text="Formative Assessment" /></th>
+                <th key={`h${ti}ia`}  style={{ ...vHeaderCell, background: ti % 2 === 0 ? '#dde8f0' : '#d4e1ec' }}><VLabel text="Integrated Assessment" /></th>
+                <th key={`h${ti}ca`}  style={{ ...vHeaderCell, background: ti % 2 === 0 ? '#dde8f0' : '#d4e1ec' }}><VLabel text="Comprehensive Assessment" /></th>
+                <th key={`h${ti}avg`} style={{ ...vHeaderCell, background: '#c8d8e8' }}><VLabel text="Average" bg="#c8d8e8" /></th>
               </>
             ))}
             <th style={{ ...vHeaderCell, background: '#b0c8dc' }}><VLabel text="Annual %" bg="#b0c8dc" /></th>
@@ -1592,10 +1623,10 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
             <th style={{ ...vHeaderCell, background: '#b0c8dc' }}><VLabel text="Decision" bg="#b0c8dc" /></th>
           </tr>
 
-          {/* Behaviour Row */}
+          {/* Behaviour row */}
           <tr style={{ background: '#f5f7fa' }}>
             <td style={{ ...hCell, fontSize: 6 }} />
-            <td style={{ ...cellLeft, fontWeight: 700, fontSize: 6, overflow: 'hidden' }} colSpan={2}>Behaviour</td>
+            <td style={{ ...cellLeft, fontWeight: 700, fontSize: 6 }} colSpan={2}>Behaviour</td>
             <td style={{ ...cell, fontWeight: 700, fontSize: 6 }}>{student.behaviourMax || 40}</td>
             {TERMS.map((_, ti) => (
               <>
@@ -1619,9 +1650,7 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
             return (
               <>
                 <tr key={`cat-${cat}`} style={{ background: cb.bg }}>
-                  <td colSpan={19} style={{ padding: '2px 6px', fontSize: 7, fontWeight: 900, color: cb.text, letterSpacing: '0.05em', borderBottom: border, textTransform: 'uppercase', borderTop: `2px solid ${cb.dot}` }}>
-                    {cat}
-                  </td>
+                  <td colSpan={19} style={{ padding: '2px 6px', fontSize: 7, fontWeight: 900, color: cb.text, letterSpacing: '0.05em', borderBottom: border, textTransform: 'uppercase', borderTop: `2px solid ${cb.dot}` }}>{cat}</td>
                 </tr>
                 {catRows.map((row, i) => (
                   <tr key={row._id} style={{ background: i % 2 === 0 ? '#fff' : '#f9fafc' }}>
@@ -1647,33 +1676,32 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
           })}
         </tbody>
 
-        {/* ── Totals Footer ── */}
         <tfoot>
+          {/* Totals */}
           <tr style={{ background: headerBg }}>
             <td colSpan={3} style={{ ...hCell, textAlign: 'right', fontSize: 6 }}>Total Weights assessed:</td>
             <td style={{ ...hCell, fontSize: 6 }}>{moduleRows.reduce((s, r) => s + r.weight, 0)}</td>
             {termTotals.map((t, ti) => (
               <>
-                <td key={`tf${ti}`}  style={{ ...hCell, fontSize: 6 }}>—</td>
-                <td key={`ti${ti}`}  style={{ ...hCell, fontSize: 6 }}>—</td>
-                <td key={`tc${ti}`}  style={{ ...hCell, fontSize: 6 }}>—</td>
-                <td key={`ta${ti}`}  style={{ ...hCell, color: pctColor(t.pct), fontSize: 6 }}>{t.obtained || 0}</td>
+                <td key={`tf${ti}`} style={{ ...hCell, fontSize: 6 }}>—</td>
+                <td key={`ti${ti}`} style={{ ...hCell, fontSize: 6 }}>—</td>
+                <td key={`tc${ti}`} style={{ ...hCell, fontSize: 6 }}>—</td>
+                <td key={`ta${ti}`} style={{ ...hCell, color: pctColor(t.pct), fontSize: 6 }}>{t.obtained || 0}</td>
               </>
             ))}
             <td style={{ ...hCell, background: '#b0c8dc', color: pctColor(annualPct), fontSize: 6 }}>{annualPct != null ? annualPct + '%' : '—'}</td>
             <td style={{ ...hCell, background: '#b0c8dc', color: pctColor(annualPct), fontSize: 6 }}>{annualObtained || '—'}</td>
             <td style={{ ...hCell, background: '#b0c8dc', color: decColor(getRwandanDecision(annualPct)), fontSize: 6 }}>{getRwandanDecision(annualPct)}</td>
           </tr>
-
-          {/* TOTAL row */}
+          {/* TOTAL */}
           <tr style={{ background: '#f5f7fa' }}>
             <td colSpan={3} style={{ ...hCell, textAlign: 'right', fontSize: 6 }}>TOTAL :</td>
             <td style={{ ...hCell, fontSize: 6 }}>{moduleRows.reduce((s, r) => s + r.weight, 0)}</td>
             {termTotals.map((t, ti) => (
               <>
-                <td key={`tf2${ti}`} style={{ ...cell, fontSize: 6 }}></td>
-                <td key={`ti2${ti}`} style={{ ...cell, fontSize: 6 }}></td>
-                <td key={`tc2${ti}`} style={{ ...cell, fontSize: 6 }}></td>
+                <td key={`tf2${ti}`} style={{ ...cell, fontSize: 6 }} />
+                <td key={`ti2${ti}`} style={{ ...cell, fontSize: 6 }} />
+                <td key={`tc2${ti}`} style={{ ...cell, fontSize: 6 }} />
                 <td key={`ta2${ti}`} style={{ ...hCell, color: pctColor(t.pct), fontSize: 6 }}>{t.obtained || 0}</td>
               </>
             ))}
@@ -1681,8 +1709,7 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
             <td style={{ ...hCell, background: '#b0c8dc', color: pctColor(annualPct), fontSize: 6 }}>{annualObtained}</td>
             <td style={{ ...hCell, background: '#b0c8dc', fontSize: 6 }}>{annualMax}</td>
           </tr>
-
-          {/* PERCENTAGE row */}
+          {/* PERCENTAGE */}
           <tr>
             <td colSpan={3} style={{ ...hCell, textAlign: 'right', fontSize: 6 }}>PERCENTAGE :</td>
             <td style={{ ...cell, fontSize: 6 }} />
@@ -1694,10 +1721,9 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
                 <td key={`pa${ti}`} style={{ ...hCell, color: pctColor(t.pct), fontSize: 6 }}>{t.pct != null ? t.pct + '%' : '—'}</td>
               </>
             ))}
-            <td style={{ ...hCell, background: '#b0c8dc', color: pctColor(annualPct), fontWeight: 900, fontSize: 7 }} colSpan={3}>{annualPct != null ? annualPct.toFixed(2) + '%' : '—'}</td>
+            <td colSpan={3} style={{ ...hCell, background: '#b0c8dc', color: pctColor(annualPct), fontWeight: 900, fontSize: 7 }}>{annualPct != null ? annualPct.toFixed(2) + '%' : '—'}</td>
           </tr>
-
-          {/* POSITION row — per-term + annual, from backend term_ranks */}
+          {/* POSITION */}
           <tr>
             <td colSpan={3} style={{ ...hCell, textAlign: 'right', fontSize: 6 }}>POSITION :</td>
             <td style={{ ...cell, fontSize: 6 }} />
@@ -1717,12 +1743,11 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
               {annualRank ? `${annualRank}/${totalRanked}` : '—'}
             </td>
           </tr>
-
           {/* Class trainer comment */}
           <tr>
             <td colSpan={19} style={{ padding: '4px 8px', fontSize: 7, borderBottom: border, background: '#f8f9fa' }}>
               <strong>{cls?.teacher?.name || config?.classTrainer || 'Class Trainer'}</strong> (Class Trainer)'s Comments &amp; signature :
-              <span style={{ display: 'inline-block', width: 180, borderBottom: '1px solid #999', marginLeft: 8, verticalAlign: 'bottom' }}></span>
+              <span style={{ display: 'inline-block', width: 180, borderBottom: '1px solid #999', marginLeft: 8, verticalAlign: 'bottom' }} />
             </td>
           </tr>
         </tfoot>
@@ -1736,7 +1761,7 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
               <div style={{ fontSize: 7, color: '#374151', lineHeight: 1.9 }}>
                 <div><strong>N/A:</strong> Not Applicable · <strong style={{ color: '#059669' }}>C:</strong> Competent · <strong style={{ color: '#dc2626' }}>NYC:</strong> Not Yet Competent · <strong style={{ color: '#b45309' }}>P:</strong> In progress</div>
                 <div><strong>Passing Line:</strong> 50% for complementary modules; <strong>70%</strong> for general &amp; specific modules.</div>
-                <div><strong>Term Average:</strong> (FA% + CA%) ÷ 2 — missing assessment counts as 0.</div>
+                <div><strong>Term Average:</strong> (Formative Assessment% + Comprehensive Assessment%) ÷ 2.</div>
                 <div><strong>Annual Average:</strong> Mean of all term averages with data.</div>
                 <div><strong>Position:</strong> Ranked within class per term and annually.</div>
               </div>

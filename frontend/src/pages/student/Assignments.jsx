@@ -6,7 +6,8 @@ import Modal from '../../components/common/Modal';
 import FileViewer from '../../components/common/FileViewer';
 import {
   Search, ClipboardList, Upload, Eye, Download,
-  Clock, CheckCircle2, AlertTriangle, Award, X, CloudUpload, FileText, RefreshCw
+  Clock, CheckCircle2, AlertTriangle, Award, X, CloudUpload, FileText, RefreshCw,
+  BookOpen, ChevronRight, ArrowLeft, Inbox,
 } from 'lucide-react';
 
 function DeadlineBadge({ deadline }) {
@@ -15,6 +16,18 @@ function DeadlineBadge({ deadline }) {
   if (diff <= 2) return <span className="badge bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400 text-xs">Due in {diff}d</span>;
   return <span className="badge bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400 text-xs">{diff}d left</span>;
 }
+
+const MODULE_COLORS = [
+  { bg: 'bg-blue-100 dark:bg-blue-900/30',    text: 'text-blue-700 dark:text-blue-300' },
+  { bg: 'bg-emerald-100 dark:bg-emerald-900/30', text: 'text-emerald-700 dark:text-emerald-300' },
+  { bg: 'bg-violet-100 dark:bg-violet-900/30',  text: 'text-violet-700 dark:text-violet-300' },
+  { bg: 'bg-amber-100 dark:bg-amber-900/30',   text: 'text-amber-700 dark:text-amber-300' },
+  { bg: 'bg-rose-100 dark:bg-rose-900/30',     text: 'text-rose-700 dark:text-rose-300' },
+  { bg: 'bg-cyan-100 dark:bg-cyan-900/30',     text: 'text-cyan-700 dark:text-cyan-300' },
+  { bg: 'bg-orange-100 dark:bg-orange-900/30', text: 'text-orange-700 dark:text-orange-300' },
+  { bg: 'bg-indigo-100 dark:bg-indigo-900/30', text: 'text-indigo-700 dark:text-indigo-300' },
+];
+function moduleColor(idx) { return MODULE_COLORS[idx % MODULE_COLORS.length]; }
 
 function SubmitModal({ assignment, isResubmit, onClose, onSuccess }) {
   const [file, setFile] = useState(null);
@@ -114,23 +127,180 @@ function SubmitModal({ assignment, isResubmit, onClose, onSuccess }) {
   );
 }
 
+function AssignmentCard({ a, onPreview, onSubmit, onResubmit }) {
+  const isSubmitted = !!a.submission_id;
+  const isGraded = a.score !== null && a.score !== undefined;
+  const overdue = new Date(a.deadline) < new Date();
+  const canResubmit = isSubmitted && !overdue && !isGraded;
+
+  return (
+    <div className="card hover:shadow-soft transition-all">
+      <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+        {/* Status Icon */}
+        <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${
+          isGraded ? 'bg-emerald-100 dark:bg-emerald-900/30' :
+          isSubmitted ? 'bg-blue-100 dark:bg-blue-900/30' :
+          overdue ? 'bg-red-100 dark:bg-red-900/30' : 'bg-amber-100 dark:bg-amber-900/30'
+        }`}>
+          {isGraded
+            ? <Award className="w-5 h-5 text-emerald-600" />
+            : isSubmitted
+            ? <CheckCircle2 className="w-5 h-5 text-blue-600" />
+            : overdue
+            ? <AlertTriangle className="w-5 h-5 text-red-600" />
+            : <Clock className="w-5 h-5 text-amber-600" />}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="font-display font-bold text-sm" style={{ color: 'var(--text-primary)' }}>{a.title}</h3>
+              <div className="flex flex-wrap items-center gap-2 mt-1">
+                {a.class_name && (
+                  <span className="badge text-xs bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300">
+                    {a.class_name}
+                  </span>
+                )}
+                <DeadlineBadge deadline={a.deadline} />
+                {isGraded && (
+                  <span className={`badge text-xs ${
+                    a.score >= 70 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+                    : a.score >= 50 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
+                  }`}>
+                    Score: {a.score}/{a.max_score || 100}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap justify-end">
+              {a.filename && (
+                <button
+                  onClick={() => onPreview({ ...a, original_name: a.original_name || a.filename })}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                  style={{
+                    background: 'var(--card-border)',
+                    color: 'var(--text-primary)',
+                    border: '1px solid var(--input-border)',
+                  }}
+                  title="Preview assignment file in new tab"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  Preview
+                </button>
+              )}
+              {!isSubmitted && !overdue && (
+                <button onClick={() => onSubmit(a)} className="btn-primary py-1.5 text-xs">
+                  <Upload className="w-3.5 h-3.5" /> Submit
+                </button>
+              )}
+              {canResubmit && (
+                <button onClick={() => onResubmit(a)} className="btn-secondary py-1.5 text-xs">
+                  <RefreshCw className="w-3.5 h-3.5" /> Resubmit
+                </button>
+              )}
+              {isSubmitted && !canResubmit && (
+                <span className="flex items-center gap-1 text-xs font-medium text-emerald-600">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  {isGraded ? 'Graded' : 'Submitted'}
+                </span>
+              )}
+              {isSubmitted && overdue && !isGraded && (
+                <span className="flex items-center gap-1 text-xs font-medium text-blue-600">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Submitted
+                </span>
+              )}
+            </div>
+          </div>
+
+          {a.description && (
+            <p className="text-xs text-muted mt-2 line-clamp-2">{a.description}</p>
+          )}
+
+          {isGraded && a.feedback && (
+            <div className="mt-2 p-2.5 rounded-lg text-xs italic" style={{ background: 'var(--card-border)', color: 'var(--text-secondary)' }}>
+              💬 {a.feedback}
+            </div>
+          )}
+
+          <div className="flex items-center gap-3 mt-3 pt-3" style={{ borderTop: '1px solid var(--card-border)' }}>
+            <span className="text-xs text-muted flex items-center gap-1">
+              <Clock className="w-3 h-3" />
+              Due {new Date(a.deadline).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
+            </span>
+            <span className="text-xs text-muted flex items-center gap-1">
+              <Award className="w-3 h-3" /> Max: {a.max_score || 100}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function StudentAssignments() {
+  const [view, setView] = useState('modules'); // 'modules' | 'list'
+  const [selectedModule, setSelectedModule] = useState(null);
+
+  const [modules, setModules] = useState([]);
+  const [loadingModules, setLoadingModules] = useState(true);
+  const [studentClass, setStudentClass] = useState(null);
+
   const [assignments, setAssignments] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
-  const [filterClass, setFilterClass] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [classes, setClasses] = useState([]);
+  const [loading, setLoading] = useState(false);
+
   const [submitting, setSubmitting] = useState(null);
   const [viewingFile, setViewingFile] = useState(null);
 
+  // Load the student's class + all modules assigned to that class
+  useEffect(() => {
+    const init = async () => {
+      setLoadingModules(true);
+      try {
+        const clsRes = await api.get('/classes/my');
+        const myClasses = clsRes.data.classes || [];
+        if (myClasses.length === 0) { setLoadingModules(false); return; }
+        const cls = myClasses[0];
+        const classId = String(cls.id || cls._id);
+        setStudentClass({ id: classId, name: cls.name });
+
+        let fetchedModules = [];
+        try {
+          const res = await api.get('/assessment/student/courses');
+          fetchedModules = res.data.courses || [];
+        } catch {
+          try {
+            const res = await api.get('/assessment/admin/courses');
+            const all = res.data.courses || [];
+            fetchedModules = all.filter(c =>
+              String(c.class_id?._id || c.class_id || '') === classId
+            );
+          } catch { /* ignore */ }
+        }
+
+        setModules(fetchedModules);
+      } catch {
+        toast.error('Failed to load class info');
+      } finally {
+        setLoadingModules(false);
+      }
+    };
+    init();
+  }, []);
+
+  // Fetch assignments for the selected module
   const fetchAssignments = useCallback(async () => {
+    if (view !== 'list' || !selectedModule) return;
     setLoading(true);
     try {
       const params = { search, page, limit: 10 };
-      if (filterClass) params.classId = filterClass;
+      if (studentClass) params.classId = studentClass.id;
+      params.courseId = selectedModule._id;
       if (filter === 'pending') params.status = 'pending';
       if (filter === 'submitted') params.status = 'submitted';
       if (filter === 'graded') params.status = 'graded';
@@ -139,12 +309,22 @@ export default function StudentAssignments() {
       setTotal(res.data.total || 0);
     } catch { toast.error('Failed to load assignments'); }
     finally { setLoading(false); }
-  }, [search, page, filter, filterClass]);
+  }, [view, search, page, filter, selectedModule, studentClass]);
 
   useEffect(() => { fetchAssignments(); }, [fetchAssignments]);
-  useEffect(() => {
-    api.get('/classes/my').then(r => setClasses(r.data.classes || [])).catch(() => {});
-  }, []);
+
+  const openModule = (mod) => { setSelectedModule(mod); setSearch(''); setFilter('all'); setPage(1); setAssignments([]); setView('list'); };
+
+  // Group modules by TVET category order, same as student Documents.jsx
+  const CATEGORY_ORDER = ['Specific modules', 'General modules', 'Complementary modules', 'Elective Non Examinable'];
+  const grouped = {};
+  CATEGORY_ORDER.forEach(cat => {
+    const items = modules.filter(m => (m.category || '') === cat);
+    if (items.length) grouped[cat] = items;
+  });
+  const uncategorised = modules.filter(m => !CATEGORY_ORDER.includes(m.category || ''));
+  if (uncategorised.length) grouped['Other Modules'] = uncategorised;
+  const hasGroups = Object.keys(grouped).length > 0;
 
   const TABS = [
     { key: 'all', label: 'All' },
@@ -153,11 +333,86 @@ export default function StudentAssignments() {
     { key: 'graded', label: 'Graded' },
   ];
 
+  /* ── Modules list view ── */
+  if (view === 'modules') {
+    return (
+      <div className="space-y-5">
+        <div>
+          <h2 className="font-display font-bold text-lg" style={{ color: 'var(--text-primary)' }}>Assignments</h2>
+          <p className="text-sm text-muted">
+            {studentClass ? `${studentClass.name} — select a module to view assignments` : 'Select a module to view assignments'}
+          </p>
+        </div>
+
+        {loadingModules ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="animate-spin w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full" />
+          </div>
+        ) : !hasGroups ? (
+          <div className="card text-center py-16">
+            <BookOpen className="w-10 h-10 mx-auto mb-3 text-muted opacity-30" />
+            <p className="font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>No modules found</p>
+            <p className="text-sm text-muted">
+              {studentClass
+                ? `No modules have been assigned to ${studentClass.name} yet.`
+                : 'You are not enrolled in a class yet.'}
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {Object.entries(grouped).map(([cat, mods]) => (
+              <div key={cat}>
+                <p className="text-xs font-bold uppercase tracking-widest text-muted mb-2 px-1">{cat}</p>
+                <div className="space-y-2">
+                  {mods.map((mod, idx) => {
+                    const color = moduleColor(idx);
+                    return (
+                      <button key={mod._id} onClick={() => openModule(mod)}
+                        className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl text-left transition-all hover:scale-[1.005] active:scale-[0.99]"
+                        style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+                        <div className={`w-12 h-12 rounded-xl ${color.bg} flex items-center justify-center flex-shrink-0`}>
+                          <span className={`text-sm font-bold ${color.text}`}>
+                            {(mod.code || mod.name || '').slice(0, 3).toUpperCase()}
+                          </span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          {mod.code && <p className={`text-xs font-bold ${color.text} mb-0.5`}>{mod.code}</p>}
+                          <p className="font-semibold text-sm truncate" style={{ color: 'var(--text-primary)' }}>{mod.name}</p>
+                          {mod.teacher_id?.name && <p className="text-xs text-muted mt-0.5">{mod.teacher_id.name}</p>}
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-muted" />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  /* ── Assignments list view for selected module ── */
   return (
     <div className="space-y-5">
-      <div>
-        <h2 className="font-display font-bold text-lg" style={{ color: 'var(--text-primary)' }}>Assignments</h2>
-        <p className="text-sm text-muted">{total} assignment{total !== 1 ? 's' : ''}</p>
+      <div className="flex items-center gap-3">
+        <button onClick={() => { setView('modules'); setAssignments([]); }}
+          className="p-2 rounded-lg hover:bg-surface-100 transition-colors flex-shrink-0">
+          <ArrowLeft className="w-5 h-5 text-muted" />
+        </button>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 text-xs text-muted font-medium mb-0.5">
+            <BookOpen className="w-3 h-3" />
+            <span>{studentClass?.name}</span>
+            <ChevronRight className="w-3 h-3" />
+            {selectedModule?.code && <span className="text-primary-600 font-bold">{selectedModule.code}</span>}
+          </div>
+          <h2 className="font-display font-bold text-lg truncate" style={{ color: 'var(--text-primary)' }}>
+            {selectedModule?.name}
+          </h2>
+          <p className="text-sm text-muted">{total} assignment{total !== 1 ? 's' : ''} available</p>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -172,18 +427,11 @@ export default function StudentAssignments() {
         ))}
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
-          <input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
-            className="input-field pl-10" placeholder="Search assignments…" />
-        </div>
-        <select value={filterClass} onChange={e => { setFilterClass(e.target.value); setPage(1); }}
-          className="input-field sm:w-44">
-          <option value="">All Classes</option>
-          {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+        <input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
+          className="input-field pl-10" placeholder="Search assignments…" />
       </div>
 
       {/* Assignments List */}
@@ -193,127 +441,25 @@ export default function StudentAssignments() {
         </div>
       ) : assignments.length === 0 ? (
         <div className="card text-center py-16">
-          <ClipboardList className="w-12 h-12 mx-auto mb-3 text-muted opacity-30" />
-          <p className="font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>No assignments</p>
+          <Inbox className="w-12 h-12 mx-auto mb-3 text-muted opacity-30" />
+          <p className="font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>No assignment posted for this module</p>
           <p className="text-sm text-muted">
-            {filter === 'pending' ? "You're all caught up!" : 'No assignments found.'}
+            {filter !== 'all'
+              ? `No ${filter} assignments for ${selectedModule?.name}.`
+              : <>Teacher hasn't posted any assignments for <strong>{selectedModule?.name}</strong> yet.</>}
           </p>
         </div>
       ) : (
         <div className="space-y-3">
-          {assignments.map(a => {
-            const isSubmitted = !!a.submission_id;
-            const isGraded = a.score !== null && a.score !== undefined;
-            const overdue = new Date(a.deadline) < new Date();
-            const canResubmit = isSubmitted && !overdue && !isGraded;
-
-            return (
-              <div key={a.id} className="card hover:shadow-soft transition-all">
-                <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-                  {/* Status Icon */}
-                  <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                    isGraded ? 'bg-emerald-100 dark:bg-emerald-900/30' :
-                    isSubmitted ? 'bg-blue-100 dark:bg-blue-900/30' :
-                    overdue ? 'bg-red-100 dark:bg-red-900/30' : 'bg-amber-100 dark:bg-amber-900/30'
-                  }`}>
-                    {isGraded
-                      ? <Award className="w-5 h-5 text-emerald-600" />
-                      : isSubmitted
-                      ? <CheckCircle2 className="w-5 h-5 text-blue-600" />
-                      : overdue
-                      ? <AlertTriangle className="w-5 h-5 text-red-600" />
-                      : <Clock className="w-5 h-5 text-amber-600" />}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <h3 className="font-display font-bold text-sm" style={{ color: 'var(--text-primary)' }}>{a.title}</h3>
-                        <div className="flex flex-wrap items-center gap-2 mt-1">
-                          {a.class_name && (
-                            <span className="badge text-xs bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300">
-                              {a.class_name}
-                            </span>
-                          )}
-                          <DeadlineBadge deadline={a.deadline} />
-                          {isGraded && (
-                            <span className={`badge text-xs ${
-                              a.score >= 70 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
-                              : a.score >= 50 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
-                            }`}>
-                              Score: {a.score}/{a.max_score || 100}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap justify-end">
-                        {a.filename && (
-                          <button
-                            onClick={() => setViewingFile({ ...a, original_name: a.original_name || a.filename })}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-                            style={{
-                              background: 'var(--card-border)',
-                              color: 'var(--text-primary)',
-                              border: '1px solid var(--input-border)',
-                            }}
-                            title="Preview assignment file in new tab"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                            Preview
-                          </button>
-                        )}
-                        {!isSubmitted && !overdue && (
-                          <button onClick={() => setSubmitting({ assignment: a, isResubmit: false })}
-                            className="btn-primary py-1.5 text-xs">
-                            <Upload className="w-3.5 h-3.5" /> Submit
-                          </button>
-                        )}
-                        {canResubmit && (
-                          <button onClick={() => setSubmitting({ assignment: a, isResubmit: true })}
-                            className="btn-secondary py-1.5 text-xs">
-                            <RefreshCw className="w-3.5 h-3.5" /> Resubmit
-                          </button>
-                        )}
-                        {isSubmitted && !canResubmit && (
-                          <span className="flex items-center gap-1 text-xs font-medium text-emerald-600">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            {isGraded ? 'Graded' : 'Submitted'}
-                          </span>
-                        )}
-                        {isSubmitted && overdue && !isGraded && (
-                          <span className="flex items-center gap-1 text-xs font-medium text-blue-600">
-                            <CheckCircle2 className="w-3.5 h-3.5" /> Submitted
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {a.description && (
-                      <p className="text-xs text-muted mt-2 line-clamp-2">{a.description}</p>
-                    )}
-
-                    {isGraded && a.feedback && (
-                      <div className="mt-2 p-2.5 rounded-lg text-xs italic" style={{ background: 'var(--card-border)', color: 'var(--text-secondary)' }}>
-                        💬 {a.feedback}
-                      </div>
-                    )}
-
-                    <div className="flex items-center gap-3 mt-3 pt-3" style={{ borderTop: '1px solid var(--card-border)' }}>
-                      <span className="text-xs text-muted flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        Due {new Date(a.deadline).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
-                      </span>
-                      <span className="text-xs text-muted flex items-center gap-1">
-                        <Award className="w-3 h-3" /> Max: {a.max_score || 100}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+          {assignments.map(a => (
+            <AssignmentCard
+              key={a.id}
+              a={a}
+              onPreview={setViewingFile}
+              onSubmit={(assignment) => setSubmitting({ assignment, isResubmit: false })}
+              onResubmit={(assignment) => setSubmitting({ assignment, isResubmit: true })}
+            />
+          ))}
         </div>
       )}
 

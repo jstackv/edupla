@@ -867,3 +867,20 @@ function getGrade(obtained, max) {
   if (pct >= 50) return 'D';
   return 'F';
 }
+
+/* ─────────── Student: get all courses for their enrolled class ─────────── */
+exports.studentGetCourses = async (req, res) => {
+  try {
+    // Find the class the student belongs to
+    const cls = await Class.findOne({ students: req.user.id }).lean();
+    if (!cls) return res.json({ courses: [] });
+
+    const courses = await Course.find({ class_id: cls._id })
+      .populate('teacher_id', 'name email')
+      .populate('class_id', 'name')
+      .sort({ category: 1, name: 1 })
+      .lean();
+
+    res.json({ courses: courses.map(c => ({ ...c, id: c._id })) });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};

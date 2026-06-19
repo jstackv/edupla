@@ -48,4 +48,8 @@ router.post('/teacher/assessments/:id/marks', isAuthenticated, isTeacher, ctrl.t
 router.post('/teacher/assessments/:id/submit',isAuthenticated, isTeacher, ctrl.teacherSubmitMarks);
 router.get('/teacher/reports/:assessmentId',  isAuthenticated, isTeacher, ctrl.teacherAssessmentReport);
 
+// Student: get all courses assigned to their class
+const { isStudent } = require('../middleware/auth');
+router.get('/student/courses', isAuthenticated, isStudent, ctrl.studentGetCourses);
+
 module.exports = router;

@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { Assignment, Submission, Class, User } = require('../models/db');
+const { Assignment, Submission, Class, User, Course } = require('../models/db');
 const { cloudinary } = require('../middleware/upload');
 const { notifyAssignmentPosted, notifyAssignmentSubmitted } = require('../services/emailService');
 const { createInAppNotification, getStudentEmails, getTeacherEmail } = require('../services/notificationHelpers');
@@ -15,7 +15,7 @@ function isAssignmentAccessible(a) {
 
 const getAssignments = async (req, res) => {
   try {
-    const { search = '', page = 1, limit = 10, classId } = req.query;
+    const { search = '', page = 1, limit = 10, classId, courseId } = req.query;
     const skip = (page - 1) * limit;
     const userId = new mongoose.Types.ObjectId(req.session.user.id);
     const role = req.session.user.role;
@@ -33,9 +33,10 @@ const getAssignments = async (req, res) => {
         ...classFilter,
         $or: [{ title: searchRegex }, { description: searchRegex }],
       };
+      if (courseId) filter.course_id = new mongoose.Types.ObjectId(courseId);
       const [assignments, total] = await Promise.all([
         Assignment.find(filter).sort({ created_at: -1 }).skip(skip).limit(parseInt(limit))
-          .populate('class_id', 'name').lean(),
+          .populate('class_id', 'name').populate('course_id', 'name code category').lean(),
         Assignment.countDocuments(filter),
       ]);
 
@@ -47,6 +48,9 @@ const getAssignments = async (req, res) => {
         return {
           ...a, id: a._id,
           class_name: a.class_id?.name,
+          course_name: a.course_id?.name,
+          course_code: a.course_id?.code,
+          course_category: a.course_id?.category,
           file_url: a.file_url,
           submission_count,
           total_students: cls?.students?.length || 0,
@@ -78,9 +82,11 @@ const getAssignments = async (req, res) => {
         { $or: [{ end_date: null }, { end_date: { $gte: now } }] },
       ],
     };
+    if (courseId) filter.course_id = new mongoose.Types.ObjectId(courseId);
     const [assignments, total] = await Promise.all([
       Assignment.find(filter).sort({ deadline: 1 }).skip(skip).limit(parseInt(limit))
-        .populate('class_id', 'name').populate('teacher_id', 'name').lean(),
+        .populate('class_id', 'name').populate('teacher_id', 'name')
+        .populate('course_id', 'name code category').lean(),
       Assignment.countDocuments(filter),
     ]);
 
@@ -90,6 +96,9 @@ const getAssignments = async (req, res) => {
         ...a, id: a._id,
         class_name: a.class_id?.name,
         teacher_name: a.teacher_id?.name,
+        course_name: a.course_id?.name,
+        course_code: a.course_id?.code,
+        course_category: a.course_id?.category,
         file_url: a.file_url,
         submission_id: sub?._id || null,
         submitted_at: sub?.submitted_at || null,
@@ -103,7 +112,7 @@ const getAssignments = async (req, res) => {
 
 const createAssignment = async (req, res) => {
   try {
-    const { title, description, deadline, classId, max_score, start_date, end_date, is_active } = req.body;
+    const { title, description, deadline, classId, courseId, max_score, start_date, end_date, is_active } = req.body;
     if (!title || !deadline || !classId) return res.status(400).json({ message: 'Title, deadline, and class are required' });
     // Verify teacher is assigned to this class (as class teacher or extra teacher)
     const teacherClass = await Class.findOne({
@@ -111,12 +120,17 @@ const createAssignment = async (req, res) => {
       $or: [{ teacher_id: req.session.user.id }, { extra_teachers: req.session.user.id }]
     }).lean();
     if (!teacherClass) return res.status(403).json({ message: 'You are not assigned to this class.' });
+    // If a module/course is specified, verify the teacher is assigned to that module
+    if (courseId) {
+      const teacherCourse = await Course.findOne({ _id: courseId, teacher_id: req.session.user.id }).lean();
+      if (!teacherCourse) return res.status(403).json({ message: 'You are not assigned to this module.' });
+    }
     const a = await Assignment.create({
       title, description, deadline,
       start_date: start_date || null,
       end_date: end_date || null,
       is_active: (is_active === undefined || is_active === null || is_active === "") ? true : (is_active === true || is_active === "true"),
-      class_id: classId, teacher_id: req.session.user.id,
+      class_id: classId, course_id: courseId || null, teacher_id: req.session.user.id,
       max_score: max_score || 100,
       filename:      req.file?.filename      || null,
       original_name: req.file?.originalname  || null,
@@ -164,7 +178,7 @@ const createAssignment = async (req, res) => {
 
 const updateAssignment = async (req, res) => {
   try {
-    const { title, description, deadline, classId, max_score, start_date, end_date, is_active } = req.body;
+    const { title, description, deadline, classId, courseId, max_score, start_date, end_date, is_active } = req.body;
     const existing = await Assignment.findOne({ _id: req.params.id, teacher_id: req.session.user.id });
     if (!existing) return res.status(404).json({ message: 'Assignment not found' });
 
@@ -183,7 +197,7 @@ const updateAssignment = async (req, res) => {
     await Assignment.updateOne(
       { _id: req.params.id },
       {
-        title, description, deadline, class_id: classId, max_score: max_score || 100,
+        title, description, deadline, class_id: classId, course_id: courseId || null, max_score: max_score || 100,
         start_date: start_date || null,
         end_date: end_date || null,
         is_active: is_active === true || is_active === 'true',
@@ -365,7 +379,9 @@ const getGradesReport = async (req, res) => {
     const assignmentId = req.params.id;
 
     const a = await Assignment.findById(assignmentId)
-      .populate('class_id', 'name students').lean();
+      .populate('class_id', 'name students')
+      .populate('course_id', 'name code category')
+      .lean();
     if (!a) return res.status(404).json({ message: 'Assignment not found' });
     // Allow access to assignment owner OR extra teachers of the class
     const teacherId = req.session.user.id;

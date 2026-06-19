@@ -9,7 +9,8 @@ import {
   Plus, Search, ClipboardList, Download, Eye, Edit2, Trash2,
   Clock, Users, Award, X, CloudUpload, FileText, Star,
   BarChart2, CheckSquare, Square, FileDown, Printer,
-  ToggleLeft, ToggleRight, Calendar, Power
+  ToggleLeft, ToggleRight, Calendar, Power,
+  BookOpen, ChevronRight, ArrowLeft, AlertCircle,
 } from 'lucide-react';
 
 function formatSize(bytes) {
@@ -24,6 +25,18 @@ function DeadlineBadge({ deadline }) {
   if (diff <= 2) return <span className="badge bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400 text-xs">Due in {diff}d</span>;
   return <span className="badge bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400 text-xs">{diff}d left</span>;
 }
+
+const MODULE_COLORS = [
+  { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-700 dark:text-blue-300', dot: '#3b82f6' },
+  { bg: 'bg-emerald-100 dark:bg-emerald-900/30', text: 'text-emerald-700 dark:text-emerald-300', dot: '#10b981' },
+  { bg: 'bg-violet-100 dark:bg-violet-900/30', text: 'text-violet-700 dark:text-violet-300', dot: '#8b5cf6' },
+  { bg: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-700 dark:text-amber-300', dot: '#f59e0b' },
+  { bg: 'bg-rose-100 dark:bg-rose-900/30', text: 'text-rose-700 dark:text-rose-300', dot: '#f43f5e' },
+  { bg: 'bg-cyan-100 dark:bg-cyan-900/30', text: 'text-cyan-700 dark:text-cyan-300', dot: '#06b6d4' },
+  { bg: 'bg-orange-100 dark:bg-orange-900/30', text: 'text-orange-700 dark:text-orange-300', dot: '#f97316' },
+  { bg: 'bg-indigo-100 dark:bg-indigo-900/30', text: 'text-indigo-700 dark:text-indigo-300', dot: '#6366f1' },
+];
+function moduleColor(idx) { return MODULE_COLORS[idx % MODULE_COLORS.length]; }
 
 // ─── Grades Report Modal ──────────────────────────────────────────────────────
 function GradesReportModal({ assignment, onClose }) {
@@ -406,58 +419,32 @@ function SubmissionsModal({ assignment, onClose }) {
   );
 }
 
-// ─── Main Assignments Page ────────────────────────────────────────────────────
-export default function Assignments() {
-  const [assignments, setAssignments] = useState([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [search, setSearch] = useState('');
-  const [filterClass, setFilterClass] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [modal, setModal] = useState(false);
-  const [editing, setEditing] = useState(null);
-  const [deleteTarget, setDeleteTarget] = useState(null);
-  const [toggleTarget, setToggleTarget] = useState(null);
-  const [toggling, setToggling] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [classes, setClasses] = useState([]);
-  const [viewingSubs, setViewingSubs] = useState(null);
-  const [viewingGrades, setViewingGrades] = useState(null);
-  const [viewingFile, setViewingFile] = useState(null);
-  const [form, setForm] = useState({ title: '', description: '', deadline: '', classId: '', max_score: 100, start_date: '', end_date: '', is_active: true });
+// ─── Create/Edit Assignment Modal (module-aware) ──────────────────────────────
+function AssignmentFormModal({ isOpen, onClose, editing, presetClass, presetModule, onSuccess }) {
+  const [form, setForm] = useState({ title: '', description: '', deadline: '', classId: '', courseId: '', max_score: 100, start_date: '', end_date: '', is_active: true });
   const [file, setFile] = useState(null);
   const [saving, setSaving] = useState(false);
 
-  const fetchAssignments = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = { search, page, limit: 10 };
-      if (filterClass) params.classId = filterClass;
-      const res = await api.get('/assignments', { params });
-      setAssignments(res.data.assignments);
-      setTotal(res.data.total);
-    } catch { toast.error('Failed to load assignments'); }
-    finally { setLoading(false); }
-  }, [search, page, filterClass]);
-
-  useEffect(() => { fetchAssignments(); }, [fetchAssignments]);
   useEffect(() => {
-    api.get('/classes?limit=100').then(r => setClasses(r.data.classes || [])).catch(() => {});
-  }, []);
-
-  const openModal = (a = null) => {
-    setEditing(a);
-    if (a) {
-      const deadline = a.deadline ? new Date(a.deadline).toISOString().slice(0, 16) : '';
-      const start_date = a.start_date ? new Date(a.start_date).toISOString().slice(0, 16) : '';
-      const end_date = a.end_date ? new Date(a.end_date).toISOString().slice(0, 16) : '';
-      setForm({ title: a.title, description: a.description || '', deadline, classId: String(a.class_id), max_score: a.max_score || 100, start_date, end_date, is_active: a.is_active || false });
+    if (!isOpen) return;
+    if (editing) {
+      const deadline = editing.deadline ? new Date(editing.deadline).toISOString().slice(0, 16) : '';
+      const start_date = editing.start_date ? new Date(editing.start_date).toISOString().slice(0, 16) : '';
+      const end_date = editing.end_date ? new Date(editing.end_date).toISOString().slice(0, 16) : '';
+      setForm({
+        title: editing.title, description: editing.description || '', deadline,
+        classId: String(editing.class_id), courseId: editing.course_id ? String(editing.course_id) : '',
+        max_score: editing.max_score || 100, start_date, end_date, is_active: editing.is_active || false,
+      });
     } else {
-      setForm({ title: '', description: '', deadline: '', classId: '', max_score: 100, start_date: '', end_date: '', is_active: true });
+      setForm({
+        title: '', description: '', deadline: '',
+        classId: presetClass?._id || '', courseId: presetModule?._id || '',
+        max_score: 100, start_date: '', end_date: '', is_active: true,
+      });
     }
     setFile(null);
-    setModal(true);
-  };
+  }, [isOpen, editing, presetClass, presetModule]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -473,11 +460,179 @@ export default function Assignments() {
         await api.post('/assignments', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
         toast.success('Assignment created');
       }
-      setModal(false);
-      fetchAssignments();
+      onClose();
+      onSuccess();
     } catch (err) { toast.error(err.response?.data?.message || 'Failed to save'); }
     finally { setSaving(false); }
   };
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title={editing ? 'Edit Assignment' : 'New Assignment'}>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Module context pill — shows which class/module this assignment is for */}
+        {(presetClass || presetModule) && !editing && (
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold"
+            style={{ background: 'var(--surface-50, var(--card-bg))', border: '1px solid var(--card-border)' }}>
+            <BookOpen className="w-3.5 h-3.5 text-primary-500" />
+            <span className="text-muted">{presetClass?.name}</span>
+            {presetModule && (
+              <>
+                <ChevronRight className="w-3 h-3 text-muted" />
+                <span style={{ color: 'var(--text-primary)' }}>
+                  {presetModule.code && `[${presetModule.code}] `}{presetModule.name}
+                </span>
+              </>
+            )}
+          </div>
+        )}
+        <div>
+          <label className="label">Title *</label>
+          <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+            className="input-field" placeholder="Assignment title" required autoFocus />
+        </div>
+        <div>
+          <label className="label">Description</label>
+          <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+            className="input-field resize-none" rows={3} placeholder="Assignment instructions…" />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="label">Max Score</label>
+            <input type="number" value={form.max_score} onChange={e => setForm(f => ({ ...f, max_score: e.target.value }))}
+              className="input-field" min="1" max="1000" />
+          </div>
+          <div>
+            <label className="label">Deadline *</label>
+            <input type="datetime-local" value={form.deadline} onChange={e => setForm(f => ({ ...f, deadline: e.target.value }))}
+              className="input-field" required />
+          </div>
+        </div>
+        <div style={{ background: 'var(--surface-50)', borderRadius: 10, padding: '12px 14px', border: '1px solid var(--card-border)' }}>
+          <p className="text-xs font-semibold mb-2" style={{ color: 'var(--text-secondary)' }}>Visibility Window (optional)</p>
+          <p className="text-xs mb-3" style={{ color: 'var(--text-secondary)' }}>
+            Students can only view and submit this assignment between these dates. Leave blank for no restriction.
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label">Start Date &amp; Time</label>
+              <input type="datetime-local" value={form.start_date} onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))}
+                className="input-field" />
+            </div>
+            <div>
+              <label className="label">End Date &amp; Time</label>
+              <input type="datetime-local" value={form.end_date} onChange={e => setForm(f => ({ ...f, end_date: e.target.value }))}
+                className="input-field" />
+            </div>
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: form.is_active ? 'rgba(16,185,129,0.06)' : 'var(--surface-50)', borderRadius: 10, border: `1px solid ${form.is_active ? 'rgba(16,185,129,0.25)' : 'var(--card-border)'}` }}>
+          <div>
+            <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+              {form.is_active ? '✓ Assignment is Active' : 'Assignment is Inactive'}
+            </p>
+            <p className="text-xs" style={{ color: 'var(--text-secondary)', marginTop: 2 }}>
+              {form.is_active ? 'Students can view and submit this assignment' : 'Students cannot see or submit this assignment'}
+            </p>
+          </div>
+          <button type="button"
+            onClick={() => setForm(f => ({ ...f, is_active: !f.is_active }))}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
+            {form.is_active
+              ? <ToggleRight size={28} style={{ color: '#10b981' }} />
+              : <ToggleLeft size={28} style={{ color: '#9ca3af' }} />}
+          </button>
+        </div>
+        <div>
+          <label className="label">Attachment (optional)</label>
+          <div className="flex items-center gap-2">
+            <input type="file" id="assignment-file" className="hidden" onChange={e => setFile(e.target.files[0])} />
+            <label htmlFor="assignment-file" className="btn-secondary text-xs cursor-pointer">
+              <CloudUpload className="w-3.5 h-3.5" />
+              {file ? file.name : editing?.original_name || 'Choose file'}
+            </label>
+            {file && (
+              <button type="button" onClick={() => setFile(null)} className="text-muted hover:text-red-500">
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="flex justify-end gap-3 pt-2">
+          <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
+          <button type="submit" disabled={saving} className="btn-primary">
+            {saving && <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />}
+            {editing ? 'Update' : 'Create'}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+// ─── Main Assignments Page ────────────────────────────────────────────────────
+export default function Assignments() {
+  const [view, setView] = useState('classes');               // 'classes' | 'modules' | 'list'
+  const [selectedClass, setSelectedClass] = useState(null);   // { _id, name, modules[] }
+  const [selectedModule, setSelectedModule] = useState(null); // course object
+
+  const [assignments, setAssignments] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [loadingInit, setLoadingInit] = useState(true);
+
+  const [courses, setCourses] = useState([]); // teacher's modules from /assessment/teacher/courses
+
+  const [modal, setModal] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [toggleTarget, setToggleTarget] = useState(null);
+  const [toggling, setToggling] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [viewingSubs, setViewingSubs] = useState(null);
+  const [viewingGrades, setViewingGrades] = useState(null);
+  const [viewingFile, setViewingFile] = useState(null);
+
+  // Load teacher's assigned modules (each carries its class_id)
+  useEffect(() => {
+    api.get('/assessment/teacher/courses')
+      .then(r => setCourses(r.data.courses || []))
+      .catch(() => toast.error('Failed to load modules'))
+      .finally(() => setLoadingInit(false));
+  }, []);
+
+  // Derive unique classes with their modules from courses
+  const teacherClasses = (() => {
+    const map = new Map();
+    courses.forEach(c => {
+      const cls = c.class_id;
+      if (!cls) return;
+      const id = String(cls._id || cls);
+      if (!map.has(id)) map.set(id, { _id: id, name: cls.name || 'Class', modules: [] });
+      map.get(id).modules.push(c);
+    });
+    return Array.from(map.values());
+  })();
+
+  // Fetch assignments scoped to the selected module
+  const fetchAssignments = useCallback(async () => {
+    if (view !== 'list' || !selectedModule) return;
+    setLoading(true);
+    try {
+      const params = { search, page, limit: 10 };
+      if (selectedClass) params.classId = selectedClass._id;
+      if (selectedModule) params.courseId = selectedModule._id;
+      const res = await api.get('/assignments', { params });
+      setAssignments(res.data.assignments || []);
+      setTotal(res.data.total || 0);
+    } catch { toast.error('Failed to load assignments'); }
+    finally { setLoading(false); }
+  }, [view, search, page, selectedClass, selectedModule]);
+
+  useEffect(() => { fetchAssignments(); }, [fetchAssignments]);
+
+  const openModal = (a = null) => { setEditing(a); setModal(true); };
 
   const handleDelete = async () => {
     setDeleting(true);
@@ -490,9 +645,7 @@ export default function Assignments() {
     finally { setDeleting(false); }
   };
 
-  const handleToggleStatus = (assignment) => {
-    setToggleTarget(assignment);
-  };
+  const handleToggleStatus = (assignment) => setToggleTarget(assignment);
 
   const handleToggleConfirm = async () => {
     if (!toggleTarget) return;
@@ -506,31 +659,141 @@ export default function Assignments() {
     finally { setToggling(false); }
   };
 
+  const goToModules = (cls) => {
+    setSelectedClass(cls);
+    setSelectedModule(null);
+    setAssignments([]);
+    setView('modules');
+  };
+
+  const goToList = (mod) => {
+    setSelectedModule(mod);
+    setSearch('');
+    setPage(1);
+    setAssignments([]);
+    setView('list');
+  };
+
+  /* ── Classes view ── */
+  if (view === 'classes') {
+    return (
+      <div className="space-y-5">
+        <div>
+          <h2 className="font-display font-bold text-lg" style={{ color: 'var(--text-primary)' }}>Assignments</h2>
+          <p className="text-sm text-muted">Select a class to manage module assignments</p>
+        </div>
+
+        {loadingInit ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="animate-spin w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full" />
+          </div>
+        ) : teacherClasses.length === 0 ? (
+          <div className="card text-center py-16">
+            <BookOpen className="w-12 h-12 mx-auto mb-3 text-muted opacity-30" />
+            <p className="font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>No modules assigned yet</p>
+            <p className="text-sm text-muted">Ask the admin to assign modules to you.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {teacherClasses.map((cls, idx) => {
+              const color = moduleColor(idx);
+              return (
+                <button key={cls._id} onClick={() => goToModules(cls)}
+                  className="flex items-center gap-4 px-5 py-4 rounded-2xl text-left transition-all hover:scale-[1.01] active:scale-[0.99]"
+                  style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+                  <div className={`w-12 h-12 rounded-xl ${color.bg} flex items-center justify-center flex-shrink-0`}>
+                    <BookOpen className={`w-6 h-6 ${color.text}`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{cls.name}</p>
+                    <p className="text-xs text-muted mt-0.5">{cls.modules.length} module{cls.modules.length !== 1 ? 's' : ''} assigned to you</p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-muted" />
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  /* ── Modules view ── */
+  if (view === 'modules') {
+    const modules = selectedClass?.modules || [];
+    return (
+      <div className="space-y-5">
+        <div className="flex items-center gap-3">
+          <button onClick={() => setView('classes')}
+            className="p-2 rounded-lg hover:bg-surface-100 transition-colors flex-shrink-0">
+            <ArrowLeft className="w-5 h-5 text-muted" />
+          </button>
+          <div className="flex-1">
+            <p className="text-xs text-muted font-medium">Classes → Modules</p>
+            <h2 className="font-display font-bold text-lg" style={{ color: 'var(--text-primary)' }}>{selectedClass?.name}</h2>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          {modules.map((mod, idx) => {
+            const color = moduleColor(idx);
+            return (
+              <button key={mod._id} onClick={() => goToList(mod)}
+                className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl text-left transition-all hover:scale-[1.005] active:scale-[0.99]"
+                style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+                <div className={`w-12 h-12 rounded-xl ${color.bg} flex items-center justify-center flex-shrink-0`}>
+                  <span className={`text-sm font-bold ${color.text}`}>{(mod.code || mod.name || '').slice(0, 3).toUpperCase()}</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  {mod.code && <p className={`text-xs font-bold ${color.text} mb-0.5`}>{mod.code}</p>}
+                  <p className="font-semibold text-sm truncate" style={{ color: 'var(--text-primary)' }}>{mod.name}</p>
+                  {mod.category && <p className="text-xs text-muted">{mod.category}</p>}
+                </div>
+                <ChevronRight className="w-4 h-4 text-muted" />
+              </button>
+            );
+          })}
+          {modules.length === 0 && (
+            <div className="flex items-center gap-2 p-4 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800">
+              <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+              <p className="text-sm text-amber-700 dark:text-amber-400">No modules assigned to you in this class.</p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  /* ── Assignments list view (scoped to selected module) ── */
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-        <div className="flex-1">
-          <h2 className="font-display font-bold text-lg" style={{ color: 'var(--text-primary)' }}>Assignments</h2>
-          <p className="text-sm text-muted">{total} assignment{total !== 1 ? 's' : ''} total</p>
+      <div className="flex items-center gap-3">
+        <button onClick={() => { setView('modules'); setAssignments([]); }}
+          className="p-2 rounded-lg hover:bg-surface-100 transition-colors flex-shrink-0">
+          <ArrowLeft className="w-5 h-5 text-muted" />
+        </button>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 text-xs text-muted font-medium mb-0.5">
+            <span>{selectedClass?.name}</span>
+            <ChevronRight className="w-3 h-3" />
+            {selectedModule?.code && <span className="text-primary-600 font-bold">{selectedModule.code}</span>}
+          </div>
+          <h2 className="font-display font-bold text-lg truncate" style={{ color: 'var(--text-primary)' }}>
+            {selectedModule?.name}
+          </h2>
+          <p className="text-sm text-muted">{total} assignment{total !== 1 ? 's' : ''} posted</p>
         </div>
-        <button onClick={() => openModal()} className="btn-primary">
+        <button onClick={() => openModal()} className="btn-primary flex-shrink-0">
           <Plus className="w-4 h-4" /> New Assignment
         </button>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
-          <input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
-            className="input-field pl-10" placeholder="Search assignments…" />
-        </div>
-        <select value={filterClass} onChange={e => { setFilterClass(e.target.value); setPage(1); }}
-          className="input-field sm:w-44">
-          <option value="">All Classes</option>
-          {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+        <input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
+          className="input-field pl-10" placeholder="Search assignments…" />
       </div>
 
       {/* Assignments List */}
@@ -541,10 +804,10 @@ export default function Assignments() {
       ) : assignments.length === 0 ? (
         <div className="card text-center py-16">
           <ClipboardList className="w-12 h-12 mx-auto mb-3 text-muted opacity-30" />
-          <p className="font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>No assignments yet</p>
-          <p className="text-sm text-muted mb-4">Create an assignment for your students.</p>
+          <p className="font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>You haven't posted any assignments for this module yet</p>
+          <p className="text-sm text-muted mb-4">Create the first assignment for {selectedModule?.name}.</p>
           <button onClick={() => openModal()} className="btn-primary mx-auto">
-            <Plus className="w-4 h-4" /> Create Assignment
+            <Plus className="w-4 h-4" /> New Assignment
           </button>
         </div>
       ) : (
@@ -639,98 +902,15 @@ export default function Assignments() {
 
       {total > 10 && <Pagination page={page} totalPages={Math.ceil(total / 10)} onPageChange={setPage} />}
 
-      {/* Create/Edit Modal */}
-      <Modal isOpen={modal} onClose={() => setModal(false)} title={editing ? 'Edit Assignment' : 'New Assignment'}>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="label">Title *</label>
-            <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-              className="input-field" placeholder="Assignment title" required />
-          </div>
-          <div>
-            <label className="label">Description</label>
-            <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-              className="input-field resize-none" rows={3} placeholder="Assignment instructions…" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="label">Class *</label>
-              <select value={form.classId} onChange={e => setForm(f => ({ ...f, classId: e.target.value }))}
-                className="input-field" required>
-                <option value="">Select class</option>
-                {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="label">Max Score</label>
-              <input type="number" value={form.max_score} onChange={e => setForm(f => ({ ...f, max_score: e.target.value }))}
-                className="input-field" min="1" max="1000" />
-            </div>
-          </div>
-          <div>
-            <label className="label">Deadline *</label>
-            <input type="datetime-local" value={form.deadline} onChange={e => setForm(f => ({ ...f, deadline: e.target.value }))}
-              className="input-field" required />
-          </div>
-          <div style={{ background: 'var(--surface-50)', borderRadius: 10, padding: '12px 14px', border: '1px solid var(--card-border)' }}>
-            <p className="text-xs font-semibold mb-2" style={{ color: 'var(--text-secondary)' }}>Visibility Window (optional)</p>
-            <p className="text-xs mb-3" style={{ color: 'var(--text-secondary)' }}>
-              Students can only view and submit this assignment between these dates. Leave blank for no restriction.
-            </p>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="label">Start Date &amp; Time</label>
-                <input type="datetime-local" value={form.start_date} onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))}
-                  className="input-field" />
-              </div>
-              <div>
-                <label className="label">End Date &amp; Time</label>
-                <input type="datetime-local" value={form.end_date} onChange={e => setForm(f => ({ ...f, end_date: e.target.value }))}
-                  className="input-field" />
-              </div>
-            </div>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: form.is_active ? 'rgba(16,185,129,0.06)' : 'var(--surface-50)', borderRadius: 10, border: `1px solid ${form.is_active ? 'rgba(16,185,129,0.25)' : 'var(--card-border)'}` }}>
-            <div>
-              <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-                {form.is_active ? '✓ Assignment is Active' : 'Assignment is Inactive'}
-              </p>
-              <p className="text-xs" style={{ color: 'var(--text-secondary)', marginTop: 2 }}>
-                {form.is_active ? 'Students can view and submit this assignment' : 'Students cannot see or submit this assignment'}
-              </p>
-            </div>
-            <button type="button"
-              onClick={() => setForm(f => ({ ...f, is_active: !f.is_active }))}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
-              {form.is_active
-                ? <ToggleRight size={28} style={{ color: '#10b981' }} />
-                : <ToggleLeft size={28} style={{ color: '#9ca3af' }} />}
-            </button>
-          </div>
-          <div>
-            <label className="label">Attachment (optional)</label>
-            <div className="flex items-center gap-2">
-              <input type="file" id="assignment-file" className="hidden" onChange={e => setFile(e.target.files[0])} />
-              <label htmlFor="assignment-file" className="btn-secondary text-xs cursor-pointer">
-                <CloudUpload className="w-3.5 h-3.5" />
-                {file ? file.name : editing?.original_name || 'Choose file'}
-              </label>
-              {file && (
-                <button type="button" onClick={() => setFile(null)} className="text-muted hover:text-red-500">
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-          </div>
-          <div className="flex justify-end gap-3 pt-2">
-            <button type="button" onClick={() => setModal(false)} className="btn-secondary">Cancel</button>
-            <button type="submit" disabled={saving} className="btn-primary">
-              {saving && <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />}
-              {editing ? 'Update' : 'Create'}
-            </button>
-          </div>
-        </form>
-      </Modal>
+      {/* Create/Edit Modal — module-aware */}
+      <AssignmentFormModal
+        isOpen={modal}
+        onClose={() => setModal(false)}
+        editing={editing}
+        presetClass={selectedClass}
+        presetModule={selectedModule}
+        onSuccess={fetchAssignments}
+      />
 
       <ConfirmDialog
         isOpen={!!toggleTarget}

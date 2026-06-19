@@ -59,8 +59,9 @@ const documentSchema = new mongoose.Schema({
   original_name:  { type: String, required: true },
   file_size:      { type: Number, default: null },
   mime_type:      { type: String, default: null },
-  class_id:       { type: mongoose.Schema.Types.ObjectId, ref: 'Class', default: null },
-  teacher_id:     { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  class_id:       { type: mongoose.Schema.Types.ObjectId, ref: 'Class',  default: null },
+  course_id:      { type: mongoose.Schema.Types.ObjectId, ref: 'Course', default: null },
+  teacher_id:     { type: mongoose.Schema.Types.ObjectId, ref: 'User',   required: true },
   download_count: { type: Number, default: 0 },
   file_url:       { type: String, default: null },
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
@@ -77,6 +78,7 @@ const assignmentSchema = new mongoose.Schema({
   end_date:      { type: Date, default: null },
   is_active:     { type: Boolean, default: true },
   class_id:      { type: mongoose.Schema.Types.ObjectId, ref: 'Class', required: true },
+  course_id:     { type: mongoose.Schema.Types.ObjectId, ref: 'Course', default: null },
   teacher_id:    { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   max_score:     { type: Number, default: 100 },
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
