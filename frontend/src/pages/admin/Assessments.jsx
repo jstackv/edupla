@@ -267,10 +267,11 @@ export default function AdminAssessments() {
   const [assessments, setAssessments] = useState([]);
   const [loading,     setLoading]     = useState(false);
 
-  /* ── Course tab filters ── */
+  /* ── Course tab filters + view mode ── */
+  const [courseView,           setCourseView]           = useState('cards'); // 'cards' | 'table'
   const [courseFilterTeacher,  setCourseFilterTeacher]  = useState('');
   const [courseFilterCategory, setCourseFilterCategory] = useState('');
-  const [courseFilterClass,    setCourseFilterClass]    = useState(''); // NEW
+  const [courseFilterClass,    setCourseFilterClass]    = useState('');
 
   /* ── Report state ── */
   const [reportFilter,  setReportFilter]  = useState({ term: '', year: '', studentId: '', studentIds: [], assessmentId: '', classId: '' });
@@ -283,7 +284,8 @@ export default function AdminAssessments() {
   const [submissionFilter,         setSubmissionFilter]         = useState('');
   const [submissionTeacherFilter,  setSubmissionTeacherFilter]  = useState('');
   const [submissionCourseFilter,   setSubmissionCourseFilter]   = useState('');
-  const [submissionClassFilter,    setSubmissionClassFilter]    = useState(''); // NEW
+  const [submissionClassFilter,    setSubmissionClassFilter]    = useState('');
+  const [submissionCategoryFilter, setSubmissionCategoryFilter] = useState('');
   const [viewingSubmission,        setViewingSubmission]        = useState(null);
   const [viewingSubmissionLoading, setViewingSubmissionLoading] = useState(false);
   const [rejectingId,              setRejectingId]              = useState(null);
@@ -529,6 +531,11 @@ export default function AdminAssessments() {
       const inClass  = coursesForSubmissionClass.some(c => (c._id || c.id) === courseId);
       if (!inClass) return false;
     }
+    // Category filter: match the course's module category
+    if (submissionCategoryFilter) {
+      const cat = a.course_id?.category || '';
+      if (cat !== submissionCategoryFilter) return false;
+    }
     return true;
   });
 
@@ -648,6 +655,22 @@ export default function AdminAssessments() {
               </div>
             )}
 
+            {/* ── View toggle ── */}
+            <div style={{ alignSelf: 'flex-end', display: 'flex', gap: 2, padding: 3, borderRadius: 9, background: dark ? '#1a1f2e' : '#f1f5f9', border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}` }}>
+              {[
+                { key: 'cards', icon: '⊞', title: 'Card view' },
+                { key: 'table', icon: '☰', title: 'Table view' },
+              ].map(v => (
+                <button key={v.key} title={v.title} onClick={() => setCourseView(v.key)} style={{
+                  width: 28, height: 28, borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 14,
+                  background: courseView === v.key ? (dark ? '#2a3042' : '#fff') : 'transparent',
+                  color: courseView === v.key ? '#1a3a6b' : (dark ? '#7b839a' : '#9ca3af'),
+                  boxShadow: courseView === v.key ? '0 1px 4px rgba(0,0,0,0.12)' : 'none',
+                  transition: 'all 0.15s',
+                }}>{v.icon}</button>
+              ))}
+            </div>
+
             <button onClick={openCreateCourse} style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 7, padding: '8px 20px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg,#1a3a6b,#1565c0)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 16px rgba(26,58,107,0.4)', alignSelf: 'flex-end' }}>
               <Plus size={14} /> Add Module
             </button>
@@ -703,39 +726,90 @@ export default function AdminAssessments() {
                     <div style={{ height: 2, flex: 1, background: cb.dot + '20', borderRadius: 2 }} />
                     <span style={{ fontSize: 11, color: cb.text, fontWeight: 700 }}>{catCourses.length} modules</span>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))', gap: 14 }}>
-                    {catCourses.map(c => (
-                      <div key={c._id} className="course-card" style={{ ...card, position: 'relative', overflow: 'hidden', boxShadow: dark ? '0 4px 24px rgba(0,0,0,0.3)' : '0 2px 12px rgba(0,0,0,0.06)', padding: 16 }}>
-                        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: cb.dot }} />
-                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
-                          <div style={{ flex: 1 }}>
-                            {c.code && <div style={{ fontSize: 10, fontWeight: 800, color: cb.text, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 3 }}>{c.code}</div>}
-                            <p style={{ fontSize: 13, fontWeight: 700, color: dark ? '#e8ecf4' : '#111827', margin: 0, lineHeight: 1.4 }}>{c.name}</p>
+
+                  {courseView === 'cards' ? (
+                    /* ── Card grid ── */
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))', gap: 14 }}>
+                      {catCourses.map(c => (
+                        <div key={c._id} className="course-card" style={{ ...card, position: 'relative', overflow: 'hidden', boxShadow: dark ? '0 4px 24px rgba(0,0,0,0.3)' : '0 2px 12px rgba(0,0,0,0.06)', padding: 16 }}>
+                          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: cb.dot }} />
+                          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
+                            <div style={{ flex: 1 }}>
+                              {c.code && <div style={{ fontSize: 10, fontWeight: 800, color: cb.text, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 3 }}>{c.code}</div>}
+                              <p style={{ fontSize: 13, fontWeight: 700, color: dark ? '#e8ecf4' : '#111827', margin: 0, lineHeight: 1.4 }}>{c.name}</p>
+                            </div>
+                            <div style={{ display: 'flex', gap: 5, marginLeft: 8 }}>
+                              <button onClick={() => openEditCourse(c)} style={{ width: 28, height: 28, borderRadius: 7, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: dark ? '#1a1f2e' : '#f9fafb', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Edit2 size={11} color={dark ? '#7b839a' : '#6b7280'} />
+                              </button>
+                              <button onClick={() => deleteCourse(c._id)} style={{ width: 28, height: 28, borderRadius: 7, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.07)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Trash2 size={11} color="#ef4444" />
+                              </button>
+                            </div>
                           </div>
-                          <div style={{ display: 'flex', gap: 5, marginLeft: 8 }}>
-                            <button onClick={() => openEditCourse(c)} style={{ width: 28, height: 28, borderRadius: 7, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: dark ? '#1a1f2e' : '#f9fafb', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                              <Edit2 size={11} color={dark ? '#7b839a' : '#6b7280'} />
-                            </button>
-                            <button onClick={() => deleteCourse(c._id)} style={{ width: 28, height: 28, borderRadius: 7, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.07)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                              <Trash2 size={11} color="#ef4444" />
-                            </button>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                            <div style={{ padding: '2px 8px', borderRadius: 6, background: cb.bg, border: `1px solid ${cb.border}` }}>
+                              <span style={{ fontSize: 9, fontWeight: 800, color: cb.text, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{cat.replace(' modules', '')}</span>
+                            </div>
+                            <div style={{ padding: '3px 9px', borderRadius: 6, background: cb.bg, border: `1px solid ${cb.border}` }}>
+                              <span style={{ fontSize: 10, fontWeight: 700, color: cb.text }}>Weight: {c.total_marks || 100} marks</span>
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            {c.class_id   && <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: dark ? '#7b839a' : '#6b7280' }}><School size={10} color={dark ? '#7b839a' : '#9ca3af'} />Class: <strong style={{ color: dark ? '#e2e8f0' : '#374151' }}>{c.class_id?.name || 'Assigned'}</strong></div>}
+                            {c.teacher_id && <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: dark ? '#7b839a' : '#6b7280' }}><UserCheck size={10} color={dark ? '#7b839a' : '#9ca3af'} />Teacher: <strong style={{ color: dark ? '#e2e8f0' : '#374151' }}>{c.teacher_id?.name || 'Assigned'}</strong></div>}
                           </div>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                          <div style={{ padding: '2px 8px', borderRadius: 6, background: cb.bg, border: `1px solid ${cb.border}` }}>
-                            <span style={{ fontSize: 9, fontWeight: 800, color: cb.text, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{cat.replace(' modules', '')}</span>
-                          </div>
-                          <div style={{ padding: '3px 9px', borderRadius: 6, background: cb.bg, border: `1px solid ${cb.border}` }}>
-                            <span style={{ fontSize: 10, fontWeight: 700, color: cb.text }}>Weight: {c.total_marks || 100} marks</span>
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                          {c.class_id   && <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: dark ? '#7b839a' : '#6b7280' }}><School size={10} color={dark ? '#7b839a' : '#9ca3af'} />Class: <strong style={{ color: dark ? '#e2e8f0' : '#374151' }}>{c.class_id?.name || 'Assigned'}</strong></div>}
-                          {c.teacher_id && <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: dark ? '#7b839a' : '#6b7280' }}><UserCheck size={10} color={dark ? '#7b839a' : '#9ca3af'} />Teacher: <strong style={{ color: dark ? '#e2e8f0' : '#374151' }}>{c.teacher_id?.name || 'Assigned'}</strong></div>}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  ) : (
+                    /* ── Table view ── */
+                    <div style={{ borderRadius: 12, overflow: 'hidden', border: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}` }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead>
+                          <tr style={{ background: dark ? '#1a1f2e' : '#f9fafb', borderBottom: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}` }}>
+                            {['Code', 'Module Name', 'Weight', 'Class', 'Teacher', 'Actions'].map(h => (
+                              <th key={h} style={{ padding: '9px 14px', fontSize: 10, fontWeight: 700, color: dark ? '#7b839a' : '#6b7280', textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {catCourses.map((c, i) => (
+                            <tr key={c._id} style={{ background: i % 2 === 0 ? 'transparent' : (dark ? '#ffffff04' : '#fafbfd'), borderBottom: `1px solid ${dark ? '#1e2130' : '#f1f5f9'}`, transition: 'background 0.12s' }}>
+                              <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
+                                {c.code
+                                  ? <span style={{ fontSize: 11, fontWeight: 800, fontFamily: 'monospace', color: cb.text, background: cb.bg, padding: '2px 7px', borderRadius: 5, border: `1px solid ${cb.border}` }}>{c.code}</span>
+                                  : <span style={{ color: dark ? '#4a5068' : '#d1d5db', fontSize: 12 }}>—</span>}
+                              </td>
+                              <td style={{ padding: '10px 14px' }}>
+                                <span style={{ fontSize: 13, fontWeight: 600, color: dark ? '#e8ecf4' : '#111827' }}>{c.name}</span>
+                              </td>
+                              <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
+                                <span style={{ fontSize: 12, fontWeight: 700, color: cb.text }}>{c.total_marks || 100}</span>
+                                <span style={{ fontSize: 11, color: dark ? '#7b839a' : '#9ca3af', marginLeft: 3 }}>marks</span>
+                              </td>
+                              <td style={{ padding: '10px 14px', fontSize: 12, color: dark ? '#c4c9d4' : '#374151', whiteSpace: 'nowrap' }}>
+                                {c.class_id?.name || <span style={{ color: dark ? '#4a5068' : '#d1d5db' }}>—</span>}
+                              </td>
+                              <td style={{ padding: '10px 14px', fontSize: 12, color: dark ? '#c4c9d4' : '#374151', whiteSpace: 'nowrap' }}>
+                                {c.teacher_id?.name || <span style={{ color: dark ? '#4a5068' : '#d1d5db' }}>—</span>}
+                              </td>
+                              <td style={{ padding: '10px 14px' }}>
+                                <div style={{ display: 'flex', gap: 6 }}>
+                                  <button onClick={() => openEditCourse(c)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 7, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#94a3b8' : '#6b7280', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                                    <Edit2 size={10} /> Edit
+                                  </button>
+                                  <button onClick={() => deleteCourse(c._id)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 7, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.07)', color: '#ef4444', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                                    <Trash2 size={10} /> Delete
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               );
             })
@@ -786,6 +860,15 @@ export default function AdminAssessments() {
                 </select>
               </div>
 
+              {/* Module Category (NEW) */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <label style={{ fontSize: 10, fontWeight: 700, color: dark ? '#7b839a' : '#9ca3af', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Module Type</label>
+                <select value={submissionCategoryFilter} onChange={e => setSubmissionCategoryFilter(e.target.value)} style={filterSelect(submissionCategoryFilter)}>
+                  <option value="">All Types</option>
+                  {ALL_MODULE_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                </select>
+              </div>
+
               {/* Status */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <label style={{ fontSize: 10, fontWeight: 700, color: dark ? '#7b839a' : '#9ca3af', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Status</label>
@@ -798,9 +881,9 @@ export default function AdminAssessments() {
                 </select>
               </div>
 
-              {(submissionClassFilter || submissionTeacherFilter || submissionCourseFilter || submissionFilter) && (
+              {(submissionClassFilter || submissionTeacherFilter || submissionCourseFilter || submissionFilter || submissionCategoryFilter) && (
                 <button
-                  onClick={() => { setSubmissionClassFilter(''); setSubmissionTeacherFilter(''); setSubmissionCourseFilter(''); setSubmissionFilter(''); }}
+                  onClick={() => { setSubmissionClassFilter(''); setSubmissionTeacherFilter(''); setSubmissionCourseFilter(''); setSubmissionFilter(''); setSubmissionCategoryFilter(''); }}
                   style={{ marginTop: 14, padding: '7px 12px', borderRadius: 8, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#7b839a' : '#6b7280', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}
                 >
                   Clear
