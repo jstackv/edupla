@@ -155,17 +155,31 @@ const courseSchema = new mongoose.Schema({
   is_active:    { type: Boolean, default: true },
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
-// Assessment: created by teacher for a specific course and term
+// Assessment: created by teacher for a specific course, CLASS and term.
+//
+// A module/course can be assigned to several classes at once (see Course.class_ids
+// above). Because of that, the class the assessment was created for must be stored
+// on the assessment itself — otherwise an assessment created for one class would be
+// indistinguishable from (and wrongly treated as a duplicate of) an assessment for
+// a different class sharing the same module.
 const assessmentSchema = new mongoose.Schema({
   title:          { type: String, required: true },
   course_id:      { type: mongoose.Schema.Types.ObjectId, ref: 'Course', required: true },
+  class_id:       { type: mongoose.Schema.Types.ObjectId, ref: 'Class', required: true },
   teacher_id:     { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  type:           { type: String, enum: ['FA', 'CA'], required: true }, // FA = Formative, CA = Continuous
+  type:           { type: String, enum: ['FA', 'IA', 'CA'], required: true }, // FA = Formative, IA = Integrated, CA = Comprehensive
   term:           { type: String, enum: ['Term 1', 'Term 2', 'Term 3'], required: true },
   academic_year:  { type: String, required: true }, // e.g. "2024-2025"
   max_marks:      { type: Number, default: 100 },
   created_by:     { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
+
+// One assessment of a given type/term/year per module PER CLASS — the same module
+// can have its own independent set of assessments in each class it's assigned to.
+assessmentSchema.index(
+  { course_id: 1, class_id: 1, type: 1, term: 1, academic_year: 1 },
+  { unique: true }
+);
 
 // Mark: a student's mark in an assessment
 const markSchema = new mongoose.Schema({

@@ -23,6 +23,7 @@ router.get('/admin/assessments', isAuthenticated, isAdmin, async (req, res) => {
     const courseIds = courses.map(c => c._id);
     const assessments = await Assessment.find({ course_id: { $in: courseIds } })
       .populate('course_id', 'name code')
+      .populate('class_id', 'name')
       .populate('teacher_id', 'name')
       .sort({ created_at: -1 })
       .lean();

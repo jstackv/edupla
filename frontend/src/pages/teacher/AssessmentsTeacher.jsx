@@ -4,11 +4,17 @@
  * CHANGES:
  * 1. Assessment title is auto-generated from type — no title field in form.
  * 2. Class picker first, then module filtered by class.
- * 3. Duplicate prevention: same course+type+term+year combo is blocked
+ * 3. Duplicate prevention: same class+course+type+term+year combo is blocked
  *    both at save time (toast) and visually (type button grayed + "Used").
- * 4. Marks modal now shows a marking-progress bar (X / Y students marked)
- *    at the top, and blocks Save Draft / Submit for Review with an error
- *    modal until every student has a mark entered.
+ *    An assessment created for one class is never treated as a duplicate
+ *    of the same module's assessment in a different class.
+ * 4. Marks modal shows a marking-progress bar (X / Y students marked) at the
+ *    top. Saving as a draft is always allowed, even with no marks entered —
+ *    this lets a teacher clear marks back to empty so the assessment can be
+ *    deleted. Submitting for review still requires every student to have a
+ *    mark, and is blocked with an error modal otherwise.
+ * 5. The assessments table shows a "Class" column for the specific class
+ *    each assessment was created for.
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -184,11 +190,16 @@ export default function TeacherAssessments() {
     : [];
 
   /* ── Duplicate checker: returns true if this type is already used ──
-     Checks course_id + type + term + academic_year, excluding current editingId */
+     Checks course_id + class_id + type + term + academic_year, excluding
+     the current editingId. A module assigned to several classes can have
+     its own independent assessment per class, so the class is part of the
+     duplicate check — an assessment created for one class never blocks the
+     same type from being created for a different class. */
   function isTypeUsed(typeKey) {
-    if (!form.course_id || !form.term || !form.academic_year) return false;
+    if (!form.selectedClassId || !form.course_id || !form.term || !form.academic_year) return false;
     return assessments.some(a =>
       String(a.course_id?._id || a.course_id) === String(form.course_id) &&
+      String(a.class_id?._id || a.class_id) === String(form.selectedClassId) &&
       a.type === typeKey &&
       a.term === form.term &&
       a.academic_year === form.academic_year &&
@@ -206,8 +217,7 @@ export default function TeacherAssessments() {
   /* ── Open edit modal ── */
   function openEdit(a) {
     setEditingId(a._id || a.id);
-    const course = courses.find(c => String(c._id || c.id) === String(a.course_id?._id || a.course_id));
-    const classId = course?.class_id?._id || course?.class_id || '';
+    const classId = a.class_id?._id || a.class_id || '';
     setForm({
       selectedClassId: String(classId),
       course_id: String(a.course_id?._id || a.course_id || ''),
@@ -220,14 +230,18 @@ export default function TeacherAssessments() {
 
   /* ── Save assessment ── */
   async function saveAssessment() {
+    if (!form.selectedClassId) { toast.error('Please select a class'); return; }
     if (!form.course_id)      { toast.error('Please select a module'); return; }
     if (!form.type)           { toast.error('Please select an assessment type'); return; }
     if (!form.term)           { toast.error('Please select a term'); return; }
     if (!form.academic_year)  { toast.error('Please select an academic year'); return; }
 
-    /* ── Duplicate guard ── */
+    /* ── Duplicate guard — scoped to the selected class. An assessment
+       created for one class never blocks the same module/type/term/year
+       combo from being created for a different class. ── */
     const duplicate = assessments.find(a =>
       String(a.course_id?._id || a.course_id) === String(form.course_id) &&
+      String(a.class_id?._id || a.class_id) === String(form.selectedClassId) &&
       a.type === form.type &&
       a.term === form.term &&
       a.academic_year === form.academic_year &&
@@ -235,7 +249,7 @@ export default function TeacherAssessments() {
     );
     if (duplicate) {
       toast.error(
-        `A "${ASSESSMENT_TYPES.find(t => t.key === form.type)?.label || form.type}" already exists for this module in ${form.term} ${form.academic_year}.`
+        `A "${ASSESSMENT_TYPES.find(t => t.key === form.type)?.label || form.type}" already exists for this module/class in ${form.term} ${form.academic_year}.`
       );
       return;
     }
@@ -244,6 +258,7 @@ export default function TeacherAssessments() {
     const payload = {
       title: autoTitle,
       course_id: form.course_id,
+      class_id: form.selectedClassId,
       type: form.type,
       term: form.term,
       academic_year: form.academic_year,
@@ -330,16 +345,19 @@ export default function TeacherAssessments() {
     openConfirm({
       variant: 'danger',
       title: 'Marks Incomplete',
-      message: `${markingProgress.missingStudents.length} of ${markingProgress.total} student${markingProgress.total === 1 ? '' : 's'} still need marks entered before you can save or submit: ${preview}.`,
+      message: `${markingProgress.missingStudents.length} of ${markingProgress.total} student${markingProgress.total === 1 ? '' : 's'} still need marks entered before you can submit for review: ${preview}.`,
       confirmText: 'Got it',
       onConfirm: closeConfirm,
     });
     return true;
   }
 
-  /* ── Save marks as draft ── */
+  /* ── Save marks as draft.
+     Saving is always allowed — even with no marks recorded at all — so a
+     teacher can clear marks back out (e.g. to delete the assessment, which
+     requires zero marks recorded). Only Submit for Review requires every
+     student to have a mark (see blockIfIncomplete() in submitMarks below). ── */
   async function saveDraft() {
-    if (blockIfIncomplete()) return;
     setMarksSaving(true);
     try {
       const marks = Object.entries(marksData).map(([student_id, marks]) => ({
@@ -444,7 +462,7 @@ export default function TeacherAssessments() {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
-                  {['Assessment', 'Module', 'Type', 'Term', 'Year', 'Progress', 'Status', 'Actions'].map(h => (
+                  {['Assessment', 'Class', 'Module', 'Type', 'Term', 'Year', 'Progress', 'Status', 'Actions'].map(h => (
                     <th key={h} style={{ padding: '11px 14px', background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#7b839a' : '#6b7280', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: 'left', borderBottom: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}` }}>{h}</th>
                   ))}
                 </tr>
@@ -465,8 +483,13 @@ export default function TeacherAssessments() {
                         )}
                       </td>
                       <td style={{ padding: '11px 14px', fontSize: 12, color: dark ? '#c4c9d4' : '#374151' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontWeight: 700, padding: '3px 9px', borderRadius: 7, background: 'rgba(26,58,107,0.08)', border: '1px solid rgba(26,58,107,0.2)', color: '#1a3a6b' }}>
+                          <School size={10} />
+                          {a.class_id?.name || '—'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '11px 14px', fontSize: 12, color: dark ? '#c4c9d4' : '#374151' }}>
                         <div>{a.course_id?.name || '—'}</div>
-                        {a.course_id?.class_id && <div style={{ fontSize: 10, color: dark ? '#7b839a' : '#9ca3af', marginTop: 2 }}>Class assigned</div>}
                       </td>
                       <td style={{ padding: '11px 14px' }}><TypeBadge type={a.type} /></td>
                       <td style={{ padding: '11px 14px', fontSize: 12, color: dark ? '#c4c9d4' : '#374151' }}>{a.term}</td>
@@ -790,7 +813,7 @@ export default function TeacherAssessments() {
                     </div>
                     {!markingProgress.complete && (
                       <div style={{ marginTop: 8, fontSize: 11, color: dark ? '#7b839a' : '#9ca3af' }}>
-                        {markingProgress.total - markingProgress.markedCount} student{markingProgress.total - markingProgress.markedCount === 1 ? '' : 's'} still need a mark before you can save or submit.
+                        {markingProgress.total - markingProgress.markedCount} student{markingProgress.total - markingProgress.markedCount === 1 ? '' : 's'} still need a mark before you can submit for review. You can still save your progress as a draft.
                       </div>
                     )}
                   </div>

@@ -143,6 +143,7 @@ exports.adminStudentReport = async (req, res) => {
       .lean();
 
     const assessmentFilter = {};
+    if (studentClass) assessmentFilter.class_id = studentClass._id;
     if (term) assessmentFilter.term = term;
     if (year) assessmentFilter.academic_year = year;
 
@@ -261,6 +262,7 @@ exports.adminAssessmentReport = async (req, res) => {
   try {
     const assessment = await Assessment.findById(req.params.assessmentId)
       .populate('course_id', 'name code total_marks category')
+      .populate('class_id', 'name')
       .populate('teacher_id', 'name')
       .lean();
     if (!assessment) return res.status(404).json({ message: 'Assessment not found' });
@@ -315,7 +317,12 @@ exports.adminClassReport = async (req, res) => {
 
     const courseIds = courses.map(c => c._id);
 
-    const assessmentFilter = { course_id: { $in: courseIds } };
+    /*
+     * Scope to assessments belonging to THIS class specifically — a module
+     * shared with other classes may have its own separate assessments there,
+     * which must not bleed into this class's report.
+     */
+    const assessmentFilter = { course_id: { $in: courseIds }, class_id: req.params.classId };
     if (term) assessmentFilter.term = term;
     if (year) assessmentFilter.academic_year = year;
 
@@ -465,6 +472,7 @@ exports.teacherGetAssessments = async (req, res) => {
 
     const assessments = await Assessment.find(filter)
       .populate('course_id', 'name code class_id class_ids total_marks category')
+      .populate('class_id', 'name')
       .sort({ created_at: -1 })
       .lean();
 
@@ -474,23 +482,17 @@ exports.teacherGetAssessments = async (req, res) => {
     submissions.forEach(s => { subMap[s.assessment_id.toString()] = s; });
 
     const enriched = await Promise.all(assessments.map(async a => {
-      const course = a.course_id;
-
       /*
-       * For student count we now check all classes the course is assigned to.
-       * class_ids (array) takes priority; fall back to the legacy class_id.
+       * Student/marked counts are scoped to THIS assessment's own class —
+       * not every class the module happens to be assigned to.
        */
-      const assignedClassIds = Array.isArray(course?.class_ids) && course.class_ids.length > 0
-        ? course.class_ids
-        : course?.class_id ? [course.class_id] : [];
-
       let studentCount = 0;
       let markedCount  = 0;
 
-      if (assignedClassIds.length > 0) {
-        const classes = await Class.find({ _id: { $in: assignedClassIds } }, 'students').lean();
-        const allStudentIds = [...new Set(classes.flatMap(c => c.students?.map(s => s.toString()) || []))];
-        studentCount = allStudentIds.length;
+      const classId = a.class_id?._id || a.class_id;
+      if (classId) {
+        const cls = await Class.findById(classId, 'students').lean();
+        studentCount = cls?.students?.length || 0;
         markedCount  = await Mark.countDocuments({ assessment_id: a._id, marks: { $ne: null } });
       }
 
@@ -508,10 +510,10 @@ exports.teacherGetAssessments = async (req, res) => {
 
 exports.teacherCreateAssessment = async (req, res) => {
   try {
-    const { course_id, type, term, academic_year, max_marks } = req.body;
+    const { course_id, class_id, type, term, academic_year, max_marks } = req.body;
 
-    if (!course_id || !type || !term || !academic_year) {
-      return res.status(400).json({ message: 'Course, type, term, and year are required' });
+    if (!course_id || !class_id || !type || !term || !academic_year) {
+      return res.status(400).json({ message: 'Class, module, type, term, and year are required' });
     }
 
     if (!TYPE_TITLES[type]) {
@@ -523,6 +525,16 @@ exports.teacherCreateAssessment = async (req, res) => {
     const course = await Course.findOne({ _id: course_id, teacher_id: req.user.id });
     if (!course) return res.status(403).json({ message: 'Course not assigned to you' });
 
+    /* ── The selected class must actually be one of the classes this module is assigned to ── */
+    const courseClassIds = (
+      Array.isArray(course.class_ids) && course.class_ids.length > 0
+        ? course.class_ids
+        : course.class_id ? [course.class_id] : []
+    ).map(String);
+    if (!courseClassIds.includes(String(class_id))) {
+      return res.status(400).json({ message: 'This module is not assigned to the selected class.' });
+    }
+
     const courseWeight = course.total_marks || 100;
     if (max_marks && Number(max_marks) > courseWeight) {
       return res.status(400).json({
@@ -530,23 +542,29 @@ exports.teacherCreateAssessment = async (req, res) => {
       });
     }
 
-    /* ── Server-side duplicate guard ── */
+    /* ── Server-side duplicate guard — scoped to THIS class only.
+       A module assigned to several classes can have its own independent
+       Formative/Integrated/Comprehensive assessment per class; an assessment
+       created for one class is never treated as already created for another. ── */
     const existing = await Assessment.findOne({
       course_id,
+      class_id,
       teacher_id: req.user.id,
       type,
       term,
       academic_year,
     });
     if (existing) {
+      const cls = await Class.findById(class_id).select('name').lean();
       return res.status(409).json({
-        message: `A "${autoTitle}" already exists for this module in ${term} ${academic_year}.`,
+        message: `A "${autoTitle}" already exists for this module in ${term} ${academic_year}${cls ? ` (${cls.name})` : ''}.`,
       });
     }
 
     const assessment = await Assessment.create({
       title: autoTitle,
       course_id,
+      class_id,
       teacher_id: req.user.id,
       type,
       term,
@@ -556,15 +574,20 @@ exports.teacherCreateAssessment = async (req, res) => {
     });
 
     res.status(201).json({ message: 'Assessment created', id: assessment._id });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) {
+    if (err.code === 11000) {
+      return res.status(409).json({ message: 'An assessment with this module, class, type, term and year already exists.' });
+    }
+    res.status(500).json({ message: err.message });
+  }
 };
 
 exports.teacherUpdateAssessment = async (req, res) => {
   try {
-    const { type, term, academic_year } = req.body;
+    const { type, term, academic_year, class_id } = req.body;
 
     const assessment = await Assessment.findOne({ _id: req.params.id, teacher_id: req.user.id })
-      .populate('course_id', 'total_marks');
+      .populate('course_id', 'total_marks class_id class_ids');
     if (!assessment) return res.status(404).json({ message: 'Assessment not found' });
 
     const update = {};
@@ -578,13 +601,29 @@ exports.teacherUpdateAssessment = async (req, res) => {
     if (term) update.term = term;
     if (academic_year) update.academic_year = academic_year;
 
-    /* Server-side duplicate guard for edits */
+    /* If the class is being changed, make sure it's still one of the classes
+       this module is assigned to. */
+    if (class_id) {
+      const courseClassIds = (
+        Array.isArray(assessment.course_id?.class_ids) && assessment.course_id.class_ids.length > 0
+          ? assessment.course_id.class_ids
+          : assessment.course_id?.class_id ? [assessment.course_id.class_id] : []
+      ).map(String);
+      if (!courseClassIds.includes(String(class_id))) {
+        return res.status(400).json({ message: 'This module is not assigned to the selected class.' });
+      }
+      update.class_id = class_id;
+    }
+
+    /* Server-side duplicate guard for edits — scoped to the (possibly new) class */
     const checkType  = type          || assessment.type;
     const checkTerm  = term          || assessment.term;
     const checkYear  = academic_year || assessment.academic_year;
+    const checkClass = class_id      || assessment.class_id;
     const duplicate = await Assessment.findOne({
       _id: { $ne: req.params.id },
       course_id: assessment.course_id?._id || assessment.course_id,
+      class_id: checkClass,
       teacher_id: req.user.id,
       type: checkType,
       term: checkTerm,
@@ -592,7 +631,7 @@ exports.teacherUpdateAssessment = async (req, res) => {
     });
     if (duplicate) {
       return res.status(409).json({
-        message: `A "${TYPE_TITLES[checkType]}" already exists for this module in ${checkTerm} ${checkYear}.`,
+        message: `A "${TYPE_TITLES[checkType]}" already exists for this module/class in ${checkTerm} ${checkYear}.`,
       });
     }
 
@@ -604,7 +643,12 @@ exports.teacherUpdateAssessment = async (req, res) => {
     );
     if (!updated) return res.status(404).json({ message: 'Assessment not found' });
     res.json({ message: 'Assessment updated' });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) {
+    if (err.code === 11000) {
+      return res.status(409).json({ message: 'An assessment with this module, class, type, term and year already exists.' });
+    }
+    res.status(500).json({ message: err.message });
+  }
 };
 
 exports.teacherDeleteAssessment = async (req, res) => {
@@ -630,33 +674,21 @@ exports.teacherGetMarks = async (req, res) => {
   try {
     const assessment = await Assessment.findOne({ _id: req.params.id, teacher_id: req.user.id })
       .populate('course_id', 'name code class_id class_ids total_marks category')
+      .populate('class_id', 'name')
       .lean();
     if (!assessment) return res.status(404).json({ message: 'Assessment not found' });
 
     /*
-     * Collect students from ALL classes the course is assigned to.
-     * class_ids (array) takes priority; fall back to the legacy class_id.
+     * Students come from THIS assessment's own class only — not every class
+     * the module happens to be assigned to.
      */
-    const assignedClassIds = Array.isArray(assessment.course_id?.class_ids) && assessment.course_id.class_ids.length > 0
-      ? assessment.course_id.class_ids
-      : assessment.course_id?.class_id ? [assessment.course_id.class_id] : [];
-
     let students = [];
-    if (assignedClassIds.length > 0) {
-      const classes = await Class.find({ _id: { $in: assignedClassIds } })
+    const classId = assessment.class_id?._id || assessment.class_id;
+    if (classId) {
+      const cls = await Class.findById(classId)
         .populate('students', 'name email level trade')
         .lean();
-
-      /* Merge students from all classes, deduplicating by _id */
-      const seen = new Set();
-      for (const cls of classes) {
-        for (const s of cls.students || []) {
-          if (!seen.has(s._id.toString())) {
-            seen.add(s._id.toString());
-            students.push(s);
-          }
-        }
-      }
+      students = cls?.students || [];
     }
 
     const marks = await Mark.find({ assessment_id: req.params.id }).lean();
@@ -760,6 +792,23 @@ exports.teacherSubmitMarks = async (req, res) => {
       await Mark.bulkWrite(ops);
     }
 
+    /* ── Marks must be fully recorded before submission is allowed.
+       Saving (draft) is always allowed even with no marks at all — this lets a
+       teacher clear marks back out and delete the assessment if needed — but
+       submitting for admin review requires every student to have a mark. ── */
+    const cls = await Class.findOne({ _id: assessment.class_id }, 'students').lean();
+    const totalStudents = cls?.students?.length || 0;
+
+    if (totalStudents > 0) {
+      const allMarks = await Mark.find({ assessment_id: req.params.id }).lean();
+      const recordedCount = allMarks.filter(m => m.marks != null).length;
+      if (recordedCount < totalStudents) {
+        return res.status(400).json({
+          message: `Cannot submit — ${totalStudents - recordedCount} of ${totalStudents} student(s) still need marks recorded before this assessment can be submitted for review.`,
+        });
+      }
+    }
+
     await AssessmentSubmission.findOneAndUpdate(
       { assessment_id: req.params.id },
       {
@@ -791,6 +840,7 @@ exports.adminListSubmissions = async (req, res) => {
 
     const assessments = await Assessment.find({ course_id: { $in: courseIds } })
       .populate('course_id', 'name code total_marks class_id class_ids category')
+      .populate('class_id', 'name')
       .populate('teacher_id', 'name email')
       .sort({ created_at: -1 })
       .lean();
@@ -832,33 +882,23 @@ exports.adminViewSubmission = async (req, res) => {
     const courseIds = courses.map(c => c._id.toString());
 
     const assessment = await Assessment.findById(req.params.assessmentId)
-      .populate('course_id', 'name code total_marks class_id class_ids category')
+      .populate('course_id', 'name code total_marks category')
+      .populate('class_id', 'name')
       .populate('teacher_id', 'name email')
       .lean();
     if (!assessment || !courseIds.includes(assessment.course_id?._id?.toString()))
       return res.status(404).json({ message: 'Assessment not found' });
 
     /*
-     * Collect students from ALL assigned classes (multi-class aware).
+     * Students come from THIS assessment's own class only.
      */
-    const assignedClassIds = Array.isArray(assessment.course_id?.class_ids) && assessment.course_id.class_ids.length > 0
-      ? assessment.course_id.class_ids
-      : assessment.course_id?.class_id ? [assessment.course_id.class_id] : [];
-
     let students = [];
-    if (assignedClassIds.length > 0) {
-      const classes = await Class.find({ _id: { $in: assignedClassIds } })
+    const classId = assessment.class_id?._id || assessment.class_id;
+    if (classId) {
+      const cls = await Class.findById(classId)
         .populate('students', 'name email level trade')
         .lean();
-      const seen = new Set();
-      for (const cls of classes) {
-        for (const s of cls.students || []) {
-          if (!seen.has(s._id.toString())) {
-            seen.add(s._id.toString());
-            students.push(s);
-          }
-        }
-      }
+      students = cls?.students || [];
     }
 
     const marks = await Mark.find({ assessment_id: req.params.assessmentId }).lean();
@@ -947,6 +987,7 @@ exports.teacherAssessmentReport = async (req, res) => {
   try {
     const assessment = await Assessment.findOne({ _id: req.params.assessmentId, teacher_id: req.user.id })
       .populate('course_id', 'name code class_id class_ids total_marks category')
+      .populate('class_id', 'name')
       .lean();
     if (!assessment) return res.status(404).json({ message: 'Assessment not found or not yours' });
 
