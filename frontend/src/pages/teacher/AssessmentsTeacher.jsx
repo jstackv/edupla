@@ -88,17 +88,27 @@ export default function TeacherAssessments() {
   const [loading, setLoading]         = useState(false);
 
   /* ── Unique classes derived from teacher's courses ── */
+  /* Supports both new class_ids[] array and legacy class_id field.  */
   const teacherClasses = (() => {
     const seen = new Set();
     const result = [];
     courses.forEach(c => {
-      const cls = c.class_id;
-      if (!cls) return;
-      const id = cls._id || cls;
-      if (!seen.has(String(id))) {
-        seen.add(String(id));
-        result.push({ _id: String(id), name: cls.name || 'Class' });
+      const classEntries = [];
+      if (Array.isArray(c.class_ids) && c.class_ids.length > 0) {
+        c.class_ids.forEach(cls => { if (cls) classEntries.push(cls); });
       }
+      if (c.class_id) {
+        const legacyId = String(c.class_id._id || c.class_id);
+        const alreadyCovered = classEntries.some(e => String(e._id || e) === legacyId);
+        if (!alreadyCovered) classEntries.push(c.class_id);
+      }
+      classEntries.forEach(cls => {
+        const id = String(cls._id || cls);
+        if (!seen.has(id)) {
+          seen.add(id);
+          result.push({ _id: id, name: cls.name || 'Class' });
+        }
+      });
     });
     return result;
   })();
@@ -161,10 +171,15 @@ export default function TeacherAssessments() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   /* ── Modules filtered by selected class ── */
+  /* Checks both new class_ids[] array and legacy class_id field.    */
   const classModules = form.selectedClassId
     ? courses.filter(c => {
+        const target = String(form.selectedClassId);
+        if (Array.isArray(c.class_ids) && c.class_ids.length > 0) {
+          if (c.class_ids.some(x => String(x._id || x) === target)) return true;
+        }
         const cid = c.class_id?._id || c.class_id;
-        return String(cid) === String(form.selectedClassId);
+        return cid && String(cid) === target;
       })
     : [];
 

@@ -71,22 +71,35 @@ export default function Classes() {
 
   // Derive unique classes from the teacher's courses — every class with
   // at least one module assigned to this teacher will appear here.
+  // Supports both new class_ids[] array and legacy class_id field.
   const teacherClasses = useMemo(() => {
     const map = new Map();
     courses.forEach(c => {
-      const cls = c.class_id;
-      if (!cls) return;
-      const id = String(cls._id || cls);
-      if (!map.has(id)) {
-        map.set(id, {
-          id,
-          name: cls.name || 'Class',
-          description: cls.description || '',
-          level: cls.level || '',
-          moduleCount: 0,
-        });
+      // Collect all classes this course is assigned to
+      const classEntries = [];
+      if (Array.isArray(c.class_ids) && c.class_ids.length > 0) {
+        c.class_ids.forEach(cls => { if (cls) classEntries.push(cls); });
       }
-      map.get(id).moduleCount += 1;
+      // Also include legacy class_id if not already covered by class_ids
+      if (c.class_id) {
+        const legacyId = String(c.class_id._id || c.class_id);
+        const alreadyCovered = classEntries.some(e => String(e._id || e) === legacyId);
+        if (!alreadyCovered) classEntries.push(c.class_id);
+      }
+
+      classEntries.forEach(cls => {
+        const id = String(cls._id || cls);
+        if (!map.has(id)) {
+          map.set(id, {
+            id,
+            name: cls.name || 'Class',
+            description: cls.description || '',
+            level: cls.level || '',
+            moduleCount: 0,
+          });
+        }
+        map.get(id).moduleCount += 1;
+      });
     });
     return Array.from(map.values());
   }, [courses]);

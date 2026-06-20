@@ -272,15 +272,25 @@ export default function Documents() {
       .finally(() => setLoadingInit(false));
   }, []);
 
-  // Derive unique classes with their modules from courses
+  // Derive unique classes with their modules from courses.
+  // Supports both new class_ids[] array and legacy class_id field.
   const teacherClasses = (() => {
     const map = new Map();
     courses.forEach(c => {
-      const cls = c.class_id;
-      if (!cls) return;
-      const id = String(cls._id || cls);
-      if (!map.has(id)) map.set(id, { _id: id, name: cls.name || 'Class', modules: [] });
-      map.get(id).modules.push(c);
+      const classEntries = [];
+      if (Array.isArray(c.class_ids) && c.class_ids.length > 0) {
+        c.class_ids.forEach(cls => { if (cls) classEntries.push(cls); });
+      }
+      if (c.class_id) {
+        const legacyId = String(c.class_id._id || c.class_id);
+        const alreadyCovered = classEntries.some(e => String(e._id || e) === legacyId);
+        if (!alreadyCovered) classEntries.push(c.class_id);
+      }
+      classEntries.forEach(cls => {
+        const id = String(cls._id || cls);
+        if (!map.has(id)) map.set(id, { _id: id, name: cls.name || 'Class', modules: [] });
+        map.get(id).modules.push(c);
+      });
     });
     return Array.from(map.values());
   })();
