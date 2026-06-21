@@ -6,9 +6,22 @@ const api = axios.create({
   timeout: 30000,
 });
 
+// ── Per-tab sessions ─────────────────────────────────────────────────────
+// Auth (token/user) lives in sessionStorage, NOT localStorage. localStorage
+// is shared across every tab on the same origin, so a single shared 'token'
+// key meant impersonating a user in one tab silently logged out (or
+// switched the identity of) every other open tab, including the super
+// admin's own session. sessionStorage is scoped per tab, so the super
+// admin tab, and any number of impersonation tabs, can all stay signed in
+// as different users at once.
+//
+// Trade-off: a session no longer persists across a tab close or a new tab —
+// each tab needs its own sign-in. Applies to every role, not just
+// impersonation, by design (one consistent rule instead of two systems).
+
 // Attach JWT token to every request
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
@@ -24,8 +37,8 @@ api.interceptors.response.use(
 
     // ── Instant session kill: account was deactivated ──────────────────
     if (status === 403 && code === 'ACCOUNT_DEACTIVATED') {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+      sessionStorage.removeItem('token');
+      sessionStorage.removeItem('user');
       // Store the deactivation message so Login page can display it
       sessionStorage.setItem(
         'deactivation_message',
@@ -37,8 +50,8 @@ api.interceptors.response.use(
 
     // ── Generic 401: token expired / not authenticated ─────────────────
     if (status === 401 && !PUBLIC_PATHS.includes(window.location.pathname)) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+      sessionStorage.removeItem('token');
+      sessionStorage.removeItem('user');
       window.location.href = '/login';
     }
 

@@ -386,7 +386,8 @@ function UserDropdown({ user, dark, from, to, initials, onLogoutClick }) {
    LAYOUT
 ══════════════════════════════════════════════════════════════════ */
 export default function Layout({ children }) {
-  const { user, logout } = useAuth();
+  const { user, logout, endImpersonation } = useAuth();
+  const isImpersonating = user?.impersonation_session === true && !!user?.impersonated_by;
   const { dark, toggleTheme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
@@ -810,6 +811,32 @@ export default function Layout({ children }) {
               />
             </div>
           </header>
+
+          {/* Impersonation banner — shown in THIS tab only, for the whole
+              duration of the impersonation session, so it's never unclear
+              which tab is "really" the super admin vs. the impersonated user. */}
+          {isImpersonating && (
+            <div style={{
+              padding: '8px 18px', flexShrink: 0,
+              background: 'rgba(124,58,237,0.12)',
+              borderBottom: '1px solid rgba(124,58,237,0.3)',
+              display: 'flex', alignItems: 'center', gap: 8,
+              fontSize: 12, fontWeight: 600, color: '#7c3aed',
+            }}>
+            <UserCheck size={14} />
+            Viewing as {user?.name} ({user?.role}) — impersonation session, expires in 2 hours.
+            <button
+              onClick={endImpersonation}
+              style={{
+                marginLeft: 'auto', padding: '3px 10px', borderRadius: 7,
+                border: '1px solid rgba(124,58,237,0.4)', background: 'transparent',
+                color: '#7c3aed', fontWeight: 700, fontSize: 11.5, cursor: 'pointer',
+              }}
+            >
+              End session
+            </button>
+            </div>
+          )}
 
           {/* Maintenance mode reminder — only shown to the super admin while it's active */}
           {isSuperAdmin && maintenance?.enabled && (

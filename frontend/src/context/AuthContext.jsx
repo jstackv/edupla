@@ -5,11 +5,11 @@ const AuthContext = createContext(null);
 
 function safeParseUser() {
   try {
-    const stored = localStorage.getItem('user');
+    const stored = sessionStorage.getItem('user');
     if (!stored || stored === 'undefined' || stored === 'null') return null;
     return JSON.parse(stored);
   } catch {
-    localStorage.removeItem('user');
+    sessionStorage.removeItem('user');
     return null;
   }
 }
@@ -19,18 +19,18 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
     if (!token) { setLoading(false); return; }
 
     api.get('/auth/me')
       .then(res => {
         setUser(res.data.user);
-        localStorage.setItem('user', JSON.stringify(res.data.user));
+        sessionStorage.setItem('user', JSON.stringify(res.data.user));
       })
       .catch(() => {
         setUser(null);
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('user');
       })
       .finally(() => setLoading(false));
   }, []);
@@ -38,8 +38,8 @@ export function AuthProvider({ children }) {
   const login = async (email, password) => {
     const res = await api.post('/auth/login', { email, password });
     const { token, user } = res.data;
-    localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(user));
+    sessionStorage.setItem('token', token);
+    sessionStorage.setItem('user', JSON.stringify(user));
     setUser(user);
     return user;
   };
@@ -68,21 +68,46 @@ export function AuthProvider({ children }) {
       throw err;
     }
 
-    localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(user));
+    sessionStorage.setItem('token', token);
+    sessionStorage.setItem('user', JSON.stringify(user));
     setUser(user);
     return user;
   };
 
   const logout = async () => {
     await api.post('/auth/logout').catch(() => {});
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('user');
     setUser(null);
   };
 
+  /**
+   * setImpersonatedUser — used only by the /impersonate-handoff page, once
+   * it has exchanged the impersonation token for the decoded user via
+   * /auth/me. Token/sessionStorage are already set by that page; this just
+   * syncs React state so the rest of the app (routes, maintenance gate)
+   * sees the impersonated user immediately without a reload.
+   */
+  const setImpersonatedUser = (impersonatedUser) => setUser(impersonatedUser);
+
+  /**
+   * endImpersonation — clears this tab's session and closes it, since an
+   * impersonation tab has no "real" identity to fall back to. Falls back
+   * to redirecting to /login if the tab can't be closed (e.g. it wasn't
+   * opened by script, which can happen if a browser blocks window.close
+   * on tabs it didn't track as script-opened).
+   */
+  const endImpersonation = () => {
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('user');
+    setUser(null);
+    window.close();
+    // If window.close() was a no-op (some browsers block it), fall back.
+    setTimeout(() => { window.location.href = '/login'; }, 300);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, loginWithRole, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, loginWithRole, logout, setImpersonatedUser, endImpersonation }}>
       {children}
     </AuthContext.Provider>
   );

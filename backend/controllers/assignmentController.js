@@ -395,7 +395,7 @@ const getGradesReport = async (req, res) => {
     ).lean();
 
     const grades = await Promise.all(students.map(async (s) => {
-      const sub = await Submission.findOne({ assignment_id: assignmentId, student_id: s._id }, 'score feedback submitted_at graded_at _id').lean();
+      const sub = await Submission.findOne({ assignment_id: assignmentId, student_id: s._id }, 'score feedback submitted_at graded_at filename original_name file_url notes _id').lean();
       return {
         student_id:    s._id,
         student_name:  s.name,
@@ -403,6 +403,10 @@ const getGradesReport = async (req, res) => {
         level: s.level,
         trade: s.trade,
         submission_id: sub?._id || null,
+        filename:      sub?.filename || null,
+        original_name: sub?.original_name || null,
+        file_url:      sub?.file_url || null,
+        notes:         sub?.notes || null,
         score:         sub?.score ?? null,
         feedback:      sub?.feedback || null,
         submitted_at:  sub?.submitted_at || null,

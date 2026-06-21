@@ -16,6 +16,7 @@ import {
   MousePointerClick, Bell, Hash, Tag, Info,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import ImpersonateButton from '../../components/common/ImpersonateButton';
 
 // ── Design tokens ──────────────────────────────────────────────────────────
 const TOKENS = {
@@ -983,6 +984,10 @@ function AdminCard({ admin, stats, me, toggling, onToggle, onDelete, onViewDetai
             style={{ background: TOKENS.purpleGlass, color: TOKENS.purple }}>
             <Eye className="w-3.5 h-3.5" /> Details
           </button>
+          {!admin.is_super_admin && !isMe && (
+            <ImpersonateButton userId={admin.id} name={admin.name}
+              style={{ background: `${TOKENS.purple}15` }} />
+          )}
           {!admin.is_super_admin && (
             <button onClick={() => onEdit(admin)}
               className="flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-semibold transition-colors"
@@ -1063,6 +1068,11 @@ function AdminCard({ admin, stats, me, toggling, onToggle, onDelete, onViewDetai
             style={{ background: TOKENS.purpleGlass, color: TOKENS.purple }}>
             <Eye className="w-3.5 h-3.5" /><span className="hidden sm:inline">Details</span>
           </button>
+
+          {!admin.is_super_admin && !isMe && (
+            <ImpersonateButton userId={admin.id} name={admin.name}
+              style={{ background: `${TOKENS.purple}15` }} />
+          )}
 
           {!admin.is_super_admin && (
             <button onClick={() => onEdit(admin)}

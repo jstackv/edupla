@@ -61,6 +61,14 @@ const maintenanceGate = async (req, res, next) => {
     const isSuperAdmin = decoded?.role === 'admin' && decoded?.is_super_admin === true;
     if (isSuperAdmin) return next();
 
+    // Tokens issued by the super admin via POST /api/system/impersonate carry
+    // `impersonation_session: true`. This lets the super admin browse the app
+    // as a regular user during maintenance to verify bug fixes, without
+    // needing to disable maintenance mode for everyone.
+    const isImpersonationSession = decoded?.impersonation_session === true
+      && typeof decoded?.impersonated_by === 'string';
+    if (isImpersonationSession) return next();
+
     return res.status(503).json({
       message: state.message || 'EDUPLA is currently under maintenance. Please check back shortly.',
       code: 'MAINTENANCE_MODE',

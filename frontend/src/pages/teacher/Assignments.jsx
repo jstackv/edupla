@@ -1,2057 +1,1085 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { useTheme } from '../../context/ThemeContext';
-import { useAuth } from '../../context/AuthContext';
+import { useState, useEffect, useCallback } from 'react';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
-import ConfirmModal from '../../components/common/ConfirmModal';
+import Modal from '../../components/common/Modal';
+import ConfirmDialog from '../../components/common/ConfirmDialog';
+import Pagination from '../../components/common/Pagination';
+import FileViewer, { downloadFile } from '../../components/common/FileViewer';
 import {
-  BookOpen, Plus, Edit2, Trash2, UserCheck, BarChart2, X, Search,
-  GraduationCap, FileText, Users, Printer, ChevronRight, Award,
-  TrendingUp, Hash, School, User2, Calendar, Target, Settings,
-  Save, Image, AlignLeft, Phone, Mail, Globe, MapPin, Building2,
-  CheckCircle2, Sparkles, Download, Eye, RefreshCw, ClipboardCheck,
-  CheckCircle, XCircle, Clock, Filter,
+  Plus, Search, ClipboardList, Download, Eye, Edit2, Trash2,
+  Clock, Users, Award, X, CloudUpload, Star,
+  BarChart2, FileDown, Printer,
+  ToggleLeft, ToggleRight,
+  BookOpen, ChevronRight, ArrowLeft, AlertCircle,
 } from 'lucide-react';
 
-/* ─────────── Constants ─────────── */
-const TERMS = ['Term 1', 'Term 2', 'Term 3'];
-const CURRENT_YEAR = new Date().getFullYear();
-const YEARS = [
-  `${CURRENT_YEAR - 1}-${CURRENT_YEAR}`,
-  `${CURRENT_YEAR}-${CURRENT_YEAR + 1}`,
-  `${CURRENT_YEAR + 1}-${CURRENT_YEAR + 2}`,
+function formatSize(bytes) {
+  if (!bytes) return '';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+function DeadlineBadge({ deadline }) {
+  const diff = Math.ceil((new Date(deadline) - new Date()) / 86400000);
+  if (diff < 0) return <span className="badge bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400 text-xs">Overdue</span>;
+  if (diff <= 2) return <span className="badge bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400 text-xs">Due in {diff}d</span>;
+  return <span className="badge bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400 text-xs">{diff}d left</span>;
+}
+
+const MODULE_COLORS = [
+  { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-700 dark:text-blue-300', dot: '#3b82f6' },
+  { bg: 'bg-emerald-100 dark:bg-emerald-900/30', text: 'text-emerald-700 dark:text-emerald-300', dot: '#10b981' },
+  { bg: 'bg-violet-100 dark:bg-violet-900/30', text: 'text-violet-700 dark:text-violet-300', dot: '#8b5cf6' },
+  { bg: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-700 dark:text-amber-300', dot: '#f59e0b' },
+  { bg: 'bg-rose-100 dark:bg-rose-900/30', text: 'text-rose-700 dark:text-rose-300', dot: '#f43f5e' },
+  { bg: 'bg-cyan-100 dark:bg-cyan-900/30', text: 'text-cyan-700 dark:text-cyan-300', dot: '#06b6d4' },
+  { bg: 'bg-orange-100 dark:bg-orange-900/30', text: 'text-orange-700 dark:text-orange-300', dot: '#f97316' },
+  { bg: 'bg-indigo-100 dark:bg-indigo-900/30', text: 'text-indigo-700 dark:text-indigo-300', dot: '#6366f1' },
 ];
+function moduleColor(idx) { return MODULE_COLORS[idx % MODULE_COLORS.length]; }
 
-const MODULE_CATEGORIES     = ['Complementary modules', 'General modules', 'Specific modules'];
-const ALL_MODULE_CATEGORIES = ['Complementary modules', 'General modules', 'Specific modules', 'Elective Non Examinable'];
+// ─── Grades Report Modal ──────────────────────────────────────────────────────
+function GradesReportModal({ assignment, onClose }) {
+  const [grades, setGrades] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState('all'); // 'all' | studentId (number)
+  const [viewMode, setViewMode] = useState('table'); // 'table' | 'single'
 
-const ASSESSMENT_TYPES = [
-  { key: 'FA', label: 'Formative Assessment',     short: 'FA', color: '#3b82f6' },
-  { key: 'IA', label: 'Integrated Assessment',    short: 'IA', color: '#10b981' },
-  { key: 'CA', label: 'Comprehensive Assessment', short: 'CA', color: '#8b5cf6' },
-];
-
-const DEFAULT_REPORT_CONFIG = {
-  schoolName: 'EDUPLA Academy',
-  schoolMotto: 'Excellence Through Knowledge',
-  schoolAddress: 'KG 123 Street, Kigali, Rwanda',
-  schoolPhone: '+250 788 000 000',
-  schoolEmail: 'info@edupla.ac.rw',
-  schoolWebsite: 'www.edupla.ac.rw',
-  schoolLogoUrl: '',
-  managerName: 'School Manager',
-  managerTitle: 'School Principal',
-  footerNote: "Module Weight = Module's learning hours = Credit × 10. Passing Line: 50% for mathematics, sciences and complementary modules while 70% is for core modules (specific and general modules). Module Annual Average: (Average of Integrated A + Average of Comprehensive A) / number of assessed terms.",
-  primaryColor: '#1a3a6b',
-  accentColor:  '#1565c0',
-  termLabel:    '2nd TERM',
-  academicYear: `${CURRENT_YEAR}-${CURRENT_YEAR + 1}`,
-  republic:  'REPUBLIC OF RWANDA',
-  ministry:  'MINISTRY OF EDUCATION',
-  district:  'DISTRICT RUHANGO',
-};
-
-/* ─────────── Helpers ─────────── */
-function pctColor(pct) {
-  if (pct == null) return '#374151';
-  if (pct >= 70)   return '#059669';
-  if (pct >= 50)   return '#b45309';
-  return '#dc2626';
-}
-
-function calcPct(obtained, max) {
-  if (max == null || max <= 0 || obtained == null) return null;
-  return Math.min(Math.round((obtained / max) * 100), 100);
-}
-
-function getGrade(obtained, max) {
-  const pct = Math.min((obtained / max) * 100, 100);
-  if (pct >= 90) return 'A+';
-  if (pct >= 80) return 'A';
-  if (pct >= 70) return 'B';
-  if (pct >= 60) return 'C';
-  if (pct >= 50) return 'D';
-  return 'F';
-}
-
-function getRwandanDecision(pct) {
-  if (pct == null) return '—';
-  return pct >= 70 ? 'C' : pct >= 50 ? 'P' : 'NYC';
-}
-
-function GradeBadge({ grade }) {
-  const color =
-    grade === 'A+' || grade === 'A' ? '#10b981'
-    : grade === 'B' ? '#3b82f6'
-    : grade === 'C' ? '#f59e0b'
-    : grade === 'D' ? '#f97316'
-    : grade === 'F' ? '#ef4444'
-    : '#9ca3af';
-  return (
-    <span style={{
-      fontSize: 11, fontWeight: 800, padding: '3px 9px', borderRadius: 7,
-      background: color + '22', color, border: '1px solid ' + color + '44',
-    }}>{grade}</span>
-  );
-}
-
-function TypeBadge({ type }) {
-  const found = ASSESSMENT_TYPES.find(t => t.key === type);
-  const color = found?.color || '#9ca3af';
-  const label = found?.label || type;
-  return (
-    <span title={label} style={{
-      fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 5,
-      background: color + '20', color, border: '1px solid ' + color + '40',
-    }}>{type}</span>
-  );
-}
-
-/* ─────────── Report Config Storage ─────────── */
-function loadReportConfig() {
-  try {
-    const s = localStorage.getItem('edupla_report_config_v2');
-    return s ? { ...DEFAULT_REPORT_CONFIG, ...JSON.parse(s) } : { ...DEFAULT_REPORT_CONFIG };
-  } catch { return { ...DEFAULT_REPORT_CONFIG }; }
-}
-function saveReportConfig(cfg) {
-  localStorage.setItem('edupla_report_config_v2', JSON.stringify(cfg));
-}
-
-/* ─────────── Category helpers ─────────── */
-function catBadge(cat) {
-  const colors = {
-    'Complementary modules':   { bg: '#1a3a6b18', border: '#1a3a6b30', text: '#1a3a6b', dot: '#1a3a6b' },
-    'General modules':         { bg: '#06563018', border: '#06563030', text: '#065f46', dot: '#065f46' },
-    'Specific modules':        { bg: '#7c2d1218', border: '#7c2d1230', text: '#7c2d12', dot: '#7c2d12' },
-    'Elective Non Examinable': { bg: '#4a044e18', border: '#4a044e30', text: '#4a044e', dot: '#4a044e' },
-  };
-  return colors[cat] || colors['Complementary modules'];
-}
-
-/* ══════════════════════════════════════════════════════════════════════
-   MULTI-CLASS PICKER — tag-style pill selector used in the course modal
-══════════════════════════════════════════════════════════════════════ */
-function MultiClassPicker({ classes, selectedIds, onChange, dark }) {
-  const inputSt = {
-    width: '100%', padding: '9px 12px', borderRadius: 10, border: `1px solid ${dark ? '#2a3042' : '#d1d5db'}`,
-    background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#e2e8f0' : '#111827', fontSize: 13, outline: 'none', boxSizing: 'border-box',
-  };
-
-  const available = classes.filter(c => !selectedIds.includes(c._id || c.id));
-
-  function add(id) {
-    if (id && !selectedIds.includes(id)) onChange([...selectedIds, id]);
-  }
-  function remove(id) {
-    onChange(selectedIds.filter(x => x !== id));
-  }
-
-  return (
-    <div>
-      {/* Selected pills */}
-      {selectedIds.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-          {selectedIds.map(id => {
-            const cls = classes.find(c => (c._id || c.id) === id);
-            if (!cls) return null;
-            return (
-              <span key={id} style={{
-                display: 'inline-flex', alignItems: 'center', gap: 5,
-                padding: '4px 10px', borderRadius: 20,
-                background: 'rgba(26,58,107,0.10)', border: '1px solid rgba(26,58,107,0.30)',
-                fontSize: 12, fontWeight: 700, color: '#1a3a6b',
-              }}>
-                <School size={11} />
-                {cls.name}
-                <button
-                  type="button"
-                  onClick={() => remove(id)}
-                  style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '0 0 0 2px', color: '#1a3a6b', display: 'flex', alignItems: 'center', lineHeight: 1 }}
-                  title={`Remove ${cls.name}`}
-                >
-                  <X size={11} />
-                </button>
-              </span>
-            );
-          })}
-          <button
-            type="button"
-            onClick={() => onChange([])}
-            style={{ padding: '4px 10px', borderRadius: 20, border: '1px solid rgba(239,68,68,0.25)', background: 'rgba(239,68,68,0.06)', fontSize: 11, fontWeight: 600, color: '#ef4444', cursor: 'pointer' }}
-          >
-            Clear all
-          </button>
-        </div>
-      )}
-
-      {/* Dropdown to add more */}
-      <select
-        value=""
-        onChange={e => { add(e.target.value); e.target.value = ''; }}
-        style={inputSt}
-      >
-        <option value="">
-          {available.length === 0
-            ? selectedIds.length > 0 ? 'All classes assigned' : 'No classes available'
-            : `Add a class… (${available.length} remaining)`}
-        </option>
-        {available.map(c => (
-          <option key={c._id || c.id} value={c._id || c.id}>{c.name}</option>
-        ))}
-      </select>
-
-      {selectedIds.length === 0 && (
-        <p style={{ margin: '5px 0 0', fontSize: 11, color: dark ? '#7b839a' : '#9ca3af' }}>
-          No classes assigned. Use the dropdown above to assign one or more.
-        </p>
-      )}
-    </div>
-  );
-}
-
-/* ══════════════════════════════════════════════════════════════════════
-   REPORT CONFIG PANEL  — removed: Programme/Qualification, Brand Colors
-══════════════════════════════════════════════════════════════════════ */
-function ReportConfigPanel({ config, onChange, dark }) {
-  const [draft, setDraft] = useState({ ...config });
-  const [saved, setSaved] = useState(false);
-
-  const labelSt = {
-    fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
-    color: dark ? '#7b839a' : '#6b7280', display: 'block', marginBottom: 4,
-  };
-  const inputSt = {
-    width: '100%', padding: '9px 12px', borderRadius: 10, boxSizing: 'border-box',
-    border: `1px solid ${dark ? '#2a3042' : '#d1d5db'}`,
-    background: dark ? '#1a1f2e' : '#f9fafb',
-    color: dark ? '#e2e8f0' : '#111827', fontSize: 13, outline: 'none',
-  };
-  const cardSt = {
-    background: dark ? '#13161f' : '#fff',
-    border: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}`,
-    borderRadius: 14, padding: 20,
-  };
-
-  const field = (label, key, type = 'text', placeholder = '') => (
-    <div>
-      <label style={labelSt}>{label}</label>
-      {type === 'textarea'
-        ? <textarea value={draft[key] || ''} onChange={e => setDraft(d => ({ ...d, [key]: e.target.value }))} rows={3} placeholder={placeholder} style={{ ...inputSt, resize: 'vertical' }} />
-        : <input type={type} value={draft[key] || ''} onChange={e => setDraft(d => ({ ...d, [key]: e.target.value }))} placeholder={placeholder} style={inputSt} />
-      }
-    </div>
-  );
-
-  function handleSave() {
-    saveReportConfig(draft);
-    onChange(draft);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-    toast.success('Report configuration saved!');
-  }
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={cardSt}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg,#1a3a6b,#1565c0)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Globe size={15} color="#fff" />
-          </div>
-          <div>
-            <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: dark ? '#f1f5f9' : '#111827' }}>Government / Authority Header</p>
-            <p style={{ margin: 0, fontSize: 11, color: dark ? '#7b839a' : '#9ca3af' }}>Shown top-left of the report</p>
-          </div>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <div style={{ gridColumn: '1/-1' }}>{field('Republic / Country', 'republic', 'text', 'REPUBLIC OF RWANDA')}</div>
-          <div style={{ gridColumn: '1/-1' }}>{field('Ministry', 'ministry', 'text', 'MINISTRY OF EDUCATION')}</div>
-          {field('District', 'district', 'text', 'DISTRICT ...')}
-          <div style={{ gridColumn: '1/-1' }}>{field('School / Lycée Name', 'schoolName', 'text', 'Lycée de Ruhango Ikirezi ...')}</div>
-          <div style={{ gridColumn: '1/-1' }}>{field('School Motto / Tagline', 'schoolMotto', 'text', 'Excellence Through Knowledge')}</div>
-          <div style={{ gridColumn: '1/-1' }}>{field('Logo URL (optional)', 'schoolLogoUrl', 'text', 'https://…')}</div>
-        </div>
-      </div>
-
-      <div style={cardSt}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg,#10b981,#059669)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Phone size={15} color="#fff" />
-          </div>
-          <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: dark ? '#f1f5f9' : '#111827' }}>Contact Information</p>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <div style={{ gridColumn: '1/-1' }}>{field('Address', 'schoolAddress')}</div>
-          {field('Phone / Tel', 'schoolPhone')}
-          {field('Email', 'schoolEmail', 'email')}
-          <div style={{ gridColumn: '1/-1' }}>{field('Website', 'schoolWebsite')}</div>
-        </div>
-      </div>
-
-      <div style={cardSt}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg,#f59e0b,#d97706)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <User2 size={15} color="#fff" />
-          </div>
-          <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: dark ? '#f1f5f9' : '#111827' }}>Report Signatory</p>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          {field('Principal / Director Name', 'managerName', 'text', 'Full Name')}
-          {field('Title / Role', 'managerTitle', 'text', 'School Principal')}
-        </div>
-      </div>
-
-      <div style={cardSt}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg,#06b6d4,#0891b2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <AlignLeft size={15} color="#fff" />
-          </div>
-          <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: dark ? '#f1f5f9' : '#111827' }}>Footer Legend / Note</p>
-        </div>
-        {field('Legend text (shown below the marks table)', 'footerNote', 'textarea')}
-      </div>
-
-      <button onClick={handleSave} style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-        padding: '12px 24px', borderRadius: 12, border: 'none',
-        background: saved ? 'linear-gradient(135deg,#10b981,#059669)' : 'linear-gradient(135deg,#1a3a6b,#1565c0)',
-        color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer',
-        boxShadow: '0 4px 20px rgba(26,58,107,0.35)', transition: 'all 0.3s',
-      }}>
-        {saved ? <CheckCircle2 size={16} /> : <Save size={16} />}
-        {saved ? 'Saved Successfully!' : 'Save Report Configuration'}
-      </button>
-    </div>
-  );
-}
-
-/* ══════════════════════════════════════════════════════════════════════
-   MAIN COMPONENT
-══════════════════════════════════════════════════════════════════════ */
-export default function AdminAssessments() {
-  const { dark } = useTheme();
-  const { user } = useAuth();
-
-  const [tab, setTab]                   = useState('courses');
-  const [reportType, setReportType]     = useState('class');
-  const [reportConfig, setReportConfig] = useState(loadReportConfig);
-
-  const [courses,     setCourses]     = useState([]);
-  const [teachers,    setTeachers]    = useState([]);
-  const [classes,     setClasses]     = useState([]);
-  const [students,    setStudents]    = useState([]);
-  const [assessments, setAssessments] = useState([]);
-  const [loading,     setLoading]     = useState(false);
-
-  /* ── Course tab filters + view mode ── */
-  const [courseView,           setCourseView]           = useState('cards');
-  const [courseFilterTeacher,  setCourseFilterTeacher]  = useState('');
-  const [courseFilterCategory, setCourseFilterCategory] = useState('');
-  const [courseFilterClass,    setCourseFilterClass]    = useState('');
-
-  /* ── Report state ── */
-  const [reportFilter,  setReportFilter]  = useState({ term: '', year: '', studentId: '', studentIds: [], assessmentId: '', classId: '' });
-  const [reportData,    setReportData]    = useState(null);
-  const [reportLoading, setReportLoading] = useState(false);
-
-  /* ── Submissions state ── */
-  const [submissions,              setSubmissions]              = useState([]);
-  const [submissionsLoading,       setSubmissionsLoading]       = useState(false);
-  const [submissionFilter,         setSubmissionFilter]         = useState('');
-  const [submissionTeacherFilter,  setSubmissionTeacherFilter]  = useState('');
-  const [submissionCourseFilter,   setSubmissionCourseFilter]   = useState('');
-  const [submissionClassFilter,    setSubmissionClassFilter]    = useState('');
-  const [submissionCategoryFilter, setSubmissionCategoryFilter] = useState('');
-  const [viewingSubmission,        setViewingSubmission]        = useState(null);
-  const [viewingSubmissionLoading, setViewingSubmissionLoading] = useState(false);
-  const [rejectingId,              setRejectingId]              = useState(null);
-  const [rejectNote,               setRejectNote]               = useState('');
-  const [submissionActionLoading,  setSubmissionActionLoading]  = useState(false);
-
-  /* ── Course modal ── */
-  const [showCourseModal, setShowCourseModal] = useState(false);
-  const [editingCourse,   setEditingCourse]   = useState(null);
-
-  /*
-   * class_ids: string[]  — array of class IDs (replaces single class_id)
-   * We still send class_id (first entry) to the API for backwards compat,
-   * plus class_ids for the new multi-class endpoint.
-   */
-  const [courseForm, setCourseForm] = useState({
-    name: '', code: '', description: '', total_marks: 100,
-    class_ids: [],          // ← NEW: multiple classes
-    teacher_id: '', category: 'Complementary modules',
-  });
-
-  const [confirmModal, setConfirmModal] = useState({
-    open: false, variant: 'warning', title: '', message: '', onConfirm: null, loading: false, confirmText: 'Confirm',
-  });
-
-  const card       = { background: dark ? '#13161f' : '#fff', border: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}`, borderRadius: 16, padding: 20 };
-  const inputStyle = { width: '100%', padding: '9px 12px', borderRadius: 10, border: `1px solid ${dark ? '#2a3042' : '#d1d5db'}`, background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#e2e8f0' : '#111827', fontSize: 13, outline: 'none', boxSizing: 'border-box' };
-  const labelStyle = { fontSize: 11, fontWeight: 600, color: dark ? '#7b839a' : '#6b7280', marginBottom: 4, display: 'block', textTransform: 'uppercase', letterSpacing: '0.06em' };
-
-  function openConfirm(opts) { setConfirmModal({ open: true, loading: false, confirmText: 'Confirm', cancelText: 'Cancel', ...opts }); }
-  function closeConfirm()    { setConfirmModal(prev => ({ ...prev, open: false, loading: false })); }
-
-  /* ── Data fetch ── */
-  const fetchAll = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [cRes, tRes, clRes, sRes, aRes] = await Promise.all([
-        api.get('/assessment/admin/courses'),
-        api.get('/admin/teachers'),
-        api.get('/admin/classes'),
-        api.get('/admin/students'),
-        api.get('/assessment/admin/assessments'),
-      ]);
-      setCourses(cRes.data.courses || []);
-      setTeachers(tRes.data.teachers || []);
-      setClasses(clRes.data.classes || []);
-      setStudents(sRes.data.students || []);
-      setAssessments(aRes.data.assessments || []);
-    } catch { toast.error('Failed to load data'); }
-    finally { setLoading(false); }
-  }, []);
-
-  useEffect(() => { fetchAll(); }, [fetchAll]);
-
-  const fetchSubmissions = useCallback(async () => {
-    setSubmissionsLoading(true);
-    try {
-      const res = await api.get('/assessment/admin/submissions', { params: submissionFilter ? { status: submissionFilter } : {} });
-      setSubmissions(res.data.assessments || []);
-    } catch { toast.error('Failed to load submissions'); }
-    finally { setSubmissionsLoading(false); }
-  }, [submissionFilter]);
-
-  useEffect(() => { if (tab === 'submissions') fetchSubmissions(); }, [tab, fetchSubmissions]);
-
-  async function viewSubmission(assessmentId) {
-    setViewingSubmissionLoading(true);
-    setViewingSubmission(null);
-    try {
-      const res = await api.get('/assessment/admin/submissions/' + assessmentId);
-      setViewingSubmission(res.data);
-    } catch (e) { toast.error(e.response?.data?.message || 'Failed to load submission'); }
-    finally { setViewingSubmissionLoading(false); }
-  }
-
-  async function approveSubmission(assessmentId) {
-    openConfirm({
-      variant: 'success', title: 'Approve Submission',
-      message: 'Approving this submission will update all reports. This action cannot be undone.',
-      confirmText: 'Approve & Publish',
-      onConfirm: async () => {
-        setConfirmModal(prev => ({ ...prev, loading: true }));
-        try {
-          await api.post('/assessment/admin/submissions/' + assessmentId + '/approve');
-          toast.success('Assessment approved');
-          setViewingSubmission(null);
-          fetchSubmissions();
-          closeConfirm();
-        } catch (e) {
-          toast.error(e.response?.data?.message || 'Error approving');
-          setConfirmModal(prev => ({ ...prev, loading: false }));
-        }
-      },
-    });
-  }
-
-  async function rejectSubmission(assessmentId) {
-    setSubmissionActionLoading(true);
-    try {
-      await api.post('/assessment/admin/submissions/' + assessmentId + '/reject', { note: rejectNote });
-      toast.success('Assessment rejected — teacher can edit again');
-      setRejectingId(null); setRejectNote('');
-      setViewingSubmission(null);
-      fetchSubmissions();
-      closeConfirm();
-    } catch (e) { toast.error(e.response?.data?.message || 'Error rejecting'); }
-    finally { setSubmissionActionLoading(false); }
-  }
-
-  function openRejectModal(assessmentId) {
-    setRejectNote('');
-    setRejectingId(assessmentId);
-    openConfirm({
-      variant: 'reject', title: 'Reject Submission',
-      message: 'The teacher will regain edit access to fix the marks.',
-      confirmText: 'Reject & Send Back',
-      onConfirm: () => rejectSubmission(assessmentId),
-    });
-  }
-
-  const classStudents = useCallback((classId) => {
-    if (!classId) return students;
-    const cls = classes.find(c => (c._id || c.id) === classId);
-    if (!cls) return [];
-    const ids = (cls.students || []).map(s => s._id || s.id || s);
-    return students.filter(s => ids.includes(s._id || s.id));
-  }, [students, classes]);
-
-  /* ── Course CRUD ── */
-  function openCreateCourse() {
-    setEditingCourse(null);
-    setCourseForm({
-      name: '', code: '', description: '', total_marks: 100,
-      class_ids: [], teacher_id: '', category: 'Complementary modules',
-    });
-    setShowCourseModal(true);
-  }
-
-  function openEditCourse(c) {
-    setEditingCourse(c);
-    /*
-     * Support both old (single class_id) and new (class_ids array) shapes
-     * coming back from the API.
-     */
-    let class_ids = [];
-    if (Array.isArray(c.class_ids) && c.class_ids.length > 0) {
-      class_ids = c.class_ids.map(id => (typeof id === 'object' ? id._id || id.id : id));
-    } else if (c.class_id) {
-      const single = typeof c.class_id === 'object' ? c.class_id._id || c.class_id.id : c.class_id;
-      if (single) class_ids = [single];
-    }
-    setCourseForm({
-      name: c.name || '', code: c.code || '', description: c.description || '',
-      total_marks: c.total_marks || 100,
-      class_ids,
-      teacher_id: c.teacher_id?._id || c.teacher_id || '',
-      category: c.category || 'Complementary modules',
-    });
-    setShowCourseModal(true);
-  }
-
-  async function saveCourse() {
-    if (!courseForm.name.trim()) { toast.error('Course name is required'); return; }
-    /*
-     * Send both class_ids (new) and class_id (first entry, backward compat)
-     * so older API versions continue to work.
-     */
-    const payload = {
-      ...courseForm,
-      class_ids: courseForm.class_ids,
-      class_id: courseForm.class_ids[0] || '',
-    };
-    try {
-      if (editingCourse) {
-        await api.put('/assessment/admin/courses/' + editingCourse._id, payload);
-        toast.success('Module updated');
-      } else {
-        await api.post('/assessment/admin/courses', payload);
-        toast.success('Module created');
-      }
-      setShowCourseModal(false); fetchAll();
-    } catch (e) { toast.error(e.response?.data?.message || 'Error saving module'); }
-  }
-
-  async function deleteCourse(id) {
-    openConfirm({
-      variant: 'danger', title: 'Delete Module',
-      message: 'This will permanently delete the module and all its assessments.',
-      confirmText: 'Yes, Delete Module',
-      onConfirm: async () => {
-        setConfirmModal(prev => ({ ...prev, loading: true }));
-        try {
-          await api.delete('/assessment/admin/courses/' + id);
-          toast.success('Module deleted');
-          fetchAll();
-          closeConfirm();
-        } catch (e) {
-          toast.error(e.response?.data?.message || 'Error');
-          setConfirmModal(prev => ({ ...prev, loading: false }));
-        }
-      },
-    });
-  }
-
-  /* ── Report ── */
-  const fetchReport = useCallback(async (filter = reportFilter, type = reportType) => {
-    if (type === 'student'    && !filter.studentId)    { setReportData(null); return; }
-    if (type === 'assessment' && !filter.assessmentId) { setReportData(null); return; }
-    if (type === 'class'      && !filter.classId)      { setReportData(null); return; }
-    setReportLoading(true); setReportData(null);
-    try {
-      let res;
-      if (type === 'student') {
-        res = await api.get('/assessment/admin/reports/student/' + filter.studentId, { params: { term: filter.term || undefined, year: filter.year || undefined } });
-      } else if (type === 'assessment') {
-        res = await api.get('/assessment/admin/reports/assessment/' + filter.assessmentId);
-      } else {
-        const sIds = filter.studentIds.length > 0 ? filter.studentIds.join(',') : undefined;
-        res = await api.get('/assessment/admin/reports/class/' + filter.classId, { params: { term: filter.term || undefined, year: filter.year || undefined, studentIds: sIds } });
-      }
-      setReportData({ type, ...res.data });
-    } catch (e) { toast.error(e.response?.data?.message || 'Error loading report'); }
-    finally { setReportLoading(false); }
-  }, [reportFilter, reportType]);
-
-  const reportDebounceRef = useRef(null);
   useEffect(() => {
-    if (tab !== 'reports') return;
-    clearTimeout(reportDebounceRef.current);
-    reportDebounceRef.current = setTimeout(() => fetchReport(reportFilter, reportType), 400);
-    return () => clearTimeout(reportDebounceRef.current);
-  }, [reportFilter, reportType, tab]); // eslint-disable-line
+    setLoading(true);
+    api.get(`/assignments/${assignment.id}/grades-report`)
+      .then(r => { setGrades(r.data.grades || []); })
+      .catch(() => toast.error('Failed to load grades'))
+      .finally(() => setLoading(false));
+  }, [assignment.id]);
 
-  const selectedClassStudents = classStudents(reportFilter.classId);
+  const displayGrades = selected === 'all'
+    ? grades
+    : grades.filter(g => String(g.student_id) === String(selected));
 
-  /* ── Derived: courses belonging to selected class (submissions tab) ── */
-  const coursesForSubmissionClass = submissionClassFilter
-    ? courses.filter(c => {
-        const ids = Array.isArray(c.class_ids) && c.class_ids.length > 0
-          ? c.class_ids.map(x => typeof x === 'object' ? x._id || x.id : x)
-          : [c.class_id?._id || c.class_id].filter(Boolean);
-        return ids.includes(submissionClassFilter);
-      })
-    : courses;
+  const submitted = displayGrades.filter(g => g.submission_id);
+  const graded = displayGrades.filter(g => g.score !== null);
+  const avgScore = graded.length
+    ? (graded.reduce((s, g) => s + g.score, 0) / graded.length).toFixed(1)
+    : '—';
 
-  const tabs = [
-    { key: 'courses',     label: 'Courses & Modules', icon: BookOpen },
-    { key: 'submissions', label: 'Mark Submissions',  icon: ClipboardCheck },
-    { key: 'reports',     label: 'Reports',           icon: BarChart2 },
-    { key: 'config',      label: 'Report Settings',   icon: Settings },
-  ];
+  // CSV export
+  const exportCSV = () => {
+    const header = ['Student Name', 'Email', 'Level', 'Trade', 'Submitted At', 'Score', `Max Score (${assignment.max_score || 100})`, 'Percentage', 'Feedback', 'Graded At'];
+    const rows = displayGrades.map(g => [
+      g.student_name,
+      g.student_email,
+      g.level || '',
+      g.trade || '',
+      g.submitted_at ? new Date(g.submitted_at).toLocaleString() : 'Not submitted',
+      g.score !== null ? g.score : '',
+      assignment.max_score || 100,
+      g.score !== null ? ((g.score / (assignment.max_score || 100)) * 100).toFixed(1) + '%' : '',
+      g.feedback || '',
+      g.graded_at ? new Date(g.graded_at).toLocaleString() : ''
+    ]);
+    const csv = [header, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const label = selected === 'all' ? 'all-students' : (displayGrades[0]?.student_name || 'student').replace(/\s+/g, '-').toLowerCase();
+    a.download = `${assignment.title.replace(/\s+/g, '-')}-grades-${label}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('CSV exported');
+  };
 
-  /* ── Filtered courses (Courses tab) ── */
-  const filteredCourses = courses.filter(c => {
-    if (courseFilterTeacher) {
-      const tid = c.teacher_id?._id || c.teacher_id;
-      if (tid !== courseFilterTeacher) return false;
-    }
-    if (courseFilterCategory && (c.category || 'Complementary modules') !== courseFilterCategory) return false;
-    if (courseFilterClass) {
-      // A course matches if it's assigned to this class (single or multi)
-      const ids = Array.isArray(c.class_ids) && c.class_ids.length > 0
-        ? c.class_ids.map(x => typeof x === 'object' ? x._id || x.id : x)
-        : [c.class_id?._id || c.class_id].filter(Boolean);
-      if (!ids.includes(courseFilterClass)) return false;
-    }
-    return true;
-  });
-  const hasActiveCourseFilter = courseFilterTeacher || courseFilterCategory || courseFilterClass;
+  // Print/View report
+  const printReport = () => {
+    const content = `
+      <html>
+      <head>
+        <title>${assignment.title} — Grades Report</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 24px; color: #1a1a2e; }
+          h1 { font-size: 20px; margin-bottom: 4px; }
+          .meta { color: #666; font-size: 13px; margin-bottom: 20px; }
+          .stats { display: flex; gap: 24px; margin-bottom: 20px; }
+          .stat { background: #f5f5f5; padding: 12px 20px; border-radius: 8px; }
+          .stat-val { font-size: 22px; font-weight: bold; color: #6366f1; }
+          .stat-lbl { font-size: 12px; color: #666; }
+          table { width: 100%; border-collapse: collapse; font-size: 13px; }
+          th { background: #6366f1; color: white; padding: 8px 12px; text-align: left; }
+          td { padding: 8px 12px; border-bottom: 1px solid #eee; }
+          tr:nth-child(even) td { background: #f9f9f9; }
+          .score-high { color: #059669; font-weight: bold; }
+          .score-mid { color: #d97706; font-weight: bold; }
+          .score-low { color: #dc2626; font-weight: bold; }
+          .no-sub { color: #999; font-style: italic; }
+          @media print { body { padding: 0; } }
+        </style>
+      </head>
+      <body>
+        <h1>${assignment.title} — Grades Report</h1>
+        <div class="meta">Class: ${assignment.class_name} &nbsp;|&nbsp; Max Score: ${assignment.max_score || 100} &nbsp;|&nbsp; Generated: ${new Date().toLocaleString()}</div>
+        <div class="stats">
+          <div class="stat"><div class="stat-val">${displayGrades.length}</div><div class="stat-lbl">Students</div></div>
+          <div class="stat"><div class="stat-val">${submitted.length}</div><div class="stat-lbl">Submitted</div></div>
+          <div class="stat"><div class="stat-val">${graded.length}</div><div class="stat-lbl">Graded</div></div>
+          <div class="stat"><div class="stat-val">${avgScore}</div><div class="stat-lbl">Avg Score</div></div>
+        </div>
+        <table>
+          <thead><tr>
+            <th>#</th><th>Student</th><th>Email</th><th>Level</th><th>Trade</th>
+            <th>Submitted</th><th>Score</th><th>%</th><th>Feedback</th>
+          </tr></thead>
+          <tbody>
+            ${displayGrades.map((g, i) => {
+              const pct = g.score !== null ? ((g.score / (assignment.max_score || 100)) * 100).toFixed(0) : null;
+              const cls = pct !== null ? (pct >= 70 ? 'score-high' : pct >= 50 ? 'score-mid' : 'score-low') : '';
+              return `<tr>
+                <td>${i + 1}</td>
+                <td>${g.student_name}</td>
+                <td>${g.student_email}</td>
+                <td>${g.level || '—'}</td>
+                <td>${g.trade || '—'}</td>
+                <td>${g.submitted_at ? new Date(g.submitted_at).toLocaleDateString() : '<span class="no-sub">Not submitted</span>'}</td>
+                <td class="${cls}">${g.score !== null ? g.score : '<span class="no-sub">—</span>'}</td>
+                <td class="${cls}">${pct !== null ? pct + '%' : '<span class="no-sub">—</span>'}</td>
+                <td>${g.feedback || ''}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </body></html>
+    `;
+    const w = window.open('', '_blank', 'width=900,height=700');
+    w.document.write(content);
+    w.document.close();
+    w.focus();
+    setTimeout(() => w.print(), 500);
+  };
 
-  /* ── Filtered submissions ── */
-  const filteredSubmissions = submissions.filter(a => {
-    if (submissionTeacherFilter) {
-      const tid = a.teacher_id?._id || a.teacher_id;
-      if (tid !== submissionTeacherFilter) return false;
-    }
-    if (submissionCourseFilter) {
-      const cid = a.course_id?._id || a.course_id;
-      if (cid !== submissionCourseFilter) return false;
-    }
-    if (submissionClassFilter) {
-      /* Filter by the assessment's OWN class — not just any class the
-         module happens to be assigned to. A module shared across classes
-         can have separate assessments per class, so this must match the
-         specific class the assessment was created for. */
-      const cid = a.class_id?._id || a.class_id;
-      if (String(cid) !== String(submissionClassFilter)) return false;
-    }
-    if (submissionCategoryFilter) {
-      const cat = a.course_id?.category || '';
-      if (cat !== submissionCategoryFilter) return false;
-    }
-    return true;
-  });
-
-  /* ── Helper: resolve class names for a course (multi or single) ── */
-  function getCourseClassNames(c) {
-    if (Array.isArray(c.class_ids) && c.class_ids.length > 0) {
-      return c.class_ids.map(x => {
-        if (typeof x === 'object') return x.name || x._id || x.id;
-        const found = classes.find(cl => (cl._id || cl.id) === x);
-        return found ? found.name : x;
-      });
-    }
-    if (c.class_id) {
-      const name = typeof c.class_id === 'object' ? c.class_id.name : null;
-      return [name || c.class_id];
-    }
-    return [];
-  }
-
-  /* ── shared select style ── */
-  const filterSelect = (active) => ({
-    padding: '7px 10px', borderRadius: 8, fontSize: 12, fontWeight: 600,
-    cursor: 'pointer', outline: 'none', minWidth: 160,
-    border: `1px solid ${active ? '#1a3a6b' : (dark ? '#2a3042' : '#e5e7eb')}`,
-    background: active ? 'rgba(26,58,107,0.08)' : (dark ? '#1a1f2e' : '#f9fafb'),
-    color: active ? '#1a3a6b' : (dark ? '#e2e8f0' : '#374151'),
-  });
+  const getScoreColor = (score, max) => {
+    if (score === null || score === undefined) return '';
+    const pct = (score / (max || 100)) * 100;
+    if (pct >= 70) return 'text-emerald-600 dark:text-emerald-400';
+    if (pct >= 50) return 'text-amber-600 dark:text-amber-400';
+    return 'text-red-600 dark:text-red-400';
+  };
 
   return (
-    <div>
-      <style>{`
-        @keyframes spin  { to { transform: rotate(360deg); } }
-        @keyframes fadeUp{ from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
-        @media print {
-          .no-print  { display: none !important; }
-          body       { background: white !important; }
-          .print-area{ padding: 0 !important; }
-        }
-        .course-card:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(26,58,107,0.18) !important; }
-        .course-card       { transition: all 0.2s ease; }
-      `}</style>
-
-      {/* ── Page Header ── */}
-      <div className="no-print" style={{ marginBottom: 24 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-              <div style={{ width: 40, height: 40, borderRadius: 12, background: 'linear-gradient(135deg,#1a3a6b,#1565c0)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <GraduationCap size={20} color="#fff" />
-              </div>
-              <h1 style={{ fontSize: 22, fontWeight: 800, color: dark ? '#f1f5f9' : '#111827', margin: 0, fontFamily: "'Sora',sans-serif" }}>
-                Modules, Submissions and Report Management
-              </h1>
+    <Modal isOpen={true} onClose={onClose} title={`Grades Report — ${assignment.title}`} size="xl">
+      {loading ? (
+        <div className="flex justify-center py-10">
+          <div className="animate-spin w-7 h-7 border-4 border-primary-500 border-t-transparent rounded-full" />
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {/* Student selector */}
+          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+            <div className="flex-1">
+              <label className="label mb-1">Select Student</label>
+              <select
+                className="input-field"
+                value={selected === 'all' ? 'all' : String(selected)}
+                onChange={e => setSelected(e.target.value === 'all' ? 'all' : e.target.value)}>
+                <option value="all">All Students ({grades.length})</option>
+                {grades.map(g => (
+                  <option key={g.student_id} value={String(g.student_id)}>
+                    {g.student_name} {g.score !== null ? `— ${g.score}/${assignment.max_score || 100}` : '(not graded)'}
+                  </option>
+                ))}
+              </select>
             </div>
-            <p style={{ fontSize: 13, color: dark ? '#7b839a' : '#6b7280', margin: '0 0 0 50px' }}>
-              Manage TVET modules, mark submissions and generate official assessment reports
-            </p>
+            <div className="flex gap-2 flex-shrink-0 sm:mt-5">
+              <button onClick={exportCSV} className="btn-secondary text-xs py-2 px-3 flex items-center gap-1.5">
+                <FileDown className="w-3.5 h-3.5" /> Export CSV
+              </button>
+              <button onClick={printReport} className="btn-secondary text-xs py-2 px-3 flex items-center gap-1.5">
+                <Printer className="w-3.5 h-3.5" /> Print / View
+              </button>
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+
+          {/* Summary stats */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { label: 'Courses',     val: courses.length,     color: '#1a3a6b' },
-              { label: 'Assessments', val: assessments.length, color: '#8b5cf6' },
-              { label: 'Students',    val: students.length,    color: '#10b981' },
+              { label: 'Students', value: displayGrades.length, color: 'text-primary-600' },
+              { label: 'Submitted', value: submitted.length, color: 'text-blue-600' },
+              { label: 'Graded', value: graded.length, color: 'text-emerald-600' },
+              { label: 'Avg Score', value: avgScore, color: 'text-amber-600' },
             ].map(s => (
-              <div key={s.label} style={{ padding: '8px 16px', borderRadius: 12, background: s.color + '18', border: '1px solid ' + s.color + '33', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <span style={{ fontSize: 18, fontWeight: 800, color: s.color, lineHeight: 1 }}>{s.val}</span>
-                <span style={{ fontSize: 10, color: dark ? '#7b839a' : '#6b7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{s.label}</span>
+              <div key={s.label} className="rounded-xl p-3 text-center" style={{ background: 'var(--card-border)' }}>
+                <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
+                <p className="text-xs text-muted">{s.label}</p>
               </div>
             ))}
           </div>
-        </div>
 
-        {/* Tabs */}
-        <div style={{ display: 'flex', gap: 4, marginTop: 20, borderBottom: `2px solid ${dark ? '#1e2130' : '#e5e7eb'}` }}>
-          {tabs.map(({ key, label, icon: Icon }) => (
-            <button key={key} onClick={() => setTab(key)} style={{
-              display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px',
-              border: 'none', borderRadius: '10px 10px 0 0',
-              background: tab === key ? (dark ? '#1d2235' : '#fff') : 'transparent',
-              color: tab === key ? '#1a3a6b' : (dark ? '#7b839a' : '#6b7280'),
-              fontWeight: tab === key ? 700 : 500, fontSize: 13, cursor: 'pointer',
-              borderBottom: tab === key ? '2px solid #1a3a6b' : '2px solid transparent',
-              marginBottom: -2, transition: 'all 0.15s',
-            }}>
-              <Icon size={14} /> {label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* ══════════ COURSES TAB ══════════ */}
-      {tab === 'courses' && (
-        <div className="no-print" style={{ animation: 'fadeUp 0.3s ease' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 9, background: dark ? '#1a1f2e' : '#f1f5f9', border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}` }}>
-              <Filter size={12} color={dark ? '#7b839a' : '#6b7280'} />
-              <span style={{ fontSize: 11, fontWeight: 700, color: dark ? '#7b839a' : '#6b7280', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Filter</span>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <label style={{ fontSize: 10, fontWeight: 700, color: dark ? '#7b839a' : '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Class</label>
-              <select value={courseFilterClass} onChange={e => setCourseFilterClass(e.target.value)} style={filterSelect(courseFilterClass)}>
-                <option value="">All Classes</option>
-                {classes.map(c => <option key={c._id || c.id} value={c._id || c.id}>{c.name}</option>)}
-              </select>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <label style={{ fontSize: 10, fontWeight: 700, color: dark ? '#7b839a' : '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Teacher</label>
-              <select value={courseFilterTeacher} onChange={e => setCourseFilterTeacher(e.target.value)} style={filterSelect(courseFilterTeacher)}>
-                <option value="">All Teachers</option>
-                {teachers.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
-              </select>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <label style={{ fontSize: 10, fontWeight: 700, color: dark ? '#7b839a' : '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Module Type</label>
-              <select value={courseFilterCategory} onChange={e => setCourseFilterCategory(e.target.value)} style={filterSelect(courseFilterCategory)}>
-                <option value="">All Types</option>
-                {ALL_MODULE_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-              </select>
-            </div>
-
-            {hasActiveCourseFilter && (
-              <button onClick={() => { setCourseFilterTeacher(''); setCourseFilterCategory(''); setCourseFilterClass(''); }} style={{ padding: '7px 12px', borderRadius: 8, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#7b839a' : '#6b7280', fontSize: 12, cursor: 'pointer', fontWeight: 600, alignSelf: 'flex-end' }}>
-                Clear
-              </button>
-            )}
-            {hasActiveCourseFilter && (
-              <div style={{ alignSelf: 'flex-end', padding: '7px 12px', borderRadius: 8, background: 'rgba(26,58,107,0.08)', border: '1px solid rgba(26,58,107,0.2)' }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: '#1a3a6b' }}>{filteredCourses.length} module{filteredCourses.length !== 1 ? 's' : ''} found</span>
-              </div>
-            )}
-
-            {/* View toggle */}
-            <div style={{ alignSelf: 'flex-end', display: 'flex', gap: 2, padding: 3, borderRadius: 9, background: dark ? '#1a1f2e' : '#f1f5f9', border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}` }}>
-              {[
-                { key: 'cards', icon: '⊞', title: 'Card view' },
-                { key: 'table', icon: '☰', title: 'Table view' },
-              ].map(v => (
-                <button key={v.key} title={v.title} onClick={() => setCourseView(v.key)} style={{
-                  width: 28, height: 28, borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 14,
-                  background: courseView === v.key ? (dark ? '#2a3042' : '#fff') : 'transparent',
-                  color: courseView === v.key ? '#1a3a6b' : (dark ? '#7b839a' : '#9ca3af'),
-                  boxShadow: courseView === v.key ? '0 1px 4px rgba(0,0,0,0.12)' : 'none',
-                  transition: 'all 0.15s',
-                }}>{v.icon}</button>
-              ))}
-            </div>
-
-            <button onClick={openCreateCourse} style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 7, padding: '8px 20px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg,#1a3a6b,#1565c0)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 16px rgba(26,58,107,0.4)', alignSelf: 'flex-end' }}>
-              <Plus size={14} /> Add Module
-            </button>
-          </div>
-
-          {!hasActiveCourseFilter && (
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
-              {MODULE_CATEGORIES.map(cat => {
-                const cb = catBadge(cat);
-                return (
-                  <div key={cat} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 12px', borderRadius: 20, background: cb.bg, border: `1px solid ${cb.border}` }}>
-                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: cb.dot }} />
-                    <span style={{ fontSize: 11, fontWeight: 600, color: cb.text }}>{cat}</span>
-                    <span style={{ fontSize: 11, color: cb.text + '80' }}>({courses.filter(c => c.category === cat).length})</span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {loading ? (
-            <div style={{ textAlign: 'center', padding: 80 }}>
-              <div style={{ width: 44, height: 44, borderRadius: '50%', border: '3px solid #1a3a6b', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', margin: '0 auto 14px' }} />
-              <p style={{ color: dark ? '#7b839a' : '#9ca3af', fontSize: 13 }}>Loading modules…</p>
-            </div>
-          ) : filteredCourses.length === 0 ? (
-            <div style={{ ...card, textAlign: 'center', padding: 70 }}>
-              <div style={{ width: 70, height: 70, borderRadius: 20, background: 'linear-gradient(135deg,#1a3a6b,#1565c0)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
-                <BookOpen size={30} color="#fff" />
-              </div>
-              <p style={{ color: dark ? '#e8ecf4' : '#111827', fontWeight: 800, fontSize: 17, margin: '0 0 6px' }}>
-                {hasActiveCourseFilter ? 'No modules match your filters' : 'No Modules Yet'}
-              </p>
-              <p style={{ color: dark ? '#7b839a' : '#9ca3af', margin: '0 0 20px', fontSize: 13 }}>
-                {hasActiveCourseFilter ? 'Try adjusting the class, teacher or type filters above.' : 'Add TVET modules to assign teachers and track assessments.'}
-              </p>
-              {!hasActiveCourseFilter && (
-                <button onClick={openCreateCourse} style={{ padding: '9px 20px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#1a3a6b,#1565c0)', color: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
-                  <Plus size={13} style={{ marginRight: 6, verticalAlign: 'middle' }} />Add Your First Module
-                </button>
-              )}
-            </div>
-          ) : (
-            ALL_MODULE_CATEGORIES.map(cat => {
-              const catCourses = filteredCourses.filter(c => (c.category || 'Complementary modules') === cat);
-              if (catCourses.length === 0) return null;
-              const cb = catBadge(cat);
-              return (
-                <div key={cat} style={{ marginBottom: 24 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                    <div style={{ height: 2, width: 20, background: cb.dot, borderRadius: 2 }} />
-                    <h3 style={{ margin: 0, fontSize: 13, fontWeight: 800, color: cb.text, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{cat}</h3>
-                    <div style={{ height: 2, flex: 1, background: cb.dot + '20', borderRadius: 2 }} />
-                    <span style={{ fontSize: 11, color: cb.text, fontWeight: 700 }}>{catCourses.length} modules</span>
-                  </div>
-
-                  {courseView === 'cards' ? (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))', gap: 14 }}>
-                      {catCourses.map(c => {
-                        const classNames = getCourseClassNames(c);
-                        return (
-                          <div key={c._id} className="course-card" style={{ ...card, position: 'relative', overflow: 'hidden', boxShadow: dark ? '0 4px 24px rgba(0,0,0,0.3)' : '0 2px 12px rgba(0,0,0,0.06)', padding: 16 }}>
-                            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: cb.dot }} />
-                            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
-                              <div style={{ flex: 1 }}>
-                                {c.code && <div style={{ fontSize: 10, fontWeight: 800, color: cb.text, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 3 }}>{c.code}</div>}
-                                <p style={{ fontSize: 13, fontWeight: 700, color: dark ? '#e8ecf4' : '#111827', margin: 0, lineHeight: 1.4 }}>{c.name}</p>
-                              </div>
-                              <div style={{ display: 'flex', gap: 5, marginLeft: 8 }}>
-                                <button onClick={() => openEditCourse(c)} style={{ width: 28, height: 28, borderRadius: 7, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: dark ? '#1a1f2e' : '#f9fafb', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                  <Edit2 size={11} color={dark ? '#7b839a' : '#6b7280'} />
-                                </button>
-                                <button onClick={() => deleteCourse(c._id)} style={{ width: 28, height: 28, borderRadius: 7, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.07)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                  <Trash2 size={11} color="#ef4444" />
-                                </button>
-                              </div>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                              <div style={{ padding: '2px 8px', borderRadius: 6, background: cb.bg, border: `1px solid ${cb.border}` }}>
-                                <span style={{ fontSize: 9, fontWeight: 800, color: cb.text, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{cat.replace(' modules', '')}</span>
-                              </div>
-                              <div style={{ padding: '3px 9px', borderRadius: 6, background: cb.bg, border: `1px solid ${cb.border}` }}>
-                                <span style={{ fontSize: 10, fontWeight: 700, color: cb.text }}>Weight: {c.total_marks || 100} marks</span>
-                              </div>
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                              {classNames.length > 0 && (
-                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 5, fontSize: 11, color: dark ? '#7b839a' : '#6b7280' }}>
-                                  <School size={10} color={dark ? '#7b839a' : '#9ca3af'} style={{ marginTop: 2, flexShrink: 0 }} />
-                                  <div>
-                                    {classNames.length === 1
-                                      ? <span>Class: <strong style={{ color: dark ? '#e2e8f0' : '#374151' }}>{classNames[0]}</strong></span>
-                                      : (
-                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center' }}>
-                                          <span style={{ marginRight: 2 }}>Classes:</span>
-                                          {classNames.map((n, i) => (
-                                            <span key={i} style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 5, background: 'rgba(26,58,107,0.08)', border: '1px solid rgba(26,58,107,0.2)', color: '#1a3a6b' }}>{n}</span>
-                                          ))}
-                                        </div>
-                                      )}
-                                  </div>
-                                </div>
-                              )}
-                              {c.teacher_id && <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: dark ? '#7b839a' : '#6b7280' }}><UserCheck size={10} color={dark ? '#7b839a' : '#9ca3af'} />Teacher: <strong style={{ color: dark ? '#e2e8f0' : '#374151' }}>{c.teacher_id?.name || 'Assigned'}</strong></div>}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    /* ── Table view ── */
-                    <div style={{ borderRadius: 12, overflow: 'hidden', border: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}` }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead>
-                          <tr style={{ background: dark ? '#1a1f2e' : '#f9fafb', borderBottom: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}` }}>
-                            {['Code', 'Module Name', 'Weight', 'Classes', 'Teacher', 'Actions'].map(h => (
-                              <th key={h} style={{ padding: '9px 14px', fontSize: 10, fontWeight: 700, color: dark ? '#7b839a' : '#6b7280', textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {catCourses.map((c, i) => {
-                            const classNames = getCourseClassNames(c);
-                            return (
-                              <tr key={c._id} style={{ background: i % 2 === 0 ? 'transparent' : (dark ? '#ffffff04' : '#fafbfd'), borderBottom: `1px solid ${dark ? '#1e2130' : '#f1f5f9'}` }}>
-                                <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
-                                  {c.code
-                                    ? <span style={{ fontSize: 11, fontWeight: 800, fontFamily: 'monospace', color: cb.text, background: cb.bg, padding: '2px 7px', borderRadius: 5, border: `1px solid ${cb.border}` }}>{c.code}</span>
-                                    : <span style={{ color: dark ? '#4a5068' : '#d1d5db', fontSize: 12 }}>—</span>}
-                                </td>
-                                <td style={{ padding: '10px 14px' }}>
-                                  <span style={{ fontSize: 13, fontWeight: 600, color: dark ? '#e8ecf4' : '#111827' }}>{c.name}</span>
-                                </td>
-                                <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
-                                  <span style={{ fontSize: 12, fontWeight: 700, color: cb.text }}>{c.total_marks || 100}</span>
-                                  <span style={{ fontSize: 11, color: dark ? '#7b839a' : '#9ca3af', marginLeft: 3 }}>marks</span>
-                                </td>
-                                <td style={{ padding: '10px 14px' }}>
-                                  {classNames.length === 0
-                                    ? <span style={{ color: dark ? '#4a5068' : '#d1d5db', fontSize: 12 }}>—</span>
-                                    : (
-                                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                                        {classNames.map((n, idx) => (
-                                          <span key={idx} style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 6, background: 'rgba(26,58,107,0.08)', border: '1px solid rgba(26,58,107,0.2)', color: '#1a3a6b', whiteSpace: 'nowrap' }}>{n}</span>
-                                        ))}
-                                      </div>
-                                    )}
-                                </td>
-                                <td style={{ padding: '10px 14px', fontSize: 12, color: dark ? '#c4c9d4' : '#374151', whiteSpace: 'nowrap' }}>
-                                  {c.teacher_id?.name || <span style={{ color: dark ? '#4a5068' : '#d1d5db' }}>—</span>}
-                                </td>
-                                <td style={{ padding: '10px 14px' }}>
-                                  <div style={{ display: 'flex', gap: 6 }}>
-                                    <button onClick={() => openEditCourse(c)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 7, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#94a3b8' : '#6b7280', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
-                                      <Edit2 size={10} /> Edit
-                                    </button>
-                                    <button onClick={() => deleteCourse(c._id)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 7, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.07)', color: '#ef4444', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
-                                      <Trash2 size={10} /> Delete
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-              );
-            })
-          )}
-        </div>
-      )}
-
-      {/* ══════════ MARK SUBMISSIONS TAB ══════════ */}
-      {tab === 'submissions' && (
-        <div className="no-print" style={{ animation: 'fadeUp 0.3s ease' }}>
-          <div style={{ ...card, marginBottom: 16, padding: '14px 18px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 12, color: dark ? '#7b839a' : '#6b7280', fontWeight: 700 }}>Filters:</span>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <label style={{ fontSize: 10, fontWeight: 700, color: dark ? '#7b839a' : '#9ca3af', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Class</label>
-                <select
-                  value={submissionClassFilter}
-                  onChange={e => { setSubmissionClassFilter(e.target.value); setSubmissionCourseFilter(''); }}
-                  style={filterSelect(submissionClassFilter)}
-                >
-                  <option value="">All Classes</option>
-                  {classes.map(c => <option key={c._id || c.id} value={c._id || c.id}>{c.name}</option>)}
-                </select>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <label style={{ fontSize: 10, fontWeight: 700, color: dark ? '#7b839a' : '#9ca3af', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Teacher</label>
-                <select value={submissionTeacherFilter} onChange={e => setSubmissionTeacherFilter(e.target.value)} style={filterSelect(submissionTeacherFilter)}>
-                  <option value="">All Teachers</option>
-                  {teachers.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
-                </select>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <label style={{ fontSize: 10, fontWeight: 700, color: dark ? '#7b839a' : '#9ca3af', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                  Course {submissionClassFilter ? `(${coursesForSubmissionClass.length})` : ''}
-                </label>
-                <select value={submissionCourseFilter} onChange={e => setSubmissionCourseFilter(e.target.value)} style={filterSelect(submissionCourseFilter)}>
-                  <option value="">{submissionClassFilter ? 'All Class Courses' : 'All Courses'}</option>
-                  {coursesForSubmissionClass.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
-                </select>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <label style={{ fontSize: 10, fontWeight: 700, color: dark ? '#7b839a' : '#9ca3af', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Module Type</label>
-                <select value={submissionCategoryFilter} onChange={e => setSubmissionCategoryFilter(e.target.value)} style={filterSelect(submissionCategoryFilter)}>
-                  <option value="">All Types</option>
-                  {ALL_MODULE_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                </select>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <label style={{ fontSize: 10, fontWeight: 700, color: dark ? '#7b839a' : '#9ca3af', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Status</label>
-                <select value={submissionFilter} onChange={e => setSubmissionFilter(e.target.value)} style={filterSelect(submissionFilter)}>
-                  <option value="">All Statuses</option>
-                  <option value="submitted">Pending Review</option>
-                  <option value="approved">Approved</option>
-                  <option value="rejected">Rejected</option>
-                  <option value="draft">Draft</option>
-                </select>
-              </div>
-
-              {(submissionClassFilter || submissionTeacherFilter || submissionCourseFilter || submissionFilter || submissionCategoryFilter) && (
-                <button
-                  onClick={() => { setSubmissionClassFilter(''); setSubmissionTeacherFilter(''); setSubmissionCourseFilter(''); setSubmissionFilter(''); setSubmissionCategoryFilter(''); }}
-                  style={{ marginTop: 14, padding: '7px 12px', borderRadius: 8, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#7b839a' : '#6b7280', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}
-                >
-                  Clear
-                </button>
-              )}
-              <button onClick={fetchSubmissions} style={{ marginLeft: 'auto', marginTop: 14, display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 8, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#7b839a' : '#6b7280', fontSize: 12, cursor: 'pointer' }}>
-                <RefreshCw size={12} /> Refresh
-              </button>
-            </div>
-          </div>
-
-          {submissionsLoading ? (
-            <div style={{ textAlign: 'center', padding: 80 }}>
-              <div style={{ width: 40, height: 40, borderRadius: '50%', border: '3px solid #1a3a6b', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
-              <p style={{ color: dark ? '#7b839a' : '#9ca3af' }}>Loading submissions…</p>
-            </div>
-          ) : filteredSubmissions.length === 0 ? (
-            <div style={{ ...card, textAlign: 'center', padding: 60 }}>
-              <div style={{ width: 64, height: 64, borderRadius: 20, background: 'rgba(26,58,107,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                <ClipboardCheck size={28} color="#1a3a6b" />
-              </div>
-              <p style={{ color: dark ? '#e8ecf4' : '#111827', fontWeight: 700, fontSize: 15, margin: '0 0 6px' }}>No Submissions Found</p>
-              <p style={{ color: dark ? '#7b839a' : '#9ca3af', margin: 0, fontSize: 13 }}>
-                {submissionClassFilter ? 'No mark submissions found for this class.' : 'Marks submitted by teachers will appear here.'}
-              </p>
-            </div>
-          ) : (
-            <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr>
-                      {['Assessment', 'Class', 'Course', 'Category', 'Teacher', 'Type', 'Term', 'Marked', 'Status', 'Actions'].map(h => (
-                        <th key={h} style={{ padding: '10px 14px', background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#7b839a' : '#6b7280', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: 'left', borderBottom: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}` }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredSubmissions.map((a, i) => {
-                      const statusInfo = {
-                        draft:     { label: 'Draft',    color: '#9ca3af', icon: Clock },
-                        submitted: { label: 'Pending',  color: '#f59e0b', icon: Clock },
-                        approved:  { label: 'Approved', color: '#10b981', icon: CheckCircle },
-                        rejected:  { label: 'Rejected', color: '#ef4444', icon: XCircle },
-                      }[a.submission_status] || { label: a.submission_status, color: '#9ca3af', icon: Clock };
-                      const StatusIcon = statusInfo.icon;
-                      const courseCat  = a.course_id?.category || '';
-                      const cb         = catBadge(courseCat);
-                      return (
-                        <tr key={a._id} style={{ background: i % 2 === 0 ? 'transparent' : (dark ? '#ffffff04' : '#f9fafb40'), borderBottom: `1px solid ${dark ? '#1e2130' : '#f1f5f9'}` }}>
-                          <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 700, color: dark ? '#e8ecf4' : '#111827' }}>{a.title}</td>
-                          <td style={{ padding: '10px 14px', fontSize: 12, color: dark ? '#c4c9d4' : '#374151' }}>{a.class_id?.name || '—'}</td>
-                          <td style={{ padding: '10px 14px', fontSize: 12, color: dark ? '#c4c9d4' : '#374151' }}>{a.course_id?.name}</td>
-                          <td style={{ padding: '10px 14px' }}>
-                            {courseCat && (
-                              <span style={{ fontSize: 9, fontWeight: 800, padding: '2px 7px', borderRadius: 5, background: cb.bg, color: cb.text, border: `1px solid ${cb.border}`, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
-                                {courseCat.replace(' modules', '')}
-                              </span>
-                            )}
-                          </td>
-                          <td style={{ padding: '10px 14px', fontSize: 12, color: dark ? '#c4c9d4' : '#374151' }}>{a.teacher_id?.name || '—'}</td>
-                          <td style={{ padding: '10px 14px' }}><TypeBadge type={a.type} /></td>
-                          <td style={{ padding: '10px 14px', fontSize: 12, color: dark ? '#c4c9d4' : '#374151' }}>{a.term}</td>
-                          <td style={{ padding: '10px 14px', fontSize: 12, color: dark ? '#c4c9d4' : '#374151' }}>{a.marked_count}</td>
-                          <td style={{ padding: '10px 14px' }}>
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 7, background: statusInfo.color + '18', color: statusInfo.color, border: `1px solid ${statusInfo.color}40` }}>
-                              <StatusIcon size={11} /> {statusInfo.label}
-                            </span>
-                          </td>
-                          <td style={{ padding: '10px 14px' }}>
-                            <div style={{ display: 'flex', gap: 6 }}>
-                              <button onClick={() => viewSubmission(a._id)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 8, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#e2e8f0' : '#374151', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
-                                <Eye size={11} /> View
-                              </button>
-                              {(a.submission_status === 'submitted' || a.submission_status === 'approved') && (
-                                <>
-                                  {a.submission_status === 'submitted' && (
-                                    <button onClick={() => approveSubmission(a._id)} disabled={submissionActionLoading} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 8, border: 'none', background: 'linear-gradient(135deg,#10b981,#059669)', color: '#fff', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
-                                      <CheckCircle size={11} /> Approve
-                                    </button>
-                                  )}
-                                  <button onClick={() => openRejectModal(a._id)} disabled={submissionActionLoading} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.07)', color: '#ef4444', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
-                                    <XCircle size={11} /> Reject
-                                  </button>
-                                </>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* Submission Detail Modal */}
-          {(viewingSubmission || viewingSubmissionLoading) && (
-            <div onClick={e => { if (e.target === e.currentTarget) setViewingSubmission(null); }} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-              <div style={{ width: 720, maxWidth: '100%', maxHeight: '88vh', overflowY: 'auto', borderRadius: 18, background: dark ? '#13161f' : '#fff', border: `1px solid ${dark ? '#1e2535' : '#e5e7eb'}`, padding: 26, boxShadow: '0 32px 80px rgba(0,0,0,0.4)' }}>
-                {viewingSubmissionLoading ? (
-                  <div style={{ textAlign: 'center', padding: 60 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: '50%', border: '3px solid #1a3a6b', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
-                    <p style={{ color: dark ? '#7b839a' : '#9ca3af' }}>Loading…</p>
-                  </div>
-                ) : (
-                  <>
-                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>
-                      <div>
-                        <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: dark ? '#f1f5f9' : '#111827' }}>{viewingSubmission.assessment?.title}</h3>
-                        <p style={{ margin: '4px 0 0', fontSize: 12, color: dark ? '#7b839a' : '#9ca3af' }}>
-                          {viewingSubmission.assessment?.course_id?.name} · {viewingSubmission.assessment?.class_id?.name} · {viewingSubmission.assessment?.term} · {viewingSubmission.assessment?.academic_year} · Teacher: {viewingSubmission.assessment?.teacher_id?.name}
-                        </p>
-                      </div>
-                      <button onClick={() => setViewingSubmission(null)} style={{ border: 'none', background: dark ? '#1e2130' : '#f3f4f6', borderRadius: 8, width: 32, height: 32, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <X size={16} />
-                      </button>
-                    </div>
-                    <div style={{ overflowX: 'auto', marginTop: 16 }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead>
-                          <tr>
-                            {['#', 'Student', 'Marks', `/ ${viewingSubmission.assessment?.max_marks}`, '%', 'Grade'].map(h => (
-                              <th key={h} style={{ padding: '8px 12px', background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#7b839a' : '#6b7280', fontSize: 11, fontWeight: 700, textAlign: 'left' }}>{h}</th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(viewingSubmission.students || []).map((s, i) => (
-                            <tr key={s.student_id} style={{ background: i % 2 === 0 ? 'transparent' : (dark ? '#ffffff05' : '#f9fafb50') }}>
-                              <td style={{ padding: '8px 12px', fontSize: 12, color: dark ? '#7b839a' : '#9ca3af' }}>{i + 1}</td>
-                              <td style={{ padding: '8px 12px', fontSize: 13, fontWeight: 600, color: dark ? '#e2e8f0' : '#374151' }}>{s.name}</td>
-                              <td style={{ padding: '8px 12px', fontSize: 13, fontWeight: 700, color: pctColor(s.percentage) }}>{s.marks ?? '—'}</td>
-                              <td style={{ padding: '8px 12px', fontSize: 13, color: dark ? '#e2e8f0' : '#374151' }}>{s.max_marks}</td>
-                              <td style={{ padding: '8px 12px', fontSize: 13, fontWeight: 700, color: pctColor(s.percentage) }}>{s.percentage != null ? Math.min(s.percentage, 100) + '%' : '—'}</td>
-                              <td style={{ padding: '8px 12px' }}><GradeBadge grade={s.grade} /></td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                    {(viewingSubmission.submission?.status === 'submitted' || viewingSubmission.submission?.status === 'approved') && (
-                      <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-                        <button onClick={() => openRejectModal(viewingSubmission.assessment?.id || viewingSubmission.assessment?._id)} style={{ flex: 1, padding: '11px', borderRadius: 10, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.07)', color: '#ef4444', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                          <XCircle size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />Reject
-                        </button>
-                        {viewingSubmission.submission?.status === 'submitted' && (
-                          <button onClick={() => approveSubmission(viewingSubmission.assessment?.id || viewingSubmission.assessment?._id)} style={{ flex: 1, padding: '11px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#10b981,#059669)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                            <CheckCircle size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />Approve
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ══════════ REPORTS TAB ══════════ */}
-      {tab === 'reports' && (
-        <div style={{ animation: 'fadeUp 0.3s ease' }}>
-          <div className="no-print" style={{ ...card, marginBottom: 20 }}>
-            <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: dark ? '#94a3b8' : '#374151' }}>Select Report Type</p>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20 }}>
-              {[
-                { key: 'class',      label: 'Class Report',       icon: Users,         desc: 'Full TVET report per student in class' },
-                { key: 'student',    label: 'Single Student',     icon: GraduationCap, desc: 'Individual progress report' },
-                { key: 'assessment', label: 'Assessment Results', icon: FileText,      desc: 'Results for one assessment' },
-              ].map(({ key, label, icon: Icon, desc }) => (
-                <button key={key} onClick={() => { setReportType(key); setReportData(null); }} style={{
-                  display: 'flex', alignItems: 'center', gap: 10, padding: '12px 18px', borderRadius: 12, cursor: 'pointer',
-                  border: `2px solid ${reportType === key ? '#1a3a6b' : (dark ? '#2a3042' : '#e5e7eb')}`,
-                  background: reportType === key ? 'rgba(26,58,107,0.08)' : (dark ? '#1a1f2e' : '#f9fafb'),
-                  transition: 'all 0.15s', flex: 1, minWidth: 160,
-                }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 9, background: reportType === key ? 'linear-gradient(135deg,#1a3a6b,#1565c0)' : (dark ? '#2a3042' : '#e5e7eb'), display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Icon size={17} color={reportType === key ? '#fff' : (dark ? '#7b839a' : '#9ca3af')} />
-                  </div>
-                  <div style={{ textAlign: 'left' }}>
-                    <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: reportType === key ? '#1a3a6b' : (dark ? '#e8ecf4' : '#111827') }}>{label}</p>
-                    <p style={{ margin: 0, fontSize: 11, color: dark ? '#7b839a' : '#9ca3af' }}>{desc}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 12 }}>
-              {reportType === 'student' && (
-                <div>
-                  <label style={labelStyle}>Student</label>
-                  <select value={reportFilter.studentId} onChange={e => setReportFilter(f => ({ ...f, studentId: e.target.value }))} style={inputStyle}>
-                    <option value="">Select student…</option>
-                    {students.map(s => <option key={s._id || s.id} value={s._id || s.id}>{s.name}</option>)}
-                  </select>
-                </div>
-              )}
-              {reportType === 'assessment' && (
-                <div>
-                  <label style={labelStyle}>Assessment</label>
-                  <select value={reportFilter.assessmentId} onChange={e => setReportFilter(f => ({ ...f, assessmentId: e.target.value }))} style={inputStyle}>
-                    <option value="">Select assessment…</option>
-                    {assessments.map(a => <option key={a._id || a.id} value={a._id || a.id}>{a.title} — {a.course_id?.name}{a.class_id?.name ? ` (${a.class_id.name})` : ''}</option>)}
-                  </select>
-                </div>
-              )}
-              {reportType === 'class' && (
-                <>
-                  <div>
-                    <label style={labelStyle}>Class</label>
-                    <select value={reportFilter.classId} onChange={e => setReportFilter(f => ({ ...f, classId: e.target.value, studentIds: [] }))} style={inputStyle}>
-                      <option value="">Select class…</option>
-                      {classes.map(c => <option key={c._id || c.id} value={c._id || c.id}>{c.name}</option>)}
-                    </select>
-                  </div>
-                  {reportFilter.classId && (
-                    <div>
-                      <label style={labelStyle}>Filter Students (optional)</label>
-                      <select value="" onChange={e => {
-                        const v = e.target.value;
-                        if (v === '__all__') setReportFilter(f => ({ ...f, studentIds: [] }));
-                        else if (v && !reportFilter.studentIds.includes(v)) setReportFilter(f => ({ ...f, studentIds: [...f.studentIds, v] }));
-                      }} style={inputStyle}>
-                        <option value="">Add student…</option>
-                        <option value="__all__">— All Students —</option>
-                        {selectedClassStudents.filter(s => !reportFilter.studentIds.includes(s._id || s.id)).map(s => (
-                          <option key={s._id || s.id} value={s._id || s.id}>{s.name}</option>
-                        ))}
-                      </select>
-                      {reportFilter.studentIds.length > 0 && (
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 6 }}>
-                          {reportFilter.studentIds.map(id => {
-                            const st = students.find(s => (s._id || s.id) === id);
-                            return st ? (
-                              <span key={id} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 6, background: 'rgba(26,58,107,0.12)', border: '1px solid rgba(26,58,107,0.25)', fontSize: 11, color: '#1a3a6b', fontWeight: 600 }}>
-                                {st.name}
-                                <button onClick={() => setReportFilter(f => ({ ...f, studentIds: f.studentIds.filter(x => x !== id) }))} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0, color: '#1a3a6b' }}>×</button>
-                              </span>
-                            ) : null;
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </>
-              )}
-              {(reportType === 'student' || reportType === 'class') && (
-                <>
-                  <div>
-                    <label style={labelStyle}>Term</label>
-                    <select value={reportFilter.term} onChange={e => setReportFilter(f => ({ ...f, term: e.target.value }))} style={inputStyle}>
-                      <option value="">All Terms</option>
-                      {TERMS.map(t => <option key={t}>{t}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={labelStyle}>Academic Year</label>
-                    <select value={reportFilter.year} onChange={e => setReportFilter(f => ({ ...f, year: e.target.value }))} style={inputStyle}>
-                      <option value="">All Years</option>
-                      {YEARS.map(y => <option key={y}>{y}</option>)}
-                    </select>
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div style={{ marginTop: 16, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-              {reportLoading && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderRadius: 10, background: 'rgba(26,58,107,0.08)', border: '1px solid rgba(26,58,107,0.2)' }}>
-                  <div style={{ width: 14, height: 14, border: '2px solid rgba(26,58,107,0.4)', borderTopColor: '#1a3a6b', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-                  <span style={{ fontSize: 12, color: '#1a3a6b', fontWeight: 600 }}>Generating report…</span>
-                </div>
-              )}
-              {reportData && !reportLoading && (
-                <>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 10, background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)' }}>
-                    <CheckCircle size={13} color="#10b981" />
-                    <span style={{ fontSize: 12, color: '#10b981', fontWeight: 600 }}>Report ready</span>
-                  </div>
-                  <button onClick={() => window.print()} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 18px', borderRadius: 10, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#e2e8f0' : '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                    <Printer size={14} /> Print / Export PDF
-                  </button>
-                  <button onClick={() => setReportData(null)} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px', borderRadius: 10, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#7b839a' : '#9ca3af', fontSize: 13, cursor: 'pointer' }}>
-                    <RefreshCw size={13} /> Clear
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-
-          {reportData && (
-            <div className="print-area">
-              <ReportView data={reportData} dark={dark} students={students} classes={classes} config={reportConfig} />
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ══════════ CONFIG TAB ══════════ */}
-      {tab === 'config' && (
-        <div className="no-print" style={{ animation: 'fadeUp 0.3s ease' }}>
-          <div style={{ ...card, marginBottom: 20, background: 'linear-gradient(135deg,#1a3a6b10,#1565c008)', borderColor: '#1a3a6b25' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              <div style={{ width: 52, height: 52, borderRadius: 16, background: 'linear-gradient(135deg,#1a3a6b,#1565c0)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <Settings size={24} color="#fff" />
-              </div>
-              <div>
-                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: dark ? '#f1f5f9' : '#111827' }}>Report Configuration</h2>
-                <p style={{ margin: '4px 0 0', fontSize: 13, color: dark ? '#7b839a' : '#6b7280' }}>
-                  Customise school branding, contact details, and signatory for all reports.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: 20, alignItems: 'start' }}>
-            <ReportConfigPanel config={reportConfig} onChange={cfg => setReportConfig(cfg)} dark={dark} />
-            <div style={{ position: 'sticky', top: 20 }}>
-              <div style={{ ...card, marginBottom: 12 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
-                  <Eye size={14} color="#1a3a6b" />
-                  <span style={{ fontSize: 12, fontWeight: 700, color: '#1a3a6b', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Live Preview</span>
-                </div>
-                <ReportHeaderPreview config={reportConfig} />
-              </div>
-              <div style={{ padding: '12px 16px', borderRadius: 12, background: dark ? '#1a1f2e' : '#f0f9ff', border: `1px solid ${dark ? '#2a3042' : '#bae6fd'}` }}>
-                <p style={{ margin: 0, fontSize: 11, color: dark ? '#7b839a' : '#0369a1', lineHeight: 1.6 }}>
-                  💡 <strong>Tip:</strong> All changes are saved to your browser and applied instantly to new reports.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ══════════ COURSE MODAL ══════════ */}
-      {showCourseModal && (
-        <div onClick={e => { if (e.target === e.currentTarget) setShowCourseModal(false); }} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ width: 560, borderRadius: 22, background: dark ? '#13161f' : '#fff', border: `1px solid ${dark ? '#1e2535' : '#e5e7eb'}`, padding: 30, boxShadow: '0 32px 80px rgba(0,0,0,0.4)', maxHeight: '90vh', overflowY: 'auto' }}>
-            {/* Modal header */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 22 }}>
-              <div style={{ width: 42, height: 42, borderRadius: 12, background: 'linear-gradient(135deg,#1a3a6b,#1565c0)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <BookOpen size={18} color="#fff" />
-              </div>
-              <div style={{ flex: 1 }}>
-                <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: dark ? '#f1f5f9' : '#111827' }}>{editingCourse ? 'Edit Module' : 'Add New Module'}</h2>
-                <p style={{ margin: 0, fontSize: 12, color: dark ? '#7b839a' : '#9ca3af' }}>Fill in the module details below</p>
-              </div>
-              <button onClick={() => setShowCourseModal(false)} style={{ border: 'none', background: dark ? '#1e2130' : '#f3f4f6', borderRadius: 8, width: 32, height: 32, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <X size={16} />
-              </button>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-              {/* Module Type */}
-              <div>
-                <label style={{ ...labelStyle, marginBottom: 8 }}>Module Type *</label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-                  {MODULE_CATEGORIES.map(cat => {
-                    const cb = catBadge(cat);
-                    const selected = courseForm.category === cat;
+          {/* Grades Table */}
+          <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--card-border)' }}>
+            <div className="overflow-x-auto max-h-[45vh] overflow-y-auto">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0" style={{ background: 'var(--card-border)' }}>
+                  <tr>
+                    <th className="px-3 py-2.5 text-left font-semibold text-xs" style={{ color: 'var(--text-secondary)' }}>Student</th>
+                    <th className="px-3 py-2.5 text-left font-semibold text-xs" style={{ color: 'var(--text-secondary)' }}>Level / Trade</th>
+                    <th className="px-3 py-2.5 text-left font-semibold text-xs" style={{ color: 'var(--text-secondary)' }}>Submitted</th>
+                    <th className="px-3 py-2.5 text-center font-semibold text-xs" style={{ color: 'var(--text-secondary)' }}>Score</th>
+                    <th className="px-3 py-2.5 text-center font-semibold text-xs" style={{ color: 'var(--text-secondary)' }}>%</th>
+                    <th className="px-3 py-2.5 text-left font-semibold text-xs" style={{ color: 'var(--text-secondary)' }}>Feedback</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {displayGrades.map((g, idx) => {
+                    const pct = g.score !== null ? ((g.score / (assignment.max_score || 100)) * 100).toFixed(0) : null;
                     return (
-                      <button key={cat} type="button" onClick={() => setCourseForm(f => ({ ...f, category: cat }))} style={{ padding: '10px 8px', borderRadius: 10, cursor: 'pointer', textAlign: 'center', border: `2px solid ${selected ? cb.dot : (dark ? '#2a3042' : '#e5e7eb')}`, background: selected ? cb.bg : 'transparent', transition: 'all 0.15s' }}>
-                        <div style={{ width: 10, height: 10, borderRadius: '50%', background: cb.dot, margin: '0 auto 6px' }} />
-                        <span style={{ fontSize: 11, fontWeight: selected ? 800 : 500, color: selected ? cb.text : (dark ? '#7b839a' : '#6b7280'), display: 'block', lineHeight: 1.3 }}>
-                          {cat.replace(' modules', '')}
-                        </span>
-                        {selected && <span style={{ fontSize: 9, color: cb.text, fontWeight: 700 }}>✓ Selected</span>}
-                      </button>
+                      <tr key={g.student_id}
+                        style={{ background: idx % 2 === 0 ? 'transparent' : 'var(--card-border)', opacity: 0.85 }}>
+                        <td className="px-3 py-2.5">
+                          <p className="font-semibold text-xs" style={{ color: 'var(--text-primary)' }}>{g.student_name}</p>
+                          <p className="text-xs text-muted">{g.student_email}</p>
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <p className="text-xs text-muted">{g.level || '—'} {g.trade ? `/ ${g.trade}` : ''}</p>
+                        </td>
+                        <td className="px-3 py-2.5">
+                          {g.submitted_at
+                            ? <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                                {new Date(g.submitted_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            : <span className="text-xs text-muted italic">Not submitted</span>}
+                        </td>
+                        <td className="px-3 py-2.5 text-center">
+                          {g.score !== null
+                            ? <span className={`font-bold text-sm ${getScoreColor(g.score, assignment.max_score)}`}>
+                                {g.score}<span className="text-xs font-normal text-muted">/{assignment.max_score || 100}</span>
+                              </span>
+                            : <span className="text-xs text-muted">—</span>}
+                        </td>
+                        <td className="px-3 py-2.5 text-center">
+                          {pct !== null
+                            ? <span className={`text-xs font-medium ${getScoreColor(g.score, assignment.max_score)}`}>{pct}%</span>
+                            : <span className="text-xs text-muted">—</span>}
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <p className="text-xs italic text-muted line-clamp-2">{g.feedback || ''}</p>
+                        </td>
+                      </tr>
                     );
                   })}
-                </div>
-                <button type="button" onClick={() => setCourseForm(f => ({ ...f, category: 'Elective Non Examinable' }))} style={{ width: '100%', marginTop: 8, padding: '8px 12px', borderRadius: 9, cursor: 'pointer', textAlign: 'left', border: `1.5px solid ${courseForm.category === 'Elective Non Examinable' ? '#4a044e' : (dark ? '#2a3042' : '#e5e7eb')}`, background: courseForm.category === 'Elective Non Examinable' ? '#4a044e15' : 'transparent', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#4a044e', flexShrink: 0 }} />
-                  <span style={{ fontSize: 11, fontWeight: courseForm.category === 'Elective Non Examinable' ? 700 : 500, color: courseForm.category === 'Elective Non Examinable' ? '#4a044e' : (dark ? '#7b839a' : '#6b7280') }}>Elective Non Examinable</span>
-                  {courseForm.category === 'Elective Non Examinable' && <span style={{ fontSize: 9, color: '#4a044e', fontWeight: 700, marginLeft: 'auto' }}>✓ Selected</span>}
-                </button>
-              </div>
-
-              {/* Name + Code + Weight */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <div style={{ gridColumn: '1/-1' }}>
-                  <label style={labelStyle}>Module Name *</label>
-                  <input value={courseForm.name} onChange={e => setCourseForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. CREATE A BUSINESS" style={inputStyle} />
-                </div>
-                <div>
-                  <label style={labelStyle}>Module Code</label>
-                  <input value={courseForm.code} onChange={e => setCourseForm(f => ({ ...f, code: e.target.value }))} placeholder="e.g. CCMCB302" style={inputStyle} />
-                </div>
-                <div>
-                  <label style={labelStyle}>Module Weight (Max Marks) *</label>
-                  <input type="number" min={1} max={1000} value={courseForm.total_marks} onChange={e => setCourseForm(f => ({ ...f, total_marks: e.target.value }))} style={inputStyle} />
-                </div>
-              </div>
-
-              {/* Description */}
-              <div>
-                <label style={labelStyle}>Description</label>
-                <textarea value={courseForm.description} onChange={e => setCourseForm(f => ({ ...f, description: e.target.value }))} placeholder="Optional…" rows={2} style={{ ...inputStyle, resize: 'vertical' }} />
-              </div>
-
-              {/* ── Multi-class assignment ── */}
-              <div>
-                <label style={{ ...labelStyle, marginBottom: 6 }}>
-                  Assign to Classes
-                  {courseForm.class_ids.length > 0 && (
-                    <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: 'rgba(26,58,107,0.10)', color: '#1a3a6b', border: '1px solid rgba(26,58,107,0.25)' }}>
-                      {courseForm.class_ids.length} selected
-                    </span>
+                  {displayGrades.length === 0 && (
+                    <tr><td colSpan={6} className="px-3 py-8 text-center text-muted text-sm">No data found</td></tr>
                   )}
-                </label>
-
-                {/* Info tip */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 10px', borderRadius: 8, background: dark ? '#1a1f2e' : '#f0f9ff', border: `1px solid ${dark ? '#2a3042' : '#bae6fd'}`, marginBottom: 10 }}>
-                  <Users size={12} color="#0369a1" />
-                  <span style={{ fontSize: 11, color: dark ? '#7b839a' : '#0369a1' }}>
-                    This module will be available to all selected classes simultaneously.
-                  </span>
-                </div>
-
-                <MultiClassPicker
-                  classes={classes}
-                  selectedIds={courseForm.class_ids}
-                  onChange={ids => setCourseForm(f => ({ ...f, class_ids: ids }))}
-                  dark={dark}
-                />
-              </div>
-
-              {/* Teacher */}
-              <div>
-                <label style={labelStyle}>Assign to Teacher</label>
-                <select value={courseForm.teacher_id} onChange={e => setCourseForm(f => ({ ...f, teacher_id: e.target.value }))} style={inputStyle}>
-                  <option value="">No teacher assigned</option>
-                  {teachers.map(t => <option key={t._id || t.id} value={t._id || t.id}>{t.name} — {t.email}</option>)}
-                </select>
-              </div>
+                </tbody>
+              </table>
             </div>
+          </div>
 
-            {/* Summary badge when multiple classes selected */}
-            {courseForm.class_ids.length > 1 && (
-              <div style={{ marginTop: 14, padding: '10px 14px', borderRadius: 10, background: 'rgba(26,58,107,0.06)', border: '1px solid rgba(26,58,107,0.18)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <CheckCircle2 size={14} color="#1a3a6b" />
-                <span style={{ fontSize: 12, color: '#1a3a6b', fontWeight: 600 }}>
-                  This module will be assigned to {courseForm.class_ids.length} classes at once.
-                </span>
-              </div>
-            )}
+          <div className="flex justify-end pt-1">
+            <button onClick={onClose} className="btn-secondary text-sm">Close</button>
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
+}
 
-            {/* Actions */}
-            <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
-              <button onClick={() => setShowCourseModal(false)} style={{ flex: 1, padding: '11px', borderRadius: 10, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#94a3b8' : '#6b7280', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
-              <button onClick={saveCourse} style={{ flex: 2, padding: '11px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#1a3a6b,#1565c0)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 14px rgba(26,58,107,0.35)' }}>
-                {editingCourse ? 'Save Changes' : 'Create Module'}
-              </button>
+// ─── Submissions Modal ────────────────────────────────────────────────────────
+// Shows the FULL class roster (submitted + pending), with search, status
+// filter/sort, an Export to PDF action, and an inline grading flow.
+function SubmissionsModal({ assignment, onClose }) {
+  const [roster, setRoster] = useState([]);   // every student in the class, submitted or not
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState('all'); // 'all' | 'submitted' | 'pending'
+  const [grading, setGrading] = useState(null);
+  const [gradeForm, setGradeForm] = useState({ score: '', feedback: '' });
+  const [viewingSub, setViewingSub] = useState(null);
+
+  const fetchRoster = useCallback(() => {
+    setLoading(true);
+    // grades-report returns every enrolled student, with submission info merged in
+    api.get(`/assignments/${assignment.id}/grades-report`)
+      .then(r => setRoster(r.data.grades || []))
+      .catch(() => toast.error('Failed to load submissions'))
+      .finally(() => setLoading(false));
+  }, [assignment.id]);
+
+  useEffect(() => { fetchRoster(); }, [fetchRoster]);
+
+  const handleDownload = (row) => downloadFile({ ...row, type: 'submission', submission_id: row.submission_id });
+
+  const submitGrade = async () => {
+    try {
+      await api.put(`/assignments/${assignment.id}/submissions/${grading.submission_id}/grade`, gradeForm);
+      toast.success('Grade saved');
+      setRoster(prev => prev.map(r => r.submission_id === grading.submission_id
+        ? { ...r, score: parseInt(gradeForm.score), feedback: gradeForm.feedback, graded_at: new Date() }
+        : r));
+      setGrading(null);
+    } catch { toast.error('Failed to save grade'); }
+  };
+
+  // Search + status filter, with submitted-first sorting (then pending), name as tiebreaker
+  const filtered = roster
+    .filter(r => !search || r.student_name?.toLowerCase().includes(search.toLowerCase()) || r.student_email?.toLowerCase().includes(search.toLowerCase()))
+    .filter(r => filter === 'all' ? true : filter === 'submitted' ? !!r.submission_id : !r.submission_id)
+    .sort((a, b) => {
+      const aSub = a.submission_id ? 0 : 1; // submitted first
+      const bSub = b.submission_id ? 0 : 1;
+      if (aSub !== bSub) return aSub - bSub;
+      return (a.student_name || '').localeCompare(b.student_name || '');
+    });
+
+  const submittedCount = roster.filter(r => r.submission_id).length;
+  const pendingCount = roster.length - submittedCount;
+  const gradedCount = roster.filter(r => r.score !== null).length;
+
+  const exportPDF = () => {
+    const content = `
+      <html>
+      <head>
+        <title>${assignment.title} — Submissions</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 24px; color: #1a1a2e; }
+          h1 { font-size: 20px; margin-bottom: 4px; }
+          .meta { color: #666; font-size: 13px; margin-bottom: 20px; }
+          .stats { display: flex; gap: 24px; margin-bottom: 20px; }
+          .stat { background: #f5f5f5; padding: 12px 20px; border-radius: 8px; }
+          .stat-val { font-size: 22px; font-weight: bold; color: #6366f1; }
+          .stat-lbl { font-size: 12px; color: #666; }
+          table { width: 100%; border-collapse: collapse; font-size: 13px; }
+          th { background: #6366f1; color: white; padding: 8px 12px; text-align: left; }
+          td { padding: 8px 12px; border-bottom: 1px solid #eee; }
+          tr:nth-child(even) td { background: #f9f9f9; }
+          .status-submitted { color: #059669; font-weight: bold; }
+          .status-pending { color: #dc2626; font-weight: bold; }
+          @media print { body { padding: 0; } }
+        </style>
+      </head>
+      <body>
+        <h1>${assignment.title} — Submissions</h1>
+        <div class="meta">Class: ${assignment.class_name || ''} &nbsp;|&nbsp; Generated: ${new Date().toLocaleString()}</div>
+        <div class="stats">
+          <div class="stat"><div class="stat-val">${roster.length}</div><div class="stat-lbl">Total Students</div></div>
+          <div class="stat"><div class="stat-val">${submittedCount}</div><div class="stat-lbl">Submitted</div></div>
+          <div class="stat"><div class="stat-val">${pendingCount}</div><div class="stat-lbl">Pending</div></div>
+          <div class="stat"><div class="stat-val">${gradedCount}</div><div class="stat-lbl">Graded</div></div>
+        </div>
+        <table>
+          <thead><tr>
+            <th>#</th><th>Student</th><th>Email</th><th>Status</th><th>Submitted</th><th>Score</th>
+          </tr></thead>
+          <tbody>
+            ${filtered.map((r, i) => `<tr>
+              <td>${i + 1}</td>
+              <td>${r.student_name}</td>
+              <td>${r.student_email}</td>
+              <td class="${r.submission_id ? 'status-submitted' : 'status-pending'}">${r.submission_id ? 'Submitted' : 'Pending'}</td>
+              <td>${r.submitted_at ? new Date(r.submitted_at).toLocaleString() : '—'}</td>
+              <td>${r.score !== null ? `${r.score}/${assignment.max_score || 100}` : '—'}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </body></html>
+    `;
+    const w = window.open('', '_blank', 'width=900,height=700');
+    w.document.write(content);
+    w.document.close();
+    w.focus();
+    setTimeout(() => w.print(), 500);
+  };
+
+  const TABS = [
+    { key: 'all', label: 'All', count: roster.length },
+    { key: 'submitted', label: 'Submitted', count: submittedCount },
+    { key: 'pending', label: 'Pending', count: pendingCount },
+  ];
+
+  return (
+    <Modal isOpen={true} onClose={onClose} title={`Submissions — ${assignment.title}`} size="xl">
+      {loading ? (
+        <div className="flex justify-center py-8">
+          <div className="animate-spin w-6 h-6 border-4 border-primary-500 border-t-transparent rounded-full" />
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {/* Toolbar: tabs + search + export */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="flex gap-1 p-1 rounded-xl w-fit flex-shrink-0" style={{ background: 'var(--card-border)' }}>
+              {TABS.map(t => (
+                <button key={t.key} onClick={() => setFilter(t.key)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    filter === t.key ? 'bg-white dark:bg-neutral-800 shadow-sm text-primary-600' : 'text-muted hover:text-primary-600'
+                  }`}>
+                  {t.label} ({t.count})
+                </button>
+              ))}
             </div>
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted" />
+              <input value={search} onChange={e => setSearch(e.target.value)}
+                className="input-field pl-9 py-1.5 text-sm" placeholder="Search students…" />
+            </div>
+            <button onClick={exportPDF} className="btn-secondary text-xs py-2 px-3 flex items-center gap-1.5 flex-shrink-0">
+              <Printer className="w-3.5 h-3.5" /> Export to PDF
+            </button>
+          </div>
+
+          {filtered.length === 0 ? (
+            <div className="text-center py-10">
+              <ClipboardList className="w-12 h-12 mx-auto mb-2 text-muted opacity-30" />
+              <p className="text-muted">No students match this view</p>
+            </div>
+          ) : (
+            <div className="space-y-3 max-h-[55vh] overflow-y-auto pr-1">
+              {filtered.map(row => {
+                const isSubmitted = !!row.submission_id;
+                return (
+                  <div key={row.student_id} className="p-4 rounded-xl" style={{ background: 'var(--card-border)' }}>
+                    <div className="flex items-start gap-3">
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                        isSubmitted ? 'bg-primary-100 dark:bg-primary-900/40' : 'bg-amber-100 dark:bg-amber-900/30'
+                      }`}>
+                        <span className={`font-bold text-sm ${isSubmitted ? 'text-primary-700 dark:text-primary-300' : 'text-amber-700 dark:text-amber-300'}`}>
+                          {row.student_name?.[0]?.toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{row.student_name}</p>
+                          <span className={`badge text-xs ${isSubmitted ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'}`}>
+                            {isSubmitted ? 'Submitted' : 'Pending'}
+                          </span>
+                          {row.score !== null && (
+                            <span className={`badge text-xs ml-auto ${row.score >= 70 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : row.score >= 50 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
+                              {row.score}/{assignment.max_score || 100}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted mt-0.5">{row.student_email}</p>
+                        {isSubmitted
+                          ? <p className="text-xs text-muted mt-0.5">Submitted {new Date(row.submitted_at).toLocaleString()}</p>
+                          : <p className="text-xs text-muted mt-0.5 italic">No submission yet</p>}
+                        {row.notes && <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>{row.notes}</p>}
+                        {row.feedback && <p className="text-xs italic mt-1" style={{ color: 'var(--text-secondary)' }}>"{row.feedback}"</p>}
+                      </div>
+                    </div>
+                    {isSubmitted && (
+                      <div className="flex gap-2 mt-3">
+                        {row.filename && (
+                          <>
+                            <button
+                              onClick={() => setViewingSub(row)}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium flex-1 justify-center transition-colors"
+                              style={{ background: 'var(--card-border)', color: 'var(--text-primary)', border: '1px solid var(--input-border)' }}
+                              title="View this student's submission"
+                            >
+                              <Eye className="w-3.5 h-3.5" /> View
+                            </button>
+                            <button
+                              onClick={() => handleDownload(row)}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium flex-1 justify-center transition-colors"
+                              style={{ background: '#6366f1', color: '#fff', border: 'none' }}
+                              title="Download submission"
+                            >
+                              <Download className="w-3.5 h-3.5" /> Download
+                            </button>
+                          </>
+                        )}
+                        <button onClick={() => { setGrading(row); setGradeForm({ score: row.score ?? '', feedback: row.feedback || '' }); }}
+                          className="btn-primary py-1.5 text-xs flex-1 justify-center">
+                          <Award className="w-3.5 h-3.5" />
+                          {row.score !== null ? 'Re-grade' : 'Grade'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Grade modal */}
+      {grading && (
+        <div className="mt-4 p-4 rounded-xl border" style={{ background: 'var(--card-bg)', borderColor: 'var(--input-border)' }}>
+          <div className="flex items-center justify-between mb-3">
+            <p className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>Grade: {grading.student_name}</p>
+            <button onClick={() => setGrading(null)} className="text-muted hover:text-red-500">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-3 mb-3">
+            <div>
+              <label className="label">Score (/{assignment.max_score || 100})</label>
+              <input type="number" min="0" max={assignment.max_score || 100} value={gradeForm.score}
+                onChange={e => setGradeForm(f => ({ ...f, score: e.target.value }))} className="input-field" />
+            </div>
+            <div>
+              <label className="label">Feedback</label>
+              <input value={gradeForm.feedback} onChange={e => setGradeForm(f => ({ ...f, feedback: e.target.value }))}
+                className="input-field" placeholder="Optional feedback" />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={submitGrade} className="btn-primary text-sm flex-1 justify-center">
+              <Star className="w-3.5 h-3.5" /> Save Grade
+            </button>
           </div>
         </div>
       )}
 
-      <ConfirmModal
-        open={confirmModal.open}
-        onClose={closeConfirm}
-        onConfirm={confirmModal.onConfirm}
-        loading={confirmModal.loading}
-        variant={confirmModal.variant}
-        title={confirmModal.title}
-        message={confirmModal.message}
-        confirmText={confirmModal.confirmText}
-        cancelText={confirmModal.cancelText || 'Cancel'}
-      >
-        {confirmModal.variant === 'reject' && (
-          <div>
-            <label style={{ fontSize: 11, fontWeight: 600, color: dark ? '#7b839a' : '#6b7280', marginBottom: 5, display: 'block', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Rejection Note (optional)</label>
-            <textarea value={rejectNote} onChange={e => setRejectNote(e.target.value)} rows={3} placeholder="Explain what needs to be corrected…" style={{ width: '100%', padding: '9px 12px', borderRadius: 10, boxSizing: 'border-box', border: `1px solid ${dark ? '#2a3042' : '#d1d5db'}`, background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#e2e8f0' : '#111827', fontSize: 13, outline: 'none', resize: 'vertical' }} />
-          </div>
-        )}
-      </ConfirmModal>
-    </div>
-  );
-}
-
-/* ══════════════════════════════════════════════════════════
-   REPORT HEADER PREVIEW
-══════════════════════════════════════════════════════════ */
-function ReportHeaderPreview({ config }) {
-  const pc = config.primaryColor || '#1a3a6b';
-  return (
-    <div style={{ fontFamily: 'Arial, sans-serif', fontSize: 8, color: '#1a1a2e', border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
-      <div style={{ padding: '6px 10px', background: '#f8f9fa', borderBottom: '1px solid #dee2e6', display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 6, alignItems: 'start' }}>
-        <div style={{ fontSize: 7, lineHeight: 1.7, color: '#374151' }}>
-          <div style={{ fontWeight: 800 }}>{config.republic || 'REPUBLIC OF RWANDA'}</div>
-          <div>{config.ministry || 'MINISTRY OF EDUCATION'}</div>
-          <div>{config.district || 'DISTRICT ...'}</div>
-          <div style={{ fontWeight: 700 }}>{config.schoolName || 'School Name'}</div>
-          <div style={{ color: '#6b7280' }}>{config.schoolEmail}</div>
-          <div style={{ color: '#6b7280' }}>{config.schoolPhone}</div>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-          <div style={{ width: 32, height: 32, borderRadius: '50%', background: pc + '15', border: '1px solid ' + pc + '30', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {config.schoolLogoUrl
-              ? <img src={config.schoolLogoUrl} style={{ width: 28, height: 28, objectFit: 'contain', borderRadius: '50%' }} alt="" onError={e => e.target.style.display = 'none'} />
-              : <School size={14} color={pc} />}
-          </div>
-        </div>
-        <div style={{ fontSize: 7, lineHeight: 1.7, color: '#374151', textAlign: 'right' }}>
-          <div>ACADEMIC YEAR: {config.academicYear}</div>
-          <div>CLASS: Level 3 FBO A</div>
-          <div>LEARNER NAME: Student Name</div>
-          <div>LEARNER CODE: 1176221265</div>
-        </div>
-      </div>
-      <div style={{ padding: '5px 10px', background: '#fff', borderBottom: '1px solid #dee2e6', textAlign: 'center' }}>
-        <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.06em', color: '#1a1a2e' }}>LEARNER'S ASSESSMENT REPORT</div>
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 80px 1fr', fontSize: 7, borderBottom: '1px solid #dee2e6' }}>
-        <div style={{ padding: '3px 6px', background: '#f1f5f9', fontWeight: 700, borderRight: '1px solid #dee2e6' }}>Sector</div>
-        <div style={{ padding: '3px 6px', borderRight: '1px solid #dee2e6' }}>—</div>
-        <div style={{ padding: '3px 6px', background: '#f1f5f9', fontWeight: 700, borderRight: '1px solid #dee2e6' }}>Qualification</div>
-        <div style={{ padding: '3px 6px' }}>—</div>
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 80px 1fr', fontSize: 7 }}>
-        <div style={{ padding: '3px 6px', background: '#f1f5f9', fontWeight: 700, borderRight: '1px solid #dee2e6' }}>Trade</div>
-        <div style={{ padding: '3px 6px', borderRight: '1px solid #dee2e6' }}>—</div>
-        <div style={{ padding: '3px 6px', background: '#f1f5f9', fontWeight: 700, borderRight: '1px solid #dee2e6' }}>RTQF Level</div>
-        <div style={{ padding: '3px 6px' }}>—</div>
-      </div>
-    </div>
-  );
-}
-
-/* ══════════════════════════════════════════════════════════
-   REPORT VIEW ROUTER
-══════════════════════════════════════════════════════════ */
-function ReportView({ data, dark, students, classes, config }) {
-  const printStyle = `
-    @media print {
-      @page { margin: 8mm 6mm; size: A4 portrait; }
-      html, body { font-size: 7.5px !important; background: #fff !important; }
-      .edupla-sidebar, .mobile-overlay, .edupla-topbar, header { display: none !important; }
-      .edupla-layout { display: block !important; }
-      .edupla-main { width: 100% !important; margin: 0 !important; padding: 0 !important; overflow: visible !important; }
-      .report-student-page { page-break-after: always; box-shadow: none !important; border: none !important; padding: 3mm !important; }
-      .report-student-page:last-child { page-break-after: avoid; }
-      .print-area { padding: 0 !important; }
-    }
-  `;
-
-  if (data.type === 'class') {
-    const { class: cls, assessments, students: reportStudents } = data;
-    if (!reportStudents || reportStudents.length === 0)
-      return <div style={{ textAlign: 'center', padding: 40, color: dark ? '#7b839a' : '#9ca3af' }}>No student data for selected filters.</div>;
-    return (
-      <div>
-        <style>{printStyle}</style>
-        {reportStudents.map((student, idx) => (
-          <TVETStudentReport
-            key={student.student_id}
-            student={student}
-            cls={cls}
-            allAssessments={assessments}
-            allStudents={reportStudents}
-            config={config}
-            isLast={idx === reportStudents.length - 1}
-          />
-        ))}
-      </div>
-    );
-  }
-
-  if (data.type === 'student') {
-    const { student, report, rank, total_students, term_ranks } = data;
-    const scored   = (report || []).filter(r => r.marks_obtained != null);
-    const totalObt = scored.reduce((s, r) => s + r.marks_obtained, 0);
-    const totalMax = scored.reduce((s, r) => s + r.max_marks, 0);
-    const pct      = calcPct(totalObt, totalMax);
-    const fakeStudent = {
-      student_id: student._id || student.id, name: student.name, email: student.email,
-      level: student.level, trade: student.trade, class_name: student.class_year,
-      marks: report.map(r => ({
-        assessment_id: r.assessment_id, type: r.type, term: r.term,
-        marks: r.marks_obtained, max_marks: r.max_marks,
-        course: r.course, course_id: r.course_id, course_code: r.course_code,
-        course_total_marks: r.course_total_marks, course_category: r.course_category,
-      })),
-      total_obtained: totalObt, total_max: totalMax, percentage: pct,
-      grade: totalMax > 0 ? getGrade(totalObt, totalMax) : 'N/A',
-      rank, rank_total: total_students, term_ranks: term_ranks || {},
-    };
-    const fakeAssessments = report.map(r => ({
-      _id: r.assessment_id, title: r.title, type: r.type, term: r.term, max_marks: r.max_marks,
-      course_id: { _id: r.course_id, name: r.course, code: r.course_code, total_marks: r.course_total_marks, category: r.course_category },
-    }));
-    return (
-      <div>
-        <style>{printStyle}</style>
-        <TVETStudentReport
-          student={fakeStudent}
-          cls={{ name: student.class_year || 'N/A', teacher: null, program: data.program }}
-          allAssessments={fakeAssessments}
-          allStudents={[fakeStudent]}
-          config={config}
-          isLast
+      {viewingSub && (
+        <FileViewer
+          file={{ ...viewingSub, type: 'submission', submission_id: viewingSub.submission_id, original_name: viewingSub.original_name }}
+          onClose={() => setViewingSub(null)}
         />
-      </div>
-    );
-  }
-
-  if (data.type === 'assessment') {
-    const { assessment, students: sData } = data;
-    const avg = sData.length
-      ? Math.round(sData.filter(s => s.percentage != null).reduce((s, x) => s + (x.percentage || 0), 0) / (sData.filter(s => s.percentage != null).length || 1))
-      : null;
-    const th = { padding: '10px 14px', background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#7b839a' : '#6b7280', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: 'left' };
-    const td = { padding: '10px 14px', borderBottom: `1px solid ${dark ? '#1e2130' : '#f1f5f9'}`, color: dark ? '#e2e8f0' : '#374151', fontSize: 13 };
-    return (
-      <div style={{ background: dark ? '#13161f' : '#fff', border: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}`, borderRadius: 16, padding: 24 }}>
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: dark ? '#f1f5f9' : '#111827' }}>{assessment?.title}</h2>
-            <TypeBadge type={assessment?.type} />
-            {assessment?.course_id?.category && (() => {
-              const cb = catBadge(assessment.course_id.category);
-              return <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 7, background: cb.bg, color: cb.text, border: `1px solid ${cb.border}` }}>{assessment.course_id.category.replace(' modules', '')}</span>;
-            })()}
-          </div>
-          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-            {[['Course', assessment?.course_id?.name], ['Term', assessment?.term], ['Year', assessment?.academic_year], ['Teacher', assessment?.teacher_id?.name]].map(([k, v]) => v && (
-              <span key={k} style={{ fontSize: 12, color: dark ? '#7b839a' : '#9ca3af' }}>{k}: <strong style={{ color: dark ? '#e2e8f0' : '#374151' }}>{v}</strong></span>
-            ))}
-            {avg != null && <span style={{ fontSize: 13, fontWeight: 700, color: pctColor(Math.min(avg, 100)) }}>Class Avg: {Math.min(avg, 100)}%</span>}
-          </div>
-        </div>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr>{['#', 'Student', 'Marks', 'Max', '%', 'Grade', 'Rank', 'Decision'].map(h => <th key={h} style={th}>{h}</th>)}</tr>
-            </thead>
-            <tbody>
-              {(sData || []).sort((a, b) => (b.percentage ?? -1) - (a.percentage ?? -1)).map((s, i) => {
-                const displayPct = s.percentage != null ? Math.min(s.percentage, 100) : null;
-                const dec = getRwandanDecision(displayPct);
-                return (
-                  <tr key={i} style={{ background: i % 2 === 0 ? 'transparent' : (dark ? '#ffffff05' : '#f9fafb50') }}>
-                    <td style={{ ...td, color: dark ? '#7b839a' : '#9ca3af' }}>{i + 1}</td>
-                    <td style={{ ...td, fontWeight: 600 }}>{s.student_name}</td>
-                    <td style={{ ...td, fontWeight: 700, color: pctColor(displayPct) }}>{s.marks_obtained ?? '—'}</td>
-                    <td style={td}>{s.max_marks}</td>
-                    <td style={{ ...td, fontWeight: 700, color: pctColor(displayPct) }}>{displayPct != null ? displayPct + '%' : '—'}</td>
-                    <td style={td}><GradeBadge grade={s.grade} /></td>
-                    <td style={td}>{s.rank ? <span style={{ fontWeight: 700 }}>#{s.rank}</span> : '—'}</td>
-                    <td style={td}><span style={{ fontWeight: 700, color: dec === 'C' ? '#059669' : dec === 'P' ? '#b45309' : '#dc2626' }}>{dec}</span></td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    );
-  }
-  return null;
+      )}
+    </Modal>
+  );
 }
 
-/* ══════════════════════════════════════════════════════════
-   TVET STUDENT REPORT  (unchanged from original)
-══════════════════════════════════════════════════════════ */
-function TVETStudentReport({ student, cls, allAssessments, allStudents, config, isLast }) {
-  const pc = config?.primaryColor || '#1a3a6b';
-  const reportDate = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
+// ─── Create/Edit Assignment Modal (module-aware) ──────────────────────────────
+function AssignmentFormModal({ isOpen, onClose, editing, presetClass, presetModule, onSuccess }) {
+  const [form, setForm] = useState({ title: '', description: '', deadline: '', classId: '', courseId: '', max_score: 100, start_date: '', end_date: '', is_active: true });
+  const [file, setFile] = useState(null);
+  const [saving, setSaving] = useState(false);
 
-  const courseMap = new Map();
-  allAssessments.forEach(a => {
-    const cid = String(a.course_id?._id || a.course_id || a._id);
-    if (!courseMap.has(cid)) {
-      courseMap.set(cid, {
-        _id: cid,
-        code: a.course_id?.code || '—',
-        name: a.course_id?.name || a.title || '—',
-        weight: a.course_id?.total_marks || 100,
-        category: a.course_id?.category || 'Complementary modules',
-        termData:    { 'Term 1': { FA: null, IA: null, CA: null }, 'Term 2': { FA: null, IA: null, CA: null }, 'Term 3': { FA: null, IA: null, CA: null } },
-        termMaxData: { 'Term 1': { FA: null, IA: null, CA: null }, 'Term 2': { FA: null, IA: null, CA: null }, 'Term 3': { FA: null, IA: null, CA: null } },
+  useEffect(() => {
+    if (!isOpen) return;
+    if (editing) {
+      const deadline = editing.deadline ? new Date(editing.deadline).toISOString().slice(0, 16) : '';
+      const start_date = editing.start_date ? new Date(editing.start_date).toISOString().slice(0, 16) : '';
+      const end_date = editing.end_date ? new Date(editing.end_date).toISOString().slice(0, 16) : '';
+      setForm({
+        title: editing.title, description: editing.description || '', deadline,
+        classId: String(editing.class_id), courseId: editing.course_id ? String(editing.course_id) : '',
+        max_score: editing.max_score || 100, start_date, end_date, is_active: editing.is_active || false,
+      });
+    } else {
+      setForm({
+        title: '', description: '', deadline: '',
+        classId: presetClass?._id || '', courseId: presetModule?._id || '',
+        max_score: 100, start_date: '', end_date: '', is_active: true,
       });
     }
-    const row     = courseMap.get(cid);
-    const term    = a.term || 'Term 1';
-    const slotKey = a.type === 'FA' ? 'FA' : a.type === 'IA' ? 'IA' : 'CA';
-    if (row.termData[term]) {
-      const markEntry = (student.marks || []).find(m => String(m.assessment_id) === String(a._id || a.assessment_id));
-      if (row.termData[term][slotKey] == null) {
-        row.termData[term][slotKey]    = markEntry?.marks ?? null;
-        row.termMaxData[term][slotKey] = a.max_marks || 100;
-      }
-    }
-  });
+    setFile(null);
+  }, [isOpen, editing, presetClass, presetModule]);
 
-  const moduleRows = Array.from(courseMap.values()).map(row => {
-    const terms = TERMS.map(term => {
-      const d  = row.termData[term];
-      const mx = row.termMaxData[term];
-      const hasAnyData = d.FA != null || d.IA != null || d.CA != null;
-      let avg = null;
-      if (hasAnyData) {
-        if (d.FA == null && d.CA == null && d.IA != null) {
-          avg = Math.min(Math.round((d.IA / (mx.IA || 100)) * 100), 100);
-        } else {
-          const faPct = d.FA != null ? (d.FA / (mx.FA || 100)) * 100 : 0;
-          const caPct = d.CA != null ? (d.CA / (mx.CA || 100)) * 100 : 0;
-          avg = Math.min(Math.round((faPct + caPct) / 2), 100);
-        }
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const fd = new FormData();
+      Object.entries(form).forEach(([k, v]) => fd.append(k, v));
+      if (file) fd.append('file', file);
+      if (editing) {
+        await api.put(`/assignments/${editing.id}`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+        toast.success('Assignment updated');
+      } else {
+        await api.post('/assignments', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+        toast.success('Assignment created');
       }
-      const scores   = [d.FA, d.IA, d.CA].filter(v => v != null);
-      const maxes    = [mx.FA, mx.IA, mx.CA].filter((_, i) => [d.FA, d.IA, d.CA][i] != null);
-      const obtained = scores.reduce((s, v) => s + v, 0);
-      const maxTotal = maxes.reduce((s, v) => s + v, 0);
-      return { ...d, maxData: mx, obtained: scores.length > 0 ? obtained : null, maxTotal: maxTotal || null, avg };
+      onClose();
+      onSuccess();
+    } catch (err) { toast.error(err.response?.data?.message || 'Failed to save'); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title={editing ? 'Edit Assignment' : 'New Assignment'}>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Module context pill — shows which class/module this assignment is for */}
+        {(presetClass || presetModule) && !editing && (
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold"
+            style={{ background: 'var(--surface-50, var(--card-bg))', border: '1px solid var(--card-border)' }}>
+            <BookOpen className="w-3.5 h-3.5 text-primary-500" />
+            <span className="text-muted">{presetClass?.name}</span>
+            {presetModule && (
+              <>
+                <ChevronRight className="w-3 h-3 text-muted" />
+                <span style={{ color: 'var(--text-primary)' }}>
+                  {presetModule.code && `[${presetModule.code}] `}{presetModule.name}
+                </span>
+              </>
+            )}
+          </div>
+        )}
+        <div>
+          <label className="label">Title *</label>
+          <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+            className="input-field" placeholder="Assignment title" required autoFocus />
+        </div>
+        <div>
+          <label className="label">Description</label>
+          <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+            className="input-field resize-none" rows={3} placeholder="Assignment instructions…" />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="label">Max Score</label>
+            <input type="number" value={form.max_score} onChange={e => setForm(f => ({ ...f, max_score: e.target.value }))}
+              className="input-field" min="1" max="1000" />
+          </div>
+          <div>
+            <label className="label">Deadline *</label>
+            <input type="datetime-local" value={form.deadline} onChange={e => setForm(f => ({ ...f, deadline: e.target.value }))}
+              className="input-field" required />
+          </div>
+        </div>
+        <div style={{ background: 'var(--surface-50)', borderRadius: 10, padding: '12px 14px', border: '1px solid var(--card-border)' }}>
+          <p className="text-xs font-semibold mb-2" style={{ color: 'var(--text-secondary)' }}>Visibility Window (optional)</p>
+          <p className="text-xs mb-3" style={{ color: 'var(--text-secondary)' }}>
+            Students can only view and submit this assignment between these dates. Leave blank for no restriction.
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label">Start Date &amp; Time</label>
+              <input type="datetime-local" value={form.start_date} onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))}
+                className="input-field" />
+            </div>
+            <div>
+              <label className="label">End Date &amp; Time</label>
+              <input type="datetime-local" value={form.end_date} onChange={e => setForm(f => ({ ...f, end_date: e.target.value }))}
+                className="input-field" />
+            </div>
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: form.is_active ? 'rgba(16,185,129,0.06)' : 'var(--surface-50)', borderRadius: 10, border: `1px solid ${form.is_active ? 'rgba(16,185,129,0.25)' : 'var(--card-border)'}` }}>
+          <div>
+            <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+              {form.is_active ? '✓ Assignment is Active' : 'Assignment is Inactive'}
+            </p>
+            <p className="text-xs" style={{ color: 'var(--text-secondary)', marginTop: 2 }}>
+              {form.is_active ? 'Students can view and submit this assignment' : 'Students cannot see or submit this assignment'}
+            </p>
+          </div>
+          <button type="button"
+            onClick={() => setForm(f => ({ ...f, is_active: !f.is_active }))}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
+            {form.is_active
+              ? <ToggleRight size={28} style={{ color: '#10b981' }} />
+              : <ToggleLeft size={28} style={{ color: '#9ca3af' }} />}
+          </button>
+        </div>
+        <div>
+          <label className="label">Attachment (optional)</label>
+          <div className="flex items-center gap-2">
+            <input type="file" id="assignment-file" className="hidden" onChange={e => setFile(e.target.files[0])} />
+            <label htmlFor="assignment-file" className="btn-secondary text-xs cursor-pointer">
+              <CloudUpload className="w-3.5 h-3.5" />
+              {file ? file.name : editing?.original_name || 'Choose file'}
+            </label>
+            {file && (
+              <button type="button" onClick={() => setFile(null)} className="text-muted hover:text-red-500">
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="flex justify-end gap-3 pt-2">
+          <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
+          <button type="submit" disabled={saving} className="btn-primary">
+            {saving && <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />}
+            {editing ? 'Update' : 'Create'}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+// ─── Main Assignments Page ────────────────────────────────────────────────────
+export default function Assignments() {
+  const [view, setView] = useState('classes');               // 'classes' | 'modules' | 'list'
+  const [selectedClass, setSelectedClass] = useState(null);   // { _id, name, modules[] }
+  const [selectedModule, setSelectedModule] = useState(null); // course object
+
+  const [assignments, setAssignments] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [loadingInit, setLoadingInit] = useState(true);
+
+  const [courses, setCourses] = useState([]); // teacher's modules from /assessment/teacher/courses
+
+  const [modal, setModal] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [toggleTarget, setToggleTarget] = useState(null);
+  const [toggling, setToggling] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [viewingSubs, setViewingSubs] = useState(null);
+  const [viewingGrades, setViewingGrades] = useState(null);
+  const [viewingFile, setViewingFile] = useState(null);
+
+  // Load teacher's assigned modules (each carries its class_id)
+  useEffect(() => {
+    api.get('/assessment/teacher/courses')
+      .then(r => setCourses(r.data.courses || []))
+      .catch(() => toast.error('Failed to load modules'))
+      .finally(() => setLoadingInit(false));
+  }, []);
+
+  // Derive unique classes with their modules from courses.
+  // Supports both new class_ids[] array and legacy class_id field.
+  const teacherClasses = (() => {
+    const map = new Map();
+    courses.forEach(c => {
+      const classEntries = [];
+      if (Array.isArray(c.class_ids) && c.class_ids.length > 0) {
+        c.class_ids.forEach(cls => { if (cls) classEntries.push(cls); });
+      }
+      if (c.class_id) {
+        const legacyId = String(c.class_id._id || c.class_id);
+        const alreadyCovered = classEntries.some(e => String(e._id || e) === legacyId);
+        if (!alreadyCovered) classEntries.push(c.class_id);
+      }
+      classEntries.forEach(cls => {
+        const id = String(cls._id || cls);
+        if (!map.has(id)) map.set(id, { _id: id, name: cls.name || 'Class', modules: [] });
+        map.get(id).modules.push(c);
+      });
     });
-    const termAvgs      = terms.map(t => t.avg).filter(v => v != null);
-    const annualAvg     = termAvgs.length > 0 ? Math.min(Math.round(termAvgs.reduce((s, v) => s + v, 0) / termAvgs.length), 100) : null;
-    const totalObtained = terms.reduce((s, t) => s + (t.obtained || 0), 0);
-    const totalMax      = terms.reduce((s, t) => s + (t.maxTotal || 0), 0);
-    return { ...row, terms, annualAvg, annualMarks: totalMax > 0 ? totalObtained : null, annualMax: totalMax, decision: getRwandanDecision(annualAvg) };
-  });
+    return Array.from(map.values());
+  })();
 
-  const grouped = {};
-  ALL_MODULE_CATEGORIES.forEach(cat => { grouped[cat] = moduleRows.filter(r => r.category === cat); });
+  // Fetch assignments scoped to the selected module
+  const fetchAssignments = useCallback(async () => {
+    if (view !== 'list' || !selectedModule) return;
+    setLoading(true);
+    try {
+      const params = { search, page, limit: 10 };
+      if (selectedClass) params.classId = selectedClass._id;
+      if (selectedModule) params.courseId = selectedModule._id;
+      const res = await api.get('/assignments', { params });
+      setAssignments(res.data.assignments || []);
+      setTotal(res.data.total || 0);
+    } catch { toast.error('Failed to load assignments'); }
+    finally { setLoading(false); }
+  }, [view, search, page, selectedClass, selectedModule]);
 
-  const termTotals = TERMS.map((_, ti) => {
-    const allObtained = moduleRows.reduce((s, r) => s + (r.terms[ti].obtained || 0), 0);
-    const allMax      = moduleRows.reduce((s, r) => s + (r.terms[ti].maxTotal || 0), 0);
-    return { obtained: allObtained, max: allMax, pct: allMax > 0 ? Math.min(Math.round((allObtained / allMax) * 100), 100) : null };
-  });
+  useEffect(() => { fetchAssignments(); }, [fetchAssignments]);
 
-  const annualObtained = moduleRows.reduce((s, r) => s + (r.annualMarks || 0), 0);
-  const annualMax      = moduleRows.reduce((s, r) => s + (r.annualMax  || 0), 0);
-  const annualPct      = annualMax > 0 ? Math.min(Math.round((annualObtained / annualMax) * 100), 100) : null;
+  const openModal = (a = null) => { setEditing(a); setModal(true); };
 
-  const annualRank  = student.rank       || null;
-  const totalRanked = student.rank_total || allStudents.length;
-  const termRanks   = student.term_ranks || {};
-  const behaviourMarks = student.behaviour || null;
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      await api.delete(`/assignments/${deleteTarget.id}`);
+      toast.success('Assignment deleted');
+      setDeleteTarget(null);
+      fetchAssignments();
+    } catch { toast.error('Failed to delete'); }
+    finally { setDeleting(false); }
+  };
 
-  const border   = '1px solid #c8cdd8';
-  const headerBg = '#e8ecf0';
-  const cellPad  = '3px 4px';
-  const fs       = 7.5;
+  const handleToggleStatus = (assignment) => setToggleTarget(assignment);
 
-  function decColor(d) { return d === 'C' ? '#059669' : d === 'P' ? '#b45309' : d === 'NYC' ? '#dc2626' : '#374151'; }
+  const handleToggleConfirm = async () => {
+    if (!toggleTarget) return;
+    setToggling(true);
+    try {
+      const res = await api.patch(`/assignments/${toggleTarget.id}/toggle-status`);
+      toast.success(res.data.message);
+      setToggleTarget(null);
+      fetchAssignments();
+    } catch (err) { toast.error(err.response?.data?.message || 'Failed to toggle status'); }
+    finally { setToggling(false); }
+  };
 
-  const cell     = { padding: cellPad, fontSize: fs, borderRight: border, borderBottom: border, textAlign: 'center', verticalAlign: 'middle' };
-  const cellLeft = { ...cell, textAlign: 'left' };
-  const hCell    = { padding: cellPad, fontSize: fs, background: headerBg, fontWeight: 700, borderRight: border, borderBottom: border, textAlign: 'center', verticalAlign: 'middle' };
-  const vHeaderCell = { ...hCell, padding: '4px 2px', width: 20, minWidth: 20, maxWidth: 24 };
+  const goToModules = (cls) => {
+    setSelectedClass(cls);
+    setSelectedModule(null);
+    setAssignments([]);
+    setView('modules');
+  };
 
-  function VLabel({ text, bg }) {
+  const goToList = (mod) => {
+    setSelectedModule(mod);
+    setSearch('');
+    setPage(1);
+    setAssignments([]);
+    setView('list');
+  };
+
+  /* ── Classes view ── */
+  if (view === 'classes') {
     return (
-      <div style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', transform: 'rotate(180deg)', fontSize: 6.5, fontWeight: 700, whiteSpace: 'nowrap', lineHeight: 1, padding: '4px 1px', background: bg || 'transparent', color: '#374151' }}>
-        {text}
+      <div className="space-y-5">
+        <div>
+          <h2 className="font-display font-bold text-lg" style={{ color: 'var(--text-primary)' }}>Assignments</h2>
+          <p className="text-sm text-muted">Select a class to manage module assignments</p>
+        </div>
+
+        {loadingInit ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="animate-spin w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full" />
+          </div>
+        ) : teacherClasses.length === 0 ? (
+          <div className="card text-center py-16">
+            <BookOpen className="w-12 h-12 mx-auto mb-3 text-muted opacity-30" />
+            <p className="font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>No modules assigned yet</p>
+            <p className="text-sm text-muted">Ask the admin to assign modules to you.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {teacherClasses.map((cls, idx) => {
+              const color = moduleColor(idx);
+              return (
+                <button key={cls._id} onClick={() => goToModules(cls)}
+                  className="flex items-center gap-4 px-5 py-4 rounded-2xl text-left transition-all hover:scale-[1.01] active:scale-[0.99]"
+                  style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+                  <div className={`w-12 h-12 rounded-xl ${color.bg} flex items-center justify-center flex-shrink-0`}>
+                    <BookOpen className={`w-6 h-6 ${color.text}`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{cls.name}</p>
+                    <p className="text-xs text-muted mt-0.5">{cls.modules.length} module{cls.modules.length !== 1 ? 's' : ''} assigned to you</p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-muted" />
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
     );
   }
 
-  return (
-    <div className="report-student-page" style={{ background: '#fff', padding: '12px 14px', marginBottom: isLast ? 0 : 32, fontFamily: 'Arial, Helvetica, sans-serif', color: '#1a1a2e', fontSize: fs, boxShadow: '0 2px 20px rgba(0,0,0,0.08)' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 5 }}>
-        <tbody>
-          <tr>
-            <td style={{ width: '35%', verticalAlign: 'top', padding: '0 0 4px 0' }}>
-              <div style={{ fontSize: 8, lineHeight: 1.8, color: '#1a1a2e' }}>
-                <div style={{ fontWeight: 900 }}>{config?.republic || 'REPUBLIC OF RWANDA'}</div>
-                <div style={{ fontWeight: 700 }}>{config?.ministry || 'MINISTRY OF EDUCATION'}</div>
-                <div>{config?.district || 'DISTRICT ...'}</div>
-                <div style={{ fontWeight: 800 }}>{config?.schoolName || 'School Name'}</div>
-                {config?.schoolMotto && <div style={{ fontStyle: 'italic', color: '#555' }}>{config.schoolMotto}</div>}
-                {config?.schoolEmail && <div style={{ color: '#374151' }}>Email: {config.schoolEmail}</div>}
-                {config?.schoolPhone && <div style={{ color: '#374151' }}>Tel: {config.schoolPhone}</div>}
-              </div>
-            </td>
-            <td style={{ width: '30%', verticalAlign: 'middle', textAlign: 'center', padding: '0 8px' }}>
-              <div style={{ width: 56, height: 56, borderRadius: '50%', background: pc + '10', border: '2px solid ' + pc + '30', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto' }}>
-                {config?.schoolLogoUrl
-                  ? <img src={config.schoolLogoUrl} style={{ width: 48, height: 48, objectFit: 'contain', borderRadius: '50%' }} alt="Logo" onError={e => e.target.style.display = 'none'} />
-                  : <School size={24} color={pc} />}
-              </div>
-            </td>
-            <td style={{ width: '35%', verticalAlign: 'top', textAlign: 'right', padding: '0 0 4px 0' }}>
-              <div style={{ fontSize: 8, lineHeight: 1.8, color: '#1a1a2e' }}>
-                <div>ACADEMIC YEAR : <strong>{config?.academicYear || ''}</strong></div>
-                <div>CLASS : <strong>{cls?.name || student.class_name || 'N/A'}</strong></div>
-                <div>LEARNER NAME : <strong>{student.name}</strong></div>
-                {student.student_id && <div>LEARNER CODE : <strong>{String(student.student_id).slice(-10).toUpperCase()}</strong></div>}
-                {student.trade && <div>TRADE : <strong>{student.trade}</strong></div>}
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+  /* ── Modules view ── */
+  if (view === 'modules') {
+    const modules = selectedClass?.modules || [];
+    return (
+      <div className="space-y-5">
+        <div className="flex items-center gap-3">
+          <button onClick={() => setView('classes')}
+            className="p-2 rounded-lg hover:bg-surface-100 transition-colors flex-shrink-0">
+            <ArrowLeft className="w-5 h-5 text-muted" />
+          </button>
+          <div className="flex-1">
+            <p className="text-xs text-muted font-medium">Classes → Modules</p>
+            <h2 className="font-display font-bold text-lg" style={{ color: 'var(--text-primary)' }}>{selectedClass?.name}</h2>
+          </div>
+        </div>
 
-      <div style={{ border, background: '#f8f9fa', padding: '4px', textAlign: 'center', fontWeight: 900, fontSize: 11, letterSpacing: '0.04em', marginBottom: 0, borderBottom: 'none' }}>
-        LEARNER'S ASSESSMENT REPORT
-      </div>
-
-      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 0 }}>
-        <tbody>
-          <tr>
-            <td style={{ ...hCell, width: '8%' }}>Sector</td>
-            <td style={{ ...cellLeft, width: '28%' }}>{cls?.program?.sector || config?.sector || ''}</td>
-            <td style={{ ...hCell, width: '12%' }}>Qualification Title</td>
-            <td style={cellLeft}>{cls?.program?.qualificationTitle || config?.qualificationTitle || ''}</td>
-          </tr>
-          <tr>
-            <td style={hCell}>Trade</td>
-            <td style={cellLeft}>{cls?.program?.trade || config?.trade || ''}</td>
-            <td style={hCell}>RTQF Level</td>
-            <td style={cellLeft}>{cls?.program?.rtqfLevel || config?.rtqfLevel || 'Level 3'}</td>
-          </tr>
-        </tbody>
-      </table>
-
-      <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', border, marginTop: 0 }}>
-        <colgroup>
-          <col style={{ width: 16 }} /><col style={{ width: 34 }} /><col style={{ width: 80 }} /><col style={{ width: 22 }} />
-          <col style={{ width: 18 }} /><col style={{ width: 18 }} /><col style={{ width: 18 }} /><col style={{ width: 22 }} />
-          <col style={{ width: 18 }} /><col style={{ width: 18 }} /><col style={{ width: 18 }} /><col style={{ width: 22 }} />
-          <col style={{ width: 18 }} /><col style={{ width: 18 }} /><col style={{ width: 18 }} /><col style={{ width: 22 }} />
-          <col style={{ width: 22 }} /><col style={{ width: 22 }} /><col style={{ width: 22 }} />
-        </colgroup>
-        <thead>
-          <tr>
-            <th rowSpan={2} style={{ ...hCell, fontSize: 6 }}>#</th>
-            <th rowSpan={2} style={{ ...hCell, textAlign: 'left', fontSize: 6 }}>Code</th>
-            <th rowSpan={2} style={{ ...hCell, textAlign: 'left', fontSize: 6 }}>Module Title</th>
-            <th rowSpan={2} style={{ ...hCell, fontSize: 6 }}>Max</th>
-            <th colSpan={4} style={{ ...hCell, background: '#d8e3ee', fontSize: 7 }}>1ST TERM</th>
-            <th colSpan={4} style={{ ...hCell, background: '#d8e3ee', fontSize: 7 }}>2ND TERM</th>
-            <th colSpan={4} style={{ ...hCell, background: '#d8e3ee', fontSize: 7 }}>3RD TERM</th>
-            <th colSpan={3} style={{ ...hCell, background: '#b8cfe0', fontSize: 7 }}>ANNUAL</th>
-          </tr>
-          <tr>
-            {TERMS.map((_, ti) => (
-              <>
-                <th key={`h${ti}fa`}  style={{ ...vHeaderCell, background: ti % 2 === 0 ? '#dde8f0' : '#d4e1ec' }}><VLabel text="Formative Assessment" /></th>
-                <th key={`h${ti}ia`}  style={{ ...vHeaderCell, background: ti % 2 === 0 ? '#dde8f0' : '#d4e1ec' }}><VLabel text="Integrated Assessment" /></th>
-                <th key={`h${ti}ca`}  style={{ ...vHeaderCell, background: ti % 2 === 0 ? '#dde8f0' : '#d4e1ec' }}><VLabel text="Comprehensive Assessment" /></th>
-                <th key={`h${ti}avg`} style={{ ...vHeaderCell, background: '#c8d8e8' }}><VLabel text="Average" bg="#c8d8e8" /></th>
-              </>
-            ))}
-            <th style={{ ...vHeaderCell, background: '#b0c8dc' }}><VLabel text="Annual %" bg="#b0c8dc" /></th>
-            <th style={{ ...vHeaderCell, background: '#b0c8dc' }}><VLabel text="Annual Marks" bg="#b0c8dc" /></th>
-            <th style={{ ...vHeaderCell, background: '#b0c8dc' }}><VLabel text="Decision" bg="#b0c8dc" /></th>
-          </tr>
-          <tr style={{ background: '#f5f7fa' }}>
-            <td style={{ ...hCell, fontSize: 6 }} />
-            <td style={{ ...cellLeft, fontWeight: 700, fontSize: 6 }} colSpan={2}>Behaviour</td>
-            <td style={{ ...cell, fontWeight: 700, fontSize: 6 }}>{student.behaviourMax || 40}</td>
-            {TERMS.map((_, ti) => (
-              <>
-                <td key={`bfa${ti}`}  style={{ ...cell, color: '#9ca3af', fontSize: 6 }}>{behaviourMarks?.terms?.[ti]?.FA ?? 'N/A'}</td>
-                <td key={`bia${ti}`}  style={{ ...cell, color: '#9ca3af', fontSize: 6 }}>N/A</td>
-                <td key={`bca${ti}`}  style={{ ...cell, color: '#9ca3af', fontSize: 6 }}>N/A</td>
-                <td key={`bavg${ti}`} style={{ ...cell, fontWeight: 700, fontSize: 6 }}>{behaviourMarks?.terms?.[ti]?.avg ?? '—'}</td>
-              </>
-            ))}
-            <td style={{ ...cell, fontWeight: 700, background: '#f0f4f8', fontSize: 6 }}>{behaviourMarks?.annualPct ?? '—'}</td>
-            <td style={{ ...cell, fontWeight: 700, background: '#f0f4f8', fontSize: 6 }}>{behaviourMarks?.annualMarks ?? '—'}</td>
-            <td style={{ ...cell, fontWeight: 700, color: '#059669', background: '#f0f4f8', fontSize: 6 }}>C</td>
-          </tr>
-        </thead>
-
-        <tbody>
-          {ALL_MODULE_CATEGORIES.map(cat => {
-            const catRows = grouped[cat] || [];
-            if (catRows.length === 0) return null;
-            const cb = catBadge(cat);
+        <div className="space-y-2">
+          {modules.map((mod, idx) => {
+            const color = moduleColor(idx);
             return (
-              <>
-                <tr key={`cat-${cat}`} style={{ background: cb.bg }}>
-                  <td colSpan={19} style={{ padding: '2px 6px', fontSize: 7, fontWeight: 900, color: cb.text, letterSpacing: '0.05em', borderBottom: border, textTransform: 'uppercase', borderTop: `2px solid ${cb.dot}` }}>{cat}</td>
-                </tr>
-                {catRows.map((row, i) => (
-                  <tr key={row._id} style={{ background: i % 2 === 0 ? '#fff' : '#f9fafc' }}>
-                    <td style={{ ...cell, color: '#9ca3af', fontSize: 6 }}>{i + 1}</td>
-                    <td style={{ ...cellLeft, fontWeight: 700, color: cb.text, fontFamily: 'monospace', fontSize: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.code}</td>
-                    <td style={{ ...cellLeft, fontWeight: 500, textTransform: 'uppercase', fontSize: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={row.name}>{row.name}</td>
-                    <td style={{ ...cell, fontWeight: 700, fontSize: 6 }}>{row.weight}</td>
-                    {row.terms.map((td_, ti) => (
-                      <>
-                        <td key={`r${i}t${ti}fa`}  style={{ ...cell, color: td_.FA != null ? '#374151' : '#ccc', fontSize: 6 }}>{td_.FA != null ? td_.FA : 'N/A'}</td>
-                        <td key={`r${i}t${ti}ia`}  style={{ ...cell, color: td_.IA != null ? '#374151' : '#ccc', fontSize: 6 }}>{td_.IA != null ? td_.IA : 'N/A'}</td>
-                        <td key={`r${i}t${ti}ca`}  style={{ ...cell, color: td_.CA != null ? '#374151' : '#ccc', fontSize: 6 }}>{td_.CA != null ? td_.CA : 'N/A'}</td>
-                        <td key={`r${i}t${ti}avg`} style={{ ...cell, fontWeight: 700, color: pctColor(td_.avg), background: '#f8f9fc', fontSize: 6 }}>{td_.avg != null ? td_.avg + '%' : '—'}</td>
-                      </>
-                    ))}
-                    <td style={{ ...cell, fontWeight: 800, color: pctColor(row.annualAvg), background: '#f0f4f8', fontSize: 6 }}>{row.annualAvg != null ? row.annualAvg + '%' : '—'}</td>
-                    <td style={{ ...cell, fontWeight: 800, color: pctColor(row.annualAvg), background: '#f0f4f8', fontSize: 6 }}>{row.annualMarks != null ? row.annualMarks : '—'}</td>
-                    <td style={{ ...cell, fontWeight: 800, color: decColor(row.decision), background: '#f0f4f8', fontSize: 6 }}>{row.annualAvg != null ? row.decision : '—'}</td>
-                  </tr>
-                ))}
-              </>
+              <button key={mod._id} onClick={() => goToList(mod)}
+                className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl text-left transition-all hover:scale-[1.005] active:scale-[0.99]"
+                style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+                <div className={`w-12 h-12 rounded-xl ${color.bg} flex items-center justify-center flex-shrink-0`}>
+                  <span className={`text-sm font-bold ${color.text}`}>{(mod.code || mod.name || '').slice(0, 3).toUpperCase()}</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  {mod.code && <p className={`text-xs font-bold ${color.text} mb-0.5`}>{mod.code}</p>}
+                  <p className="font-semibold text-sm truncate" style={{ color: 'var(--text-primary)' }}>{mod.name}</p>
+                  {mod.category && <p className="text-xs text-muted">{mod.category}</p>}
+                </div>
+                <ChevronRight className="w-4 h-4 text-muted" />
+              </button>
             );
           })}
-        </tbody>
-
-        <tfoot>
-          <tr style={{ background: headerBg }}>
-            <td colSpan={3} style={{ ...hCell, textAlign: 'right', fontSize: 6 }}>Total Weights assessed:</td>
-            <td style={{ ...hCell, fontSize: 6 }}>{moduleRows.reduce((s, r) => s + r.weight, 0)}</td>
-            {termTotals.map((t, ti) => (
-              <>
-                <td key={`tf${ti}`} style={{ ...hCell, fontSize: 6 }}>—</td>
-                <td key={`ti${ti}`} style={{ ...hCell, fontSize: 6 }}>—</td>
-                <td key={`tc${ti}`} style={{ ...hCell, fontSize: 6 }}>—</td>
-                <td key={`ta${ti}`} style={{ ...hCell, color: pctColor(t.pct), fontSize: 6 }}>{t.obtained || 0}</td>
-              </>
-            ))}
-            <td style={{ ...hCell, background: '#b0c8dc', color: pctColor(annualPct), fontSize: 6 }}>{annualPct != null ? annualPct + '%' : '—'}</td>
-            <td style={{ ...hCell, background: '#b0c8dc', color: pctColor(annualPct), fontSize: 6 }}>{annualObtained || '—'}</td>
-            <td style={{ ...hCell, background: '#b0c8dc', color: decColor(getRwandanDecision(annualPct)), fontSize: 6 }}>{getRwandanDecision(annualPct)}</td>
-          </tr>
-          <tr style={{ background: '#f5f7fa' }}>
-            <td colSpan={3} style={{ ...hCell, textAlign: 'right', fontSize: 6 }}>TOTAL :</td>
-            <td style={{ ...hCell, fontSize: 6 }}>{moduleRows.reduce((s, r) => s + r.weight, 0)}</td>
-            {termTotals.map((t, ti) => (
-              <>
-                <td key={`tf2${ti}`} style={{ ...cell, fontSize: 6 }} />
-                <td key={`ti2${ti}`} style={{ ...cell, fontSize: 6 }} />
-                <td key={`tc2${ti}`} style={{ ...cell, fontSize: 6 }} />
-                <td key={`ta2${ti}`} style={{ ...hCell, color: pctColor(t.pct), fontSize: 6 }}>{t.obtained || 0}</td>
-              </>
-            ))}
-            <td style={{ ...hCell, background: '#b0c8dc', color: pctColor(annualPct), fontSize: 6 }}>{annualPct != null ? annualPct + '%' : '—'}</td>
-            <td style={{ ...hCell, background: '#b0c8dc', color: pctColor(annualPct), fontSize: 6 }}>{annualObtained}</td>
-            <td style={{ ...hCell, background: '#b0c8dc', fontSize: 6 }}>{annualMax}</td>
-          </tr>
-          <tr>
-            <td colSpan={3} style={{ ...hCell, textAlign: 'right', fontSize: 6 }}>PERCENTAGE :</td>
-            <td style={{ ...cell, fontSize: 6 }} />
-            {termTotals.map((t, ti) => (
-              <>
-                <td key={`pf${ti}`} style={{ ...cell, fontSize: 6 }} />
-                <td key={`pi${ti}`} style={{ ...cell, fontSize: 6 }} />
-                <td key={`pc${ti}`} style={{ ...cell, fontSize: 6 }} />
-                <td key={`pa${ti}`} style={{ ...hCell, color: pctColor(t.pct), fontSize: 6 }}>{t.pct != null ? t.pct + '%' : '—'}</td>
-              </>
-            ))}
-            <td colSpan={3} style={{ ...hCell, background: '#b0c8dc', color: pctColor(annualPct), fontWeight: 900, fontSize: 7 }}>{annualPct != null ? annualPct.toFixed(2) + '%' : '—'}</td>
-          </tr>
-          <tr>
-            <td colSpan={3} style={{ ...hCell, textAlign: 'right', fontSize: 6 }}>POSITION :</td>
-            <td style={{ ...cell, fontSize: 6 }} />
-            {TERMS.map((term, ti) => {
-              const tr_ = termRanks[term];
-              const posLabel = tr_ ? `${tr_.rank}/${tr_.total}` : '—';
-              return (
-                <>
-                  <td key={`posf${ti}`} style={{ ...cell, fontSize: 6 }} />
-                  <td key={`posi${ti}`} style={{ ...cell, fontSize: 6 }} />
-                  <td key={`posc${ti}`} style={{ ...cell, fontSize: 6 }} />
-                  <td key={`posa${ti}`} style={{ ...hCell, fontSize: 6, color: tr_ ? '#1a3a6b' : '#9ca3af' }}>{posLabel}</td>
-                </>
-              );
-            })}
-            <td colSpan={3} style={{ ...hCell, background: '#b0c8dc', fontSize: 7, fontWeight: 900, color: annualRank ? '#1a3a6b' : '#9ca3af' }}>
-              {annualRank ? `${annualRank}/${totalRanked}` : '—'}
-            </td>
-          </tr>
-          <tr>
-            <td colSpan={19} style={{ padding: '4px 8px', fontSize: 7, borderBottom: border, background: '#f8f9fa' }}>
-              <strong>{cls?.teacher?.name || config?.classTrainer || 'Class Trainer'}</strong> (Class Trainer)'s Comments &amp; signature :
-              <span style={{ display: 'inline-block', width: 180, borderBottom: '1px solid #999', marginLeft: 8, verticalAlign: 'bottom' }} />
-            </td>
-          </tr>
-        </tfoot>
-      </table>
-
-      <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 5 }}>
-        <tbody>
-          <tr>
-            <td style={{ verticalAlign: 'top', padding: '3px 8px 0 0', width: '55%' }}>
-              <div style={{ fontSize: 7, color: '#374151', lineHeight: 1.9 }}>
-                <div><strong>N/A:</strong> Not Applicable · <strong style={{ color: '#059669' }}>C:</strong> Competent · <strong style={{ color: '#dc2626' }}>NYC:</strong> Not Yet Competent · <strong style={{ color: '#b45309' }}>P:</strong> In progress</div>
-                <div><strong>Passing Line:</strong> 50% for complementary modules; <strong>70%</strong> for general &amp; specific modules.</div>
-                <div><strong>Term Average:</strong> (Formative Assessment% + Comprehensive Assessment%) ÷ 2.</div>
-                <div><strong>Annual Average:</strong> Mean of all term averages with data.</div>
-                <div><strong>Position:</strong> Ranked within class per term and annually.</div>
-              </div>
-            </td>
-            <td style={{ verticalAlign: 'top', padding: '0 8px', width: '25%', borderLeft: '1px solid #dee2e6' }}>
-              <div style={{ fontSize: 7.5, fontWeight: 800, marginBottom: 3 }}>Deliberation :</div>
-              {['Promoted at 1st sitting', 'Promoted after re-assessment', 'Re-assessment required', 'Advised to repeat', 'Dismissed'].map(opt => (
-                <div key={opt} style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3, fontSize: 7 }}>
-                  <div style={{ width: 10, height: 10, border: '1px solid #999', borderRadius: 2, flexShrink: 0 }} />
-                  <span>{opt}</span>
-                </div>
-              ))}
-            </td>
-            <td style={{ verticalAlign: 'bottom', textAlign: 'center', padding: '0 0 0 8px', width: '20%', borderLeft: '1px solid #dee2e6' }}>
-              <div style={{ fontSize: 7, color: '#6b7280', marginBottom: 22 }}>Date: {reportDate}</div>
-              <div style={{ borderTop: '1px solid #374151', paddingTop: 4, marginTop: 4 }}>
-                <div style={{ fontSize: 8, fontWeight: 800, color: '#1a1a2e' }}>{config?.managerName || 'School Principal'}</div>
-                <div style={{ fontSize: 7, color: '#6b7280' }}>{config?.managerTitle || 'School Principal'}</div>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-
-      <div style={{ marginTop: 5, textAlign: 'center', fontSize: 6.5, color: '#d1d5db' }}>
-        Report generated by {config?.schoolName || 'EDUPLA'} Academic Management System · {reportDate}
+          {modules.length === 0 && (
+            <div className="flex items-center gap-2 p-4 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800">
+              <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+              <p className="text-sm text-amber-700 dark:text-amber-400">No modules assigned to you in this class.</p>
+            </div>
+          )}
+        </div>
       </div>
+    );
+  }
+
+  /* ── Assignments list view (scoped to selected module) ── */
+  return (
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <button onClick={() => { setView('modules'); setAssignments([]); }}
+          className="p-2 rounded-lg hover:bg-surface-100 transition-colors flex-shrink-0">
+          <ArrowLeft className="w-5 h-5 text-muted" />
+        </button>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 text-xs text-muted font-medium mb-0.5">
+            <span>{selectedClass?.name}</span>
+            <ChevronRight className="w-3 h-3" />
+            {selectedModule?.code && <span className="text-primary-600 font-bold">{selectedModule.code}</span>}
+          </div>
+          <h2 className="font-display font-bold text-lg truncate" style={{ color: 'var(--text-primary)' }}>
+            {selectedModule?.name}
+          </h2>
+          <p className="text-sm text-muted">{total} assignment{total !== 1 ? 's' : ''} posted</p>
+        </div>
+        <button onClick={() => openModal()} className="btn-primary flex-shrink-0">
+          <Plus className="w-4 h-4" /> New Assignment
+        </button>
+      </div>
+
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+        <input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
+          className="input-field pl-10" placeholder="Search assignments…" />
+      </div>
+
+      {/* Assignments List */}
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <div className="animate-spin w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full" />
+        </div>
+      ) : assignments.length === 0 ? (
+        <div className="card text-center py-16">
+          <ClipboardList className="w-12 h-12 mx-auto mb-3 text-muted opacity-30" />
+          <p className="font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>You haven't posted any assignments for this module yet</p>
+          <p className="text-sm text-muted mb-4">Create the first assignment for {selectedModule?.name}.</p>
+          <button onClick={() => openModal()} className="btn-primary mx-auto">
+            <Plus className="w-4 h-4" /> New Assignment
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {assignments.map(a => (
+            <div key={a.id} className="card hover:shadow-soft transition-all">
+              <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+                <div className="w-11 h-11 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
+                  <ClipboardList className="w-5 h-5 text-amber-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="font-display font-bold text-sm" style={{ color: 'var(--text-primary)' }}>{a.title}</h3>
+                      <div className="flex items-center gap-2 flex-wrap mt-1">
+                        {a.class_name && (
+                          <span className="badge text-xs bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300">
+                            {a.class_name}
+                          </span>
+                        )}
+                        <DeadlineBadge deadline={a.deadline} />
+                  <span style={{
+                    fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 5,
+                    background: a.is_active ? '#ecfdf5' : '#f3f4f6',
+                    color: a.is_active ? '#059669' : '#6b7280',
+                  }}>
+                    {a.is_active ? 'Active' : 'Inactive'}
+                  </span>
+                        <span className="text-xs text-muted flex items-center gap-1">
+                          <Award className="w-3 h-3" /> Max: {a.max_score || 100}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {a.filename && (
+                        <button
+                          onClick={() => setViewingFile(a)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                          style={{
+                            background: 'var(--card-border)',
+                            color: 'var(--text-primary)',
+                            border: '1px solid var(--input-border)',
+                          }}
+                          title="Preview assignment file in new tab"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          Preview
+                        </button>
+                      )}
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => handleToggleStatus(a)}
+                          className="p-1.5 rounded-lg hover:bg-surface-100 transition-colors"
+                          title={a.is_active ? 'Deactivate assignment' : 'Activate assignment'}>
+                          {a.is_active
+                            ? <ToggleRight className="w-4 h-4 text-emerald-500" />
+                            : <ToggleLeft className="w-4 h-4 text-muted" />}
+                        </button>
+                        <button onClick={() => openModal(a)}
+                          className="p-1.5 rounded-lg hover:bg-surface-100 transition-colors" title="Edit">
+                          <Edit2 className="w-4 h-4 text-muted" />
+                        </button>
+                        <button onClick={() => setDeleteTarget(a)}
+                          className="p-1.5 rounded-lg hover:bg-red-50 hover:text-red-500 transition-colors" title="Delete">
+                          <Trash2 className="w-4 h-4 text-muted" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  {a.description && (
+                    <p className="text-xs text-muted mt-2 line-clamp-2">{a.description}</p>
+                  )}
+                  <div className="flex items-center gap-3 mt-3 pt-3 flex-wrap" style={{ borderTop: '1px solid var(--card-border)' }}>
+                    <div className="flex items-center gap-1.5 text-xs text-muted">
+                      <Clock className="w-3.5 h-3.5" />
+                      {new Date(a.deadline).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                    <button onClick={() => setViewingSubs(a)}
+                      className="flex items-center gap-1.5 text-xs text-primary-600 hover:underline">
+                      <Users className="w-3.5 h-3.5" />
+                      {a.submission_count || 0}/{a.total_students || 0} submitted
+                      {a.avg_score !== null && a.avg_score !== undefined && (
+                        <span className="text-muted ml-1">• avg {Math.round(a.avg_score)}%</span>
+                      )}
+                    </button>
+                    {/* Grades Report button — shown after at least one submission */}
+                    {(a.submission_count > 0) && (
+                      <button onClick={() => setViewingGrades(a)}
+                        className="flex items-center gap-1.5 text-xs text-emerald-600 hover:underline ml-auto">
+                        <BarChart2 className="w-3.5 h-3.5" /> Grades Report
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {total > 10 && <Pagination page={page} totalPages={Math.ceil(total / 10)} onPageChange={setPage} />}
+
+      {/* Create/Edit Modal — module-aware */}
+      <AssignmentFormModal
+        isOpen={modal}
+        onClose={() => setModal(false)}
+        editing={editing}
+        presetClass={selectedClass}
+        presetModule={selectedModule}
+        onSuccess={fetchAssignments}
+      />
+
+      <ConfirmDialog
+        isOpen={!!toggleTarget}
+        onClose={() => setToggleTarget(null)}
+        onConfirm={handleToggleConfirm}
+        loading={toggling}
+        title={toggleTarget?.is_active ? 'Deactivate Assignment' : 'Activate Assignment'}
+        message={toggleTarget?.is_active
+          ? `Deactivate "${toggleTarget?.title}"? Students will no longer be able to view or submit this assignment.`
+          : `Activate "${toggleTarget?.title}"? Students will be able to view and submit this assignment.`}
+        confirmText={toggleTarget?.is_active ? 'Deactivate' : 'Activate'}
+        variant="danger"
+      />
+      <ConfirmDialog
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        loading={deleting}
+        title="Delete Assignment"
+        message={`Delete "${deleteTarget?.title}"? All submissions will be lost.`}
+        confirmText="Delete"
+        variant="danger"
+      />
+
+      {viewingSubs && <SubmissionsModal assignment={viewingSubs} onClose={() => setViewingSubs(null)} />}
+      {viewingGrades && <GradesReportModal assignment={viewingGrades} onClose={() => setViewingGrades(null)} />}
+      {viewingFile && (
+        <FileViewer
+          file={{ ...viewingFile, original_name: viewingFile.original_name || viewingFile.filename }}
+          onClose={() => setViewingFile(null)}
+        />
+      )}
     </div>
   );
 }

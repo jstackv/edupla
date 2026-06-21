@@ -31,6 +31,33 @@ router.get('/admins', isSuperAdmin, async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
+// Platform-wide user search — SUPER ADMIN ONLY.
+// Unlike /teachers, /students, /admins above (which are scoped to
+// created_by: req.user.id for regular admins), this searches every
+// non-super-admin user across the whole platform by name or email.
+// Built specifically to power the "impersonate" search panel: the super
+// admin needs to find any teacher/student/admin to log in as them and
+// verify a fix, regardless of which regular admin originally created them.
+router.get('/users/search', isSuperAdmin, async (req, res) => {
+  try {
+    const { User } = require('../models/db');
+    const q = (req.query.q || '').trim();
+    if (q.length < 2) return res.json({ users: [] });
+
+    const searchRegex = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    const users = await User.find({
+      is_super_admin: { $ne: true },
+      $or: [{ name: searchRegex }, { email: searchRegex }],
+    })
+      .select('name email role is_active created_at')
+      .sort({ name: 1 })
+      .limit(20)
+      .lean();
+
+    res.json({ users: users.map(u => ({ ...u, id: u._id })) });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
 // Bulk stats for all admins (teacher/class/student counts per admin)
 router.get('/admins/stats', isSuperAdmin, async (req, res) => {
   try {

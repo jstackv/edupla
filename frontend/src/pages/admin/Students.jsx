@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import Modal from '../../components/common/Modal';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import Pagination from '../../components/common/Pagination';
+import ImpersonateButton from '../../components/common/ImpersonateButton';
 import {
   Plus, Search, Edit2, Trash2, LayoutGrid, List,
   BookOpen, GraduationCap, Filter, X,
@@ -136,6 +137,7 @@ function StudentCard({ student: s, levels = [], trades = [], onEdit, onDelete, o
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
           <Avatar name={s.name} size={44} />
           <div style={{ display: 'flex', gap: 3, opacity: hovered ? 1 : 0, transition: 'opacity 0.18s' }}>
+            <ImpersonateButton userId={s.id} name={s.name} />
             <button onClick={() => onEdit(s)}
               style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: 'var(--surface-100)', display: 'flex', transition: 'background 0.15s' }}>
               <Edit2 size={13} style={{ color: 'var(--text-secondary)' }} />
@@ -232,6 +234,7 @@ function StudentRow({ student: s, levels = [], trades = [], onEdit, onDelete, on
       </td>
       <td style={{ padding: '10px 16px', textAlign: 'right' }}>
         <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end', opacity: hovered ? 1 : 0.3, transition: 'opacity 0.15s' }}>
+          <ImpersonateButton userId={s.id} name={s.name} />
           <button onClick={() => onEdit(s)}
             style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: 'var(--surface-100)', display: 'flex' }}>
             <Edit2 size={13} style={{ color: 'var(--text-secondary)' }} />

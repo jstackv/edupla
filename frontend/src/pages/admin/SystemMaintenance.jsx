@@ -2,9 +2,10 @@ import { useState, useEffect, useCallback } from 'react';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
+import ImpersonateButton from '../../components/common/ImpersonateButton';
 import {
   Settings, Power, PowerOff, Clock, ShieldAlert, CheckCircle2,
-  AlertTriangle, Sparkles, Loader2,
+  AlertTriangle, Sparkles, Loader2, UserCog, Search, Mail, X,
 } from 'lucide-react';
 
 const DEFAULT_MESSAGE = "We're performing scheduled maintenance to improve EDUPLA. We'll be back online shortly — thank you for your patience.";
@@ -24,6 +25,26 @@ export default function SystemMaintenance() {
   const [message, setMessage] = useState(DEFAULT_MESSAGE);
   const [etaInput, setEtaInput] = useState('');
   const [confirmAction, setConfirmAction] = useState(null); // 'enable' | 'disable' | null
+
+  // ── Impersonation search ──────────────────────────────────────────────
+  const [impQuery, setImpQuery] = useState('');
+  const [impResults, setImpResults] = useState([]);
+  const [impSearching, setImpSearching] = useState(false);
+
+  useEffect(() => {
+    const q = impQuery.trim();
+    if (q.length < 2) { setImpResults([]); setImpSearching(false); return; }
+    setImpSearching(true);
+    const t = setTimeout(() => {
+      api.get('/admin/users/search', { params: { q } })
+        .then(res => setImpResults(res.data.users))
+        .catch(() => setImpResults([]))
+        .finally(() => setImpSearching(false));
+    }, 300);
+    return () => clearTimeout(t);
+  }, [impQuery]);
+
+  const ROLE_COLOR = { admin: '#7c3aed', teacher: '#6366f1', student: '#10b981' };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -111,6 +132,92 @@ export default function SystemMaintenance() {
             {isOn ? 'Turn Off' : 'Turn On'}
           </button>
         </div>
+      </div>
+
+      {/* Impersonation panel — log in as any user to verify fixes while
+          maintenance is active, without disabling it for everyone else. */}
+      <div className="card" style={{ marginBottom: 20 }}>
+        <div className="flex items-center gap-2 mb-1">
+          <UserCog size={16} style={{ color: '#7c3aed' }} />
+          <h2 className="font-display font-bold text-sm" style={{ color: 'var(--text-primary)' }}>
+            Log in as a user
+          </h2>
+        </div>
+        <p className="text-xs mb-4" style={{ color: 'var(--text-secondary)' }}>
+          Search any teacher, student, or admin account and open a session as them in a new tab — useful for verifying a fix while maintenance is on. Your own session stays untouched. Sessions expire after 2 hours.
+        </p>
+
+        <div style={{ position: 'relative', marginBottom: impResults.length || impSearching ? 12 : 0 }}>
+          <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
+          <input
+            className="input-field"
+            placeholder="Search by name or email…"
+            value={impQuery}
+            onChange={e => setImpQuery(e.target.value)}
+            style={{ paddingLeft: 34 }}
+          />
+          {impQuery && (
+            <button onClick={() => setImpQuery('')}
+              style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'none', cursor: 'pointer', display: 'flex' }}>
+              <X size={14} style={{ color: 'var(--text-secondary)' }} />
+            </button>
+          )}
+        </div>
+
+        {impSearching && (
+          <div className="flex items-center gap-2" style={{ padding: '8px 2px' }}>
+            <Loader2 size={13} className="animate-spin" style={{ color: '#7c3aed' }} />
+            <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Searching…</span>
+          </div>
+        )}
+
+        {!impSearching && impQuery.trim().length >= 2 && impResults.length === 0 && (
+          <p className="text-xs" style={{ color: 'var(--text-secondary)', padding: '8px 2px' }}>No active users matched "{impQuery.trim()}".</p>
+        )}
+
+        {impResults.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {impResults.map(u => (
+              <div key={u.id} style={{
+                display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px',
+                borderRadius: 10, background: 'var(--surface-100)', border: '1px solid var(--card-border)',
+              }}>
+                <div style={{
+                  width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
+                  background: `${ROLE_COLOR[u.role] || '#6366f1'}1a`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 12, fontWeight: 700, color: ROLE_COLOR[u.role] || '#6366f1',
+                }}>
+                  {u.name?.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?'}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>{u.name}</p>
+                  <p style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <Mail size={10} /> {u.email}
+                  </p>
+                </div>
+                <span style={{
+                  fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 99, textTransform: 'capitalize',
+                  background: `${ROLE_COLOR[u.role] || '#6366f1'}1a`, color: ROLE_COLOR[u.role] || '#6366f1',
+                }}>
+                  {u.role}
+                </span>
+                {u.is_active === false && (
+                  <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 99, background: '#fef2f2', color: '#ef4444' }}>
+                    Inactive
+                  </span>
+                )}
+                {u.is_active !== false ? (
+                  <ImpersonateButton userId={u.id} name={u.name} size={14} style={{ background: `${ROLE_COLOR[u.role] || '#6366f1'}1a`, padding: '7px 9px' }} />
+                ) : (
+                  <span title="Can't impersonate a deactivated account" style={{ padding: '7px 9px', opacity: 0.3, display: 'flex' }}>
+                    <UserCog size={14} />
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Configuration card */}
