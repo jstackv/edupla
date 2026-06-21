@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { MaintenanceProvider, useMaintenance } from './context/MaintenanceContext';
 import Layout from './components/common/Layout';
 import { GraduationCap } from 'lucide-react';
 
@@ -10,6 +11,7 @@ import Landing from './pages/Landing';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 import ViewerPage from './pages/ViewerPage';
+import Maintenance from './pages/Maintenance';
 
 import TeacherDashboard from './pages/teacher/Dashboard';
 import Classes from './pages/teacher/Classes';
@@ -33,6 +35,7 @@ import AdminStudents from './pages/admin/Students';
 import AdminAssessments from './pages/admin/Assessments';
 import AdminSettingsPage from './pages/admin/AdminSettings';
 import ManageAdmins from './pages/admin/ManageAdmins';
+import SystemMaintenance from './pages/admin/SystemMaintenance';
 
 function getDefaultRoute(role) {
   if (role === 'teacher') return '/teacher/dashboard';
@@ -152,6 +155,7 @@ function AppRoutes() {
       <Route path="/admin/assessments" element={<RegularAdminRoute><AdminAssessments /></RegularAdminRoute>} />
       <Route path="/admin/settings"    element={<RegularAdminRoute><AdminSettingsPage /></RegularAdminRoute>} />
       <Route path="/admin/admins"      element={<SuperAdminRoute><ManageAdmins /></SuperAdminRoute>} />
+      <Route path="/admin/maintenance" element={<SuperAdminRoute><SystemMaintenance /></SuperAdminRoute>} />
 
       {/* Document viewer — opens in new tab */}
       <Route path="/view-doc" element={<ViewerPage />} />
@@ -162,27 +166,47 @@ function AppRoutes() {
   );
 }
 
+// ── Maintenance gate ───────────────────────────────────────────────────
+// Wraps the whole app. While maintenance mode is on, everyone except the
+// super admin sees only the maintenance screen — no routes, no API calls
+// from other pages, nothing. The super admin keeps full normal access.
+function AppGate() {
+  const { user, loading: authLoading } = useAuth();
+  const { maintenance, loading: maintLoading } = useMaintenance();
+
+  if (authLoading || maintLoading) return <LoadingScreen />;
+
+  const isSuperAdmin = user?.role === 'admin' && !!user?.is_super_admin;
+  if (maintenance?.enabled && !isSuperAdmin) {
+    return <Maintenance />;
+  }
+
+  return <AppRoutes />;
+}
+
 export default function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <BrowserRouter>
-          <AppRoutes />
-          <Toaster
-            position="top-right"
-            toastOptions={{
-              duration: 3500,
-              style: {
-                fontFamily: 'Plus Jakarta Sans, sans-serif',
-                fontSize: '14px',
-                borderRadius: '12px',
-                boxShadow: '0 8px 30px rgba(0,0,0,0.15)',
-              },
-              success: { iconTheme: { primary: '#10b981', secondary: '#fff' } },
-              error: { iconTheme: { primary: '#ef4444', secondary: '#fff' } },
-            }}
-          />
-        </BrowserRouter>
+        <MaintenanceProvider>
+          <BrowserRouter>
+            <AppGate />
+            <Toaster
+              position="top-right"
+              toastOptions={{
+                duration: 3500,
+                style: {
+                  fontFamily: 'Plus Jakarta Sans, sans-serif',
+                  fontSize: '14px',
+                  borderRadius: '12px',
+                  boxShadow: '0 8px 30px rgba(0,0,0,0.15)',
+                },
+                success: { iconTheme: { primary: '#10b981', secondary: '#fff' } },
+                error: { iconTheme: { primary: '#ef4444', secondary: '#fff' } },
+              }}
+            />
+          </BrowserRouter>
+        </MaintenanceProvider>
       </AuthProvider>
     </ThemeProvider>
   );

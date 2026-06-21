@@ -204,6 +204,20 @@ const assessmentSubmissionSchema = new mongoose.Schema({
   review_note:   { type: String, default: null },
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
+// ── Maintenance Mode — single global settings document ─────────────────
+// Only one document ever exists for this collection (key: 'singleton').
+// When `enabled` is true, every request is blocked for everyone except the
+// super admin (enforced by middleware/maintenance.js), and the frontend
+// shows the maintenance screen to everyone else.
+const maintenanceSchema = new mongoose.Schema({
+  key:                { type: String, default: 'singleton', unique: true },
+  enabled:            { type: Boolean, default: false },
+  message:            { type: String, default: "We're performing scheduled maintenance to improve EDUPLA. We'll be back online shortly — thank you for your patience." },
+  estimated_back_at:  { type: Date, default: null },
+  enabled_at:         { type: Date, default: null },
+  enabled_by:         { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+}, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
+
 // ── Models ─────────────────────────────────────────────────────────────
 const User         = mongoose.model('User',         userSchema);
 const Class        = mongoose.model('Class',        classSchema);
@@ -219,11 +233,13 @@ const Course       = mongoose.model('Course',       courseSchema);
 const Assessment   = mongoose.model('Assessment',   assessmentSchema);
 const Mark         = mongoose.model('Mark',         markSchema);
 const AssessmentSubmission = mongoose.model('AssessmentSubmission', assessmentSubmissionSchema);
+const Maintenance = mongoose.model('Maintenance', maintenanceSchema);
 
 module.exports = {
   connectDB,
   User, Class, Document, Assignment, Submission, Announcement, Notification, Level, Trade,
   ProgramConfig,
   Course, Assessment, Mark, AssessmentSubmission,
+  Maintenance,
 };
 // This line intentionally left blank - models appended below

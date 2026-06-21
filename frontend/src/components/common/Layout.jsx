@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import { useMaintenance } from '../../context/MaintenanceContext';
 import toast from 'react-hot-toast';
 import {
   LayoutDashboard, BookOpen, Users, FileText, ClipboardList,
@@ -40,6 +41,7 @@ const AdminLinks = [
 const SuperAdminLinks = [
   { to: '/admin/dashboard',   icon: LayoutDashboard, label: 'Overview',      section: 'main' },
   { to: '/admin/admins',      icon: Shield,          label: 'Manage Admins', section: 'main' },
+  { to: '/admin/maintenance', icon: AlertTriangle,   label: 'System Status', section: 'main' },
 ];
 
 /* ─── HELPERS ───────────────────────────────────────────────────── */
@@ -420,6 +422,7 @@ export default function Layout({ children }) {
   };
 
   const isSuperAdmin = user?.is_super_admin;
+  const { maintenance } = useMaintenance() || {};
 
   /* ── SUPER ADMIN SIDEBAR ──────────────────────────────────────────── */
   const SuperAdminSidebarContent = ({ onNav }) => (
@@ -807,6 +810,23 @@ export default function Layout({ children }) {
               />
             </div>
           </header>
+
+          {/* Maintenance mode reminder — only shown to the super admin while it's active */}
+          {isSuperAdmin && maintenance?.enabled && (
+            <div style={{
+              padding: '8px 18px', flexShrink: 0,
+              background: 'rgba(245,158,11,0.12)',
+              borderBottom: '1px solid rgba(245,158,11,0.3)',
+              display: 'flex', alignItems: 'center', gap: 8,
+              fontSize: 12, fontWeight: 600, color: '#d97706',
+            }}>
+              <AlertTriangle size={14} />
+              Maintenance mode is active — everyone else is seeing the maintenance screen.
+              <Link to="/admin/maintenance" style={{ marginLeft: 'auto', color: '#d97706', fontWeight: 700, textDecoration: 'underline' }}>
+                Manage
+              </Link>
+            </div>
+          )}
 
           {/* PAGE CONTENT */}
           <main className="edupla-main" style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', background: dark ? '#0f1117' : '#f4f5f7' }}>

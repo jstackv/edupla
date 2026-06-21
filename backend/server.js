@@ -25,6 +25,14 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
+// ── Maintenance mode ──────────────────────────────────────────────────────
+// Global gate: when the super admin turns maintenance mode on, every request
+// below is blocked (503) for everyone except the super admin. Mounted before
+// the routes so it can't accidentally be skipped by adding a new route file.
+const { maintenanceGate } = require('./middleware/maintenance');
+app.use(maintenanceGate);
+app.use('/api/system', require('./routes/system'));
+
 // ── Static uploads ────────────────────────────────────────────────────────
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
@@ -128,4 +136,3 @@ connectDB().then(async () => {
 }).catch(err => { console.error('DB connection failed:', err); process.exit(1); });
 
 module.exports = app;
-

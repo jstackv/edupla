@@ -1,6 +1,6 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { User } = require('../models/db');
+const { User, Maintenance } = require('../models/db');
 const { JWT_SECRET } = require('../middleware/auth');
 
 const login = async (req, res) => {
@@ -21,6 +21,20 @@ const login = async (req, res) => {
         message: `Your ${roleLabel} account has been deactivated. Please contact your administrator to regain access.`,
         code: 'ACCOUNT_INACTIVE',
       });
+    }
+
+    // During maintenance mode, only the super admin may sign in — everyone
+    // else stays on the maintenance screen until it's switched back off.
+    const isSuperAdmin = user.role === 'admin' && user.is_super_admin === true;
+    if (!isSuperAdmin) {
+      const maintenance = await Maintenance.findOne({ key: 'singleton' }).lean();
+      if (maintenance?.enabled) {
+        return res.status(503).json({
+          message: maintenance.message || 'EDUPLA is currently under maintenance. Please check back shortly.',
+          code: 'MAINTENANCE_MODE',
+          estimated_back_at: maintenance.estimated_back_at || null,
+        });
+      }
     }
 
     const payload = {
