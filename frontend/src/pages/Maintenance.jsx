@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import {
   GraduationCap, Settings, Clock, RefreshCw, ShieldCheck,
   LogOut, ArrowRight, Sun, Moon, Sparkles,
+  Mail, Lock, Eye, EyeOff, AlertCircle, X,
 } from 'lucide-react';
 
 const GLOBAL_CSS = `
@@ -23,7 +24,33 @@ const GLOBAL_CSS = `
     100% { box-shadow: 0 0 0 0 rgba(99,102,241,0); }
   }
   @keyframes mp-fade-up { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes mp-panel-in { from { opacity:0; transform:translateY(-6px) scale(0.98); } to { opacity:1; transform:translateY(0) scale(1); } }
+  @keyframes mp-shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-4px); }
+    40% { transform: translateX(4px); }
+    60% { transform: translateX(-3px); }
+    80% { transform: translateX(3px); }
+  }
   .mp-fade { animation: mp-fade-up 0.5s ease both; }
+  .mp-panel { animation: mp-panel-in 0.28s cubic-bezier(0.16,1,0.3,1) both; }
+  .mp-shake { animation: mp-shake 0.4s ease; }
+
+  .mp-admin-toggle { transition: background .2s, border-color .2s, color .2s, transform .2s; }
+  .mp-admin-toggle:hover { transform: translateY(-1px); }
+
+  .mp-input { transition: border-color .2s, box-shadow .2s, background .2s; }
+  .mp-input:focus { border-color: #6366f1 !important; box-shadow: 0 0 0 3px rgba(99,102,241,0.15); }
+
+  .mp-eye-btn { transition: transform .15s, opacity .15s; }
+  .mp-eye-btn:hover { opacity: 1 !important; transform: scale(1.1); }
+
+  .mp-close-btn { transition: background .2s, transform .2s; }
+  .mp-close-btn:hover { transform: rotate(90deg); }
+
+  .mp-submit-btn { transition: transform .2s, box-shadow .2s, filter .2s; }
+  .mp-submit-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 10px 24px rgba(79,70,229,0.35); filter: brightness(1.05); }
+  .mp-submit-btn:active:not(:disabled) { transform: translateY(0); }
 `;
 
 function formatEta(iso) {
@@ -49,6 +76,7 @@ export default function Maintenance() {
   const [submitting, setSubmitting] = useState(false);
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const eta = formatEta(maintenance?.estimated_back_at);
 
@@ -56,6 +84,13 @@ export default function Maintenance() {
     setChecking(true);
     await refresh();
     setChecking(false);
+  };
+
+  const closeAdminLogin = () => {
+    setShowAdminLogin(false);
+    setError('');
+    setForm({ email: '', password: '' });
+    setShowPassword(false);
   };
 
   const handleAdminSubmit = async (e) => {
@@ -75,6 +110,19 @@ export default function Maintenance() {
       setError(err.response?.data?.message || 'Invalid email or password.');
     }
     setSubmitting(false);
+  };
+
+  const inputBase = {
+    width: '100%',
+    padding: '11px 14px 11px 40px',
+    borderRadius: 12,
+    border: `1px solid ${dark ? 'rgba(255,255,255,0.1)' : '#dde5f5'}`,
+    background: dark ? 'rgba(255,255,255,0.05)' : '#f8f9ff',
+    color: dark ? '#f1f5f9' : '#0f172a',
+    fontSize: 13.5,
+    outline: 'none',
+    boxSizing: 'border-box',
+    fontFamily: 'inherit',
   };
 
   return (
@@ -201,60 +249,138 @@ export default function Maintenance() {
 
           {/* Anonymous: subtle admin sign-in affordance */}
           {!user && !showAdminLogin && (
-            <button onClick={() => setShowAdminLogin(true)} style={{
-              background: 'transparent', border: 'none', cursor: 'pointer',
-              fontSize: 12, fontWeight: 600, color: dark ? '#4a5168' : '#94a3b8',
-              display: 'inline-flex', alignItems: 'center', gap: 5,
+            <button onClick={() => setShowAdminLogin(true)} className="mp-admin-toggle" style={{
+              background: dark ? 'rgba(255,255,255,0.04)' : 'rgba(99,102,241,0.05)',
+              border: `1px solid ${dark ? 'rgba(255,255,255,0.08)' : 'rgba(99,102,241,0.15)'}`,
+              borderRadius: 999, cursor: 'pointer',
+              fontSize: 12, fontWeight: 600,
+              color: dark ? '#9aa3c4' : '#6b7299',
+              padding: '8px 16px',
+              display: 'inline-flex', alignItems: 'center', gap: 6,
             }}>
-              <ShieldCheck size={12} /> Administrator sign in
+              <ShieldCheck size={13} /> Administrator sign in
             </button>
           )}
 
           {!user && showAdminLogin && (
-            <form onSubmit={handleAdminSubmit} style={{
-              textAlign: 'left', marginTop: 8, paddingTop: 20,
+            <div className="mp-panel" style={{
+              textAlign: 'left', marginTop: 8, paddingTop: 22,
               borderTop: `1px solid ${dark ? 'rgba(255,255,255,0.08)' : '#e2e8f0'}`,
             }}>
-              <input
-                type="email" autoComplete="email" placeholder="Administrator email"
-                value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                style={{
-                  width: '100%', padding: '10px 12px', borderRadius: 10, marginBottom: 8,
-                  border: `1px solid ${dark ? 'rgba(255,255,255,0.1)' : '#dde5f5'}`,
-                  background: dark ? 'rgba(255,255,255,0.06)' : '#f5f7ff',
-                  color: dark ? '#f1f5f9' : '#0f172a', fontSize: 13, outline: 'none',
-                }}
-              />
-              <input
-                type="password" autoComplete="current-password" placeholder="Password"
-                value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-                style={{
-                  width: '100%', padding: '10px 12px', borderRadius: 10, marginBottom: 10,
-                  border: `1px solid ${dark ? 'rgba(255,255,255,0.1)' : '#dde5f5'}`,
-                  background: dark ? 'rgba(255,255,255,0.06)' : '#f5f7ff',
-                  color: dark ? '#f1f5f9' : '#0f172a', fontSize: 13, outline: 'none',
-                }}
-              />
-              {error && (
-                <p style={{ fontSize: 12, color: '#ef4444', marginBottom: 10 }}>{error}</p>
-              )}
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button type="submit" disabled={submitting} style={{
-                  flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                  background: 'linear-gradient(135deg,#6366f1,#4338ca)', color: '#fff',
-                  border: 'none', borderRadius: 10, padding: '10px 14px', cursor: 'pointer',
-                  fontSize: 13, fontWeight: 700,
-                }}>
-                  {submitting ? 'Signing in…' : 'Sign in'} <ArrowRight size={13} />
-                </button>
-                <button type="button" onClick={() => { setShowAdminLogin(false); setError(''); }} style={{
-                  background: 'transparent', border: 'none', cursor: 'pointer',
-                  fontSize: 12.5, color: dark ? '#64748b' : '#94a3b8', fontWeight: 600, padding: '0 6px',
-                }}>
-                  Cancel
+              {/* Panel header */}
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{
+                    width: 32, height: 32, borderRadius: 9, flexShrink: 0,
+                    background: dark ? 'rgba(99,102,241,0.14)' : 'rgba(99,102,241,0.1)',
+                    border: '1px solid rgba(99,102,241,0.25)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <ShieldCheck size={15} color="#6366f1" />
+                  </div>
+                  <div>
+                    <p style={{
+                      fontFamily: "'Sora',sans-serif", fontWeight: 700, fontSize: 14,
+                      color: dark ? '#f1f5f9' : '#1e1b4b', margin: 0, lineHeight: 1.3,
+                    }}>
+                      Administrator sign in
+                    </p>
+                    <p style={{ fontSize: 11.5, color: dark ? '#64748b' : '#94a3b8', margin: 0 }}>
+                      Manage maintenance mode
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeAdminLogin}
+                  className="mp-close-btn"
+                  aria-label="Close"
+                  style={{
+                    width: 26, height: 26, borderRadius: 8, flexShrink: 0,
+                    background: dark ? 'rgba(255,255,255,0.06)' : '#f1f5f9',
+                    border: 'none', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: dark ? '#94a3b8' : '#64748b',
+                  }}
+                >
+                  <X size={13} />
                 </button>
               </div>
-            </form>
+
+              <form onSubmit={handleAdminSubmit}>
+                {/* Email */}
+                <div style={{ position: 'relative', marginBottom: 10 }}>
+                  <Mail size={15} style={{
+                    position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)',
+                    color: dark ? '#5b6485' : '#9aa3c4', pointerEvents: 'none',
+                  }} />
+                  <input
+                    type="email"
+                    autoComplete="email"
+                    placeholder="Administrator email"
+                    className="mp-input"
+                    value={form.email}
+                    onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                    style={inputBase}
+                  />
+                </div>
+
+                {/* Password */}
+                <div style={{ position: 'relative', marginBottom: 14 }}>
+                  <Lock size={15} style={{
+                    position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)',
+                    color: dark ? '#5b6485' : '#9aa3c4', pointerEvents: 'none',
+                  }} />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    placeholder="Password"
+                    className="mp-input"
+                    value={form.password}
+                    onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                    style={{ ...inputBase, paddingRight: 40 }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(s => !s)}
+                    className="mp-eye-btn"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    style={{
+                      position: 'absolute', right: 12, top: '50%', marginTop: -8,
+                      background: 'transparent', border: 'none', cursor: 'pointer', padding: 0,
+                      color: dark ? '#5b6485' : '#9aa3c4', opacity: 0.85,
+                      display: 'flex', alignItems: 'center',
+                    }}
+                  >
+                    {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                </div>
+
+                {error && (
+                  <div className="mp-shake" style={{
+                    display: 'flex', alignItems: 'center', gap: 7,
+                    background: dark ? 'rgba(239,68,68,0.1)' : 'rgba(239,68,68,0.07)',
+                    border: '1px solid rgba(239,68,68,0.25)',
+                    borderRadius: 10, padding: '8px 12px', marginBottom: 14,
+                  }}>
+                    <AlertCircle size={13} color="#ef4444" style={{ flexShrink: 0 }} />
+                    <p style={{ fontSize: 12, color: '#ef4444', margin: 0 }}>{error}</p>
+                  </div>
+                )}
+
+                <button type="submit" disabled={submitting} className="mp-submit-btn" style={{
+                  width: '100%',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                  background: 'linear-gradient(135deg,#6366f1,#4338ca)', color: '#fff',
+                  border: 'none', borderRadius: 12, padding: '11px 14px', cursor: 'pointer',
+                  fontSize: 13.5, fontWeight: 700,
+                  opacity: submitting ? 0.75 : 1,
+                }}>
+                  {submitting ? 'Signing in…' : 'Sign in'}
+                  {!submitting && <ArrowRight size={14} />}
+                </button>
+              </form>
+            </div>
           )}
         </div>
 

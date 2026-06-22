@@ -110,6 +110,12 @@ const notificationSchema = new mongoose.Schema({
   type:       { type: String, enum: ['info', 'warning', 'success', 'error'], default: 'info' },
   class_id:   { type: mongoose.Schema.Types.ObjectId, ref: 'Class', default: null },
   teacher_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  // Who this notification is FOR — not just who it's about/scoped to.
+  // 'students': a teacher broadcasting to the students of class_id (assignment/document/
+  //             announcement posted, or a manual notification). Visible only to students.
+  // 'teacher':  an event raised BY a student (e.g. assignment submission) that should be
+  //             visible only to the teacher (teacher_id), never to any student.
+  audience:   { type: String, enum: ['students', 'teacher'], default: 'students' },
   read_by:    [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 

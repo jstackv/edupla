@@ -302,13 +302,16 @@ const submitAssignment = async (req, res) => {
         getTeacherEmail(a.teacher_id),
       ]);
 
-      // In-app notification for teacher (use teacher_id as the pivot)
+      // In-app notification for teacher (use teacher_id as the pivot).
+      // audience: 'teacher' — this event is about a student's submission and must
+      // never be visible to any student, including the one who submitted it.
       await createInAppNotification({
         title: `Submission: ${a.title}`,
         message: `${student?.name || 'A student'} submitted "${a.title}". Ready to review.`,
         type: 'success',
         classId: a.class_id,
         teacherId: a.teacher_id,
+        audience: 'teacher',
       });
 
       // Email teacher

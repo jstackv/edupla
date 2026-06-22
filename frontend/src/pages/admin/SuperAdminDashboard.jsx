@@ -684,7 +684,7 @@ export default function SuperAdminDashboard() {
                     {user?.name || 'Super Admin'}
                   </div>
                   <div style={{ fontSize: 10.5, color: 'var(--text-secondary)', fontFamily: "'Space Mono',monospace" }}>
-                    SUPER ADMINISTRATOR
+                    SYSTEM ADMINISTRATOR
                   </div>
                 </div>
               </div>

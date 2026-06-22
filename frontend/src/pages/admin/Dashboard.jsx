@@ -1,11 +1,12 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import {
-  Users, BookOpen, GraduationCap, ClipboardList, FileText, Megaphone,
+  Users, BookOpen, GraduationCap, FileText, Megaphone,
   ChevronRight, Shield, TrendingUp, TrendingDown, ArrowUpRight,
-  Activity, BarChart2, CheckCircle2,
+  Activity, BarChart2, CheckCircle2, Layers, ClipboardCheck,
+  FileEdit, Clock, XCircle, Hash,
 } from 'lucide-react';
 
 /* ── Animated counter ── */
@@ -93,6 +94,22 @@ function Avatar({ name, size = 36 }) {
   );
 }
 
+/* ── Module category → color mapping ── */
+const CATEGORY_COLORS = {
+  'Complementary modules': '#6366f1',
+  'Complementary': '#6366f1',
+  'General': '#0ea5e9',
+  'Specific': '#10b981',
+  'Elective Non Examinable': '#f59e0b',
+  'Elective Non-Examinable': '#f59e0b',
+};
+function categoryColor(cat) {
+  return CATEGORY_COLORS[cat] || '#8b5cf6';
+}
+
+const TYPE_LABELS = { FA: 'Formative', IA: 'Integrated', CA: 'Comprehensive' };
+const TYPE_COLORS = { FA: '#0ea5e9', IA: '#8b5cf6', CA: '#10b981' };
+
 /* ── Hero Stat Card ── */
 function HeroStat({ icon: Icon, label, value, color, bg, trend, sparkData, to }) {
   const [mounted, setMounted] = useState(false);
@@ -170,6 +187,27 @@ function DonutChart({ segments, size = 130 }) {
   );
 }
 
+/* ── Assessment pipeline step ── */
+function PipelineStep({ icon: Icon, label, count, color, isLast }) {
+  return (
+    <div style={{ display:'flex', alignItems:'center', flex:1 }}>
+      <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:8, flex:1 }}>
+        <div style={{
+          width:44, height:44, borderRadius:14, background:`${color}16`, border:`1px solid ${color}30`,
+          display:'flex', alignItems:'center', justifyContent:'center',
+        }}>
+          <Icon size={18} style={{ color }} />
+        </div>
+        <div style={{ textAlign:'center' }}>
+          <p style={{ fontSize:18, fontWeight:800, color:'var(--text-primary)', lineHeight:1 }}>{count}</p>
+          <p style={{ fontSize:10.5, color:'var(--text-secondary)', fontWeight:600, marginTop:2 }}>{label}</p>
+        </div>
+      </div>
+      {!isLast && <ChevronRight size={14} style={{ color:'var(--card-border)', flexShrink:0, margin:'0 2px 26px' }} />}
+    </div>
+  );
+}
+
 /* ══ MAIN ══ */
 export default function AdminDashboard() {
   const { user } = useAuth();
@@ -195,34 +233,41 @@ export default function AdminDashboard() {
   );
 
   const counts = stats?.counts || {};
+  const moduleCategoryBreakdown = stats?.moduleCategoryBreakdown || [];
+  const assessmentTypeBreakdown = stats?.assessmentTypeBreakdown || [];
+  const assessmentStatusBreakdown = stats?.assessmentStatusBreakdown || { draft:0, submitted:0, approved:0, rejected:0 };
+  const recentModules = stats?.recentModules || [];
+  const modulesByTeacher = stats?.modulesByTeacher || [];
 
-  const sparkTeachers = [8,10,9,11,10,12,11,13,12,counts.teachers||14];
-  const sparkStudents = [180,195,210,205,220,215,230,225,240,counts.students||248];
-  const sparkClasses  = [12,13,12,14,13,15,14,16,15,counts.classes||17];
-  const sparkAssign   = [22,28,25,30,27,32,29,35,31,counts.assignments||38];
+  const sparkTeachers   = [8,10,9,11,10,12,11,13,12,counts.teachers||14];
+  const sparkStudents   = [180,195,210,205,220,215,230,225,240,counts.students||248];
+  const sparkClasses    = [12,13,12,14,13,15,14,16,15,counts.classes||17];
+  const sparkModules    = [9,11,10,13,12,15,14,17,16,counts.modules||19];
+  const sparkAssessments= [14,16,15,19,18,22,21,25,23,counts.assessments||27];
 
   const heroStats = [
-    { icon:Users,         label:'Total Teachers', value:counts.teachers||0,    color:'#6366f1', bg:'#eef2ff', trend:12, sparkData:sparkTeachers, to:'/admin/teachers' },
-    { icon:GraduationCap, label:'Total Students', value:counts.students||0,    color:'#10b981', bg:'#ecfdf5', trend:8,  sparkData:sparkStudents, to:'/admin/students' },
-    { icon:BookOpen,      label:'Active Classes', value:counts.classes||0,     color:'#0ea5e9', bg:'#f0f9ff', trend:5,  sparkData:sparkClasses,  to:'/admin/classes'  },
-    { icon:ClipboardList, label:'Assignments',    value:counts.assignments||0,  color:'#f59e0b', bg:'#fffbeb', trend:-3, sparkData:sparkAssign,  to:'/admin/classes'  },
+    { icon:Users,           label:'Total Teachers',   value:counts.teachers||0,    color:'#6366f1', bg:'#eef2ff', trend:12, sparkData:sparkTeachers,    to:'/admin/teachers'    },
+    { icon:GraduationCap,   label:'Total Students',   value:counts.students||0,    color:'#10b981', bg:'#ecfdf5', trend:8,  sparkData:sparkStudents,    to:'/admin/students'    },
+    { icon:BookOpen,        label:'Active Classes',   value:counts.classes||0,     color:'#0ea5e9', bg:'#f0f9ff', trend:5,  sparkData:sparkClasses,     to:'/admin/classes'     },
+    { icon:Layers,          label:'Modules',          value:counts.modules||0,     color:'#8b5cf6', bg:'#f5f3ff', trend:9,  sparkData:sparkModules,     to:'/admin/assessments' },
+    { icon:ClipboardCheck,  label:'Assessments',      value:counts.assessments||0, color:'#f59e0b', bg:'#fffbeb', trend:14, sparkData:sparkAssessments, to:'/admin/assessments' },
   ];
 
   const donutSegments = [
-    { label:'Teachers',    value:counts.teachers||1,    color:'#6366f1' },
-    { label:'Students',    value:counts.students||1,    color:'#10b981' },
-    { label:'Classes',     value:counts.classes||1,     color:'#0ea5e9' },
-    { label:'Assignments', value:counts.assignments||1, color:'#f59e0b' },
+    { label:'Modules',       value:counts.modules||1,       color:'#8b5cf6' },
+    { label:'Assessments',   value:counts.assessments||1,   color:'#f59e0b' },
+    { label:'Documents',     value:counts.documents||1,      color:'#0ea5e9' },
+    { label:'Announcements', value:counts.announcements||1,  color:'#ec4899' },
   ];
   const donutTotal = donutSegments.reduce((a,s) => a+s.value, 0);
 
   const activityFeed = [
-    { icon:GraduationCap, color:'#10b981', title:'New student enrolled',    sub:'Added to Science Class A',    time:'2m ago'  },
-    { icon:Users,         color:'#6366f1', title:'Teacher profile updated', sub:'Dr. Johnson updated details', time:'18m ago' },
-    { icon:BookOpen,      color:'#0ea5e9', title:'New class created',       sub:'Mathematics — Grade 10',      time:'1h ago'  },
-    { icon:ClipboardList, color:'#f59e0b', title:'Assignment published',    sub:'32 students notified',        time:'2h ago'  },
-    { icon:Megaphone,     color:'#ec4899', title:'Announcement sent',       sub:'School-wide notice',          time:'3h ago'  },
-    { icon:FileText,      color:'#8b5cf6', title:'Document uploaded',       sub:'Curriculum Q2 PDF',           time:'5h ago'  },
+    { icon:GraduationCap, color:'#10b981', title:'New student enrolled',         sub:'Added to Science Class A',          time:'2m ago'  },
+    { icon:Users,         color:'#6366f1', title:'Teacher profile updated',      sub:'Dr. Johnson updated details',       time:'18m ago' },
+    { icon:BookOpen,      color:'#0ea5e9', title:'New class created',            sub:'Mathematics — Grade 10',            time:'1h ago'  },
+    { icon:Layers,        color:'#8b5cf6', title:'New module created',           sub:'Added to Grade 10 curriculum',      time:'2h ago'  },
+    { icon:Megaphone,     color:'#ec4899', title:'Announcement sent',            sub:'School-wide notice',                time:'3h ago'  },
+    { icon:ClipboardCheck,color:'#f59e0b', title:'Assessment submitted',         sub:'Awaiting admin review',             time:'5h ago'  },
   ];
 
   const systemHealth = [
@@ -230,6 +275,10 @@ export default function AdminDashboard() {
     { label:'Storage Used',    pct:43, color:'#6366f1' },
     { label:'Active Sessions', pct:72, color:'#0ea5e9' },
   ];
+
+  const maxModuleCat = Math.max(...moduleCategoryBreakdown.map(c => c.count), 1);
+  const typeMap = {};
+  assessmentTypeBreakdown.forEach(t => { typeMap[t.type] = t.count; });
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:18 }}>
@@ -273,9 +322,10 @@ export default function AdminDashboard() {
         </div>
         <div style={{ marginTop:18, paddingTop:14, borderTop:'1px solid rgba(255,255,255,0.1)', display:'flex', gap:20, flexWrap:'wrap' }}>
           {[
-            { label:'Documents', val:counts.documents||0,     icon:FileText,      color:'#c4b5fd' },
-            { label:'Announcements', val:counts.announcements||0, icon:Megaphone, color:'#f9a8d4' },
-            { label:'Assignments', val:counts.assignments||0, icon:ClipboardList, color:'#fcd34d' },
+            { label:'Modules',       val:counts.modules||0,       icon:Layers,         color:'#c4b5fd' },
+            { label:'Assessments',   val:counts.assessments||0,   icon:ClipboardCheck, color:'#fcd34d' },
+            { label:'Documents',     val:counts.documents||0,     icon:FileText,       color:'#93c5fd' },
+            { label:'Announcements', val:counts.announcements||0, icon:Megaphone,      color:'#f9a8d4' },
           ].map(({ label, val, icon:Ic, color }) => (
             <div key={label} style={{ display:'flex', alignItems:'center', gap:7 }}>
               <Ic size={12} style={{ color, opacity:0.9 }} />
@@ -287,7 +337,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* ── Stat Cards ── */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(190px, 1fr))', gap:12 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(180px, 1fr))', gap:12 }}>
         {heroStats.map((s,i) => (
           <div key={s.label} style={{ animation:'slideUp 0.4s ease both', animationDelay:`${i*70}ms` }}>
             <HeroStat {...s} />
@@ -295,15 +345,15 @@ export default function AdminDashboard() {
         ))}
       </div>
 
-      {/* ── Middle: People list + Donut ── */}
+      {/* ── Middle: Overview list + Donut ── */}
       <div style={{ display:'grid', gridTemplateColumns:'1fr 260px', gap:14 }}>
 
-        {/* People list */}
+        {/* Overview list */}
         <div className="card">
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
-            <h3 style={{ fontSize:14, fontWeight:700, color:'var(--text-primary)' }}>People Overview</h3>
+            <h3 style={{ fontSize:14, fontWeight:700, color:'var(--text-primary)' }}>Overview</h3>
             <div style={{ display:'flex', gap:2, background:'var(--surface-100)', borderRadius:10, padding:3 }}>
-              {['teachers','students'].map(tab => (
+              {['teachers','students','modules'].map(tab => (
                 <button key={tab} onClick={() => setActiveTab(tab)} style={{
                   padding:'5px 12px', borderRadius:8, fontSize:12, fontWeight:600, border:'none', cursor:'pointer', transition:'all 0.15s',
                   background: activeTab===tab ? 'var(--card-bg)' : 'transparent',
@@ -385,12 +435,54 @@ export default function AdminDashboard() {
               </div>
             </>
           )}
+
+          {activeTab === 'modules' && (
+            <>
+              {!recentModules.length
+                ? <p style={{ fontSize:13, color:'var(--text-secondary)', textAlign:'center', padding:'24px 0' }}>No modules yet</p>
+                : <div style={{ display:'flex', flexDirection:'column', gap:1 }}>
+                    {recentModules.map((m) => {
+                      const c = categoryColor(m.category);
+                      return (
+                        <div key={m.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'9px 10px', borderRadius:12, transition:'background 0.15s' }}
+                          onMouseEnter={e => e.currentTarget.style.background='var(--surface-100)'}
+                          onMouseLeave={e => e.currentTarget.style.background=''}
+                        >
+                          <div style={{ width:38, height:38, borderRadius:12, background:`${c}18`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                            <Layers size={16} style={{ color:c }} />
+                          </div>
+                          <div style={{ flex:1, minWidth:0 }}>
+                            <p style={{ fontSize:13, fontWeight:600, color:'var(--text-primary)', marginBottom:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                              {m.name}{m.code ? ` · ${m.code}` : ''}
+                            </p>
+                            <p style={{ fontSize:11, color:'var(--text-secondary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                              {m.teacher_name || 'Unassigned'}{m.class_names?.length ? ` · ${m.class_names.join(', ')}` : ''}
+                            </p>
+                          </div>
+                          <div style={{ display:'flex', gap:5, flexShrink:0, alignItems:'center' }}>
+                            <span style={{ fontSize:11, padding:'2px 7px', borderRadius:6, background:`${c}18`, color:c, fontWeight:600 }}>{m.category || 'General'}</span>
+                            <span style={{ fontSize:10, color:'var(--text-secondary)', padding:'2px 0' }}>
+                              {new Date(m.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'})}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+              }
+              <div style={{ marginTop:10, paddingTop:10, borderTop:'1px solid var(--card-border)' }}>
+                <Link to="/admin/assessments" style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, fontWeight:600, color:'#6366f1', textDecoration:'none' }}>
+                  View all modules <ArrowUpRight size={13} />
+                </Link>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Donut */}
         <div className="card" style={{ display:'flex', flexDirection:'column' }}>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
-            <h3 style={{ fontSize:14, fontWeight:700, color:'var(--text-primary)' }}>Distribution</h3>
+            <h3 style={{ fontSize:14, fontWeight:700, color:'var(--text-primary)' }}>Content Mix</h3>
             <BarChart2 size={15} style={{ color:'var(--text-secondary)' }} />
           </div>
           <div style={{ display:'flex', flexDirection:'column', alignItems:'center', flex:1 }}>
@@ -408,6 +500,68 @@ export default function AdminDashboard() {
                   <span style={{ fontSize:12, color:'var(--text-secondary)', flex:1 }}>{s.label}</span>
                   <span style={{ fontSize:12, fontWeight:700, color:'var(--text-primary)' }}>{s.value}</span>
                   <span style={{ fontSize:10, color:'var(--text-secondary)', minWidth:28, textAlign:'right' }}>{Math.round((s.value/donutTotal)*100)}%</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Module & Assessment analytics row ── */}
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
+
+        {/* Module categories */}
+        <div className="card">
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
+            <h3 style={{ fontSize:14, fontWeight:700, color:'var(--text-primary)' }}>Module Categories</h3>
+            <Link to="/admin/assessments" style={{ display:'flex', alignItems:'center', gap:2, fontSize:11, fontWeight:600, color:'#6366f1', textDecoration:'none' }}>
+              Manage <ChevronRight size={12} />
+            </Link>
+          </div>
+          {!moduleCategoryBreakdown.length
+            ? <p style={{ fontSize:13, color:'var(--text-secondary)', textAlign:'center', padding:'24px 0' }}>No modules created yet</p>
+            : <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+                {moduleCategoryBreakdown.map((row,i) => {
+                  const pct = Math.round((row.count/maxModuleCat)*100);
+                  const c = categoryColor(row.category);
+                  return (
+                    <div key={i}>
+                      <div style={{ display:'flex', justifyContent:'space-between', marginBottom:5, alignItems:'center' }}>
+                        <span style={{ fontSize:12, fontWeight:600, color:'var(--text-primary)', flex:1, minWidth:0 }}>{row.category || 'Uncategorized'}</span>
+                        <span style={{ fontSize:11, padding:'2px 7px', borderRadius:6, background:`${c}18`, color:c, fontWeight:700, flexShrink:0 }}>{row.count} module{row.count===1?'':'s'}</span>
+                      </div>
+                      <div style={{ height:6, borderRadius:99, background:'var(--surface-100)', overflow:'hidden' }}>
+                        <div style={{ height:'100%', borderRadius:99, width:`${pct}%`, background:`linear-gradient(90deg, ${c}cc, ${c})`, transition:'width 1s cubic-bezier(0.34,1.56,0.64,1)' }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+          }
+        </div>
+
+        {/* Assessment pipeline */}
+        <div className="card">
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
+            <h3 style={{ fontSize:14, fontWeight:700, color:'var(--text-primary)' }}>Assessment Pipeline</h3>
+            <Link to="/admin/assessments" style={{ display:'flex', alignItems:'center', gap:2, fontSize:11, fontWeight:600, color:'#6366f1', textDecoration:'none' }}>
+              Review <ChevronRight size={12} />
+            </Link>
+          </div>
+          <div style={{ display:'flex', alignItems:'flex-start', marginBottom:16 }}>
+            <PipelineStep icon={FileEdit}      label="Draft"     count={assessmentStatusBreakdown.draft}     color="#94a3b8" />
+            <PipelineStep icon={Clock}         label="Submitted" count={assessmentStatusBreakdown.submitted} color="#f59e0b" />
+            <PipelineStep icon={CheckCircle2}  label="Approved"  count={assessmentStatusBreakdown.approved}  color="#10b981" />
+            <PipelineStep icon={XCircle}       label="Rejected"  count={assessmentStatusBreakdown.rejected}  color="#ef4444" isLast />
+          </div>
+          <div style={{ paddingTop:12, borderTop:'1px solid var(--card-border)' }}>
+            <p style={{ fontSize:10, fontWeight:700, color:'var(--text-secondary)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:8 }}>By Type</p>
+            <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+              {['FA','IA','CA'].map(t => (
+                <div key={t} style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 10px', borderRadius:10, background:`${TYPE_COLORS[t]}14`, border:`1px solid ${TYPE_COLORS[t]}30` }}>
+                  <span style={{ fontSize:11, fontWeight:800, color:TYPE_COLORS[t] }}>{t}</span>
+                  <span style={{ fontSize:10, color:'var(--text-secondary)' }}>{TYPE_LABELS[t]}</span>
+                  <span style={{ fontSize:11, fontWeight:700, color:'var(--text-primary)' }}>{typeMap[t] || 0}</span>
                 </div>
               ))}
             </div>
@@ -493,9 +647,10 @@ export default function AdminDashboard() {
           <div style={{ marginTop:16, paddingTop:14, borderTop:'1px solid var(--card-border)', display:'flex', flexDirection:'column', gap:5 }}>
             <p style={{ fontSize:10, fontWeight:700, color:'var(--text-secondary)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:3 }}>Quick Actions</p>
             {[
-              { label:'Manage Teachers', to:'/admin/teachers', icon:Users,         color:'#6366f1' },
-              { label:'Manage Students', to:'/admin/students', icon:GraduationCap, color:'#10b981' },
-              { label:'View Classes',    to:'/admin/classes',  icon:BookOpen,       color:'#0ea5e9' },
+              { label:'Manage Teachers',      to:'/admin/teachers',    icon:Users,          color:'#6366f1' },
+              { label:'Manage Students',      to:'/admin/students',    icon:GraduationCap,  color:'#10b981' },
+              { label:'View Classes',         to:'/admin/classes',     icon:BookOpen,       color:'#0ea5e9' },
+              { label:'Modules & Assessments',to:'/admin/assessments', icon:ClipboardCheck, color:'#8b5cf6' },
             ].map(({ label, to, icon:Ic, color }) => (
               <Link key={to} to={to} style={{ display:'flex', alignItems:'center', gap:8, padding:'7px 10px', borderRadius:10, textDecoration:'none', transition:'background 0.15s', background:'var(--surface-100)' }}
                 onMouseEnter={e => e.currentTarget.style.background='var(--card-border)'}

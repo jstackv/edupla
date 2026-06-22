@@ -8,7 +8,7 @@ const { Notification, Class, User } = require('../models/db');
  * Create a scoped in-app notification for a class.
  * type: 'info' | 'success' | 'warning' | 'error'
  */
-async function createInAppNotification({ title, message, type = 'info', classId, teacherId }) {
+async function createInAppNotification({ title, message, type = 'info', classId, teacherId, audience = 'students' }) {
   try {
     await Notification.create({
       title,
@@ -16,6 +16,7 @@ async function createInAppNotification({ title, message, type = 'info', classId,
       type,
       class_id: classId || null,
       teacher_id: teacherId,
+      audience,
     });
   } catch (err) {
     console.error('createInAppNotification error:', err.message);
