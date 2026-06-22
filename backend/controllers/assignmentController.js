@@ -6,11 +6,7 @@ const { createInAppNotification, getStudentEmails, getTeacherEmail } = require('
 
 // Helper: check if assignment is currently accessible to students
 function isAssignmentAccessible(a) {
-  if (!a.is_active) return false;
-  const now = new Date();
-  if (a.start_date && now < new Date(a.start_date)) return false;
-  if (a.end_date && now > new Date(a.end_date)) return false;
-  return true;
+  return !!a.is_active;
 }
 
 const getAssignments = async (req, res) => {
@@ -72,15 +68,10 @@ const getAssignments = async (req, res) => {
       ? enrolledClassIds.filter(id => id.toString() === classId)
       : enrolledClassIds;
 
-    const now = new Date();
     const filter = {
       class_id: { $in: classIdFilter },
       is_active: true,
       $or: [{ title: searchRegex }, { description: searchRegex }],
-      $and: [
-        { $or: [{ start_date: null }, { start_date: { $lte: now } }] },
-        { $or: [{ end_date: null }, { end_date: { $gte: now } }] },
-      ],
     };
     if (courseId) filter.course_id = new mongoose.Types.ObjectId(courseId);
     const [assignments, total] = await Promise.all([
@@ -112,7 +103,7 @@ const getAssignments = async (req, res) => {
 
 const createAssignment = async (req, res) => {
   try {
-    const { title, description, deadline, classId, courseId, max_score, start_date, end_date, is_active } = req.body;
+    const { title, description, deadline, classId, courseId, max_score, is_active } = req.body;
     if (!title || !deadline || !classId) return res.status(400).json({ message: 'Title, deadline, and class are required' });
     // Verify teacher is assigned to this class (as class teacher or extra teacher)
     const teacherClass = await Class.findOne({
@@ -127,8 +118,6 @@ const createAssignment = async (req, res) => {
     }
     const a = await Assignment.create({
       title, description, deadline,
-      start_date: start_date || null,
-      end_date: end_date || null,
       is_active: (is_active === undefined || is_active === null || is_active === "") ? true : (is_active === true || is_active === "true"),
       class_id: classId, course_id: courseId || null, teacher_id: req.session.user.id,
       max_score: max_score || 100,
@@ -178,7 +167,7 @@ const createAssignment = async (req, res) => {
 
 const updateAssignment = async (req, res) => {
   try {
-    const { title, description, deadline, classId, courseId, max_score, start_date, end_date, is_active } = req.body;
+    const { title, description, deadline, classId, courseId, max_score, is_active } = req.body;
     const existing = await Assignment.findOne({ _id: req.params.id, teacher_id: req.session.user.id });
     if (!existing) return res.status(404).json({ message: 'Assignment not found' });
 
@@ -198,8 +187,6 @@ const updateAssignment = async (req, res) => {
       { _id: req.params.id },
       {
         title, description, deadline, class_id: classId, course_id: courseId || null, max_score: max_score || 100,
-        start_date: start_date || null,
-        end_date: end_date || null,
         is_active: is_active === true || is_active === 'true',
         filename, original_name, mime_type, file_url,
       }

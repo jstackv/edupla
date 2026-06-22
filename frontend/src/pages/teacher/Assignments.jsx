@@ -541,7 +541,7 @@ function SubmissionsModal({ assignment, onClose }) {
 
 // ─── Create/Edit Assignment Modal (module-aware) ──────────────────────────────
 function AssignmentFormModal({ isOpen, onClose, editing, presetClass, presetModule, onSuccess }) {
-  const [form, setForm] = useState({ title: '', description: '', deadline: '', classId: '', courseId: '', max_score: 100, start_date: '', end_date: '', is_active: true });
+  const [form, setForm] = useState({ title: '', description: '', deadline: '', classId: '', courseId: '', max_score: 100, is_active: true });
   const [file, setFile] = useState(null);
   const [saving, setSaving] = useState(false);
 
@@ -549,18 +549,16 @@ function AssignmentFormModal({ isOpen, onClose, editing, presetClass, presetModu
     if (!isOpen) return;
     if (editing) {
       const deadline = editing.deadline ? new Date(editing.deadline).toISOString().slice(0, 16) : '';
-      const start_date = editing.start_date ? new Date(editing.start_date).toISOString().slice(0, 16) : '';
-      const end_date = editing.end_date ? new Date(editing.end_date).toISOString().slice(0, 16) : '';
       setForm({
         title: editing.title, description: editing.description || '', deadline,
         classId: String(editing.class_id), courseId: editing.course_id ? String(editing.course_id) : '',
-        max_score: editing.max_score || 100, start_date, end_date, is_active: editing.is_active || false,
+        max_score: editing.max_score || 100, is_active: editing.is_active || false,
       });
     } else {
       setForm({
         title: '', description: '', deadline: '',
         classId: presetClass?._id || '', courseId: presetModule?._id || '',
-        max_score: 100, start_date: '', end_date: '', is_active: true,
+        max_score: 100, is_active: true,
       });
     }
     setFile(null);
@@ -625,24 +623,6 @@ function AssignmentFormModal({ isOpen, onClose, editing, presetClass, presetModu
             <label className="label">Deadline *</label>
             <input type="datetime-local" value={form.deadline} onChange={e => setForm(f => ({ ...f, deadline: e.target.value }))}
               className="input-field" required />
-          </div>
-        </div>
-        <div style={{ background: 'var(--surface-50)', borderRadius: 10, padding: '12px 14px', border: '1px solid var(--card-border)' }}>
-          <p className="text-xs font-semibold mb-2" style={{ color: 'var(--text-secondary)' }}>Visibility Window (optional)</p>
-          <p className="text-xs mb-3" style={{ color: 'var(--text-secondary)' }}>
-            Students can only view and submit this assignment between these dates. Leave blank for no restriction.
-          </p>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="label">Start Date &amp; Time</label>
-              <input type="datetime-local" value={form.start_date} onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))}
-                className="input-field" />
-            </div>
-            <div>
-              <label className="label">End Date &amp; Time</label>
-              <input type="datetime-local" value={form.end_date} onChange={e => setForm(f => ({ ...f, end_date: e.target.value }))}
-                className="input-field" />
-            </div>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: form.is_active ? 'rgba(16,185,129,0.06)' : 'var(--surface-50)', borderRadius: 10, border: `1px solid ${form.is_active ? 'rgba(16,185,129,0.25)' : 'var(--card-border)'}` }}>

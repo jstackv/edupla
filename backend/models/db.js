@@ -74,8 +74,6 @@ const assignmentSchema = new mongoose.Schema({
   mime_type:     { type: String, default: null },
   file_url:      { type: String, default: null },
   deadline:      { type: Date, required: true },
-  start_date:    { type: Date, default: null },
-  end_date:      { type: Date, default: null },
   is_active:     { type: Boolean, default: true },
   class_id:      { type: mongoose.Schema.Types.ObjectId, ref: 'Class', required: true },
   course_id:     { type: mongoose.Schema.Types.ObjectId, ref: 'Course', default: null },
