@@ -290,4 +290,93 @@ router.post('/program-configs', createProgramConfig);
 router.put('/program-configs/:id', updateProgramConfig);
 router.delete('/program-configs/:id', deleteProgramConfig);
 
+// ── Admin Analytics ─────────────────────────────────────────────────────────
+router.get('/analytics', async (req, res) => {
+  const { User, Class, Assignment, Assessment, Mark, Course, AssessmentSubmission, Submission } = require('../models/db');
+  const mongoose = require('mongoose');
+  const adminId = new mongoose.Types.ObjectId(req.user.id);
+
+  try {
+    const myTeacherDocs = await User.find({ role: 'teacher', created_by: adminId }, '_id').lean();
+    const myTeacherIds = myTeacherDocs.map(t => t._id);
+    const myClassDocs = await Class.find({ created_by: adminId }, '_id students').lean();
+    const myClassIds = myClassDocs.map(c => c._id);
+
+    const [totalModules, totalAssessments] = await Promise.all([
+      Course.countDocuments({ created_by: adminId }),
+      Assessment.countDocuments({ class_id: { $in: myClassIds } }),
+    ]);
+
+    const allAssessmentIds = (await Assessment.find({ class_id: { $in: myClassIds } }, '_id')).map(a => a._id);
+
+    const submissionStatuses = await AssessmentSubmission.aggregate([
+      { $match: { assessment_id: { $in: allAssessmentIds } } },
+      { $group: { _id: '$status', count: { $sum: 1 } } },
+    ]);
+    const assessmentStatusMap = { submitted: 0, approved: 0, rejected: 0 };
+    submissionStatuses.forEach(s => { if (s._id in assessmentStatusMap) assessmentStatusMap[s._id] = s.count; });
+
+    const allMarks = await Mark.find({ assessment_id: { $in: allAssessmentIds }, marks_obtained: { $ne: null } })
+      .populate('assessment_id', 'total_marks').lean();
+    const markDist = { excellent: 0, good: 0, average: 0, poor: 0 };
+    allMarks.forEach(m => {
+      const total = m.assessment_id?.total_marks || 100;
+      const pct = (m.marks_obtained / total) * 100;
+      if (pct >= 75) markDist.excellent++;
+      else if (pct >= 60) markDist.good++;
+      else if (pct >= 40) markDist.average++;
+      else markDist.poor++;
+    });
+
+    const modulesByCategory = await Course.aggregate([
+      { $match: { created_by: adminId } },
+      { $group: { _id: '$category', count: { $sum: 1 } } },
+    ]);
+
+    const recentModules = await Course.find({ created_by: adminId })
+      .sort({ created_at: -1 }).limit(5)
+      .populate('teacher_id', 'name')
+      .populate('class_ids', 'name').lean();
+
+    const recentAssessments = await Assessment.find({ class_id: { $in: myClassIds } })
+      .sort({ created_at: -1 }).limit(5)
+      .populate('course_id', 'name')
+      .populate('class_id', 'name')
+      .populate('teacher_id', 'name').lean();
+
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const allAssignmentIds = (await Assignment.find({ teacher_id: { $in: myTeacherIds } }, '_id')).map(a => a._id);
+    const submissionTrend = await Submission.aggregate([
+      { $match: { assignment_id: { $in: allAssignmentIds }, submitted_at: { $gte: thirtyDaysAgo } } },
+      { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$submitted_at' } }, count: { $sum: 1 } } },
+      { $sort: { _id: 1 } },
+      { $project: { date: '$_id', count: 1, _id: 0 } },
+    ]);
+
+    res.json({
+      modules: {
+        total: totalModules,
+        byCategory: modulesByCategory,
+        recent: recentModules.map(m => ({
+          id: m._id, name: m.name, code: m.code, category: m.category,
+          teacher_name: m.teacher_id?.name,
+          class_count: m.class_ids?.length || 0,
+          created_at: m.created_at,
+        })),
+      },
+      assessments: {
+        total: totalAssessments,
+        statusBreakdown: assessmentStatusMap,
+        markDistribution: markDist,
+        recent: recentAssessments.map(a => ({
+          id: a._id, type: a.type, term: a.term, academic_year: a.academic_year,
+          course_name: a.course_id?.name, class_name: a.class_id?.name,
+          teacher_name: a.teacher_id?.name, total_marks: a.total_marks, created_at: a.created_at,
+        })),
+      },
+      submissionTrend,
+    });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
 module.exports = router;

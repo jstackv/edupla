@@ -115,6 +115,10 @@ const notificationSchema = new mongoose.Schema({
   //             visible only to the teacher (teacher_id), never to any student.
   audience:   { type: String, enum: ['students', 'teacher'], default: 'students' },
   read_by:    [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  // Users who have "cleared" this notification from their own notification panel.
+  // Clearing is per-user: it hides the notification for that user only, it does NOT
+  // delete the underlying document or affect what other recipients see.
+  cleared_by: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
 // ── ProgramConfig — one document per program row (sector + trade + qualTitle + rtqfLevel) ──
@@ -208,6 +212,26 @@ const assessmentSubmissionSchema = new mongoose.Schema({
   review_note:   { type: String, default: null },
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
+// ── Discussion — a teacher-hosted class conversation ────────────────────
+// A teacher posts a discussion to ONE specific class. Every student enrolled
+// in that class can see it and reply; any other teacher (even one assigned
+// to the same class) cannot see it unless they are the host (teacher_id).
+// Replies are kept as a flat embedded list (no nested threading) since the
+// goal is a simple "everyone comments on the idea" feed.
+const discussionCommentSchema = new mongoose.Schema({
+  author_id:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  author_role: { type: String, enum: ['teacher', 'student'], required: true },
+  content:     { type: String, required: true },
+}, { timestamps: { createdAt: 'created_at', updatedAt: false } });
+
+const discussionSchema = new mongoose.Schema({
+  title:      { type: String, required: true },
+  content:    { type: String, required: true },
+  class_id:   { type: mongoose.Schema.Types.ObjectId, ref: 'Class', required: true },
+  teacher_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // host teacher
+  comments:   [discussionCommentSchema],
+}, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
+
 // ── Maintenance Mode — single global settings document ─────────────────
 // Only one document ever exists for this collection (key: 'singleton').
 // When `enabled` is true, every request is blocked for everyone except the
@@ -238,6 +262,7 @@ const Assessment   = mongoose.model('Assessment',   assessmentSchema);
 const Mark         = mongoose.model('Mark',         markSchema);
 const AssessmentSubmission = mongoose.model('AssessmentSubmission', assessmentSubmissionSchema);
 const Maintenance = mongoose.model('Maintenance', maintenanceSchema);
+const Discussion  = mongoose.model('Discussion',  discussionSchema);
 
 module.exports = {
   connectDB,
@@ -245,5 +270,6 @@ module.exports = {
   ProgramConfig,
   Course, Assessment, Mark, AssessmentSubmission,
   Maintenance,
+  Discussion,
 };
 // This line intentionally left blank - models appended below

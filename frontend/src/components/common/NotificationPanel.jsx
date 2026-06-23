@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Bell, X, CheckCheck, ClipboardList, FileText, Megaphone, Info, CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
+import { Bell, X, CheckCheck, Trash2, ClipboardList, FileText, Megaphone, Info, CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
 import api from '../../utils/api';
 
 /* ── helpers ─────────────────────────────────────────────────────── */
@@ -109,6 +109,7 @@ export default function NotificationPanel({ dark }) {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading]         = useState(false);
+  const [clearing, setClearing]       = useState(false);
   const [page, setPage]               = useState(1);
   const [hasMore, setHasMore]         = useState(true);
   const panelRef = useRef(null);
@@ -176,6 +177,20 @@ export default function NotificationPanel({ dark }) {
       setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
       setUnreadCount(0);
     } catch { /* silent */ }
+  };
+
+  /* ── clear all notifications (removes them from this user's panel only) ── */
+  const clearAll = async () => {
+    if (clearing) return;
+    setClearing(true);
+    try {
+      await api.post('/notifications/clear-all');
+      setNotifications([]);
+      setUnreadCount(0);
+      setHasMore(false);
+    } catch { /* silent */ } finally {
+      setClearing(false);
+    }
   };
 
   /* ── load more ── */
@@ -292,6 +307,27 @@ export default function NotificationPanel({ dark }) {
                 >
                   <CheckCheck size={12} />
                   Mark all read
+                </button>
+              )}
+              {notifications.length > 0 && (
+                <button
+                  onClick={clearAll}
+                  disabled={clearing}
+                  title="Clear notifications"
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 5,
+                    padding: '4px 10px', borderRadius: 7, border: 'none',
+                    background: dark ? '#1e2535' : '#f1f5f9',
+                    color: dark ? '#94a3b8' : '#6b7280',
+                    fontSize: 11, fontWeight: 600, cursor: clearing ? 'default' : 'pointer',
+                    opacity: clearing ? 0.6 : 1,
+                    transition: 'background 0.15s',
+                  }}
+                  onMouseEnter={e => { if (!clearing) e.currentTarget.style.background = dark ? '#2a3042' : '#e5e7eb'; }}
+                  onMouseLeave={e => { if (!clearing) e.currentTarget.style.background = dark ? '#1e2535' : '#f1f5f9'; }}
+                >
+                  <Trash2 size={12} />
+                  {clearing ? 'Clearing…' : 'Clear'}
                 </button>
               )}
               <button

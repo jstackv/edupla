@@ -3,14 +3,13 @@ import { Link } from 'react-router-dom';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import {
-  Users, BookOpen, GraduationCap, FileText, Megaphone,
+  Users, BookOpen, GraduationCap, ClipboardList, FileText, Megaphone,
   ChevronRight, Shield, TrendingUp, TrendingDown, ArrowUpRight,
-  Activity, BarChart2, CheckCircle2, Layers, ClipboardCheck,
-  FileEdit, Clock, XCircle, Hash,
+  Activity, BarChart2, CheckCircle2, Layers, BookMarked, Award,
 } from 'lucide-react';
 
 /* ── Animated counter ── */
-function useCountUp(target, trigger, duration = 1400) {
+function useCountUp(target, trigger, duration = 1200) {
   const [val, setVal] = useState(0);
   useEffect(() => {
     if (!trigger || !target) return;
@@ -28,7 +27,7 @@ function useCountUp(target, trigger, duration = 1400) {
   return val;
 }
 
-/* ── Sparkline mini-chart ── */
+/* ── Sparkline ── */
 function Sparkline({ data = [], color = '#6366f1', height = 36 }) {
   if (!data.length) return null;
   const max = Math.max(...data, 1);
@@ -41,7 +40,7 @@ function Sparkline({ data = [], color = '#6366f1', height = 36 }) {
     return `${x},${y}`;
   }).join(' ');
   const fillPts = `0,${h} ${pts} ${w},${h}`;
-  const gradId = `sg${color.replace(/[^a-z0-9]/gi,'')}`;
+  const gradId = `sg${color.replace(/[^a-z0-9]/gi, '')}`;
   return (
     <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ overflow: 'visible' }}>
       <defs>
@@ -56,7 +55,7 @@ function Sparkline({ data = [], color = '#6366f1', height = 36 }) {
   );
 }
 
-/* ── Radial progress ring ── */
+/* ── Radial ring ── */
 function RadialRing({ pct = 0, color = '#6366f1', size = 52, stroke = 5 }) {
   const r = (size - stroke * 2) / 2;
   const circ = 2 * Math.PI * r;
@@ -69,6 +68,30 @@ function RadialRing({ pct = 0, color = '#6366f1', size = 52, stroke = 5 }) {
         strokeWidth={stroke} strokeLinecap="round"
         strokeDasharray={circ} strokeDashoffset={offset}
         style={{ transition: 'stroke-dashoffset 1.2s cubic-bezier(0.34,1.56,0.64,1)' }} />
+    </svg>
+  );
+}
+
+/* ── Donut chart ── */
+function DonutChart({ segments, size = 130 }) {
+  const r = 44, cx = size/2, cy = size/2;
+  const circ = 2 * Math.PI * r;
+  const total = segments.reduce((a,s) => a + s.value, 0) || 1;
+  let offset = 0;
+  const slices = segments.map(s => {
+    const len = (s.value / total) * circ;
+    const slice = { ...s, dash: `${Math.max(0,len-2)} ${circ-Math.max(0,len-2)}`, offset: circ - offset };
+    offset += len;
+    return slice;
+  });
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      {slices.map((s,i) => (
+        <circle key={i} cx={cx} cy={cy} r={r} fill="none" stroke={s.color} strokeWidth={14}
+          strokeDasharray={s.dash} strokeDashoffset={s.offset} strokeLinecap="round"
+          style={{ transform:'rotate(-90deg)', transformOrigin:`${cx}px ${cy}px`, transition:'all 1s ease' }} />
+      ))}
+      <circle cx={cx} cy={cy} r={30} fill="var(--card-bg)" />
     </svg>
   );
 }
@@ -94,22 +117,6 @@ function Avatar({ name, size = 36 }) {
   );
 }
 
-/* ── Module category → color mapping ── */
-const CATEGORY_COLORS = {
-  'Complementary modules': '#6366f1',
-  'Complementary': '#6366f1',
-  'General': '#0ea5e9',
-  'Specific': '#10b981',
-  'Elective Non Examinable': '#f59e0b',
-  'Elective Non-Examinable': '#f59e0b',
-};
-function categoryColor(cat) {
-  return CATEGORY_COLORS[cat] || '#8b5cf6';
-}
-
-const TYPE_LABELS = { FA: 'Formative', IA: 'Integrated', CA: 'Comprehensive' };
-const TYPE_COLORS = { FA: '#0ea5e9', IA: '#8b5cf6', CA: '#10b981' };
-
 /* ── Hero Stat Card ── */
 function HeroStat({ icon: Icon, label, value, color, bg, trend, sparkData, to }) {
   const [mounted, setMounted] = useState(false);
@@ -127,84 +134,54 @@ function HeroStat({ icon: Icon, label, value, color, bg, trend, sparkData, to })
           <div style={{ width:42, height:42, borderRadius:12, background:bg, display:'flex', alignItems:'center', justifyContent:'center' }}>
             <Icon size={18} style={{ color }} />
           </div>
-          <div style={{ display:'flex', alignItems:'center', gap:3, padding:'2px 7px', borderRadius:99, background: isUp ? '#dcfce7' : '#fee2e2', color: isUp ? '#16a34a' : '#dc2626', fontSize:11, fontWeight:700 }}>
-            {isUp ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
-            {Math.abs(trend)}%
-          </div>
+          {trend !== null && (
+            <div style={{ display:'flex', alignItems:'center', gap:3, padding:'2px 7px', borderRadius:99, background: isUp ? '#dcfce7' : '#fee2e2', color: isUp ? '#16a34a' : '#dc2626', fontSize:11, fontWeight:700 }}>
+              {isUp ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
+              {Math.abs(trend)}%
+            </div>
+          )}
         </div>
         <div style={{ marginBottom:8 }}>
           <p style={{ fontSize:28, fontWeight:800, color:'var(--text-primary)', lineHeight:1, marginBottom:3 }}>{counted.toLocaleString()}</p>
           <p style={{ fontSize:12, color:'var(--text-secondary)', fontWeight:500 }}>{label}</p>
         </div>
-        <div style={{ display:'flex', alignItems:'flex-end', justifyContent:'space-between' }}>
-          <span style={{ fontSize:11, color:'var(--text-secondary)' }}>Last 30 days</span>
-          <Sparkline data={sparkData} color={color} />
-        </div>
+        {sparkData && (
+          <div style={{ display:'flex', alignItems:'flex-end', justifyContent:'space-between' }}>
+            <span style={{ fontSize:11, color:'var(--text-secondary)' }}>Last 30 days</span>
+            <Sparkline data={sparkData} color={color} />
+          </div>
+        )}
       </div>
     </Link>
   );
 }
 
-/* ── Activity Item ── */
-function ActivityItem({ icon: Icon, color, title, sub, time, delay = 0 }) {
-  const [vis, setVis] = useState(false);
-  useEffect(() => { const t = setTimeout(() => setVis(true), delay); return () => clearTimeout(t); }, []);
+/* ── Mini bar chart ── */
+function MiniBarChart({ data = [], color = '#6366f1' }) {
+  if (!data.length) return <p style={{ fontSize:12, color:'var(--text-secondary)', textAlign:'center', padding:'16px 0' }}>No submission data yet</p>;
+  const max = Math.max(...data.map(d => d.count), 1);
   return (
-    <div style={{ display:'flex', alignItems:'flex-start', gap:10, opacity: vis?1:0, transform: vis?'none':'translateX(-8px)', transition:'opacity 0.35s ease, transform 0.35s ease' }}>
-      <div style={{ width:32, height:32, borderRadius:10, background:`${color}18`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, marginTop:2 }}>
-        <Icon size={14} style={{ color }} />
-      </div>
-      <div style={{ flex:1, minWidth:0 }}>
-        <p style={{ fontSize:13, fontWeight:600, color:'var(--text-primary)', marginBottom:1 }}>{title}</p>
-        <p style={{ fontSize:11, color:'var(--text-secondary)' }}>{sub}</p>
-      </div>
-      <span style={{ fontSize:10, color:'var(--text-secondary)', flexShrink:0, marginTop:3 }}>{time}</span>
-    </div>
-  );
-}
-
-/* ── Donut chart ── */
-function DonutChart({ segments, size = 130 }) {
-  const r = 44, cx = size/2, cy = size/2;
-  const circ = 2 * Math.PI * r;
-  const total = segments.reduce((a,s) => a + s.value, 0) || 1;
-  let offset = 0;
-  const slices = segments.map(s => {
-    const len = (s.value / total) * circ;
-    const slice = { ...s, dash: `${len-2} ${circ-len+2}`, offset: circ - offset };
-    offset += len;
-    return slice;
-  });
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      {slices.map((s,i) => (
-        <circle key={i} cx={cx} cy={cy} r={r} fill="none" stroke={s.color} strokeWidth={14}
-          strokeDasharray={s.dash} strokeDashoffset={s.offset} strokeLinecap="round"
-          style={{ transform:'rotate(-90deg)', transformOrigin:`${cx}px ${cy}px`, transition:'all 1s ease' }} />
+    <div style={{ display:'flex', alignItems:'flex-end', gap:3, height:60 }}>
+      {data.map((d, i) => (
+        <div key={i} style={{ flex:1, borderRadius:'3px 3px 0 0', background:color, opacity:0.55 + (i/data.length)*0.45,
+          height:`${Math.max(4, (d.count/max)*56)}px`, transition:'height 0.6s ease' }} />
       ))}
-      <circle cx={cx} cy={cy} r={30} fill="var(--card-bg)" />
-    </svg>
+    </div>
   );
 }
 
-/* ── Assessment pipeline step ── */
-function PipelineStep({ icon: Icon, label, count, color, isLast }) {
+/* ── Status badge ── */
+function StatusBadge({ status }) {
+  const map = {
+    submitted: { bg:'#fef3c7', color:'#d97706', label:'Submitted' },
+    approved:  { bg:'#d1fae5', color:'#059669', label:'Approved' },
+    rejected:  { bg:'#fee2e2', color:'#dc2626', label:'Rejected' },
+  };
+  const s = map[status] || { bg:'#f3f4f6', color:'#6b7280', label:'Draft' };
   return (
-    <div style={{ display:'flex', alignItems:'center', flex:1 }}>
-      <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:8, flex:1 }}>
-        <div style={{
-          width:44, height:44, borderRadius:14, background:`${color}16`, border:`1px solid ${color}30`,
-          display:'flex', alignItems:'center', justifyContent:'center',
-        }}>
-          <Icon size={18} style={{ color }} />
-        </div>
-        <div style={{ textAlign:'center' }}>
-          <p style={{ fontSize:18, fontWeight:800, color:'var(--text-primary)', lineHeight:1 }}>{count}</p>
-          <p style={{ fontSize:10.5, color:'var(--text-secondary)', fontWeight:600, marginTop:2 }}>{label}</p>
-        </div>
-      </div>
-      {!isLast && <ChevronRight size={14} style={{ color:'var(--card-border)', flexShrink:0, margin:'0 2px 26px' }} />}
-    </div>
+    <span style={{ fontSize:10, fontWeight:700, padding:'2px 7px', borderRadius:99, background:s.bg, color:s.color }}>
+      {s.label}
+    </span>
   );
 }
 
@@ -212,15 +189,23 @@ function PipelineStep({ icon: Icon, label, count, color, isLast }) {
 export default function AdminDashboard() {
   const { user } = useAuth();
   const [stats, setStats] = useState(null);
+  const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('teachers');
+  const [activeModuleTab, setActiveModuleTab] = useState('modules');
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   const greetIcon = hour < 12 ? '🌅' : hour < 17 ? '☀️' : '🌙';
 
   useEffect(() => {
-    api.get('/admin/stats').then(r => setStats(r.data)).catch(()=>{}).finally(()=>setLoading(false));
+    Promise.all([
+      api.get('/admin/stats').catch(() => ({ data: null })),
+      api.get('/admin/analytics').catch(() => ({ data: null })),
+    ]).then(([statsRes, analyticsRes]) => {
+      if (statsRes.data) setStats(statsRes.data);
+      if (analyticsRes.data) setAnalytics(analyticsRes.data);
+    }).finally(() => setLoading(false));
   }, []);
 
   if (loading) return (
@@ -233,52 +218,45 @@ export default function AdminDashboard() {
   );
 
   const counts = stats?.counts || {};
-  const moduleCategoryBreakdown = stats?.moduleCategoryBreakdown || [];
-  const assessmentTypeBreakdown = stats?.assessmentTypeBreakdown || [];
-  const assessmentStatusBreakdown = stats?.assessmentStatusBreakdown || { draft:0, submitted:0, approved:0, rejected:0 };
-  const recentModules = stats?.recentModules || [];
-  const modulesByTeacher = stats?.modulesByTeacher || [];
 
-  const sparkTeachers   = [8,10,9,11,10,12,11,13,12,counts.teachers||14];
-  const sparkStudents   = [180,195,210,205,220,215,230,225,240,counts.students||248];
-  const sparkClasses    = [12,13,12,14,13,15,14,16,15,counts.classes||17];
-  const sparkModules    = [9,11,10,13,12,15,14,17,16,counts.modules||19];
-  const sparkAssessments= [14,16,15,19,18,22,21,25,23,counts.assessments||27];
+  // Sparklines using real data where possible
+  const sparkTeachers = [8,10,9,11,10,12,11,13,12,counts.teachers||0];
+  const sparkStudents = [180,195,210,205,220,215,230,225,240,counts.students||0];
+  const sparkClasses  = [12,13,12,14,13,15,14,16,15,counts.classes||0];
+  const sparkModules  = Array(9).fill(0).map((_,i)=>i).concat([analytics?.modules?.total||0]);
 
   const heroStats = [
-    { icon:Users,           label:'Total Teachers',   value:counts.teachers||0,    color:'#6366f1', bg:'#eef2ff', trend:12, sparkData:sparkTeachers,    to:'/admin/teachers'    },
-    { icon:GraduationCap,   label:'Total Students',   value:counts.students||0,    color:'#10b981', bg:'#ecfdf5', trend:8,  sparkData:sparkStudents,    to:'/admin/students'    },
-    { icon:BookOpen,        label:'Active Classes',   value:counts.classes||0,     color:'#0ea5e9', bg:'#f0f9ff', trend:5,  sparkData:sparkClasses,     to:'/admin/classes'     },
-    { icon:Layers,          label:'Modules',          value:counts.modules||0,     color:'#8b5cf6', bg:'#f5f3ff', trend:9,  sparkData:sparkModules,     to:'/admin/assessments' },
-    { icon:ClipboardCheck,  label:'Assessments',      value:counts.assessments||0, color:'#f59e0b', bg:'#fffbeb', trend:14, sparkData:sparkAssessments, to:'/admin/assessments' },
+    { icon:Users,         label:'Total Teachers',  value:counts.teachers||0,                color:'#6366f1', bg:'#eef2ff', trend:12,   sparkData:sparkTeachers, to:'/admin/teachers' },
+    { icon:GraduationCap, label:'Total Students',  value:counts.students||0,                color:'#10b981', bg:'#ecfdf5', trend:8,    sparkData:sparkStudents, to:'/admin/students' },
+    { icon:BookOpen,      label:'Active Classes',  value:counts.classes||0,                 color:'#0ea5e9', bg:'#f0f9ff', trend:5,    sparkData:sparkClasses,  to:'/admin/classes'  },
+    { icon:Layers,        label:'Modules',         value:analytics?.modules?.total||0,      color:'#8b5cf6', bg:'#f5f3ff', trend:null, sparkData:sparkModules,  to:'/admin/classes'  },
+    { icon:ClipboardList, label:'Assessments',     value:analytics?.assessments?.total||0,  color:'#f59e0b', bg:'#fffbeb', trend:null, sparkData:null,          to:'/admin/classes'  },
+    { icon:FileText,      label:'Assignments',     value:counts.assignments||0,             color:'#ef4444', bg:'#fef2f2', trend:null, sparkData:null,          to:'/admin/classes'  },
   ];
 
   const donutSegments = [
-    { label:'Modules',       value:counts.modules||1,       color:'#8b5cf6' },
-    { label:'Assessments',   value:counts.assessments||1,   color:'#f59e0b' },
-    { label:'Documents',     value:counts.documents||1,      color:'#0ea5e9' },
-    { label:'Announcements', value:counts.announcements||1,  color:'#ec4899' },
+    { label:'Teachers',    value:counts.teachers||1,    color:'#6366f1' },
+    { label:'Students',    value:counts.students||1,    color:'#10b981' },
+    { label:'Classes',     value:counts.classes||1,     color:'#0ea5e9' },
+    { label:'Modules',     value:analytics?.modules?.total||1, color:'#8b5cf6' },
   ];
   const donutTotal = donutSegments.reduce((a,s) => a+s.value, 0);
 
-  const activityFeed = [
-    { icon:GraduationCap, color:'#10b981', title:'New student enrolled',         sub:'Added to Science Class A',          time:'2m ago'  },
-    { icon:Users,         color:'#6366f1', title:'Teacher profile updated',      sub:'Dr. Johnson updated details',       time:'18m ago' },
-    { icon:BookOpen,      color:'#0ea5e9', title:'New class created',            sub:'Mathematics — Grade 10',            time:'1h ago'  },
-    { icon:Layers,        color:'#8b5cf6', title:'New module created',           sub:'Added to Grade 10 curriculum',      time:'2h ago'  },
-    { icon:Megaphone,     color:'#ec4899', title:'Announcement sent',            sub:'School-wide notice',                time:'3h ago'  },
-    { icon:ClipboardCheck,color:'#f59e0b', title:'Assessment submitted',         sub:'Awaiting admin review',             time:'5h ago'  },
+  // Assessment mark distribution
+  const markDist = analytics?.assessments?.markDistribution || {};
+  const markSegments = [
+    { label:'Excellent (≥75%)', value:markDist.excellent||0, color:'#10b981' },
+    { label:'Good (≥60%)',      value:markDist.good||0,      color:'#6366f1' },
+    { label:'Average (≥40%)',   value:markDist.average||0,   color:'#f59e0b' },
+    { label:'Below (<40%)',     value:markDist.poor||0,       color:'#ef4444' },
   ];
+  const markTotal = markSegments.reduce((s,i)=>s+i.value,0);
 
-  const systemHealth = [
-    { label:'System Uptime',   pct:99, color:'#10b981' },
-    { label:'Storage Used',    pct:43, color:'#6366f1' },
-    { label:'Active Sessions', pct:72, color:'#0ea5e9' },
-  ];
+  // Assessment status breakdown
+  const statusMap = analytics?.assessments?.statusBreakdown || {};
 
-  const maxModuleCat = Math.max(...moduleCategoryBreakdown.map(c => c.count), 1);
-  const typeMap = {};
-  assessmentTypeBreakdown.forEach(t => { typeMap[t.type] = t.count; });
+  // Module by category
+  const categoryData = analytics?.modules?.byCategory || [];
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:18 }}>
@@ -310,7 +288,7 @@ export default function AdminDashboard() {
             {[
               { label:'Teachers', val:counts.teachers||0, color:'#a5b4fc', icon:Users },
               { label:'Students', val:counts.students||0, color:'#6ee7b7', icon:GraduationCap },
-              { label:'Classes',  val:counts.classes||0,  color:'#7dd3fc', icon:BookOpen },
+              { label:'Modules',  val:analytics?.modules?.total||0, color:'#c4b5fd', icon:Layers },
             ].map(({ label, val, color, icon:Ic }) => (
               <div key={label} style={{ textAlign:'center', padding:'10px 14px', borderRadius:14, background:'rgba(255,255,255,0.08)', border:'1px solid rgba(255,255,255,0.12)', minWidth:68 }}>
                 <Ic size={13} style={{ color, margin:'0 auto 4px', display:'block' }} />
@@ -322,10 +300,11 @@ export default function AdminDashboard() {
         </div>
         <div style={{ marginTop:18, paddingTop:14, borderTop:'1px solid rgba(255,255,255,0.1)', display:'flex', gap:20, flexWrap:'wrap' }}>
           {[
-            { label:'Modules',       val:counts.modules||0,       icon:Layers,         color:'#c4b5fd' },
-            { label:'Assessments',   val:counts.assessments||0,   icon:ClipboardCheck, color:'#fcd34d' },
-            { label:'Documents',     val:counts.documents||0,     icon:FileText,       color:'#93c5fd' },
-            { label:'Announcements', val:counts.announcements||0, icon:Megaphone,      color:'#f9a8d4' },
+            { label:'Assessments',  val:analytics?.assessments?.total||0,               icon:ClipboardList, color:'#fcd34d' },
+            { label:'Pending',      val:statusMap.submitted||0,                          icon:Activity,     color:'#fca5a5' },
+            { label:'Approved',     val:statusMap.approved||0,                           icon:CheckCircle2, color:'#6ee7b7' },
+            { label:'Assignments',  val:counts.assignments||0,                           icon:FileText,     color:'#7dd3fc' },
+            { label:'Announcements',val:counts.announcements||0,                        icon:Megaphone,    color:'#f9a8d4' },
           ].map(({ label, val, icon:Ic, color }) => (
             <div key={label} style={{ display:'flex', alignItems:'center', gap:7 }}>
               <Ic size={12} style={{ color, opacity:0.9 }} />
@@ -336,33 +315,31 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* ── Stat Cards ── */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(180px, 1fr))', gap:12 }}>
+      {/* ── Hero Stat Cards ── */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(175px, 1fr))', gap:12 }}>
         {heroStats.map((s,i) => (
-          <div key={s.label} style={{ animation:'slideUp 0.4s ease both', animationDelay:`${i*70}ms` }}>
+          <div key={s.label} style={{ animation:'slideUp 0.4s ease both', animationDelay:`${i*60}ms` }}>
             <HeroStat {...s} />
           </div>
         ))}
       </div>
 
-      {/* ── Middle: Overview list + Donut ── */}
+      {/* ── Middle: People list + Donut ── */}
       <div style={{ display:'grid', gridTemplateColumns:'1fr 260px', gap:14 }}>
 
-        {/* Overview list */}
+        {/* People list */}
         <div className="card">
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
-            <h3 style={{ fontSize:14, fontWeight:700, color:'var(--text-primary)' }}>Overview</h3>
+            <h3 style={{ fontSize:14, fontWeight:700, color:'var(--text-primary)' }}>People Overview</h3>
             <div style={{ display:'flex', gap:2, background:'var(--surface-100)', borderRadius:10, padding:3 }}>
-              {['teachers','students','modules'].map(tab => (
+              {['teachers','students'].map(tab => (
                 <button key={tab} onClick={() => setActiveTab(tab)} style={{
                   padding:'5px 12px', borderRadius:8, fontSize:12, fontWeight:600, border:'none', cursor:'pointer', transition:'all 0.15s',
                   background: activeTab===tab ? 'var(--card-bg)' : 'transparent',
                   color: activeTab===tab ? 'var(--text-primary)' : 'var(--text-secondary)',
                   boxShadow: activeTab===tab ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
                   textTransform:'capitalize'
-                }}>
-                  {tab}
-                </button>
+                }}>{tab}</button>
               ))}
             </div>
           </div>
@@ -435,54 +412,12 @@ export default function AdminDashboard() {
               </div>
             </>
           )}
-
-          {activeTab === 'modules' && (
-            <>
-              {!recentModules.length
-                ? <p style={{ fontSize:13, color:'var(--text-secondary)', textAlign:'center', padding:'24px 0' }}>No modules yet</p>
-                : <div style={{ display:'flex', flexDirection:'column', gap:1 }}>
-                    {recentModules.map((m) => {
-                      const c = categoryColor(m.category);
-                      return (
-                        <div key={m.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'9px 10px', borderRadius:12, transition:'background 0.15s' }}
-                          onMouseEnter={e => e.currentTarget.style.background='var(--surface-100)'}
-                          onMouseLeave={e => e.currentTarget.style.background=''}
-                        >
-                          <div style={{ width:38, height:38, borderRadius:12, background:`${c}18`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                            <Layers size={16} style={{ color:c }} />
-                          </div>
-                          <div style={{ flex:1, minWidth:0 }}>
-                            <p style={{ fontSize:13, fontWeight:600, color:'var(--text-primary)', marginBottom:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                              {m.name}{m.code ? ` · ${m.code}` : ''}
-                            </p>
-                            <p style={{ fontSize:11, color:'var(--text-secondary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                              {m.teacher_name || 'Unassigned'}{m.class_names?.length ? ` · ${m.class_names.join(', ')}` : ''}
-                            </p>
-                          </div>
-                          <div style={{ display:'flex', gap:5, flexShrink:0, alignItems:'center' }}>
-                            <span style={{ fontSize:11, padding:'2px 7px', borderRadius:6, background:`${c}18`, color:c, fontWeight:600 }}>{m.category || 'General'}</span>
-                            <span style={{ fontSize:10, color:'var(--text-secondary)', padding:'2px 0' }}>
-                              {new Date(m.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'})}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-              }
-              <div style={{ marginTop:10, paddingTop:10, borderTop:'1px solid var(--card-border)' }}>
-                <Link to="/admin/assessments" style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, fontWeight:600, color:'#6366f1', textDecoration:'none' }}>
-                  View all modules <ArrowUpRight size={13} />
-                </Link>
-              </div>
-            </>
-          )}
         </div>
 
         {/* Donut */}
         <div className="card" style={{ display:'flex', flexDirection:'column' }}>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
-            <h3 style={{ fontSize:14, fontWeight:700, color:'var(--text-primary)' }}>Content Mix</h3>
+            <h3 style={{ fontSize:14, fontWeight:700, color:'var(--text-primary)' }}>Distribution</h3>
             <BarChart2 size={15} style={{ color:'var(--text-secondary)' }} />
           </div>
           <div style={{ display:'flex', flexDirection:'column', alignItems:'center', flex:1 }}>
@@ -507,69 +442,158 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* ── Module & Assessment analytics row ── */}
+      {/* ── Modules & Assessments Row ── */}
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
 
-        {/* Module categories */}
+        {/* Modules & Assessments tabs */}
         <div className="card">
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
-            <h3 style={{ fontSize:14, fontWeight:700, color:'var(--text-primary)' }}>Module Categories</h3>
-            <Link to="/admin/assessments" style={{ display:'flex', alignItems:'center', gap:2, fontSize:11, fontWeight:600, color:'#6366f1', textDecoration:'none' }}>
-              Manage <ChevronRight size={12} />
-            </Link>
-          </div>
-          {!moduleCategoryBreakdown.length
-            ? <p style={{ fontSize:13, color:'var(--text-secondary)', textAlign:'center', padding:'24px 0' }}>No modules created yet</p>
-            : <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
-                {moduleCategoryBreakdown.map((row,i) => {
-                  const pct = Math.round((row.count/maxModuleCat)*100);
-                  const c = categoryColor(row.category);
-                  return (
-                    <div key={i}>
-                      <div style={{ display:'flex', justifyContent:'space-between', marginBottom:5, alignItems:'center' }}>
-                        <span style={{ fontSize:12, fontWeight:600, color:'var(--text-primary)', flex:1, minWidth:0 }}>{row.category || 'Uncategorized'}</span>
-                        <span style={{ fontSize:11, padding:'2px 7px', borderRadius:6, background:`${c}18`, color:c, fontWeight:700, flexShrink:0 }}>{row.count} module{row.count===1?'':'s'}</span>
-                      </div>
-                      <div style={{ height:6, borderRadius:99, background:'var(--surface-100)', overflow:'hidden' }}>
-                        <div style={{ height:'100%', borderRadius:99, width:`${pct}%`, background:`linear-gradient(90deg, ${c}cc, ${c})`, transition:'width 1s cubic-bezier(0.34,1.56,0.64,1)' }} />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-          }
-        </div>
-
-        {/* Assessment pipeline */}
-        <div className="card">
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
-            <h3 style={{ fontSize:14, fontWeight:700, color:'var(--text-primary)' }}>Assessment Pipeline</h3>
-            <Link to="/admin/assessments" style={{ display:'flex', alignItems:'center', gap:2, fontSize:11, fontWeight:600, color:'#6366f1', textDecoration:'none' }}>
-              Review <ChevronRight size={12} />
-            </Link>
-          </div>
-          <div style={{ display:'flex', alignItems:'flex-start', marginBottom:16 }}>
-            <PipelineStep icon={FileEdit}      label="Draft"     count={assessmentStatusBreakdown.draft}     color="#94a3b8" />
-            <PipelineStep icon={Clock}         label="Submitted" count={assessmentStatusBreakdown.submitted} color="#f59e0b" />
-            <PipelineStep icon={CheckCircle2}  label="Approved"  count={assessmentStatusBreakdown.approved}  color="#10b981" />
-            <PipelineStep icon={XCircle}       label="Rejected"  count={assessmentStatusBreakdown.rejected}  color="#ef4444" isLast />
-          </div>
-          <div style={{ paddingTop:12, borderTop:'1px solid var(--card-border)' }}>
-            <p style={{ fontSize:10, fontWeight:700, color:'var(--text-secondary)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:8 }}>By Type</p>
-            <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-              {['FA','IA','CA'].map(t => (
-                <div key={t} style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 10px', borderRadius:10, background:`${TYPE_COLORS[t]}14`, border:`1px solid ${TYPE_COLORS[t]}30` }}>
-                  <span style={{ fontSize:11, fontWeight:800, color:TYPE_COLORS[t] }}>{t}</span>
-                  <span style={{ fontSize:10, color:'var(--text-secondary)' }}>{TYPE_LABELS[t]}</span>
-                  <span style={{ fontSize:11, fontWeight:700, color:'var(--text-primary)' }}>{typeMap[t] || 0}</span>
-                </div>
+            <h3 style={{ fontSize:14, fontWeight:700, color:'var(--text-primary)' }}>Academic Content</h3>
+            <div style={{ display:'flex', gap:2, background:'var(--surface-100)', borderRadius:10, padding:3 }}>
+              {['modules','assessments'].map(tab => (
+                <button key={tab} onClick={() => setActiveModuleTab(tab)} style={{
+                  padding:'4px 10px', borderRadius:8, fontSize:11, fontWeight:600, border:'none', cursor:'pointer', transition:'all 0.15s',
+                  background: activeModuleTab===tab ? 'var(--card-bg)' : 'transparent',
+                  color: activeModuleTab===tab ? 'var(--text-primary)' : 'var(--text-secondary)',
+                  boxShadow: activeModuleTab===tab ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
+                  textTransform:'capitalize'
+                }}>{tab}</button>
               ))}
             </div>
           </div>
+
+          {activeModuleTab === 'modules' && (
+            <>
+              {/* Category breakdown */}
+              {categoryData.length > 0 && (
+                <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:12 }}>
+                  {categoryData.map((c,i) => (
+                    <span key={i} style={{ fontSize:10, padding:'3px 8px', borderRadius:99, fontWeight:700,
+                      background:['#eef2ff','#ecfdf5','#fffbeb','#f5f3ff'][i%4],
+                      color:['#4f46e5','#059669','#d97706','#7c3aed'][i%4] }}>
+                      {c._id || 'Other'}: {c.count}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {!analytics?.modules?.recent?.length ? (
+                <p style={{ fontSize:13, color:'var(--text-secondary)', textAlign:'center', padding:'16px 0' }}>No modules created yet</p>
+              ) : (
+                <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                  {analytics.modules.recent.map((m,i) => (
+                    <div key={m.id||i} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 10px', borderRadius:10, transition:'background 0.15s' }}
+                      onMouseEnter={e=>e.currentTarget.style.background='var(--surface-100)'}
+                      onMouseLeave={e=>e.currentTarget.style.background=''}>
+                      <div style={{ width:32, height:32, borderRadius:9, background:'#f5f3ff', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                        <BookMarked size={14} style={{ color:'#8b5cf6' }} />
+                      </div>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <p style={{ fontSize:12, fontWeight:600, color:'var(--text-primary)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{m.name}</p>
+                        <p style={{ fontSize:10, color:'var(--text-secondary)' }}>{m.teacher_name || 'Unassigned'} · {m.class_count} class{m.class_count!==1?'es':''}</p>
+                      </div>
+                      {m.code && <span style={{ fontSize:10, padding:'2px 7px', borderRadius:6, background:'#f3f4f6', color:'#6b7280', fontWeight:600, flexShrink:0 }}>{m.code}</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+
+          {activeModuleTab === 'assessments' && (
+            <>
+              {/* Status summary */}
+              <div style={{ display:'flex', gap:8, marginBottom:12 }}>
+                {[
+                  { label:'Pending Review', val:statusMap.submitted||0, bg:'#fef3c7', color:'#d97706' },
+                  { label:'Approved',       val:statusMap.approved||0,  bg:'#d1fae5', color:'#059669' },
+                  { label:'Rejected',       val:statusMap.rejected||0,  bg:'#fee2e2', color:'#dc2626' },
+                ].map(s => (
+                  <div key={s.label} style={{ flex:1, textAlign:'center', padding:'8px 6px', borderRadius:10, background:s.bg }}>
+                    <p style={{ fontSize:16, fontWeight:800, color:s.color, lineHeight:1 }}>{s.val}</p>
+                    <p style={{ fontSize:9, color:s.color, marginTop:2, fontWeight:600, opacity:0.8 }}>{s.label}</p>
+                  </div>
+                ))}
+              </div>
+              {!analytics?.assessments?.recent?.length ? (
+                <p style={{ fontSize:13, color:'var(--text-secondary)', textAlign:'center', padding:'16px 0' }}>No assessments yet</p>
+              ) : (
+                <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                  {analytics.assessments.recent.map((a,i) => (
+                    <div key={a.id||i} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 10px', borderRadius:10, background:'var(--surface-100)' }}>
+                      <div style={{ width:32, height:32, borderRadius:9, background:'#fffbeb', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                        <span style={{ fontSize:10, fontWeight:800, color:'#d97706' }}>{a.type}</span>
+                      </div>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <p style={{ fontSize:12, fontWeight:600, color:'var(--text-primary)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{a.course_name}</p>
+                        <p style={{ fontSize:10, color:'var(--text-secondary)' }}>{a.class_name} · {a.teacher_name}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Assessment Mark Distribution */}
+        <div className="card">
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
+            <h3 style={{ fontSize:14, fontWeight:700, color:'var(--text-primary)' }}>Assessment Performance</h3>
+            <Award size={15} style={{ color:'#f59e0b' }} />
+          </div>
+
+          {markTotal === 0 ? (
+            <div style={{ textAlign:'center', padding:'24px 0', fontSize:13, color:'var(--text-secondary)' }}>
+              <Award size={32} style={{ margin:'0 auto 8px', opacity:0.3 }} />
+              <p>No graded assessments yet</p>
+            </div>
+          ) : (
+            <>
+              <div style={{ display:'flex', alignItems:'center', gap:16, marginBottom:16 }}>
+                <div style={{ position:'relative', flexShrink:0 }}>
+                  <DonutChart segments={markSegments} size={120} />
+                  <div style={{ position:'absolute', top:'50%', left:'50%', transform:'translate(-50%,-50%)', textAlign:'center' }}>
+                    <p style={{ fontSize:16, fontWeight:800, color:'var(--text-primary)', lineHeight:1 }}>{markTotal}</p>
+                    <p style={{ fontSize:9, color:'var(--text-secondary)' }}>marks</p>
+                  </div>
+                </div>
+                <div style={{ flex:1, display:'flex', flexDirection:'column', gap:8 }}>
+                  {markSegments.map(s => (
+                    <div key={s.label} style={{ display:'flex', alignItems:'center', gap:8 }}>
+                      <div style={{ width:8, height:8, borderRadius:2, background:s.color, flexShrink:0 }} />
+                      <span style={{ fontSize:11, color:'var(--text-secondary)', flex:1 }}>{s.label}</span>
+                      <span style={{ fontSize:11, fontWeight:700, color:'var(--text-primary)' }}>{s.value}</span>
+                      <span style={{ fontSize:10, color:'var(--text-secondary)', minWidth:26, textAlign:'right' }}>
+                        {Math.round((s.value/markTotal)*100)}%
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {/* Progress bars */}
+              <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                {markSegments.map(s => (
+                  <div key={s.label}>
+                    <div style={{ height:5, borderRadius:99, background:'var(--surface-100)', overflow:'hidden' }}>
+                      <div style={{ height:'100%', borderRadius:99, width:`${markTotal?Math.round((s.value/markTotal)*100):0}%`, background:s.color, transition:'width 1s ease' }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* Submission trend mini chart */}
+          {analytics?.submissionTrend?.length > 0 && (
+            <div style={{ marginTop:16, paddingTop:14, borderTop:'1px solid var(--card-border)' }}>
+              <p style={{ fontSize:11, fontWeight:600, color:'var(--text-secondary)', marginBottom:8 }}>Assignment Submissions (30 days)</p>
+              <MiniBarChart data={analytics.submissionTrend} color="#6366f1" />
+            </div>
+          )}
         </div>
       </div>
 
-      {/* ── Bottom row ── */}
+      {/* ── Bottom Row ── */}
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:14 }}>
 
         {/* Class performance */}
@@ -607,28 +631,48 @@ export default function AdminDashboard() {
           }
         </div>
 
-        {/* Activity feed */}
+        {/* Assessment Status Panel */}
         <div className="card">
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
-            <h3 style={{ fontSize:14, fontWeight:700, color:'var(--text-primary)' }}>Recent Activity</h3>
+            <h3 style={{ fontSize:14, fontWeight:700, color:'var(--text-primary)' }}>Assessment Workflow</h3>
             <div style={{ display:'flex', alignItems:'center', gap:4, padding:'3px 8px', borderRadius:99, background:'#ecfdf5' }}>
               <Activity size={10} style={{ color:'#10b981' }} />
               <span style={{ fontSize:10, fontWeight:600, color:'#10b981' }}>Live</span>
             </div>
           </div>
           <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-            {activityFeed.map((a,i) => <ActivityItem key={i} {...a} delay={i*80} />)}
+            {[
+              { label:'Pending Review', val:statusMap.submitted||0, color:'#f59e0b', bg:'#fffbeb', icon:ClipboardList, desc:'Awaiting admin review' },
+              { label:'Approved',       val:statusMap.approved||0,  color:'#10b981', bg:'#ecfdf5', icon:CheckCircle2,  desc:'Marks finalised' },
+              { label:'Rejected',       val:statusMap.rejected||0,  color:'#ef4444', bg:'#fef2f2', icon:Activity,      desc:'Returned to teacher' },
+              { label:'Total Modules',  val:analytics?.modules?.total||0, color:'#8b5cf6', bg:'#f5f3ff', icon:Layers, desc:'Across all classes' },
+            ].map(({ label, val, color, bg, icon:Ic, desc }) => (
+              <div key={label} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 10px', borderRadius:10, background:bg }}>
+                <div style={{ width:32, height:32, borderRadius:9, background:`${color}22`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                  <Ic size={14} style={{ color }} />
+                </div>
+                <div style={{ flex:1 }}>
+                  <p style={{ fontSize:12, fontWeight:600, color:'var(--text-primary)' }}>{label}</p>
+                  <p style={{ fontSize:10, color:'var(--text-secondary)' }}>{desc}</p>
+                </div>
+                <span style={{ fontSize:18, fontWeight:800, color, flexShrink:0 }}>{val}</span>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* System health */}
+        {/* System health + quick actions */}
         <div className="card">
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
             <h3 style={{ fontSize:14, fontWeight:700, color:'var(--text-primary)' }}>System Health</h3>
             <CheckCircle2 size={15} style={{ color:'#10b981' }} />
           </div>
           <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
-            {systemHealth.map(({ label, pct, color }) => (
+            {[
+              { label:'System Uptime',   pct:99, color:'#10b981' },
+              { label:'Storage Used',    pct:43, color:'#6366f1' },
+              { label:'Active Sessions', pct:72, color:'#0ea5e9' },
+            ].map(({ label, pct, color }) => (
               <div key={label} style={{ display:'flex', alignItems:'center', gap:12 }}>
                 <div style={{ position:'relative', flexShrink:0 }}>
                   <RadialRing pct={pct} color={color} size={52} stroke={5} />
@@ -647,10 +691,9 @@ export default function AdminDashboard() {
           <div style={{ marginTop:16, paddingTop:14, borderTop:'1px solid var(--card-border)', display:'flex', flexDirection:'column', gap:5 }}>
             <p style={{ fontSize:10, fontWeight:700, color:'var(--text-secondary)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:3 }}>Quick Actions</p>
             {[
-              { label:'Manage Teachers',      to:'/admin/teachers',    icon:Users,          color:'#6366f1' },
-              { label:'Manage Students',      to:'/admin/students',    icon:GraduationCap,  color:'#10b981' },
-              { label:'View Classes',         to:'/admin/classes',     icon:BookOpen,       color:'#0ea5e9' },
-              { label:'Modules & Assessments',to:'/admin/assessments', icon:ClipboardCheck, color:'#8b5cf6' },
+              { label:'Manage Teachers', to:'/admin/teachers', icon:Users,         color:'#6366f1' },
+              { label:'Manage Students', to:'/admin/students', icon:GraduationCap, color:'#10b981' },
+              { label:'View Classes',    to:'/admin/classes',  icon:BookOpen,       color:'#0ea5e9' },
             ].map(({ label, to, icon:Ic, color }) => (
               <Link key={to} to={to} style={{ display:'flex', alignItems:'center', gap:8, padding:'7px 10px', borderRadius:10, textDecoration:'none', transition:'background 0.15s', background:'var(--surface-100)' }}
                 onMouseEnter={e => e.currentTarget.style.background='var(--card-border)'}

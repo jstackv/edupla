@@ -182,31 +182,42 @@ html { scroll-behavior: smooth; }
   from { opacity: 0; }
   to   { opacity: 1; }
 }
+@keyframes msg-in-right {
+  from { opacity: 0; transform: translateX(12px) scale(0.97); }
+  to   { opacity: 1; transform: translateX(0) scale(1); }
+}
+@keyframes msg-in-left {
+  from { opacity: 0; transform: translateX(-12px) scale(0.97); }
+  to   { opacity: 1; transform: translateX(0) scale(1); }
+}
+@keyframes typing-bounce {
+  0%, 60%, 100% { transform: translateY(0);   opacity: 0.4; }
+  30%            { transform: translateY(-6px); opacity: 0.9; }
+}
+@keyframes typing-appear {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
 
-.animate-slide-up { animation: slide-up 0.25s ease both; }
-.animate-scale-in { animation: scale-in 0.2s ease both; }
-.animate-fade-in  { animation: fade-in 0.2s ease both; }
+.animate-slide-up  { animation: slide-up  0.25s ease both; }
+.animate-scale-in  { animation: scale-in  0.2s  ease both; }
+.animate-fade-in   { animation: fade-in   0.2s  ease both; }
+.animate-msg-right { animation: msg-in-right 0.22s cubic-bezier(0.34,1.56,0.64,1) both; }
+.animate-msg-left  { animation: msg-in-left  0.22s cubic-bezier(0.34,1.56,0.64,1) both; }
+.animate-typing    { animation: typing-appear 0.2s ease both; }
 
-/* ── Global Print Styles ───────────────────────────────────────────────
-   Used by report pages (e.g. Admin Assessments → Reports) to hide app
-   navigation chrome and print only the report content with clean margins. */
+/* ── Print Styles ── */
 @media print {
   @page { margin: 14mm 12mm; size: A4; }
 
   html, body { background: #fff !important; }
 
-  /* Hide app shell elements */
   .edupla-sidebar,
   .mobile-overlay,
   .edupla-topbar,
-  .no-print {
-    display: none !important;
-  }
+  .no-print { display: none !important; }
 
-  /* Let the report content take the full page */
-  .edupla-layout {
-    display: block !important;
-  }
+  .edupla-layout { display: block !important; }
   .edupla-main {
     width: 100% !important;
     height: auto !important;
@@ -214,5 +225,265 @@ html { scroll-behavior: smooth; }
     padding: 0 !important;
     margin: 0 !important;
     background: #fff !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   CHAT / DISCUSSION STYLES
+   ═══════════════════════════════════════════════ */
+
+@keyframes msgInRight {
+  from { opacity: 0; transform: translateX(14px) scale(0.96); }
+  to   { opacity: 1; transform: translateX(0)    scale(1); }
+}
+@keyframes msgInLeft {
+  from { opacity: 0; transform: translateX(-14px) scale(0.96); }
+  to   { opacity: 1; transform: translateX(0)     scale(1); }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Wallpaper background for the message area */
+.chat-wallpaper {
+  background-color: var(--page-bg);
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%236366f1' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* Message bubbles */
+.chat-bubble-mine {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.35);
+}
+
+.chat-bubble-other {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  color: var(--text-primary);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+.dark .chat-bubble-other {
+  background: var(--surface-100);
+  border-color: var(--card-border);
+}
+
+/* Typing indicator dots */
+.typing-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-secondary);
+  animation: typing-bounce 1.2s infinite ease-in-out;
+}
+
+/* Chat thread full-height container */
+.chat-thread-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+/* Chat input textarea — auto-grow feel */
+.chat-input {
+  field-sizing: content;   /* modern browsers */
+  min-height: 40px;
+  max-height: 120px;
+  overflow-y: auto;
+  resize: none;
+  line-height: 1.5;
+}
+
+/* Discussion list item hover */
+.discussion-list-item {
+  transition: background 0.12s ease;
+}
+.discussion-list-item:hover {
+  background: var(--surface-100);
+}
+
+/* Unread badge pulse */
+.unread-badge {
+  animation: pulse-badge 2s infinite;
+}
+@keyframes pulse-badge {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(99,102,241,0.4); }
+  50%       { box-shadow: 0 0 0 5px rgba(99,102,241,0); }
+}
+
+/* Online dot */
+.online-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 0 2px var(--card-bg);
+  animation: online-pulse 2.5s infinite;
+}
+@keyframes online-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px var(--card-bg), 0 0 0 0 rgba(34,197,94,0.4); }
+  50%       { box-shadow: 0 0 0 2px var(--card-bg), 0 0 0 5px rgba(34,197,94,0); }
+}
+
+/* Chat header gradient text for participant count */
+.chat-header-sub {
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 0.7rem;
+}
+
+/* Empty state illustration circle */
+.empty-chat-icon {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: rgba(99, 102, 241, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1rem;
+}
+
+/* Create panel form fields */
+.chat-form-field {
+  width: 100%;
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.75rem;
+  font-size: 0.875rem;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  background: var(--surface-100);
+  border: 1.5px solid var(--card-border);
+  color: var(--text-primary);
+}
+.chat-form-field:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+.chat-form-field::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
+
+/* Filter tab pills */
+.filter-pill {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: 9999px;
+  font-weight: 500;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  cursor: pointer;
+  border: none;
+  outline: none;
+}
+.filter-pill.active {
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(99,102,241,0.3);
+}
+.filter-pill:not(.active) {
+  background: var(--surface-100);
+  color: var(--text-secondary);
+}
+.filter-pill:not(.active):hover {
+  background: var(--card-border);
+  color: var(--text-primary);
+}
+
+/* Timestamp chip inside message area */
+.chat-date-chip {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(99,102,241,0.1);
+  color: #6366f1;
+  font-size: 0.7rem;
+  font-weight: 500;
+  padding: 0.2rem 0.65rem;
+  border-radius: 9999px;
+}
+
+/* Send button active state */
+.send-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 0.15s, box-shadow 0.15s;
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  color: #fff;
+  box-shadow: 0 3px 10px rgba(99,102,241,0.4);
+}
+.send-btn:hover:not(:disabled) {
+  transform: scale(1.08);
+  box-shadow: 0 4px 14px rgba(99,102,241,0.5);
+}
+.send-btn:active:not(:disabled) {
+  transform: scale(0.95);
+}
+.send-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Icon action buttons in chat header */
+.chat-icon-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: rgba(255,255,255,0.75);
+  transition: background 0.15s, color 0.15s;
+}
+.chat-icon-btn:hover {
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+}
+
+/* Attachment / emoji icon buttons */
+.chat-toolbar-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+.chat-toolbar-btn:hover {
+  background: var(--surface-100);
+  color: #6366f1;
+}
+
+/* ── Mobile full-screen thread on small screens ── */
+@media (max-width: 1023px) {
+  .chat-thread-container {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    border-radius: 0 !important;
+    background: var(--page-bg);
+  }
+  .chat-thread-container .chat-wallpaper {
+    flex: 1;
+    overflow-y: auto;
   }
 }

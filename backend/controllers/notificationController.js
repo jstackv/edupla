@@ -42,6 +42,18 @@ const buildStudentNotificationFilter = async (userId) => {
   };
 };
 
+// Notifications older than this are treated as auto-cleared and never shown again,
+// even if the user never explicitly clicked "clear".
+const AUTO_CLEAR_AFTER_MS = 2 * 24 * 60 * 60 * 1000; // 2 days
+
+// Merge in the "not cleared by this user" + "not older than 2 days" conditions
+// that apply to every notification list/count query, regardless of role.
+const withVisibilityFilter = (baseFilter, userId) => ({
+  ...baseFilter,
+  cleared_by: { $ne: userId },
+  created_at: { $gte: new Date(Date.now() - AUTO_CLEAR_AFTER_MS) },
+});
+
 const getNotifications = async (req, res) => {
   try {
     const userId = new mongoose.Types.ObjectId(req.session.user.id);
@@ -55,6 +67,7 @@ const getNotifications = async (req, res) => {
     } else {
       filter = await buildStudentNotificationFilter(userId);
     }
+    filter = withVisibilityFilter(filter, userId);
 
     const notifications = await Notification.find(filter)
       .sort({ created_at: -1 }).skip(skip).limit(parseInt(limit))
@@ -83,6 +96,7 @@ const getUnreadCount = async (req, res) => {
       const studentFilter = await buildStudentNotificationFilter(userId);
       filter = { ...studentFilter, read_by: { $ne: userId } };
     }
+    filter = withVisibilityFilter(filter, userId);
     const count = await Notification.countDocuments(filter);
     res.json({ count });
   } catch (err) { res.status(500).json({ message: err.message }); }
@@ -160,4 +174,74 @@ const markAllRead = async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
-module.exports = { getNotifications, getUnreadCount, createNotification, updateNotification, deleteNotification, markRead, markAllRead };
+/**
+ * Clear all notifications currently visible to the requesting user
+ * (admin, teacher, or student — any role).
+ *
+ * Clearing is per-user: it adds the user to each notification's `cleared_by`
+ * list, so the notification disappears from THEIR panel only. It does not
+ * delete the notification or affect the recipients/sender it was sent to —
+ * e.g. a teacher clearing their notifications does not remove what the
+ * students who received it still see, and vice versa.
+ */
+const clearAllNotifications = async (req, res) => {
+  try {
+    const userId = new mongoose.Types.ObjectId(req.session.user.id);
+    const role = req.session.user.role;
+
+    let filter;
+    if (role === 'teacher') {
+      filter = { teacher_id: userId };
+    } else {
+      // Covers students and admins alike — whatever set of notifications
+      // is currently visible to this user is what gets cleared for them.
+      filter = await buildStudentNotificationFilter(userId);
+    }
+    await Notification.updateMany(filter, { $addToSet: { cleared_by: userId } });
+    res.json({ message: 'Notifications cleared' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+/**
+ * Clear a single notification for the requesting user only.
+ */
+const clearNotification = async (req, res) => {
+  try {
+    const userId = req.session.user.id;
+    const role = req.session.user.role;
+
+    let scope;
+    if (role === 'teacher') {
+      scope = { teacher_id: new mongoose.Types.ObjectId(userId) };
+    } else {
+      scope = await buildStudentNotificationFilter(new mongoose.Types.ObjectId(userId));
+    }
+
+    const result = await Notification.findOneAndUpdate(
+      { _id: req.params.id, ...scope },
+      { $addToSet: { cleared_by: userId } }
+    );
+    if (!result) return res.status(404).json({ message: 'Notification not found' });
+    res.json({ message: 'Notification cleared' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+/**
+ * Permanently delete notifications older than the auto-clear window.
+ * The 2-day cutoff already hides these from every user's panel at query
+ * time (see withVisibilityFilter); this just reclaims storage once nobody
+ * can see them anymore. Safe to call repeatedly/concurrently.
+ */
+const sweepOldNotifications = async () => {
+  try {
+    const cutoff = new Date(Date.now() - AUTO_CLEAR_AFTER_MS);
+    await Notification.deleteMany({ created_at: { $lt: cutoff } });
+  } catch (err) {
+    console.error('sweepOldNotifications error:', err.message);
+  }
+};
+
+module.exports = {
+  getNotifications, getUnreadCount, createNotification, updateNotification, deleteNotification,
+  markRead, markAllRead, clearAllNotifications, clearNotification, sweepOldNotifications,
+};

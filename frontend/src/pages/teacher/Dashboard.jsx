@@ -1,571 +1,637 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import {
   BookOpen, Users, FileText, ClipboardList, Megaphone,
-  TrendingUp, Award, ChevronRight, CheckCircle2, AlertCircle,
-  Brain, Layers, BarChart3, Zap, Target, Clock, Star,
-  ArrowUpRight, Activity, PenLine, Eye
+  TrendingUp, Award, ChevronRight, BarChart2, Layers,
+  BookMarked, ArrowUpRight, Flame, Target, Zap,
+  GraduationCap, Calendar, Bell, CheckCircle2,
 } from 'lucide-react';
 
 /* ─── Animated counter ─── */
-function useCountUp(target, duration = 1200) {
-  const [val, setVal] = useState(0);
+function AnimatedNumber({ value, duration = 800 }) {
+  const [display, setDisplay] = useState(0);
+  const prev = useRef(0);
   useEffect(() => {
-    if (!target) return;
-    const num = Number(target);
-    let start = null;
-    const step = ts => {
-      if (!start) start = ts;
-      const p = Math.min((ts - start) / duration, 1);
-      const ease = 1 - Math.pow(1 - p, 3);
-      setVal(Math.round(ease * num));
-      if (p < 1) requestAnimationFrame(step);
-    };
-    const id = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(id);
-  }, [target]);
-  return val;
+    const start = prev.current;
+    const end = Number(value) || 0;
+    prev.current = end;
+    if (start === end) return;
+    const steps = 40;
+    const step = (end - start) / steps;
+    let i = 0;
+    const t = setInterval(() => {
+      i++;
+      setDisplay(Math.round(start + step * i));
+      if (i >= steps) { clearInterval(t); setDisplay(end); }
+    }, duration / steps);
+    return () => clearInterval(t);
+  }, [value, duration]);
+  return display;
 }
 
-/* ─── Mini sparkline ─── */
-function Sparkline({ data = [], color = '#6366f1' }) {
-  if (data.length < 2) return null;
-  const w = 72, h = 28;
-  const max = Math.max(...data, 1), min = Math.min(...data);
-  const range = max - min || 1;
-  const pts = data.map((v, i) => {
-    const x = (i / (data.length - 1)) * w;
-    const y = h - ((v - min) / range) * (h - 4) - 2;
-    return `${x},${y}`;
-  }).join(' ');
-  const gradId = `sk${color.replace(/\W/g, '')}`;
+/* ─── Pulse ring (hero badge) ─── */
+function PulseRing({ color }) {
   return (
-    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ overflow: 'visible' }}>
-      <defs>
-        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.25" />
-          <stop offset="100%" stopColor={color} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <polygon points={`0,${h} ${pts} ${w},${h}`} fill={`url(#${gradId})`} />
-      <polyline points={pts} fill="none" stroke={color} strokeWidth="2"
-        strokeLinecap="round" strokeLinejoin="round" />
-      {/* last dot */}
-      {(() => {
-        const last = data[data.length - 1];
-        const x = w;
-        const y = h - ((last - min) / range) * (h - 4) - 2;
-        return <circle cx={x} cy={y} r="3" fill={color} />;
-      })()}
+    <span style={{
+      display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
+      background: color, position: 'relative', flexShrink: 0,
+    }}>
+      <span style={{
+        position: 'absolute', inset: -3, borderRadius: '50%',
+        border: `2px solid ${color}`, opacity: 0.4,
+        animation: 'pulseRing 1.8s ease-out infinite',
+      }} />
+    </span>
+  );
+}
+
+/* ─── Sparkline bar chart ─── */
+function Sparkline({ data = [], color = '#818cf8', height = 56 }) {
+  if (!data.length) return (
+    <div style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <span style={{ fontSize: 11, color: 'var(--text-secondary)', opacity: 0.6 }}>No data yet</span>
+    </div>
+  );
+  const max = Math.max(...data.map(d => d.count), 1);
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height, marginTop: 4 }}>
+      {data.map((d, i) => (
+        <div key={i} title={`${d.count} submissions`} style={{
+          flex: 1, borderRadius: 3, background: color,
+          opacity: 0.3 + (i / data.length) * 0.7,
+          height: `${Math.max(3, (d.count / max) * (height - 4))}px`,
+          transition: `height 0.6s cubic-bezier(.34,1.56,.64,1) ${i * 12}ms`,
+        }} />
+      ))}
+    </div>
+  );
+}
+
+/* ─── Arc progress ring ─── */
+function ArcProgress({ value, max, size = 88, stroke = 9, color = '#818cf8' }) {
+  const r = (size - stroke * 2) / 2;
+  const circ = 2 * Math.PI * r;
+  const pct = Math.min(1, (value || 0) / Math.max(max || 1, 1));
+  return (
+    <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
+      <circle cx={size/2} cy={size/2} r={r} fill="none"
+        stroke="rgba(99,102,241,0.1)" strokeWidth={stroke} />
+      <circle cx={size/2} cy={size/2} r={r} fill="none"
+        stroke={color} strokeWidth={stroke} strokeLinecap="round"
+        strokeDasharray={`${pct * circ} ${circ}`}
+        style={{ transition: 'stroke-dasharray 1.2s cubic-bezier(.34,1.56,.64,1)' }} />
     </svg>
   );
 }
 
-/* ─── Stat Card ─── */
-function StatCard({ icon: Icon, label, value, color, accent, to, spark }) {
-  const counted = useCountUp(value);
+/* ─── Donut ring ─── */
+function DonutRing({ segments, size = 96, stroke = 11 }) {
+  const r = (size - stroke * 2) / 2;
+  const circ = 2 * Math.PI * r;
+  const total = segments.reduce((s, i) => s + i.value, 0) || 1;
+  let offset = 0;
+  const slices = segments.map(s => {
+    const len = (s.value / total) * circ;
+    const sl = { ...s, dash: `${Math.max(0, len - 2)} ${circ - Math.max(0, len - 2)}`, offset: circ - offset };
+    offset += len;
+    return sl;
+  });
+  return (
+    <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="rgba(99,102,241,0.08)" strokeWidth={stroke} />
+      {slices.filter(s => s.value > 0).map((s, i) => (
+        <circle key={i} cx={size/2} cy={size/2} r={r} fill="none"
+          stroke={s.color} strokeWidth={stroke} strokeLinecap="round"
+          strokeDasharray={s.dash} strokeDashoffset={s.offset}
+          style={{ transition: `stroke-dashoffset 1.4s cubic-bezier(.34,1.56,.64,1) ${i * 120}ms` }} />
+      ))}
+    </svg>
+  );
+}
+
+/* ─── Stat card ─── */
+function StatCard({ icon: Icon, label, value, color, bg, to, sub, trend }) {
+  const [hov, setHov] = useState(false);
   return (
     <Link to={to} style={{ textDecoration: 'none' }}>
-      <div style={{
-        background: 'var(--card-bg)', border: '1px solid var(--card-border)',
-        borderRadius: 18, padding: '18px 20px', cursor: 'pointer',
-        transition: 'transform 0.2s ease, box-shadow 0.2s ease', position: 'relative', overflow: 'hidden'
+      <div className="card" style={{
+        transform: hov ? 'translateY(-3px)' : 'translateY(0)',
+        boxShadow: hov ? `0 12px 28px rgba(0,0,0,0.09), 0 0 0 1px ${color}22` : '0 1px 3px rgba(0,0,0,0.04)',
+        transition: 'transform 0.22s cubic-bezier(.34,1.56,.64,1), box-shadow 0.22s ease',
+        cursor: 'pointer', position: 'relative', overflow: 'hidden',
       }}
-        onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = `0 12px 32px ${color}22`; }}
-        onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}
-      >
-        <div style={{ position: 'absolute', top: -16, right: -16, width: 80, height: 80, borderRadius: '50%', background: color, opacity: 0.07, filter: 'blur(18px)', pointerEvents: 'none' }} />
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
-          <div style={{ width: 40, height: 40, borderRadius: 12, background: accent, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Icon size={18} style={{ color }} />
+        onMouseEnter={() => setHov(true)}
+        onMouseLeave={() => setHov(false)}>
+        <div style={{
+          position: 'absolute', top: 0, right: 0, width: 60, height: 60,
+          background: `radial-gradient(circle at top right, ${color}18 0%, transparent 70%)`,
+          pointerEvents: 'none',
+        }} />
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Icon size={16} style={{ color }} />
           </div>
-          <Sparkline data={spark} color={color} />
+          <ArrowUpRight size={13} style={{ color: hov ? color : 'var(--text-secondary)', transition: 'color 0.2s', marginTop: 2 }} />
         </div>
-        <p style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1, marginBottom: 4 }}>{counted.toLocaleString()}</p>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <p style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500 }}>{label}</p>
-          <ArrowUpRight size={13} style={{ color: 'var(--text-secondary)' }} />
-        </div>
+        <p style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1, marginBottom: 3, fontVariantNumeric: 'tabular-nums' }}>
+          <AnimatedNumber value={value} />
+        </p>
+        <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.02em' }}>{label}</p>
+        {sub && <p style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 2, opacity: 0.6 }}>{sub}</p>}
       </div>
     </Link>
   );
 }
 
-/* ─── Horizontal bar ─── */
-function HBar({ label, value, max, color, sub }) {
-  const pct = max ? Math.round((value / max) * 100) : 0;
+/* ─── Status badge ─── */
+function StatusBadge({ status }) {
+  const map = {
+    draft:     { bg: 'rgba(107,114,128,0.1)', color: '#6b7280', label: 'Draft' },
+    submitted: { bg: 'rgba(245,158,11,0.12)', color: '#d97706', label: 'Submitted' },
+    approved:  { bg: 'rgba(16,185,129,0.12)', color: '#059669', label: 'Approved' },
+    rejected:  { bg: 'rgba(239,68,68,0.12)',  color: '#dc2626', label: 'Rejected' },
+  };
+  const s = map[status] || map.draft;
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5, alignItems: 'flex-end' }}>
-        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
-        <div style={{ display: 'flex', gap: 6, marginLeft: 10, flexShrink: 0, alignItems: 'center' }}>
-          {sub && <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>{sub}</span>}
-          <span style={{ fontSize: 11, fontWeight: 700, color, minWidth: 28, textAlign: 'right' }}>{pct}%</span>
-        </div>
-      </div>
-      <div style={{ height: 6, borderRadius: 99, background: 'var(--surface-100)', overflow: 'hidden' }}>
-        <div style={{ height: '100%', borderRadius: 99, width: `${pct}%`, background: `linear-gradient(90deg, ${color}bb, ${color})`, transition: 'width 1.1s cubic-bezier(0.34,1.56,0.64,1)' }} />
-      </div>
+    <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20, background: s.bg, color: s.color, flexShrink: 0, letterSpacing: '0.04em' }}>
+      {s.label}
+    </span>
+  );
+}
+
+/* ─── Section header ─── */
+function SectionHeader({ title, to, linkLabel = 'All' }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+      <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '0.01em' }}>{title}</h3>
+      {to && (
+        <Link to={to} style={{ display: 'flex', alignItems: 'center', gap: 2, fontSize: 11, fontWeight: 600, color: '#818cf8', textDecoration: 'none', opacity: 0.85 }}>
+          {linkLabel} <ChevronRight size={11} />
+        </Link>
+      )}
     </div>
   );
 }
 
-/* ─── Donut ─── */
-function DonutChart({ data = {} }) {
-  const items = [
-    { label: 'Excellent (90+)', value: data.excellent || 0, color: '#10b981' },
-    { label: 'Good (70–89)', value: data.good || 0, color: '#6366f1' },
-    { label: 'Average (50–69)', value: data.average || 0, color: '#f59e0b' },
-    { label: 'Below avg (<50)', value: data.poor || 0, color: '#ef4444' },
-  ];
-  const total = items.reduce((s, i) => s + i.value, 0);
-  if (!total) return (
-    <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--text-secondary)', fontSize: 13 }}>
-      No graded work yet
-    </div>
-  );
-  const r = 48, cx = 64, cy = 64, circ = 2 * Math.PI * r;
-  let offset = circ * 0.25;
-  const slices = items.filter(i => i.value > 0).map(s => {
-    const len = (s.value / total) * circ;
-    const slice = { ...s, dash: `${len - 2} ${circ - len + 2}`, offset };
-    offset = offset - len;
-    return slice;
-  });
+/* ─── Empty state ─── */
+function EmptyState({ icon: Icon, msg, action, actionTo }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-      <div style={{ position: 'relative', flexShrink: 0 }}>
-        <svg width={128} height={128} viewBox="0 0 128 128">
-          {slices.map((s, i) => (
-            <circle key={i} cx={cx} cy={cy} r={r} fill="none" stroke={s.color} strokeWidth={14}
-              strokeDasharray={s.dash} strokeDashoffset={s.offset} strokeLinecap="round"
-              style={{ transform: 'rotate(-90deg)', transformOrigin: `${cx}px ${cy}px`, transition: 'all 1.1s ease' }} />
-          ))}
-          <circle cx={cx} cy={cy} r={32} fill="var(--card-bg)" />
-          <text x={cx} y={cy - 6} textAnchor="middle" fill="var(--text-primary)" style={{ fontSize: 14, fontWeight: 800 }}>{total}</text>
-          <text x={cx} y={cy + 9} textAnchor="middle" fill="var(--text-secondary)" style={{ fontSize: 9 }}>graded</text>
-        </svg>
-      </div>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {items.filter(i => i.value > 0).map(item => (
-          <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 9, height: 9, borderRadius: 3, background: item.color, flexShrink: 0 }} />
-            <span style={{ fontSize: 11, flex: 1, color: 'var(--text-secondary)' }}>{item.label}</span>
-            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>{item.value}</span>
-          </div>
-        ))}
-      </div>
+    <div style={{ textAlign: 'center', padding: '28px 0', fontSize: 12, color: 'var(--text-secondary)' }}>
+      <Icon size={26} style={{ margin: '0 auto 8px', opacity: 0.2, display: 'block' }} />
+      <p>{msg}</p>
+      {action && <Link to={actionTo} style={{ fontSize: 11, color: '#818cf8', textDecoration: 'none', fontWeight: 600, marginTop: 5, display: 'inline-block' }}>{action} →</Link>}
     </div>
   );
 }
 
-/* ─── Assessment Score Ring ─── */
-function ScoreRing({ score = 0, label, color = '#6366f1' }) {
-  const r = 22, circ = 2 * Math.PI * r;
-  const fill = circ - (score / 100) * circ;
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-      <div style={{ position: 'relative' }}>
-        <svg width={56} height={56} style={{ transform: 'rotate(-90deg)' }}>
-          <circle cx={28} cy={28} r={r} fill="none" stroke="var(--surface-100)" strokeWidth={5} />
-          <circle cx={28} cy={28} r={r} fill="none" stroke={color} strokeWidth={5}
-            strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={fill}
-            style={{ transition: 'stroke-dashoffset 1.2s cubic-bezier(0.34,1.56,0.64,1)' }} />
-        </svg>
-        <span style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', fontSize: 11, fontWeight: 800, color: 'var(--text-primary)' }}>{score}%</span>
-      </div>
-      <span style={{ fontSize: 10, color: 'var(--text-secondary)', textAlign: 'center', maxWidth: 64 }}>{label}</span>
-    </div>
-  );
-}
+const ACCENT = ['#818cf8','#34d399','#fbbf24','#f87171','#a78bfa','#22d3ee'];
 
-/* ─── Module Progress Bar ─── */
-function ModuleCard({ name, total, completed, color }) {
-  const pct = total ? Math.round((completed / total) * 100) : 0;
-  return (
-    <div style={{ padding: '10px 12px', borderRadius: 12, background: 'var(--surface-100)', transition: 'all 0.2s' }}
-      onMouseEnter={e => { e.currentTarget.style.background = `${color}12`; }}
-      onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface-100)'; }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
-        <span style={{ fontSize: 10, fontWeight: 700, color, marginLeft: 8, flexShrink: 0 }}>{completed}/{total}</span>
-      </div>
-      <div style={{ height: 4, borderRadius: 99, background: 'var(--card-border)', overflow: 'hidden' }}>
-        <div style={{ height: '100%', width: `${pct}%`, background: `linear-gradient(90deg, ${color}99, ${color})`, borderRadius: 99, transition: 'width 1.1s cubic-bezier(0.34,1.56,0.64,1)' }} />
-      </div>
-      <span style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 3, display: 'block' }}>{pct}% complete</span>
-    </div>
-  );
-}
-
-/* ════ MAIN ════ */
+/* ══ MAIN ══ */
 export default function TeacherDashboard() {
   const { user } = useAuth();
-  const [stats, setStats] = useState({ classes: 0, students: 0, documents: 0, assignments: 0 });
-  const [analytics, setAnalytics] = useState(null);
-  const [recentAnnouncements, setRecentAnnouncements] = useState([]);
-  const [topStudents, setTopStudents] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [analytics, setAnalytics]           = useState(null);
+  const [announcements, setAnnouncements]   = useState([]);
+  const [loading, setLoading]               = useState(true);
+  const [gradeTab, setGradeTab]             = useState('assignments');
+  const [visible, setVisible]               = useState(false);
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
-  const greetEmoji = hour < 12 ? '🌅' : hour < 17 ? '☀️' : '🌙';
+  const dayName  = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+  const dateStr  = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
 
   useEffect(() => {
-    const load = async () => {
+    (async () => {
       setLoading(true);
-      try {
-        const [analyticsRes, announcementsRes] = await Promise.all([
-          api.get('/analytics').catch(() => ({ data: null })),
-          api.get('/announcements?limit=4').catch(() => ({ data: { announcements: [] } })),
-        ]);
-        if (analyticsRes.data) {
-          setStats(analyticsRes.data.counts || {});
-          setAnalytics(analyticsRes.data);
-          setTopStudents(analyticsRes.data.topStudents || []);
-        }
-        setRecentAnnouncements(announcementsRes.data.announcements || []);
-      } catch { }
+      const [aRes, annRes] = await Promise.all([
+        api.get('/analytics').catch(() => ({ data: null })),
+        api.get('/announcements?limit=3').catch(() => ({ data: { announcements: [] } })),
+      ]);
+      if (aRes.data) setAnalytics(aRes.data);
+      setAnnouncements(annRes.data?.announcements || []);
       setLoading(false);
-    };
-    load();
+      setTimeout(() => setVisible(true), 50);
+    })();
   }, []);
 
-  /* Fake enriched data derived from analytics */
-  const moduleData = [
-    { name: 'Introduction to Algebra', total: 12, completed: 9, color: '#6366f1' },
-    { name: 'Reading Comprehension', total: 8, completed: 8, color: '#10b981' },
-    { name: 'World History Unit 3', total: 10, completed: 5, color: '#f59e0b' },
-    { name: 'Chemistry Lab Safety', total: 6, completed: 2, color: '#0ea5e9' },
-  ];
-
-  const assessmentStats = {
-    avgScore: analytics?.gradeDistribution
-      ? Math.round((analytics.gradeDistribution.excellent * 95 + analytics.gradeDistribution.good * 79 + analytics.gradeDistribution.average * 59 + (analytics.gradeDistribution.poor || 0) * 35) / Math.max(Object.values(analytics.gradeDistribution || {}).reduce((a, b) => a + b, 0), 1))
-      : 74,
-    passRate: 86,
-    pending: stats.assignments || 0,
-  };
-
-  const sparkClasses = [2, 3, 2, 4, 3, 4, stats.classes || 4];
-  const sparkStudents = [60, 72, 68, 80, 76, 88, stats.students || 92];
-  const sparkAssign = [4, 6, 5, 7, 6, 8, stats.assignments || 9];
-  const sparkDocs = [1, 2, 2, 3, 2, 4, stats.documents || 5];
-
-  const statCards = [
-    { icon: BookOpen, label: 'Active Classes', value: stats.classes || 0, to: '/teacher/classes', color: '#6366f1', accent: '#eef2ff', spark: sparkClasses },
-    { icon: Users, label: 'Total Students', value: stats.students || 0, to: '/teacher/students', color: '#10b981', accent: '#ecfdf5', spark: sparkStudents },
-    { icon: ClipboardList, label: 'Assignments', value: stats.assignments || 0, to: '/teacher/assignments', color: '#f59e0b', accent: '#fffbeb', spark: sparkAssign },
-    { icon: FileText, label: 'Documents', value: stats.documents || 0, to: '/teacher/documents', color: '#8b5cf6', accent: '#f5f3ff', spark: sparkDocs },
-  ];
-
   if (loading) return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 0' }}>
-      <div style={{ textAlign: 'center' }}>
-        <div style={{ width: 44, height: 44, borderRadius: '50%', border: '3px solid var(--surface-100)', borderTopColor: '#6366f1', animation: 'tspin 0.8s linear infinite', margin: '0 auto 12px' }} />
-        <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Loading dashboard…</p>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '100px 0', gap: 16 }}>
+      <div style={{ position: 'relative', width: 48, height: 48 }}>
+        <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '3px solid rgba(129,140,248,0.15)' }} />
+        <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '3px solid transparent', borderTopColor: '#818cf8', animation: 'spin 0.9s linear infinite' }} />
+        <GraduationCap size={18} style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', color: '#818cf8' }} />
       </div>
+      <p style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500 }}>Preparing your dashboard…</p>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 
+  const c = analytics?.counts || {};
+  const as = analytics?.assessmentStats || {};
+
+  const gradeData = gradeTab === 'assignments'
+    ? analytics?.gradeDistribution || {}
+    : analytics?.assessmentGradeDistribution || {};
+
+  const gradeSections = [
+    { label: 'Excellent ≥75%', value: gradeData.excellent || 0, color: '#34d399' },
+    { label: 'Good ≥60%',      value: gradeData.good || 0,      color: '#818cf8' },
+    { label: 'Average ≥40%',   value: gradeData.average || 0,   color: '#fbbf24' },
+    { label: 'Below 40%',      value: gradeData.poor || 0,      color: '#f87171' },
+  ];
+  const gradeTotal = gradeSections.reduce((s, i) => s + i.value, 0);
+
+  const pendingCount = as.pending || 0;
+  const approvedCount = as.approved || 0;
+  const totalAssess = c.assessments || 0;
+  const approvalRate = totalAssess ? Math.round((approvedCount / totalAssess) * 100) : 0;
+
+  /* cardStyle only adds animation — background/border/radius come from className="card" */
+  const cardStyle = {
+    opacity: visible ? 1 : 0,
+    transform: visible ? 'translateY(0)' : 'translateY(10px)',
+    transition: 'opacity 0.5s ease, transform 0.5s ease',
+  };
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
-      {/* ── Hero Banner ── */}
+      {/* ── Hero ── */}
       <div style={{
-        borderRadius: 22, padding: '24px 28px', position: 'relative', overflow: 'hidden',
-        background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 45%, #312e81 100%)',
-        boxShadow: '0 8px 32px rgba(99,102,241,0.3)'
+        borderRadius: 22, padding: '22px 26px',
+        background: 'linear-gradient(135deg, #1e1b4b 0%, #2d2a6e 40%, #4338ca 75%, #6366f1 100%)',
+        position: 'relative', overflow: 'hidden',
+        opacity: visible ? 1 : 0, transform: visible ? 'translateY(0)' : 'translateY(-8px)',
+        transition: 'opacity 0.45s ease, transform 0.45s ease',
+        boxShadow: '0 16px 48px rgba(99,102,241,0.28)',
       }}>
-        {/* Decorative orbs */}
-        <div style={{ position: 'absolute', top: -50, right: -50, width: 200, height: 200, borderRadius: '50%', background: 'rgba(99,102,241,0.15)', filter: 'blur(40px)', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', bottom: -30, left: 200, width: 140, height: 140, borderRadius: '50%', background: 'rgba(16,185,129,0.1)', filter: 'blur(30px)', pointerEvents: 'none' }} />
+        {/* decorative circles */}
+        {[['-40px','-40px',200,0.05],[null,'-20px',140,0.04],['20px',null,100,0.06]].map(([t, r, s, o], i) => (
+          <div key={i} style={{ position: 'absolute', top: t || 'auto', right: r || 'auto', bottom: i === 2 ? '-20px' : 'auto', left: i === 2 ? '30%' : 'auto', width: s, height: s, borderRadius: '50%', background: `rgba(255,255,255,${o})`, pointerEvents: 'none', backdropFilter: 'blur(0px)' }} />
+        ))}
+        {/* shimmer line */}
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent)', pointerEvents: 'none' }} />
 
-        <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-          <div style={{ flex: 1, minWidth: 220 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-              <div style={{ padding: '3px 10px', borderRadius: 99, background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                <PenLine size={10} style={{ color: '#a5b4fc' }} />
-                <span style={{ fontSize: 10, fontWeight: 700, color: '#a5b4fc', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Educator Portal</span>
-              </div>
-              <div style={{ padding: '3px 8px', borderRadius: 99, background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.25)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#34d399', animation: 'tpulse 2s infinite' }} />
-                <span style={{ fontSize: 10, fontWeight: 600, color: '#6ee7b7' }}>Active</span>
-              </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, justifyContent: 'space-between', position: 'relative', alignItems: 'flex-start' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+              <PulseRing color="#34d399" />
+              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase' }}>{dayName}, {dateStr}</span>
             </div>
-            <h1 style={{ fontSize: 22, fontWeight: 800, color: '#fff', lineHeight: 1.2, marginBottom: 6 }}>
-              {greetEmoji} {greeting}, {user?.name?.split(' ')[0]}!
-            </h1>
-            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', lineHeight: 1.7, maxWidth: 380 }}>
-              You're managing <strong style={{ color: '#a5b4fc' }}>{stats.classes} classes</strong> with <strong style={{ color: '#6ee7b7' }}>{stats.students} students</strong> enrolled this term.
+            <h2 style={{ fontSize: 22, fontWeight: 800, color: '#fff', marginBottom: 6, letterSpacing: '-0.02em' }}>
+              {greeting}, {user?.name?.split(' ')[0]} 👋
+            </h2>
+            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', lineHeight: 1.7 }}>
+              {c.classes || 0} classes &nbsp;·&nbsp; {c.students || 0} students &nbsp;·&nbsp; {c.modules || 0} modules
             </p>
           </div>
 
-          {/* KPI pills */}
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignSelf: 'center' }}>
+          {/* hero stat pills */}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-start' }}>
             {[
-              { label: 'Avg Score', val: `${assessmentStats.avgScore}%`, icon: Target, color: '#a5b4fc' },
-              { label: 'Pass Rate', val: `${assessmentStats.passRate}%`, icon: CheckCircle2, color: '#6ee7b7' },
-              { label: 'Assessments', val: stats.assignments || 0, icon: Brain, color: '#fcd34d' },
-            ].map(({ label, val, icon: Ic, color }) => (
-              <div key={label} style={{ textAlign: 'center', padding: '10px 16px', borderRadius: 14, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', minWidth: 72 }}>
-                <Ic size={12} style={{ color, margin: '0 auto 5px', display: 'block' }} />
-                <p style={{ fontSize: 18, fontWeight: 800, color: '#fff', lineHeight: 1 }}>{val}</p>
-                <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', marginTop: 3 }}>{label}</p>
+              { label: 'Assessments',    val: totalAssess,    color: '#a5b4fc', icon: ClipboardList },
+              { label: 'Pending Review', val: pendingCount,   color: '#fcd34d', icon: Flame },
+              { label: 'Approved',       val: approvedCount,  color: '#6ee7b7', icon: CheckCircle2 },
+            ].map(({ label, val, color, icon: Icon }) => (
+              <div key={label} style={{
+                padding: '10px 16px', borderRadius: 14, textAlign: 'center',
+                background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)',
+                backdropFilter: 'blur(12px)',
+                transition: 'background 0.2s',
+              }}>
+                <Icon size={13} style={{ color, marginBottom: 4, display: 'block', margin: '0 auto 4px' }} />
+                <p style={{ fontSize: 20, fontWeight: 800, color: '#fff', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+                  <AnimatedNumber value={val} />
+                </p>
+                <p style={{ fontSize: 10, color, marginTop: 3, fontWeight: 600, letterSpacing: '0.04em' }}>{label}</p>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Bottom strip */}
-        <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.1)', display: 'flex', gap: 24, flexWrap: 'wrap' }}>
-          {[
-            { label: 'Modules Active', val: moduleData.length, icon: Layers, color: '#c4b5fd' },
-            { label: 'Announcements', val: recentAnnouncements.length, icon: Megaphone, color: '#f9a8d4' },
-            { label: 'Top Performers', val: topStudents.length, icon: Star, color: '#fbbf24' },
-          ].map(({ label, val, icon: Ic, color }) => (
-            <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Ic size={11} style={{ color, opacity: 0.85 }} />
-              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>{label}</span>
-              <span style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>{val}</span>
+        {/* approval progress bar */}
+        {totalAssess > 0 && (
+          <div style={{ marginTop: 18, position: 'relative' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+              <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Approval progress</span>
+              <span style={{ fontSize: 10, color: '#6ee7b7', fontWeight: 700 }}>{approvalRate}%</span>
             </div>
-          ))}
-        </div>
-      </div>
-
-      {/* ── Stat Cards ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
-        {statCards.map((s, i) => (
-          <div key={s.to} style={{ animation: 'tslideUp 0.4s ease both', animationDelay: `${i * 70}ms` }}>
-            <StatCard {...s} />
-          </div>
-        ))}
-      </div>
-
-      {/* ── Middle Row: Assessments + Modules ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-
-        {/* Assessment Overview */}
-        <div className="card">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-            <div>
-              <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 2 }}>Assessment Overview</h3>
-              <p style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Performance across all assessments</p>
-            </div>
-            <Link to="/teacher/assessments" style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: '#6366f1', textDecoration: 'none' }}>
-              View all <ChevronRight size={12} />
-            </Link>
-          </div>
-
-          {/* Score rings row */}
-          <div style={{ display: 'flex', justifyContent: 'space-around', marginBottom: 18, paddingBottom: 18, borderBottom: '1px solid var(--card-border)' }}>
-            <ScoreRing score={assessmentStats.avgScore} label="Avg Score" color="#6366f1" />
-            <ScoreRing score={assessmentStats.passRate} label="Pass Rate" color="#10b981" />
-            <ScoreRing score={Math.min(stats.assignments * 8, 100)} label="Coverage" color="#f59e0b" />
-          </div>
-
-          {/* Grade Distribution donut */}
-          <DonutChart data={analytics?.gradeDistribution || { excellent: 12, good: 28, average: 18, poor: 5 }} />
-        </div>
-
-        {/* Module Completion */}
-        <div className="card">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-            <div>
-              <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 2 }}>Module Progress</h3>
-              <p style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Active learning modules</p>
-            </div>
-            <Link to="/teacher/classes" style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: '#6366f1', textDecoration: 'none' }}>
-              Manage <ChevronRight size={12} />
-            </Link>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {moduleData.map(m => <ModuleCard key={m.name} {...m} />)}
-          </div>
-        </div>
-      </div>
-
-      {/* ── Submission Trend + Top Students + Announcements ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
-
-        {/* Submission trend chart */}
-        {analytics && (
-          <div className="card">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-              <div>
-                <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 2 }}>Submissions (30d)</h3>
-                <p style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Daily activity trend</p>
-              </div>
-              <TrendingUp size={15} style={{ color: '#6366f1' }} />
-            </div>
-            {/* Bar chart */}
-            {(() => {
-              const data = analytics.submissionTrend || Array.from({ length: 10 }, (_, i) => ({ count: Math.floor(Math.random() * 15) + 2 }));
-              const max = Math.max(...data.map(d => d.count), 1);
-              return (
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 72, marginBottom: 8 }}>
-                    {data.map((d, i) => (
-                      <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100%' }}>
-                        <div style={{
-                          width: '100%', borderRadius: '4px 4px 0 0',
-                          height: `${(d.count / max) * 100}%`,
-                          background: `linear-gradient(180deg, #818cf8, #6366f1)`,
-                          opacity: 0.7 + (i / data.length) * 0.3,
-                          minHeight: 4, transition: 'height 0.8s ease'
-                        }} />
-                      </div>
-                    ))}
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>30 days ago</span>
-                    <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>Today</span>
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* Summary pills */}
-            <div style={{ marginTop: 14, display: 'flex', gap: 8 }}>
-              {[
-                { label: 'Pending Review', val: Math.max(stats.assignments - 2, 0), color: '#f59e0b', bg: '#fffbeb' },
-                { label: 'Graded', val: stats.assignments || 0, color: '#10b981', bg: '#ecfdf5' },
-              ].map(({ label, val, color, bg }) => (
-                <div key={label} style={{ flex: 1, textAlign: 'center', padding: '8px 10px', borderRadius: 10, background: bg }}>
-                  <p style={{ fontSize: 16, fontWeight: 800, color, lineHeight: 1, marginBottom: 2 }}>{val}</p>
-                  <p style={{ fontSize: 10, color: color + 'bb', fontWeight: 500 }}>{label}</p>
-                </div>
-              ))}
+            <div style={{ height: 4, borderRadius: 4, background: 'rgba(255,255,255,0.1)', overflow: 'hidden' }}>
+              <div style={{
+                height: '100%', borderRadius: 4,
+                background: 'linear-gradient(90deg, #6ee7b7, #34d399)',
+                width: `${approvalRate}%`,
+                transition: 'width 1.2s cubic-bezier(.34,1.56,.64,1)',
+              }} />
             </div>
           </div>
         )}
+      </div>
 
-        {/* Top Performers */}
-        <div className="card">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-            <div>
-              <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 2 }}>Top Performers</h3>
-              <p style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Best scoring students</p>
-            </div>
-            <Award size={15} style={{ color: '#f59e0b' }} />
+      {/* ── Stat Cards ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10,
+        opacity: visible ? 1 : 0, transform: visible ? 'translateY(0)' : 'translateY(8px)',
+        transition: 'opacity 0.5s ease 0.08s, transform 0.5s ease 0.08s',
+      }}>
+        <StatCard icon={BookOpen}      label="Active Classes"  value={c.classes || 0}       color="#818cf8" bg="rgba(129,140,248,0.1)" to="/teacher/classes" />
+        <StatCard icon={Users}         label="Total Students"  value={c.students || 0}      color="#34d399" bg="rgba(52,211,153,0.1)"  to="/teacher/students" />
+        <StatCard icon={Layers}        label="Modules"         value={c.modules || 0}       color="#a78bfa" bg="rgba(167,139,250,0.1)" to="/teacher/assessments-grade" sub="assigned courses" />
+        <StatCard icon={ClipboardList} label="Assessments"     value={c.assessments || 0}   color="#fbbf24" bg="rgba(251,191,36,0.1)"  to="/teacher/assessments-grade" />
+        <StatCard icon={FileText}      label="Assignments"     value={c.assignments || 0}   color="#22d3ee" bg="rgba(34,211,238,0.1)"  to="/teacher/assignments" />
+        <StatCard icon={BookMarked}    label="Documents"       value={c.documents || 0}     color="#f472b6" bg="rgba(244,114,182,0.1)" to="/teacher/documents" />
+        <StatCard icon={Megaphone}     label="Announcements"   value={c.announcements || 0} color="#06b6d4" bg="rgba(6,182,212,0.1)"   to="/teacher/announcements" />
+      </div>
+
+      {/* ── Charts Row ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+
+        {/* Submission Trend */}
+        <div className="card" style={{ ...cardStyle, transitionDelay: '0.12s' }}>
+          <SectionHeader title="Assignment Submissions" />
+          <p style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: -10, marginBottom: 12, opacity: 0.7 }}>Last 30 days · daily activity</p>
+          <Sparkline data={analytics?.submissionTrend || []} color="#818cf8" height={64} />
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, alignItems: 'center' }}>
+            <span style={{ fontSize: 11, color: 'var(--text-secondary)', opacity: 0.7 }}>
+              {analytics?.submissionTrend?.length
+                ? `${analytics.submissionTrend.reduce((s, d) => s + d.count, 0)} total`
+                : 'No submissions yet'}
+            </span>
+            <TrendingUp size={14} style={{ color: '#818cf8', opacity: 0.7 }} />
           </div>
-          {topStudents.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '28px 0', color: 'var(--text-secondary)', fontSize: 13 }}>
-              No graded data yet
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {topStudents.slice(0, 5).map((s, i) => {
-                const medals = ['#f59e0b', '#94a3b8', '#b45309'];
-                const medalIcon = i < 3 ? '🥇🥈🥉'[i] : null;
-                return (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 12, background: i === 0 ? '#fffbeb' : 'var(--surface-100)', transition: 'all 0.15s' }}
-                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateX(3px)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.transform = ''; }}>
-                    <div style={{ width: 30, height: 30, borderRadius: 10, background: medals[i] || '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800, color: '#fff', flexShrink: 0 }}>
-                      {medalIcon || (i + 1)}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</p>
-                      <p style={{ fontSize: 10, color: 'var(--text-secondary)' }}>{s.submissions} submissions</p>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <p style={{ fontSize: 13, fontWeight: 800, color: '#10b981' }}>{Math.round(s.avg_score)}%</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
         </div>
 
-        {/* Recent Announcements */}
-        <div className="card">
+        {/* Grade Distribution */}
+        <div className="card" style={{ ...cardStyle, transitionDelay: '0.16s' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-            <div>
-              <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 2 }}>Announcements</h3>
-              <p style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Recent class notices</p>
-            </div>
-            <Link to="/teacher/announcements" style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: '#6366f1', textDecoration: 'none' }}>
-              View all <ChevronRight size={12} />
-            </Link>
-          </div>
-          {recentAnnouncements.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '28px 0' }}>
-              <Megaphone size={32} style={{ color: 'var(--text-secondary)', opacity: 0.3, margin: '0 auto 8px', display: 'block' }} />
-              <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 8 }}>No announcements yet</p>
-              <Link to="/teacher/announcements" style={{ fontSize: 12, color: '#6366f1', textDecoration: 'none', fontWeight: 600 }}>
-                Create one →
-              </Link>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {recentAnnouncements.map((a, idx) => (
-                <div key={a.id} style={{ display: 'flex', gap: 10, padding: '8px 10px', borderRadius: 12, background: 'var(--surface-100)', transition: 'all 0.15s' }}
-                  onMouseEnter={e => { e.currentTarget.style.background = '#eef2ff'; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface-100)'; }}>
-                  <div style={{ width: 28, height: 28, borderRadius: 8, background: '#eef2ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Megaphone size={12} style={{ color: '#6366f1' }} />
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.title}</p>
-                    <p style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.content}</p>
-                    {a.class_name && (
-                      <span style={{ fontSize: 10, marginTop: 4, display: 'inline-block', padding: '1px 6px', borderRadius: 5, background: '#dbeafe', color: '#1d4ed8', fontWeight: 600 }}>
-                        {a.class_name}
-                      </span>
-                    )}
-                  </div>
-                </div>
+            <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Grade Distribution</h3>
+            <div style={{ display: 'flex', gap: 2, background: 'rgba(129,140,248,0.08)', borderRadius: 8, padding: 2 }}>
+              {['assignments','assessments'].map(tab => (
+                <button key={tab} onClick={() => setGradeTab(tab)} style={{
+                  padding: '4px 10px', borderRadius: 6, fontSize: 10, fontWeight: 600, border: 'none', cursor: 'pointer',
+                  background: gradeTab === tab ? '#818cf8' : 'transparent',
+                  color: gradeTab === tab ? '#fff' : 'var(--text-secondary)',
+                  transition: 'all 0.2s ease', textTransform: 'capitalize',
+                }}>{tab}</button>
               ))}
             </div>
-          )}
+          </div>
+          {gradeTotal === 0
+            ? <EmptyState icon={BarChart2} msg="No graded work yet" />
+            : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <div style={{ position: 'relative', flexShrink: 0 }}>
+                  <DonutRing segments={gradeSections} size={96} stroke={11} />
+                  <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', textAlign: 'center', pointerEvents: 'none' }}>
+                    <p style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>{gradeTotal}</p>
+                    <p style={{ fontSize: 9, color: 'var(--text-secondary)', marginTop: 1 }}>graded</p>
+                  </div>
+                </div>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {gradeSections.filter(s => s.value > 0).map((s, i) => (
+                    <div key={s.label}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <div style={{ width: 7, height: 7, borderRadius: 2, background: s.color, flexShrink: 0 }} />
+                          <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>{s.label}</span>
+                        </div>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-primary)' }}>
+                          {s.value} <span style={{ fontWeight: 400, color: 'var(--text-secondary)' }}>({Math.round((s.value / gradeTotal) * 100)}%)</span>
+                        </span>
+                      </div>
+                      <div style={{ height: 3, borderRadius: 3, background: 'rgba(129,140,248,0.1)', overflow: 'hidden' }}>
+                        <div style={{
+                          height: '100%', borderRadius: 3, background: s.color,
+                          width: `${(s.value / gradeTotal) * 100}%`,
+                          transition: `width 1s cubic-bezier(.34,1.56,.64,1) ${i * 100}ms`,
+                        }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
         </div>
       </div>
 
-      {/* ── Class performance bars ── */}
-      {analytics?.submissionTrend && (
-        <div className="card">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-            <div>
-              <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 2 }}>Class Engagement</h3>
-              <p style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Assignment completion rate by class</p>
+      {/* ── Performance overview row ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+
+        {/* Approval rate ring */}
+        <div className="card" style={{ ...cardStyle, transitionDelay: '0.2s', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+          <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6, alignSelf: 'flex-start' }}>Approval Rate</p>
+          <div style={{ position: 'relative' }}>
+            <ArcProgress value={approvedCount} max={totalAssess} size={80} stroke={8} color="#34d399" />
+            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', textAlign: 'center' }}>
+              <p style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>{approvalRate}%</p>
             </div>
-            <Link to="/teacher/classes" style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: '#6366f1', textDecoration: 'none' }}>
-              All classes <ArrowUpRight size={12} />
-            </Link>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 28px' }}>
+          <p style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 4 }}>{approvedCount} of {totalAssess} approved</p>
+        </div>
+
+        {/* Pending alerts */}
+        <div className="card" style={{ ...cardStyle, transitionDelay: '0.24s' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10 }}>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(251,191,36,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Bell size={13} style={{ color: '#fbbf24' }} />
+            </div>
+            <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>Needs Attention</p>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
             {[
-              { label: 'Mathematics — Grade 10', value: 88, max: 100, color: '#6366f1', sub: '22/25 students' },
-              { label: 'English Literature', value: 76, max: 100, color: '#10b981', sub: '19/25 students' },
-              { label: 'Chemistry Lab', value: 65, max: 100, color: '#f59e0b', sub: '13/20 students' },
-              { label: 'World History', value: 91, max: 100, color: '#0ea5e9', sub: '18/20 students' },
-            ].map(row => <HBar key={row.label} {...row} />)}
+              { label: 'Pending Review', val: pendingCount, color: '#fbbf24' },
+              { label: 'Ungraded Work', val: (c.assignments || 0), color: '#f87171' },
+            ].map(item => (
+              <div key={item.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', borderRadius: 10, background: `${item.color}0f` }}>
+                <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{item.label}</span>
+                <span style={{ fontSize: 14, fontWeight: 800, color: item.color, fontVariantNumeric: 'tabular-nums' }}>{item.val}</span>
+              </div>
+            ))}
           </div>
         </div>
-      )}
+
+        {/* Top metric */}
+        <div className="card" style={{ ...cardStyle, transitionDelay: '0.28s' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10 }}>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(129,140,248,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Target size={13} style={{ color: '#818cf8' }} />
+            </div>
+            <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>Class Snapshot</p>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+            {[
+              { label: 'Avg students/class', val: c.classes ? Math.round((c.students || 0) / c.classes) : 0 },
+              { label: 'Modules per class',  val: c.classes ? Math.round((c.modules || 0) / c.classes) : 0 },
+            ].map(item => (
+              <div key={item.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', borderRadius: 10, background: 'rgba(129,140,248,0.06)' }}>
+                <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{item.label}</span>
+                <span style={{ fontSize: 14, fontWeight: 800, color: '#818cf8', fontVariantNumeric: 'tabular-nums' }}>{item.val}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Recent Assessments + My Modules ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+
+        {/* Recent Assessments */}
+        <div className="card" style={{ ...cardStyle, transitionDelay: '0.3s' }}>
+          <SectionHeader title="Recent Assessments" to="/teacher/assessments-grade" />
+          {!analytics?.recentAssessments?.length
+            ? <EmptyState icon={ClipboardList} msg="No assessments yet" action="Start here" actionTo="/teacher/assessments-grade" />
+            : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                {analytics.recentAssessments.map((a, i) => (
+                  <div key={a.id || i} style={{
+                    display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px', borderRadius: 12,
+                    background: 'rgba(129,140,248,0.04)', border: '1px solid rgba(129,140,248,0.08)',
+                    transition: 'background 0.18s',
+                  }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(129,140,248,0.08)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'rgba(129,140,248,0.04)'}>
+                    <div style={{ width: 30, height: 30, borderRadius: 8, background: `${ACCENT[i % ACCENT.length]}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <span style={{ fontSize: 9, fontWeight: 800, color: ACCENT[i % ACCENT.length], letterSpacing: '0.04em' }}>{(a.type || '?').substring(0, 3).toUpperCase()}</span>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.course_name || a.type}</p>
+                      <p style={{ fontSize: 10, color: 'var(--text-secondary)', opacity: 0.8 }}>{a.class_name} · {a.term} {a.academic_year}</p>
+                    </div>
+                    <StatusBadge status={a.status || 'draft'} />
+                  </div>
+                ))}
+              </div>
+            )}
+        </div>
+
+        {/* My Modules */}
+        <div className="card" style={{ ...cardStyle, transitionDelay: '0.34s' }}>
+          <SectionHeader title="My Modules" to="/teacher/assessments-grade" />
+          {!analytics?.moduleSummary?.length
+            ? <EmptyState icon={Layers} msg="No modules assigned yet" />
+            : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                {analytics.moduleSummary.map((m, i) => (
+                  <div key={m.id || i} style={{
+                    display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px', borderRadius: 12,
+                    transition: 'background 0.15s', cursor: 'default',
+                  }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(129,140,248,0.05)'}
+                    onMouseLeave={e => e.currentTarget.style.background = ''}>
+                    <div style={{ width: 30, height: 30, borderRadius: 8, background: `${ACCENT[i % ACCENT.length]}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <BookMarked size={13} style={{ color: ACCENT[i % ACCENT.length] }} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.name}</p>
+                      <p style={{ fontSize: 10, color: 'var(--text-secondary)', opacity: 0.75 }}>{m.category}</p>
+                    </div>
+                    <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                      <span style={{ fontSize: 9, padding: '2px 7px', borderRadius: 5, background: 'rgba(129,140,248,0.1)', color: '#818cf8', fontWeight: 700 }}>{m.classCount} cls</span>
+                      <span style={{ fontSize: 9, padding: '2px 7px', borderRadius: 5, background: 'rgba(52,211,153,0.1)', color: '#34d399', fontWeight: 700 }}>{m.studentCount} stu</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+        </div>
+      </div>
+
+      {/* ── Top Students + Announcements ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+
+        {/* Top Performers */}
+        <div className="card" style={{ ...cardStyle, transitionDelay: '0.38s' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+            <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Top Performers</h3>
+            <Award size={14} style={{ color: '#fbbf24' }} />
+          </div>
+          {!analytics?.topStudents?.length
+            ? <EmptyState icon={Award} msg="No graded submissions yet" />
+            : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+                {analytics.topStudents.map((s, i) => {
+                  const medalColors = [
+                    'linear-gradient(135deg,#fbbf24,#f59e0b)',
+                    'linear-gradient(135deg,#94a3b8,#64748b)',
+                    'linear-gradient(135deg,#b45309,#92400e)',
+                    'linear-gradient(135deg,#818cf8,#6366f1)',
+                    'linear-gradient(135deg,#34d399,#10b981)',
+                  ];
+                  const scoreColor = s.avg_score >= 75 ? '#34d399' : s.avg_score >= 60 ? '#818cf8' : '#fbbf24';
+                  return (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ width: 26, height: 26, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: '#fff', flexShrink: 0, background: medalColors[i] }}>
+                        {i + 1}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.name}</p>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                          <div style={{ flex: 1, height: 3, borderRadius: 3, background: 'rgba(129,140,248,0.1)', overflow: 'hidden' }}>
+                            <div style={{ height: '100%', width: `${Math.round(s.avg_score)}%`, borderRadius: 3, background: scoreColor, transition: `width 1s cubic-bezier(.34,1.56,.64,1) ${i * 80}ms` }} />
+                          </div>
+                          <span style={{ fontSize: 11, fontWeight: 800, color: scoreColor, flexShrink: 0, minWidth: 32, textAlign: 'right' }}>{Math.round(s.avg_score)}%</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+        </div>
+
+        {/* Announcements */}
+        <div className="card" style={{ ...cardStyle, transitionDelay: '0.42s' }}>
+          <SectionHeader title="Recent Announcements" to="/teacher/announcements" linkLabel="View all" />
+          {announcements.length === 0
+            ? <EmptyState icon={Megaphone} msg="No announcements yet" action="Create one" actionTo="/teacher/announcements" />
+            : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {announcements.map((a, i) => (
+                  <div key={a.id || a._id} style={{ display: 'flex', gap: 10, padding: '9px 11px', borderRadius: 12, background: `${ACCENT[i % ACCENT.length]}07`, border: `1px solid ${ACCENT[i % ACCENT.length]}15` }}>
+                    <div style={{ width: 5, borderRadius: 3, background: ACCENT[i % ACCENT.length], flexShrink: 0, opacity: 0.7 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: 2 }}>{a.title}</p>
+                      <p style={{ fontSize: 11, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: 0.8 }}>{a.content}</p>
+                      {a.class_name && (
+                        <span style={{ fontSize: 9, marginTop: 5, display: 'inline-block', padding: '2px 8px', borderRadius: 5, background: 'rgba(129,140,248,0.1)', color: '#818cf8', fontWeight: 700, letterSpacing: '0.04em' }}>
+                          {a.class_name}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+        </div>
+      </div>
 
       {/* ── Quick Actions ── */}
-      <div className="card">
-        <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 14 }}>Quick Actions</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10 }}>
+      <div className="card" style={{ ...cardStyle, transitionDelay: '0.46s' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+          <Zap size={14} style={{ color: '#fbbf24' }} />
+          <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Quick Actions</h3>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 9 }}>
           {[
-            { label: 'New Class', to: '/teacher/classes', icon: BookOpen, color: '#6366f1', bg: '#eef2ff' },
-            { label: 'New Assessment', to: '/teacher/assessments', icon: Brain, color: '#10b981', bg: '#ecfdf5' },
-            { label: 'New Assignment', to: '/teacher/assignments', icon: ClipboardList, color: '#f59e0b', bg: '#fffbeb' },
-            { label: 'Upload Document', to: '/teacher/documents', icon: FileText, color: '#8b5cf6', bg: '#f5f3ff' },
-            { label: 'Announce', to: '/teacher/announcements', icon: Megaphone, color: '#ec4899', bg: '#fdf2f8' },
-            { label: 'View Students', to: '/teacher/students', icon: Users, color: '#0ea5e9', bg: '#f0f9ff' },
-          ].map(a => (
+            { label: 'New Assignment', to: '/teacher/assignments',       icon: ClipboardList, color: '#fbbf24', bg: 'rgba(251,191,36,0.1)' },
+            { label: 'Grade Work',     to: '/teacher/assessments-grade', icon: BarChart2,     color: '#818cf8', bg: 'rgba(129,140,248,0.1)' },
+            { label: 'Documents',      to: '/teacher/documents',         icon: FileText,      color: '#f472b6', bg: 'rgba(244,114,182,0.1)' },
+            { label: 'Announce',       to: '/teacher/announcements',     icon: Megaphone,     color: '#22d3ee', bg: 'rgba(34,211,238,0.1)' },
+            { label: 'My Classes',     to: '/teacher/classes',           icon: BookOpen,      color: '#34d399', bg: 'rgba(52,211,153,0.1)' },
+            { label: 'Calendar',       to: '/teacher/calendar',          icon: Calendar,      color: '#a78bfa', bg: 'rgba(167,139,250,0.1)' },
+          ].map((a, i) => (
             <Link key={a.to} to={a.to} style={{ textDecoration: 'none' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderRadius: 14, background: a.bg, cursor: 'pointer', transition: 'all 0.2s' }}
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 9, padding: '11px 13px',
+                borderRadius: 13, background: a.bg, border: `1px solid ${a.color}20`,
+                transition: 'transform 0.2s cubic-bezier(.34,1.56,.64,1), box-shadow 0.2s ease',
+                cursor: 'pointer',
+              }}
                 onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = `0 6px 16px ${a.color}22`; }}
                 onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}>
-                <a.icon size={16} style={{ color: a.color, flexShrink: 0 }} />
-                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{a.label}</span>
+                <a.icon size={14} style={{ color: a.color, flexShrink: 0 }} />
+                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.2 }}>{a.label}</span>
               </div>
             </Link>
           ))}
@@ -573,9 +639,12 @@ export default function TeacherDashboard() {
       </div>
 
       <style>{`
-        @keyframes tspin { to { transform: rotate(360deg); } }
-        @keyframes tpulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
-        @keyframes tslideUp { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes pulseRing {
+          0%   { transform: scale(1); opacity: 0.4; }
+          70%  { transform: scale(2.2); opacity: 0; }
+          100% { transform: scale(2.2); opacity: 0; }
+        }
       `}</style>
     </div>
   );
