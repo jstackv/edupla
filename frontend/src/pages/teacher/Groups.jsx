@@ -92,7 +92,7 @@ function CreateGroupPanel({ onClose, onCreated }) {
     if (!form.classId) { setStudents([]); setSelected(new Set()); return; }
     setLoadingStudents(true);
     api.get(`/classes/${form.classId}/students`)
-      .then(r => setStudents(r.data.students || []))
+      .then(r => setStudents((r.data.students || []).map(s => ({ id: s._id || s.id, name: s.name }))))
       .catch(() => toast.error('Failed to load students'))
       .finally(() => setLoadingStudents(false));
   }, [form.classId]);

@@ -246,6 +246,21 @@ const maintenanceSchema = new mongoose.Schema({
   enabled_by:         { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
+// ── DiscussionGroup — teacher-created student collaboration groups ──────
+const groupMessageSchema = new mongoose.Schema({
+  author_id:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  author_name: { type: String, required: true },
+  content:     { type: String, required: true },
+}, { timestamps: { createdAt: 'created_at', updatedAt: false } });
+
+const discussionGroupSchema = new mongoose.Schema({
+  name:       { type: String, required: true },
+  class_id:   { type: mongoose.Schema.Types.ObjectId, ref: 'Class', required: true },
+  teacher_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User',  required: true },
+  members:    [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  messages:   [groupMessageSchema],
+}, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
+
 // ── Models ─────────────────────────────────────────────────────────────
 const User         = mongoose.model('User',         userSchema);
 const Class        = mongoose.model('Class',        classSchema);
@@ -261,8 +276,9 @@ const Course       = mongoose.model('Course',       courseSchema);
 const Assessment   = mongoose.model('Assessment',   assessmentSchema);
 const Mark         = mongoose.model('Mark',         markSchema);
 const AssessmentSubmission = mongoose.model('AssessmentSubmission', assessmentSubmissionSchema);
-const Maintenance = mongoose.model('Maintenance', maintenanceSchema);
-const Discussion  = mongoose.model('Discussion',  discussionSchema);
+const Maintenance      = mongoose.model('Maintenance',      maintenanceSchema);
+const Discussion       = mongoose.model('Discussion',       discussionSchema);
+const DiscussionGroup  = mongoose.model('DiscussionGroup',  discussionGroupSchema);
 
 module.exports = {
   connectDB,
@@ -271,5 +287,6 @@ module.exports = {
   Course, Assessment, Mark, AssessmentSubmission,
   Maintenance,
   Discussion,
+  DiscussionGroup,
 };
 // This line intentionally left blank - models appended below

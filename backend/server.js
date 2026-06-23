@@ -45,8 +45,9 @@ app.use('/api/documents',     require('./routes/documents'));
 app.use('/api/assignments',   require('./routes/assignments'));
 app.use('/api/assessment',   require('./routes/assessments_new'));
 app.use('/api/announcements', require('./routes/announcements'));
-app.use('/api/discussions',   require('./routes/discussions'));
-app.use('/api/notifications', require('./routes/notifications'));
+app.use('/api/discussions',       require('./routes/discussions'));
+app.use('/api/group-discussions', require('./routes/groupDiscussions'));
+app.use('/api/notifications',     require('./routes/notifications'));
 
 // ── Analytics ─────────────────────────────────────────────────────────────
 const { isAuthenticated, isTeacher } = require('./middleware/auth');

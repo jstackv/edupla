@@ -22,6 +22,7 @@ import Assignments from './pages/teacher/Assignments';
 import TeacherAnnouncements from './pages/teacher/Announcements';
 import TeacherDiscussions from './pages/teacher/Discussions';
 import TeacherAssessmentPage from './pages/teacher/AssessmentsTeacher';
+import TeacherGroups from './pages/teacher/Groups';
 
 import StudentDashboard from './pages/student/Dashboard';
 import StudentClasses from './pages/student/Classes';
@@ -29,6 +30,7 @@ import StudentDocuments from './pages/student/Documents';
 import StudentAssignments from './pages/student/Assignments';
 import StudentAnnouncements from './pages/student/Announcements';
 import StudentDiscussions from './pages/student/Discussions';
+import StudentGroups from './pages/student/Groups';
 
 import AdminDashboard from './pages/admin/Dashboard';
 import SuperAdminDashboard from './pages/admin/SuperAdminDashboard';
@@ -143,6 +145,7 @@ function AppRoutes() {
       <Route path="/teacher/announcements" element={<TeacherRoute><TeacherAnnouncements /></TeacherRoute>} />
       <Route path="/teacher/discussions"   element={<TeacherRoute><TeacherDiscussions /></TeacherRoute>} />
       <Route path="/teacher/assessments-grade" element={<TeacherRoute><TeacherAssessmentPage /></TeacherRoute>} />
+      <Route path="/teacher/groups"            element={<TeacherRoute><TeacherGroups /></TeacherRoute>} />
 
       {/* Student routes */}
       <Route path="/student/dashboard"     element={<StudentRoute><StudentDashboard /></StudentRoute>} />
@@ -151,6 +154,7 @@ function AppRoutes() {
       <Route path="/student/assignments"   element={<StudentRoute><StudentAssignments /></StudentRoute>} />
       <Route path="/student/announcements" element={<StudentRoute><StudentAnnouncements /></StudentRoute>} />
       <Route path="/student/discussions"   element={<StudentRoute><StudentDiscussions /></StudentRoute>} />
+      <Route path="/student/groups"        element={<StudentRoute><StudentGroups /></StudentRoute>} />
 
       {/* Admin routes — dashboard routes to correct dashboard based on role */}
       <Route path="/admin/dashboard"   element={<AdminRoute><AdminDashboardRouter /></AdminRoute>} />

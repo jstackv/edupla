@@ -23,6 +23,7 @@ const TeacherLinks = [
   { to: '/teacher/assessments-grade',icon: BookMarked,      label: 'Marks Recording',   section: 'manage' },
   { to: '/teacher/announcements',    icon: Megaphone,       label: 'Announcements', section: 'manage' },
   { to: '/teacher/discussions',      icon: MessageSquare,   label: 'Discussion',    section: 'manage' },
+  { to: '/teacher/groups',           icon: Users,           label: 'Groups',         section: 'manage' },
 ];
 const StudentLinks = [
   { to: '/student/dashboard',     icon: LayoutDashboard, label: 'Dashboard',     section: 'main' },
@@ -31,6 +32,7 @@ const StudentLinks = [
   { to: '/student/assignments',   icon: ClipboardList,   label: 'Assignments',   section: 'manage' },
   { to: '/student/announcements', icon: Megaphone,       label: 'Announcements', section: 'manage' },
   { to: '/student/discussions',   icon: MessageSquare,   label: 'Discussion',    section: 'manage' },
+  { to: '/student/groups',        icon: Users,           label: 'My Groups',      section: 'manage' },
 ];
 const AdminLinks = [
   { to: '/admin/dashboard',   icon: LayoutDashboard, label: 'Dashboard',     section: 'main' },
@@ -415,6 +417,8 @@ export default function Layout({ children }) {
     location.pathname === '/settings' ? 'Settings' :
     location.pathname === '/teacher/assessments-grade' ? 'Assessments' :
     location.pathname === '/admin/assessments' ? 'Assessments' :
+    location.pathname === '/teacher/groups' ? 'Groups' :
+    location.pathname === '/student/groups' ? 'My Groups' :
     currentLink?.label || 'Dashboard';
 
   const handleLogoutConfirm = async () => {

@@ -5,7 +5,7 @@ const { DiscussionGroup, Class, User } = require('../models/db');
 const getGroups = async (req, res) => {
   try {
     const { classId } = req.query;
-    const teacherId = req.session.user.id;
+    const teacherId = req.user.id;
 
     const filter = { teacher_id: teacherId };
     if (classId) filter.class_id = classId;
@@ -43,7 +43,7 @@ const createGroup = async (req, res) => {
     // Verify teacher is assigned to this class
     const cls = await Class.findOne({
       _id: classId,
-      $or: [{ teacher_id: req.session.user.id }, { extra_teachers: req.session.user.id }],
+      $or: [{ teacher_id: req.user.id }, { extra_teachers: req.user.id }],
     }).lean();
     if (!cls) return res.status(403).json({ message: 'You are not assigned to this class.' });
 
@@ -57,7 +57,7 @@ const createGroup = async (req, res) => {
     const group = await DiscussionGroup.create({
       name: name.trim(),
       class_id: classId,
-      teacher_id: req.session.user.id,
+      teacher_id: req.user.id,
       members: validMembers,
       messages: [],
     });
@@ -71,7 +71,7 @@ const deleteGroup = async (req, res) => {
   try {
     const result = await DiscussionGroup.findOneAndDelete({
       _id: req.params.id,
-      teacher_id: req.session.user.id,
+      teacher_id: req.user.id,
     });
     if (!result) return res.status(404).json({ message: 'Group not found.' });
     res.json({ message: 'Group deleted.' });
@@ -81,8 +81,8 @@ const deleteGroup = async (req, res) => {
 // ── Shared: fetch a single group thread (teacher or member student) ───────
 const getGroup = async (req, res) => {
   try {
-    const userId = String(req.session.user.id);
-    const role   = req.session.user.role;
+    const userId = String(req.user.id);
+    const role   = req.user.role;
 
     const group = await DiscussionGroup.findById(req.params.id)
       .populate('class_id', 'name')
@@ -123,7 +123,7 @@ const getGroup = async (req, res) => {
 // ── Student: list all groups the student belongs to ───────────────────────
 const getMyGroups = async (req, res) => {
   try {
-    const userId = new mongoose.Types.ObjectId(req.session.user.id);
+    const userId = new mongoose.Types.ObjectId(req.user.id);
 
     const groups = await DiscussionGroup.find({ members: userId })
       .sort({ updated_at: -1 })
@@ -158,8 +158,8 @@ const postMessage = async (req, res) => {
       return res.status(400).json({ message: 'Message cannot be empty.' });
     }
 
-    const userId = String(req.session.user.id);
-    const role   = req.session.user.role;
+    const userId = String(req.user.id);
+    const role   = req.user.role;
 
     if (role === 'teacher') {
       return res.status(403).json({ message: 'Teachers observe groups — only students can post.' });
