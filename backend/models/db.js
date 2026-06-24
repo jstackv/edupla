@@ -238,16 +238,20 @@ const maintenanceSchema = new mongoose.Schema({
 const groupInvitationSchema = new mongoose.Schema({
   teacher_id:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // invited teacher
   invited_by:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // the team leader (student) who sent it
-  status:       { type: String, enum: ['pending', 'accepted', 'denied'], default: 'pending' },
+  status:       { type: String, enum: ['pending', 'accepted', 'denied', 'left'], default: 'pending' },
   responded_at: { type: Date, default: null },
 }, { timestamps: { createdAt: 'created_at', updatedAt: false } });
 
 const groupMessageSchema = new mongoose.Schema({
-  author_id:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  author_name: { type: String, required: true },
+  author_id:       { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  author_name:     { type: String, required: true },
   // 'student' for any member; 'teacher' for a teacher whose invitation was accepted.
-  author_role: { type: String, enum: ['teacher', 'student'], default: 'student' },
-  content:     { type: String, required: true },
+  author_role:     { type: String, enum: ['teacher', 'student'], default: 'student' },
+  // 'text' = normal text message; 'voice' = voice note audio
+  message_type:    { type: String, enum: ['text', 'voice'], default: 'text' },
+  content:         { type: String, default: '' },   // text body (required when message_type='text')
+  voice_url:       { type: String, default: null }, // Cloudinary URL for voice note
+  voice_duration:  { type: Number, default: null }, // duration in seconds (client-reported)
 }, { timestamps: { createdAt: 'created_at', updatedAt: false } });
 
 const discussionGroupSchema = new mongoose.Schema({
@@ -258,6 +262,9 @@ const discussionGroupSchema = new mongoose.Schema({
   team_leader: { type: mongoose.Schema.Types.ObjectId, ref: 'User',  required: true }, // must be one of `members`
   invitations: [groupInvitationSchema],
   messages:    [groupMessageSchema],
+  is_ended:    { type: Boolean, default: false },     // teacher ended the conversation (everyone loses typing access)
+  ended_at:    { type: Date, default: null },
+  teacher_left_invitations: [{ type: mongoose.Schema.Types.ObjectId }], // invitation IDs revoked by teacher leaving
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
 // ── Models ─────────────────────────────────────────────────────────────

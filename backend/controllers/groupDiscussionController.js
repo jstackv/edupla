@@ -156,7 +156,9 @@ const getGroup = async (req, res) => {
         members: (group.members || []).map(m => ({ id: m._id, name: m.name })),
         team_leader: group.team_leader ? { id: group.team_leader._id, name: group.team_leader.name } : null,
         is_team_leader: isTeamLeader,
-        can_post: role === 'student' ? true : myInvite?.status === 'accepted',
+        can_post: group.is_ended ? false : (role === 'student' ? true : myInvite?.status === 'accepted'),
+        is_ended: group.is_ended || false,
+        ended_at: group.ended_at || null,
         // Invitations are visible to every participant so members know which
         // teacher(s) the team leader has brought into the conversation.
         invitations: (group.invitations || []).map(i => ({
@@ -172,7 +174,10 @@ const getGroup = async (req, res) => {
           author_id: msg.author_id,
           author_name: msg.author_name,
           author_role: msg.author_role || 'student',
+          message_type: msg.message_type || 'text',
           content: msg.content,
+          voice_url: msg.voice_url || null,
+          voice_duration: msg.voice_duration || null,
           created_at: msg.created_at,
         })),
         created_at: group.created_at,
@@ -386,6 +391,10 @@ const postMessage = async (req, res) => {
     const group = await DiscussionGroup.findById(req.params.id);
     if (!group) return res.status(404).json({ message: 'Group not found.' });
 
+    if (group.is_ended) {
+      return res.status(403).json({ message: 'This conversation has ended. No one can post anymore.' });
+    }
+
     if (role === 'teacher') {
       if (!hasAcceptedAccess(group, userId)) {
         return res.status(403).json({ message: 'You need an accepted invitation from the team leader to post in this group.' });
@@ -397,9 +406,10 @@ const postMessage = async (req, res) => {
 
     const author = await User.findById(userId, 'name').lean();
     const msg = {
-      author_id:   userId,
-      author_name: author?.name || 'Unknown',
-      author_role: role === 'teacher' ? 'teacher' : 'student',
+      author_id:    userId,
+      author_name:  author?.name || 'Unknown',
+      author_role:  role === 'teacher' ? 'teacher' : 'student',
+      message_type: 'text',
       content: content.trim(),
     };
 
@@ -421,7 +431,149 @@ const postMessage = async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
-module.exports = {
-  getGroups, createGroup, deleteGroup, getGroup, getMyGroups, postMessage,
-  getEligibleTeachers, inviteTeacher, getMyInvitations, respondToInvitation,
+/* ── Student or accepted teacher: post a voice note ─────────────────────── */
+const postVoiceNote = async (req, res) => {
+  try {
+    const userId = String(req.user.id);
+    const role   = req.user.role;
+
+    if (!req.file) {
+      return res.status(400).json({ message: 'No audio file uploaded.' });
+    }
+
+    const group = await DiscussionGroup.findById(req.params.id);
+    if (!group) return res.status(404).json({ message: 'Group not found.' });
+
+    if (group.is_ended) {
+      return res.status(403).json({ message: 'This conversation has ended. No one can post anymore.' });
+    }
+
+    if (role === 'teacher') {
+      if (!hasAcceptedAccess(group, userId)) {
+        return res.status(403).json({ message: 'You need an accepted invitation from the team leader to post in this group.' });
+      }
+    } else {
+      const isMember = group.members.some(m => String(m) === userId);
+      if (!isMember) return res.status(403).json({ message: 'You are not a member of this group.' });
+    }
+
+    const author = await User.findById(userId, 'name').lean();
+    const duration = parseFloat(req.body.duration) || null; // client sends duration in seconds
+
+    const msg = {
+      author_id:      userId,
+      author_name:    author?.name || 'Unknown',
+      author_role:    role === 'teacher' ? 'teacher' : 'student',
+      message_type:   'voice',
+      content:        '',          // no text for voice notes
+      voice_url:      req.file.path, // Cloudinary URL returned by multer-storage-cloudinary
+      voice_duration: duration,
+    };
+
+    group.messages.push(msg);
+    await group.save();
+
+    const saved = group.messages[group.messages.length - 1];
+    res.status(201).json({
+      message: 'Voice note sent',
+      msg: {
+        id:             saved._id,
+        author_id:      saved.author_id,
+        author_name:    saved.author_name,
+        author_role:    saved.author_role,
+        message_type:   saved.message_type,
+        content:        saved.content,
+        voice_url:      saved.voice_url,
+        voice_duration: saved.voice_duration,
+        created_at:     saved.created_at,
+      },
+    });
+  } catch (err) { res.status(500).json({ message: err.message }); }
 };
+
+
+const leaveGroup = async (req, res) => {
+  try {
+    const userId = String(req.user.id);
+    const group = await DiscussionGroup.findById(req.params.id);
+    if (!group) return res.status(404).json({ message: 'Group not found.' });
+
+    // Mark all this teacher's accepted/pending invitations as revoked
+    let changed = false;
+    (group.invitations || []).forEach(inv => {
+      if (String(inv.teacher_id) === userId && ['accepted', 'pending'].includes(inv.status)) {
+        inv.status = 'left';
+        changed = true;
+      }
+    });
+    if (!changed) return res.status(400).json({ message: 'You are not in this group.' });
+
+    await group.save();
+    res.json({ message: 'You have left the group. Students may continue chatting.' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+/* ── Teacher: end conversation (everyone loses posting access) ──────────── */
+const endConversation = async (req, res) => {
+  try {
+    const group = await DiscussionGroup.findOne({
+      _id: req.params.id,
+      teacher_id: req.user.id,
+    });
+    if (!group) return res.status(404).json({ message: 'Group not found or you are not the owner.' });
+    if (group.is_ended) return res.status(400).json({ message: 'Conversation already ended.' });
+
+    group.is_ended = true;
+    group.ended_at = new Date();
+    await group.save();
+    res.json({ message: 'Conversation ended. No one can post anymore.' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+/* ── Poll for new messages (real-time simulation) ────────────────────────── */
+const getGroupMessages = async (req, res) => {
+  try {
+    const userId = String(req.user.id);
+    const role = req.user.role;
+    const since = req.query.since; // ISO timestamp
+
+    const group = await DiscussionGroup.findById(req.params.id).lean();
+    if (!group) return res.status(404).json({ message: 'Group not found.' });
+
+    // Access check
+    if (role === 'teacher') {
+      if (!hasAcceptedAccess(group, userId)) {
+        return res.status(403).json({ message: 'Access denied.' });
+      }
+    } else {
+      const isMember = group.members.some(m => String(m) === userId);
+      if (!isMember) return res.status(403).json({ message: 'Access denied.' });
+    }
+
+    let msgs = group.messages || [];
+    if (since) {
+      const sinceDate = new Date(since);
+      msgs = msgs.filter(m => new Date(m.created_at) > sinceDate);
+    }
+
+    res.json({
+      messages: msgs.map(m => ({
+        id: m._id,
+        author_id: m.author_id,
+        author_name: m.author_name,
+        author_role: m.author_role,
+        message_type: m.message_type || 'text',
+        content: m.content,
+        voice_url: m.voice_url || null,
+        voice_duration: m.voice_duration || null,
+        created_at: m.created_at,
+      })),
+      is_ended: group.is_ended || false,
+      message_count: group.messages.length,
+    });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+module.exports = { getGroups, createGroup, deleteGroup, getGroup, getMyGroups, postMessage, postVoiceNote,
+  getEligibleTeachers, inviteTeacher, getMyInvitations, respondToInvitation,
+  leaveGroup, endConversation, getGroupMessages };
