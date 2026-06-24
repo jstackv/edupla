@@ -212,26 +212,6 @@ const assessmentSubmissionSchema = new mongoose.Schema({
   review_note:   { type: String, default: null },
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
-// ── Discussion — a teacher-hosted class conversation ────────────────────
-// A teacher posts a discussion to ONE specific class. Every student enrolled
-// in that class can see it and reply; any other teacher (even one assigned
-// to the same class) cannot see it unless they are the host (teacher_id).
-// Replies are kept as a flat embedded list (no nested threading) since the
-// goal is a simple "everyone comments on the idea" feed.
-const discussionCommentSchema = new mongoose.Schema({
-  author_id:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  author_role: { type: String, enum: ['teacher', 'student'], required: true },
-  content:     { type: String, required: true },
-}, { timestamps: { createdAt: 'created_at', updatedAt: false } });
-
-const discussionSchema = new mongoose.Schema({
-  title:      { type: String, required: true },
-  content:    { type: String, required: true },
-  class_id:   { type: mongoose.Schema.Types.ObjectId, ref: 'Class', required: true },
-  teacher_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // host teacher
-  comments:   [discussionCommentSchema],
-}, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
-
 // ── Maintenance Mode — single global settings document ─────────────────
 // Only one document ever exists for this collection (key: 'singleton').
 // When `enabled` is true, every request is blocked for everyone except the
@@ -247,18 +227,37 @@ const maintenanceSchema = new mongoose.Schema({
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
 // ── DiscussionGroup — teacher-created student collaboration groups ──────
+// A teacher picks a class, names the group, assigns a subset of students,
+// and designates one of those students as the team leader.
+//
+// Access to the conversation is invitation-gated for teachers: the creating
+// teacher (teacher_id) does NOT get to read or post in the group just
+// because they created it — they (like any other teacher of the class) only
+// gain access once the team leader sends them an invitation AND they accept
+// it. Students who are members can always read/post.
+const groupInvitationSchema = new mongoose.Schema({
+  teacher_id:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // invited teacher
+  invited_by:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // the team leader (student) who sent it
+  status:       { type: String, enum: ['pending', 'accepted', 'denied'], default: 'pending' },
+  responded_at: { type: Date, default: null },
+}, { timestamps: { createdAt: 'created_at', updatedAt: false } });
+
 const groupMessageSchema = new mongoose.Schema({
   author_id:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   author_name: { type: String, required: true },
+  // 'student' for any member; 'teacher' for a teacher whose invitation was accepted.
+  author_role: { type: String, enum: ['teacher', 'student'], default: 'student' },
   content:     { type: String, required: true },
 }, { timestamps: { createdAt: 'created_at', updatedAt: false } });
 
 const discussionGroupSchema = new mongoose.Schema({
-  name:       { type: String, required: true },
-  class_id:   { type: mongoose.Schema.Types.ObjectId, ref: 'Class', required: true },
-  teacher_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User',  required: true },
-  members:    [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-  messages:   [groupMessageSchema],
+  name:        { type: String, required: true },
+  class_id:    { type: mongoose.Schema.Types.ObjectId, ref: 'Class', required: true },
+  teacher_id:  { type: mongoose.Schema.Types.ObjectId, ref: 'User',  required: true }, // creator (admin-only access, no chat access by default)
+  members:     [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // student ids
+  team_leader: { type: mongoose.Schema.Types.ObjectId, ref: 'User',  required: true }, // must be one of `members`
+  invitations: [groupInvitationSchema],
+  messages:    [groupMessageSchema],
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
 // ── Models ─────────────────────────────────────────────────────────────
@@ -277,7 +276,6 @@ const Assessment   = mongoose.model('Assessment',   assessmentSchema);
 const Mark         = mongoose.model('Mark',         markSchema);
 const AssessmentSubmission = mongoose.model('AssessmentSubmission', assessmentSubmissionSchema);
 const Maintenance      = mongoose.model('Maintenance',      maintenanceSchema);
-const Discussion       = mongoose.model('Discussion',       discussionSchema);
 const DiscussionGroup  = mongoose.model('DiscussionGroup',  discussionGroupSchema);
 
 module.exports = {
@@ -286,7 +284,6 @@ module.exports = {
   ProgramConfig,
   Course, Assessment, Mark, AssessmentSubmission,
   Maintenance,
-  Discussion,
   DiscussionGroup,
 };
 // This line intentionally left blank - models appended below

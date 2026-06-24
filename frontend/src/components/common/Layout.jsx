@@ -6,7 +6,7 @@ import { useMaintenance } from '../../context/MaintenanceContext';
 import toast from 'react-hot-toast';
 import {
   LayoutDashboard, BookOpen, Users, FileText, ClipboardList,
-  Megaphone, MessageSquare, LogOut, Sun, Moon, ChevronRight, ChevronLeft,
+  Megaphone, LogOut, Sun, Moon, ChevronRight, ChevronLeft,
   GraduationCap, BookMarked, Notebook, Shield, UserCheck,
   UserCircle, Settings, Bell, Search, Home,
   Layers, UserPlus, AlertTriangle, X, Crown,
@@ -22,7 +22,6 @@ const TeacherLinks = [
   { to: '/teacher/assignments',      icon: ClipboardList,   label: 'Assignments',   section: 'manage' },
   { to: '/teacher/assessments-grade',icon: BookMarked,      label: 'Marks Recording',   section: 'manage' },
   { to: '/teacher/announcements',    icon: Megaphone,       label: 'Announcements', section: 'manage' },
-  { to: '/teacher/discussions',      icon: MessageSquare,   label: 'Discussion',    section: 'manage' },
   { to: '/teacher/groups',           icon: Users,           label: 'Groups',         section: 'manage' },
 ];
 const StudentLinks = [
@@ -31,7 +30,6 @@ const StudentLinks = [
   { to: '/student/documents',     icon: Notebook,        label: 'Notes & Docs',  section: 'manage' },
   { to: '/student/assignments',   icon: ClipboardList,   label: 'Assignments',   section: 'manage' },
   { to: '/student/announcements', icon: Megaphone,       label: 'Announcements', section: 'manage' },
-  { to: '/student/discussions',   icon: MessageSquare,   label: 'Discussion',    section: 'manage' },
   { to: '/student/groups',        icon: Users,           label: 'My Groups',      section: 'manage' },
 ];
 const AdminLinks = [

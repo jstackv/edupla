@@ -2,9 +2,10 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
+import Modal from '../../components/common/Modal';
 import {
   Users, MessageSquare, Send, Smile, Paperclip,
-  CheckCheck, X
+  CheckCheck, X, Crown, UserPlus, Mail, Clock, Check, XCircle,
 } from 'lucide-react';
 
 /* ── helpers ─────────────────────────────────────────────────────────── */
@@ -73,7 +74,7 @@ function GroupCard({ g, onClick, active }) {
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2 mt-1">
+        <div className="flex items-center gap-2 mt-1 flex-wrap">
           <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
             style={{ background: 'rgba(99,102,241,0.1)', color: '#6366f1' }}>
             {g.class_name}
@@ -81,17 +82,123 @@ function GroupCard({ g, onClick, active }) {
           <span className="text-[10px] flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>
             <Users className="w-2.5 h-2.5" /> {g.member_count} members
           </span>
+          {g.is_team_leader && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium flex items-center gap-1"
+              style={{ background: 'rgba(245,158,11,0.12)', color: '#b45309' }}>
+              <Crown className="w-2.5 h-2.5" /> You lead
+            </span>
+          )}
+          {g.accepted_teacher_count > 0 && (
+            <span className="text-[10px] flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>
+              <Check className="w-2.5 h-2.5" style={{ color: '#059669' }} /> teacher joined
+            </span>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
+/* ── Invite-a-teacher panel (team leader only) ──────────────────────────── */
+function InviteTeacherModal({ groupId, onClose, onInvited }) {
+  const [teachers, setTeachers] = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [inviting, setInviting] = useState(null);
+
+  const fetchTeachers = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await api.get(`/group-discussions/${groupId}/eligible-teachers`);
+      setTeachers(res.data.teachers || []);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to load teachers');
+    } finally { setLoading(false); }
+  }, [groupId]);
+
+  useEffect(() => { fetchTeachers(); }, [fetchTeachers]);
+
+  const handleInvite = async (teacherId) => {
+    setInviting(teacherId);
+    try {
+      await api.post(`/group-discussions/${groupId}/invite`, { teacherId });
+      toast.success('Invitation sent!');
+      fetchTeachers();
+      onInvited && onInvited();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to send invitation');
+    } finally { setInviting(null); }
+  };
+
+  const STATUS = {
+    pending:  { label: 'Pending',  color: '#d97706', bg: 'rgba(217,119,6,0.1)',  icon: Clock },
+    accepted: { label: 'Joined',   color: '#059669', bg: 'rgba(5,150,105,0.1)',  icon: Check },
+    denied:   { label: 'Declined', color: '#dc2626', bg: 'rgba(220,38,38,0.1)',  icon: XCircle },
+  };
+
+  return (
+    <Modal isOpen onClose={onClose} title="Invite a teacher" size="sm">
+      <p className="text-xs mb-4" style={{ color: 'var(--text-secondary)' }}>
+        As team leader, you can bring a teacher of this class into the group's conversation.
+        They'll be able to read and reply once they accept.
+      </p>
+      {loading ? (
+        <div className="flex justify-center py-8">
+          <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : teachers.length === 0 ? (
+        <p className="text-sm text-center py-6" style={{ color: 'var(--text-secondary)' }}>No teachers are assigned to this class.</p>
+      ) : (
+        <div className="space-y-2">
+          {teachers.map(t => {
+            const s = t.invitation_status ? STATUS[t.invitation_status] : null;
+            const StatusIcon = s?.icon;
+            return (
+              <div key={t.id} className="flex items-center gap-3 p-2.5 rounded-xl" style={{ border: '1px solid var(--card-border)' }}>
+                <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                  style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}>
+                  {t.name[0].toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{t.name}</div>
+                  <div className="text-xs truncate" style={{ color: 'var(--text-secondary)' }}>{t.email}</div>
+                </div>
+                {s ? (
+                  <span className="text-[10px] px-2 py-1 rounded-full font-medium flex items-center gap-1 flex-shrink-0" style={{ background: s.bg, color: s.color }}>
+                    <StatusIcon className="w-3 h-3" /> {s.label}
+                  </span>
+                ) : (
+                  <button
+                    disabled={inviting === t.id}
+                    onClick={() => handleInvite(t.id)}
+                    className="text-xs font-semibold px-3 py-1.5 rounded-lg text-white flex-shrink-0 disabled:opacity-50 flex items-center gap-1.5"
+                    style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}>
+                    <Mail className="w-3 h-3" /> Invite
+                  </button>
+                )}
+                {t.invitation_status === 'denied' && (
+                  <button
+                    disabled={inviting === t.id}
+                    onClick={() => handleInvite(t.id)}
+                    className="text-[10px] font-semibold px-2 py-1 rounded-lg flex-shrink-0 disabled:opacity-50"
+                    style={{ background: 'var(--surface-100)', color: '#6366f1' }}>
+                    Resend
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Modal>
+  );
+}
+
 /* ── Group chat ──────────────────────────────────────────────────────── */
-function GroupChat({ group, myName, onClose, onMessageSent }) {
+function GroupChat({ group, myId, myName, onClose, onMessageSent, onGroupChanged }) {
   const [text, setText]       = useState('');
   const [posting, setPosting] = useState(false);
   const [messages, setMessages] = useState(group.messages || []);
+  const [inviteOpen, setInviteOpen] = useState(false);
   const inputRef       = useRef(null);
   const messagesEndRef = useRef(null);
   const [a, b] = groupColor(group.id);
@@ -100,6 +207,9 @@ function GroupChat({ group, myName, onClose, onMessageSent }) {
   useEffect(() => { setMessages(group.messages || []); }, [group.id, group.messages?.length]);
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages.length]);
 
+  const acceptedTeachers = (group.invitations || []).filter(i => i.status === 'accepted');
+  const pendingTeachers  = (group.invitations || []).filter(i => i.status === 'pending');
+
   // Enrich messages with grouping + date separators
   const enriched = [];
   let lastDate = null;
@@ -107,7 +217,7 @@ function GroupChat({ group, myName, onClose, onMessageSent }) {
     const dateLabel = fmtDateSep(m.created_at || Date.now());
     if (dateLabel !== lastDate) { enriched.push({ type: 'date', label: dateLabel, key: `d${i}` }); lastDate = dateLabel; }
     const prev = messages[i - 1]; const next = messages[i + 1];
-    const isMine = m.author_name === myName;
+    const isMine = String(m.author_id) === String(myId);
     enriched.push({
       type: 'msg', ...m, isMine,
       isFirst: !prev || prev.author_name !== m.author_name,
@@ -156,10 +266,35 @@ function GroupChat({ group, myName, onClose, onMessageSent }) {
             {group.class_name} · {(group.members || []).length} members
           </div>
         </div>
-        <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: '50%', width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+        {group.is_team_leader && (
+          <button
+            onClick={() => setInviteOpen(true)}
+            title="Invite a teacher"
+            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full transition-all active:scale-95 flex-shrink-0"
+            style={{ background: 'rgba(255,255,255,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.3)' }}>
+            <UserPlus className="w-3.5 h-3.5" /> Invite teacher
+          </button>
+        )}
+        <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: '50%', width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
           <X style={{ width: 14, height: 14 }} />
         </button>
       </div>
+
+      {/* Team leader / invitation status strip */}
+      {(group.team_leader || acceptedTeachers.length > 0 || pendingTeachers.length > 0) && (
+        <div className="flex items-center gap-3 px-4 py-2 flex-shrink-0 flex-wrap" style={{ background: 'rgba(245,158,11,0.06)', borderBottom: '1px solid var(--card-border)' }}>
+          {group.team_leader && (
+            <span className="text-xs flex items-center gap-1.5" style={{ color: '#b45309' }}>
+              <Crown className="w-3.5 h-3.5" /> Team leader: <strong>{group.team_leader.name}</strong>
+            </span>
+          )}
+          {pendingTeachers.length > 0 && (
+            <span className="text-xs flex items-center gap-1.5" style={{ color: '#d97706' }}>
+              <Clock className="w-3 h-3" /> Waiting on {pendingTeachers.map(t => t.teacher_name).join(', ')}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Members bar */}
       <div className="flex items-center gap-2 px-4 py-2.5 flex-shrink-0 overflow-x-auto" style={{ borderBottom: '1px solid var(--card-border)' }}>
@@ -174,6 +309,17 @@ function GroupChat({ group, myName, onClose, onMessageSent }) {
               {m.name[0].toUpperCase()}
             </div>
             {m.name}{m.name === myName ? ' (you)' : ''}
+            {group.team_leader?.id === m.id && <Crown className="w-3 h-3" style={{ color: '#d97706' }} />}
+          </div>
+        ))}
+        {acceptedTeachers.map(t => (
+          <div key={t.id} className="flex items-center gap-1.5 flex-shrink-0 px-2.5 py-1 rounded-full text-xs font-medium"
+            style={{ background: 'rgba(99,102,241,0.1)', color: '#6366f1' }}>
+            <div className="w-4 h-4 rounded-full flex items-center justify-center text-white text-[9px] font-bold"
+              style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}>
+              {t.teacher_name[0].toUpperCase()}
+            </div>
+            {t.teacher_name} <span style={{ opacity: 0.7 }}>(teacher)</span>
           </div>
         ))}
       </div>
@@ -202,14 +348,16 @@ function GroupChat({ group, myName, onClose, onMessageSent }) {
           }}>
             <div style={{ width: 28, flexShrink: 0, display: 'flex', alignItems: 'flex-end' }}>
               {!item.isMine && item.isLast && (
-                <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg, #059669, #0d9488)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 11, fontWeight: 700 }}>
+                <div style={{ width: 28, height: 28, borderRadius: '50%', background: item.author_role === 'teacher' ? 'linear-gradient(135deg, #6366f1, #4f46e5)' : 'linear-gradient(135deg, #059669, #0d9488)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 11, fontWeight: 700 }}>
                   {(item.author_name || '?')[0].toUpperCase()}
                 </div>
               )}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: item.isMine ? 'flex-end' : 'flex-start', maxWidth: '68%' }}>
               {!item.isMine && item.isFirst && (
-                <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 3, marginLeft: 4, color: '#059669' }}>{item.author_name}</div>
+                <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 3, marginLeft: 4, color: item.author_role === 'teacher' ? '#6366f1' : '#059669' }}>
+                  {item.author_name}{item.author_role === 'teacher' ? ' · teacher' : ''}
+                </div>
               )}
               <div className={item.isMine ? 'chat-bubble-mine' : 'chat-bubble-other'}
                 style={{ padding: '9px 13px', borderRadius: item.isMine ? (item.isFirst ? '18px 4px 18px 18px' : '18px 4px 4px 18px') : (item.isFirst ? '4px 18px 18px 18px' : '4px 18px 18px 4px') }}>
@@ -253,6 +401,14 @@ function GroupChat({ group, myName, onClose, onMessageSent }) {
           }
         </button>
       </div>
+
+      {inviteOpen && (
+        <InviteTeacherModal
+          groupId={group.id}
+          onClose={() => setInviteOpen(false)}
+          onInvited={() => onGroupChanged && onGroupChanged()}
+        />
+      )}
     </div>
   );
 }
@@ -263,6 +419,7 @@ function GroupChat({ group, myName, onClose, onMessageSent }) {
 export default function StudentGroups() {
   const { user } = useAuth();
   const myName = user?.name || '';
+  const myId   = user?.id;
 
   const [groups, setGroups]           = useState([]);
   const [loading, setLoading]         = useState(true);
@@ -290,6 +447,14 @@ export default function StudentGroups() {
     } catch { toast.error('Failed to load group'); setGroupDetail(null); }
     finally { setDetailLoading(false); }
   };
+
+  // Re-fetch the open group's detail (e.g. after sending an invitation)
+  const refreshActiveGroup = useCallback(() => {
+    if (!activeGroup) return;
+    api.get(`/group-discussions/${activeGroup.id}`)
+      .then(res => setGroupDetail(res.data.group))
+      .catch(() => {});
+  }, [activeGroup]);
 
   const handleMessageSent = (newMsg) => {
     // Update the sidebar list with new last_message and incremented count
@@ -352,9 +517,11 @@ export default function StudentGroups() {
           ) : (
             <GroupChat
               group={groupDetail}
+              myId={myId}
               myName={myName}
               onClose={() => { setActiveGroup(null); setGroupDetail(null); }}
               onMessageSent={handleMessageSent}
+              onGroupChanged={refreshActiveGroup}
             />
           )}
           {/* Mobile back */}

@@ -20,7 +20,6 @@ import Students from './pages/teacher/Students';
 import Documents from './pages/teacher/Documents';
 import Assignments from './pages/teacher/Assignments';
 import TeacherAnnouncements from './pages/teacher/Announcements';
-import TeacherDiscussions from './pages/teacher/Discussions';
 import TeacherAssessmentPage from './pages/teacher/AssessmentsTeacher';
 import TeacherGroups from './pages/teacher/Groups';
 
@@ -29,7 +28,6 @@ import StudentClasses from './pages/student/Classes';
 import StudentDocuments from './pages/student/Documents';
 import StudentAssignments from './pages/student/Assignments';
 import StudentAnnouncements from './pages/student/Announcements';
-import StudentDiscussions from './pages/student/Discussions';
 import StudentGroups from './pages/student/Groups';
 
 import AdminDashboard from './pages/admin/Dashboard';
@@ -143,7 +141,6 @@ function AppRoutes() {
       <Route path="/teacher/documents"     element={<TeacherRoute><Documents /></TeacherRoute>} />
       <Route path="/teacher/assignments"   element={<TeacherRoute><Assignments /></TeacherRoute>} />
       <Route path="/teacher/announcements" element={<TeacherRoute><TeacherAnnouncements /></TeacherRoute>} />
-      <Route path="/teacher/discussions"   element={<TeacherRoute><TeacherDiscussions /></TeacherRoute>} />
       <Route path="/teacher/assessments-grade" element={<TeacherRoute><TeacherAssessmentPage /></TeacherRoute>} />
       <Route path="/teacher/groups"            element={<TeacherRoute><TeacherGroups /></TeacherRoute>} />
 
@@ -153,7 +150,6 @@ function AppRoutes() {
       <Route path="/student/documents"     element={<StudentRoute><StudentDocuments /></StudentRoute>} />
       <Route path="/student/assignments"   element={<StudentRoute><StudentAssignments /></StudentRoute>} />
       <Route path="/student/announcements" element={<StudentRoute><StudentAnnouncements /></StudentRoute>} />
-      <Route path="/student/discussions"   element={<StudentRoute><StudentDiscussions /></StudentRoute>} />
       <Route path="/student/groups"        element={<StudentRoute><StudentGroups /></StudentRoute>} />
 
       {/* Admin routes — dashboard routes to correct dashboard based on role */}
