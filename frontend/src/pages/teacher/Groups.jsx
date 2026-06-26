@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, createContext, useContext } from 'react';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
@@ -9,6 +9,33 @@ import {
   LogOut, StopCircle, Wifi, WifiOff,
   Mic, Square, Play, Pause,
 } from 'lucide-react';
+
+/* ── Exclusive audio playback context ───────────────────────────────────
+   Only one voice note may play at a time within a conversation.
+   TeacherVoiceBubble registers its audioRef here; when it starts playing
+   it calls stopOthers() which pauses every other registered element. */
+const AudioPlaybackContext = createContext(null);
+
+function AudioPlaybackProvider({ children }) {
+  const registry = useRef(new Set());
+
+  const register   = (el) => { registry.current.add(el); };
+  const unregister = (el) => { registry.current.delete(el); };
+  const stopOthers = (exceptEl) => {
+    registry.current.forEach(el => {
+      if (el !== exceptEl && !el.paused) {
+        el.pause();
+        el.dispatchEvent(new Event('externalpause'));
+      }
+    });
+  };
+
+  return (
+    <AudioPlaybackContext.Provider value={{ register, unregister, stopOthers }}>
+      {children}
+    </AudioPlaybackContext.Provider>
+  );
+}
 
 /* ── helpers ─────────────────────────────────────────────────────────── */
 function timeAgo(ts) {
@@ -319,11 +346,31 @@ function TeacherVoiceBubble({ url, duration, isMine }) {
   const [currentTime, setCurrentTime] = useState(0);
   const audioRef = useRef(null);
   const totalDuration = duration || 0;
+  const ctx = useContext(AudioPlaybackContext);
+
+  useEffect(() => {
+    const el = audioRef.current;
+    if (!el) return;
+    ctx?.register(el);
+    const handleExternalPause = () => { setPlaying(false); };
+    el.addEventListener('externalpause', handleExternalPause);
+    return () => {
+      ctx?.unregister(el);
+      el.removeEventListener('externalpause', handleExternalPause);
+    };
+  }, []);
 
   const toggle = () => {
-    if (!audioRef.current) return;
-    if (playing) { audioRef.current.pause(); setPlaying(false); }
-    else { audioRef.current.play(); setPlaying(true); }
+    const el = audioRef.current;
+    if (!el) return;
+    if (playing) {
+      el.pause();
+      setPlaying(false);
+    } else {
+      ctx?.stopOthers(el);
+      el.play();
+      setPlaying(true);
+    }
   };
 
   const fmtDur = (s) => {
@@ -398,6 +445,20 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onLeft, onEnded }) {
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages.length]);
 
+  // Allow Enter to send a voice note even when the textarea isn't focused
+  useEffect(() => {
+    if (!audioBlob && !recording) return;
+    const onKey = (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        if (recording) { stopAndSend(); }
+        else if (audioBlob) { sendVoiceNote(); }
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [audioBlob, recording, posting]);
+
   // Real-time polling
   useEffect(() => {
     if (isEnded) return;
@@ -457,7 +518,14 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onLeft, onEnded }) {
     } catch (err) { toast.error(err.response?.data?.message || 'Failed to send'); setText(content); }
     finally { setPosting(false); }
   };
-  const handleKey = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } };
+  const handleKey = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (recording) { stopAndSend(); }       // still recording → stop + send immediately
+      else if (audioBlob) { sendVoiceNote(); } // preview ready → send
+      else { handleSend(); }                   // normal text
+    }
+  };
 
   /* ── Voice recording ── */
   const startRecording = async () => {
@@ -490,6 +558,38 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onLeft, onEnded }) {
       clearInterval(recordTimerRef.current);
       setRecording(false);
     }
+  };
+
+  // Stops recording and sends the blob as soon as onstop fires
+  const stopAndSend = () => {
+    if (!mediaRecorderRef.current || !recording) return;
+    mediaRecorderRef.current.onstop = () => {
+      const mimeType = mediaRecorderRef.current.mimeType || 'audio/webm';
+      const blob = new Blob(audioChunksRef.current, { type: mimeType });
+      const duration = recordingTime;
+      clearInterval(recordTimerRef.current);
+      setRecording(false);
+      setAudioBlob(null); // skip preview
+      (async () => {
+        setPosting(true);
+        try {
+          const formData = new FormData();
+          const ext = blob.type.includes('ogg') ? 'ogg' : 'webm';
+          formData.append('audio', blob, `voice-note-${Date.now()}.${ext}`);
+          formData.append('duration', String(duration));
+          const res = await api.post(`/group-discussions/${group.id}/voice-notes`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          });
+          const newMsg = res.data.msg;
+          setMessages(prev => [...prev, newMsg]);
+          lastMsgTimeRef.current = newMsg.created_at;
+          onMessageSent && onMessageSent(newMsg);
+        } catch (err) {
+          toast.error(err.response?.data?.message || 'Failed to send voice note');
+        } finally { setPosting(false); }
+      })();
+    };
+    mediaRecorderRef.current.stop();
   };
 
   const cancelVoiceNote = () => {
@@ -558,8 +658,8 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onLeft, onEnded }) {
   const canPost = group.can_post && !isEnded;
 
   return (
+    <AudioPlaybackProvider>
     <div className="flex flex-col h-full">
-      {/* Header */}
       <div style={{ background: `linear-gradient(135deg, ${a}, ${b})`, borderRadius: '16px 16px 0 0', padding: '12px 16px', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#fff', fontSize: 14, flexShrink: 0 }}>
@@ -747,6 +847,7 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onLeft, onEnded }) {
       <ConfirmDialog isOpen={endConfirm} onClose={() => setEndConfirm(false)} onConfirm={handleEnd} loading={actionLoading}
         title="End Conversation" message="Everyone will lose typing access. This cannot be undone." confirmText="End Conversation" variant="danger" />
     </div>
+    </AudioPlaybackProvider>
   );
 }
 
