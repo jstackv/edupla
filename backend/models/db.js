@@ -230,22 +230,19 @@ const maintenanceSchema = new mongoose.Schema({
 // A teacher picks a class, names the group, assigns a subset of students,
 // and designates one of those students as the team leader.
 //
-// Access to the conversation is invitation-gated for teachers: the creating
-// teacher (teacher_id) does NOT get to read or post in the group just
-// because they created it — they (like any other teacher of the class) only
-// gain access once the team leader sends them an invitation AND they accept
-// it. Students who are members can always read/post.
-const groupInvitationSchema = new mongoose.Schema({
-  teacher_id:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // invited teacher
-  invited_by:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // the team leader (student) who sent it
-  status:       { type: String, enum: ['pending', 'accepted', 'denied', 'left'], default: 'pending' },
-  responded_at: { type: Date, default: null },
-}, { timestamps: { createdAt: 'created_at', updatedAt: false } });
-
+// Access: any teacher assigned to the class (the creator OR an extra_teacher
+// of that class) has full, automatic read/post access to the group
+// conversation — no invitation or acceptance step required. Students who
+// are members can always read/post. Each message's author may delete their
+// own message (single, or all of their own messages at once).
+//
+// Separately, the team leader has a private 1:1 DM channel with the
+// group's owning teacher (teacher_id) — `leader_messages` — used to reach
+// the teacher directly without exposing the conversation to the whole group.
 const groupMessageSchema = new mongoose.Schema({
   author_id:       { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   author_name:     { type: String, required: true },
-  // 'student' for any member; 'teacher' for a teacher whose invitation was accepted.
+  // 'student' for any member; 'teacher' for any teacher assigned to the class.
   author_role:     { type: String, enum: ['teacher', 'student'], default: 'student' },
   // 'text' = normal text message; 'voice' = voice note audio
   message_type:    { type: String, enum: ['text', 'voice'], default: 'text' },
@@ -254,18 +251,59 @@ const groupMessageSchema = new mongoose.Schema({
   voice_duration:  { type: Number, default: null }, // duration in seconds (client-reported)
 }, { timestamps: { createdAt: 'created_at', updatedAt: false } });
 
+// Private DM thread between the team leader and the group's owning teacher.
+const leaderMessageSchema = new mongoose.Schema({
+  sender_id:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  sender_name: { type: String, required: true },
+  sender_role: { type: String, enum: ['teacher', 'student'], required: true },
+  content:     { type: String, required: true },
+}, { timestamps: { createdAt: 'created_at', updatedAt: false } });
+
 const discussionGroupSchema = new mongoose.Schema({
   name:        { type: String, required: true },
   class_id:    { type: mongoose.Schema.Types.ObjectId, ref: 'Class', required: true },
-  teacher_id:  { type: mongoose.Schema.Types.ObjectId, ref: 'User',  required: true }, // creator (admin-only access, no chat access by default)
+  teacher_id:  { type: mongoose.Schema.Types.ObjectId, ref: 'User',  required: true }, // creator — has full access, and is the team leader's DM recipient
   members:     [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // student ids
   team_leader: { type: mongoose.Schema.Types.ObjectId, ref: 'User',  required: true }, // must be one of `members`
-  invitations: [groupInvitationSchema],
   messages:    [groupMessageSchema],
+  leader_messages: [leaderMessageSchema], // private team_leader <-> teacher_id DM
   is_ended:    { type: Boolean, default: false },     // teacher ended the conversation (everyone loses typing access)
   ended_at:    { type: Date, default: null },
-  teacher_left_invitations: [{ type: mongoose.Schema.Types.ObjectId }], // invitation IDs revoked by teacher leaving
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
+
+// ── ClassCollaboration — open peer-to-peer messaging sessions ──────────
+// A teacher can enable independent student-to-student direct messaging for
+// any class they teach. While is_active is true, every enrolled student
+// may search for and privately message any other student in that class.
+// Only the two participants can read a conversation — teachers cannot.
+// One document per (teacher_id, class_id) pair; upserted on open/close.
+const classCollaborationSchema = new mongoose.Schema({
+  class_id:   { type: mongoose.Schema.Types.ObjectId, ref: 'Class', required: true },
+  teacher_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User',  required: true },
+  is_active:  { type: Boolean, default: false },
+  opened_at:  { type: Date, default: null },
+  closed_at:  { type: Date, default: null },
+}, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
+classCollaborationSchema.index({ class_id: 1, teacher_id: 1 }, { unique: true });
+
+// ── DirectMessage — private one-to-one messages between students ────────
+// Created only when a ClassCollaboration is active for the shared class.
+// Access is strictly limited to sender_id and receiver_id — enforced at
+// the controller level. The sender may delete their own message (single,
+// or all of their own messages in a conversation at once).
+const directMessageSchema = new mongoose.Schema({
+  class_id:       { type: mongoose.Schema.Types.ObjectId, ref: 'Class', required: true },
+  sender_id:      { type: mongoose.Schema.Types.ObjectId, ref: 'User',  required: true },
+  receiver_id:    { type: mongoose.Schema.Types.ObjectId, ref: 'User',  required: true },
+  // 'text' = normal text message; 'voice' = voice note audio
+  message_type:   { type: String, enum: ['text', 'voice'], default: 'text' },
+  content:        { type: String, default: '' },    // text body (required when message_type='text')
+  voice_url:      { type: String, default: null },  // Cloudinary URL for voice note
+  voice_duration: { type: Number, default: null },  // duration in seconds (client-reported)
+  read:           { type: Boolean, default: false },
+}, { timestamps: { createdAt: 'created_at', updatedAt: false } });
+directMessageSchema.index({ class_id: 1, sender_id: 1, receiver_id: 1, created_at: 1 });
+directMessageSchema.index({ class_id: 1, receiver_id: 1, read: 1 });
 
 // ── Models ─────────────────────────────────────────────────────────────
 const User         = mongoose.model('User',         userSchema);
@@ -284,6 +322,8 @@ const Mark         = mongoose.model('Mark',         markSchema);
 const AssessmentSubmission = mongoose.model('AssessmentSubmission', assessmentSubmissionSchema);
 const Maintenance      = mongoose.model('Maintenance',      maintenanceSchema);
 const DiscussionGroup  = mongoose.model('DiscussionGroup',  discussionGroupSchema);
+const ClassCollaboration = mongoose.model('ClassCollaboration', classCollaborationSchema);
+const DirectMessage      = mongoose.model('DirectMessage',      directMessageSchema);
 
 module.exports = {
   connectDB,
@@ -292,5 +332,5 @@ module.exports = {
   Course, Assessment, Mark, AssessmentSubmission,
   Maintenance,
   DiscussionGroup,
+  ClassCollaboration, DirectMessage,
 };
-// This line intentionally left blank - models appended below

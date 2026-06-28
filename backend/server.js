@@ -46,6 +46,7 @@ app.use('/api/assignments',   require('./routes/assignments'));
 app.use('/api/assessment',   require('./routes/assessments_new'));
 app.use('/api/announcements', require('./routes/announcements'));
 app.use('/api/group-discussions', require('./routes/groupDiscussions'));
+app.use('/api/collaborations', require('./routes/collaborations'));
 app.use('/api/notifications',     require('./routes/notifications'));
 
 // ── Analytics ─────────────────────────────────────────────────────────────

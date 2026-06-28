@@ -1,43 +1,43 @@
 const express = require('express');
 const router  = express.Router();
-const { isAuthenticated, isTeacher, isStudent } = require('../middleware/auth');
+const { isAuthenticated, isTeacher } = require('../middleware/auth');
 const { voiceNoteUpload } = require('../middleware/upload');
 const {
   getGroups, createGroup, deleteGroup,
-  getGroup,  getMyGroups, postMessage, postVoiceNote,
-  getEligibleTeachers, inviteTeacher,
-  getMyInvitations, respondToInvitation,
-  leaveGroup, endConversation, getGroupMessages,
+  getGroup,  getMyGroups, postMessage, postVoiceNote, deleteMessage, clearMyMessages,
+  endConversation, getGroupMessages,
+  getLeaderDm, postLeaderDm, deleteLeaderDmMessage, clearMyLeaderDmMessages,
 } = require('../controllers/groupDiscussionController');
 
 // Student — list own groups (MUST be before /:id — Express matches "my" as an id param otherwise)
 router.get('/my/groups', isAuthenticated, getMyGroups);
-
-// Teacher — invitations addressed to me (MUST be before /:id for the same reason)
-router.get('/invitations/mine', isAuthenticated, isTeacher, getMyInvitations);
-router.post('/invitations/:invitationId/respond', isAuthenticated, isTeacher, respondToInvitation);
 
 // Teacher routes
 router.get('/',          isAuthenticated, isTeacher, getGroups);
 router.post('/',         isAuthenticated, isTeacher, createGroup);
 router.delete('/:id',    isAuthenticated, isTeacher, deleteGroup);
 
-// Teacher: leave group or end conversation
-router.post('/:id/leave', isAuthenticated, isTeacher, leaveGroup);
+// Teacher (owner): end conversation
 router.post('/:id/end',   isAuthenticated, isTeacher, endConversation);
 
-// Team leader (student member in charge of the group) — invite a teacher in
-router.get('/:id/eligible-teachers', isAuthenticated, isStudent, getEligibleTeachers);
-router.post('/:id/invite',           isAuthenticated, isStudent, inviteTeacher);
-
 // Shared — group detail & messaging. Access is enforced inside the controller:
-// students must be members; teachers need an ACCEPTED invitation from the
-// team leader (the creating teacher gets no special access).
+// students must be members; any teacher assigned to the class has full,
+// automatic read/post access (no invitation needed).
 router.get('/:id',            isAuthenticated, getGroup);
 router.get('/:id/messages',   isAuthenticated, getGroupMessages);
 router.post('/:id/messages',  isAuthenticated, postMessage);
 
+// Delete own messages: a single message, or every message I've sent in this group.
+router.delete('/:id/messages',            isAuthenticated, clearMyMessages);
+router.delete('/:id/messages/:messageId', isAuthenticated, deleteMessage);
+
 // Voice notes: multipart upload via Cloudinary, then saved as a message with type='voice'
 router.post('/:id/voice-notes', isAuthenticated, voiceNoteUpload.single('audio'), postVoiceNote);
+
+// Team leader <-> owning teacher private DM
+router.get('/:id/leader-dm',              isAuthenticated, getLeaderDm);
+router.post('/:id/leader-dm',             isAuthenticated, postLeaderDm);
+router.delete('/:id/leader-dm',           isAuthenticated, clearMyLeaderDmMessages);
+router.delete('/:id/leader-dm/:messageId', isAuthenticated, deleteLeaderDmMessage);
 
 module.exports = router;

@@ -5,9 +5,10 @@ import { useAuth } from '../../context/AuthContext';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import {
   Plus, Search, Users, Trash2, X, Send,
-  Crown, Lock, Mail, Clock, Check, XCircle, Inbox,
-  LogOut, StopCircle, Wifi, WifiOff,
+  Crown, Check,
+  StopCircle, WifiOff,
   Mic, Square, Play, Pause,
+  Zap, ZapOff, Radio, MessageCircle,
 } from 'lucide-react';
 
 /* ── Exclusive audio playback context ───────────────────────────────────
@@ -55,30 +56,15 @@ function groupColor(id) {
   return COLORS[idx];
 }
 
-function AccessBadge({ status }) {
-  if (status === 'accepted') return (
+function OwnerBadge({ isOwner }) {
+  if (!isOwner) return (
     <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ background: 'rgba(5,150,105,0.12)', color: '#059669' }}>
-      <Check className="w-2.5 h-2.5" /> Joined
-    </span>
-  );
-  if (status === 'pending') return (
-    <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ background: 'rgba(217,119,6,0.12)', color: '#d97706' }}>
-      <Clock className="w-2.5 h-2.5" /> Pending
-    </span>
-  );
-  if (status === 'denied') return (
-    <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ background: 'rgba(220,38,38,0.12)', color: '#dc2626' }}>
-      <XCircle className="w-2.5 h-2.5" /> Declined
-    </span>
-  );
-  if (status === 'left') return (
-    <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ background: 'rgba(107,114,128,0.12)', color: '#6b7280' }}>
-      <LogOut className="w-2.5 h-2.5" /> Left
+      <Check className="w-2.5 h-2.5" /> Full access
     </span>
   );
   return (
-    <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ background: 'var(--surface-100)', color: 'var(--text-secondary)' }}>
-      <Lock className="w-2.5 h-2.5" /> No access
+    <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ background: 'rgba(99,102,241,0.12)', color: '#6366f1' }}>
+      <Crown className="w-2.5 h-2.5" /> Your group
     </span>
   );
 }
@@ -105,10 +91,8 @@ function GroupCard({ g, onOpen, onDelete, active }) {
           style={{ background: `linear-gradient(135deg, ${a}, ${b})` }}>
           {initials}
         </div>
-        {g.my_invitation_status === 'accepted' && (
-          <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 bg-green-500"
-            style={{ borderColor: 'var(--card-bg)' }} />
-        )}
+        <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 bg-green-500"
+          style={{ borderColor: 'var(--card-bg)' }} title="You have full access" />
       </div>
 
       <div className="flex-1 min-w-0">
@@ -134,16 +118,18 @@ function GroupCard({ g, onOpen, onDelete, active }) {
           <span className="text-xs flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>
             <Users className="w-3 h-3" /> {g.member_count} members
           </span>
-          <AccessBadge status={g.my_invitation_status} />
+          <OwnerBadge isOwner={g.is_owner} />
         </div>
       </div>
 
-      <button
-        onClick={e => { e.stopPropagation(); onDelete(g); }}
-        className="absolute right-3 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full items-center justify-center hidden group-hover:flex transition-all hover:bg-red-50"
-        title="Delete group">
-        <Trash2 className="w-3.5 h-3.5 text-red-400" />
-      </button>
+      {g.is_owner && (
+        <button
+          onClick={e => { e.stopPropagation(); onDelete(g); }}
+          className="absolute right-3 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full items-center justify-center hidden group-hover:flex transition-all hover:bg-red-50"
+          title="Delete group">
+          <Trash2 className="w-3.5 h-3.5 text-red-400" />
+        </button>
+      )}
     </div>
   );
 }
@@ -281,7 +267,7 @@ function CreateGroupPanel({ onClose, onCreated }) {
         {selectedStudents.length > 0 && (
           <div>
             <label className="block text-[11px] font-bold mb-1 uppercase tracking-widest" style={{ color: 'var(--text-secondary)' }}>Team Leader *</label>
-            <p className="text-xs mb-2" style={{ color: 'var(--text-secondary)', opacity: 0.75 }}>The team leader can invite teachers into this group's conversation.</p>
+            <p className="text-xs mb-2" style={{ color: 'var(--text-secondary)', opacity: 0.75 }}>The team leader gets a private DM channel directly to you (the teacher).</p>
             <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--card-border)', maxHeight: 200, overflowY: 'auto' }}>
               {selectedStudents.map(s => (
                 <label key={s.id} className="flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-all"
@@ -311,35 +297,6 @@ function CreateGroupPanel({ onClose, onCreated }) {
   );
 }
 
-/* ── Locked panel ───────────────────────────────────────────────────────── */
-function LockedGroupPanel({ g, onClose }) {
-  const [a, b] = groupColor(g.id);
-  const status = g.my_invitation_status;
-  let icon = <Lock className="w-9 h-9" style={{ color: '#6366f1' }} />;
-  let title = 'No access to this conversation';
-  let body = `The team leader (${g.team_leader?.name || 'a student'}) hasn't invited you yet.`;
-  if (status === 'pending') { icon = <Clock className="w-9 h-9" style={{ color: '#d97706' }} />; title = 'Invitation pending'; body = 'Accept it in the Invitations tab.'; }
-  else if (status === 'denied') { icon = <XCircle className="w-9 h-9" style={{ color: '#dc2626' }} />; title = 'You declined this invitation'; body = 'You previously declined the team leader\'s invitation.'; }
-  else if (status === 'left') { icon = <LogOut className="w-9 h-9" style={{ color: '#6b7280' }} />; title = 'You left this conversation'; body = 'You left this group. Students can still chat.'; }
-  return (
-    <div className="flex flex-col h-full">
-      <div style={{ background: `linear-gradient(135deg, ${a}, ${b})`, borderRadius: '16px 16px 0 0', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
-        <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#fff', fontSize: 14 }}>{(g.name || 'G').slice(0, 2).toUpperCase()}</div>
-        <div style={{ flex: 1, minWidth: 0 }}><div style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>{g.name}</div><div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 11, marginTop: 1 }}>{g.class_name} · {g.member_count} members</div></div>
-        <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: '50%', width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><X style={{ width: 14, height: 14 }} /></button>
-      </div>
-      <div className="flex-1 flex items-center justify-center px-8 text-center">
-        <div>
-          <div className="w-20 h-20 rounded-2xl mx-auto mb-4 flex items-center justify-center" style={{ background: 'var(--surface-100)' }}>{icon}</div>
-          <h3 className="font-bold text-lg mb-1.5" style={{ color: 'var(--text-primary)' }}>{title}</h3>
-          <p className="text-sm" style={{ color: 'var(--text-secondary)', maxWidth: 300, margin: '0 auto' }}>{body}</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ── Group Viewer with real-time polling + Leave + End ──────────────────── */
 /* ── Voice note playback bubble (teacher view) ───────────────────────── */
 function TeacherVoiceBubble({ url, duration, isMine }) {
   const [playing, setPlaying] = useState(false);
@@ -409,17 +366,18 @@ function TeacherVoiceBubble({ url, duration, isMine }) {
   );
 }
 
-function GroupViewer({ group, myId, onClose, onMessageSent, onLeft, onEnded }) {
+function GroupViewer({ group, myId, onClose, onMessageSent, onEnded }) {
   const [a, b] = groupColor(group.id);
   const [messages, setMessages] = useState(group.messages || []);
   const [text, setText]         = useState('');
   const [posting, setPosting]   = useState(false);
   const [isEnded, setIsEnded]   = useState(group.is_ended || false);
-  const [liveStatus, setLiveStatus] = useState('idle'); // 'idle' | 'polling' | 'error'
-  const [leaveConfirm, setLeaveConfirm] = useState(false);
+  const [liveStatus, setLiveStatus] = useState('idle');
   const [endConfirm, setEndConfirm]     = useState(false);
+  const [clearConfirm, setClearConfirm] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
-  // Voice recording state
+  const [deletingId, setDeletingId] = useState(null);
+  const [dmOpen, setDmOpen] = useState(false);
   const [recording, setRecording]         = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [audioBlob, setAudioBlob]         = useState(null);
@@ -436,7 +394,6 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onLeft, onEnded }) {
 
   useEffect(() => { setMessages(group.messages || []); setIsEnded(group.is_ended || false); }, [group.id]);
 
-  // Set lastMsgTimeRef to most recent message time
   useEffect(() => {
     const sorted = [...(group.messages || [])];
     if (sorted.length > 0) lastMsgTimeRef.current = sorted[sorted.length - 1].created_at;
@@ -445,7 +402,6 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onLeft, onEnded }) {
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages.length]);
 
-  // Allow Enter to send a voice note even when the textarea isn't focused
   useEffect(() => {
     if (!audioBlob && !recording) return;
     const onKey = (e) => {
@@ -459,7 +415,6 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onLeft, onEnded }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [audioBlob, recording, posting]);
 
-  // Real-time polling
   useEffect(() => {
     if (isEnded) return;
     const poll = async () => {
@@ -521,13 +476,33 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onLeft, onEnded }) {
   const handleKey = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      if (recording) { stopAndSend(); }       // still recording → stop + send immediately
-      else if (audioBlob) { sendVoiceNote(); } // preview ready → send
-      else { handleSend(); }                   // normal text
+      if (recording) { stopAndSend(); }
+      else if (audioBlob) { sendVoiceNote(); }
+      else { handleSend(); }
     }
   };
 
-  /* ── Voice recording ── */
+  const handleDeleteMessage = async (messageId) => {
+    if (!window.confirm('Delete this message?')) return;
+    setDeletingId(messageId);
+    try {
+      await api.delete(`/group-discussions/${group.id}/messages/${messageId}`);
+      setMessages(prev => prev.filter(m => String(m.id || m._id) !== String(messageId)));
+    } catch (err) { toast.error(err.response?.data?.message || 'Failed to delete message'); }
+    finally { setDeletingId(null); }
+  };
+
+  const handleClearMyMessages = async () => {
+    setActionLoading(true);
+    try {
+      await api.delete(`/group-discussions/${group.id}/messages`);
+      setMessages(prev => prev.filter(m => String(m.author_id) !== String(myId)));
+      toast.success('Your messages were cleared');
+      setClearConfirm(false);
+    } catch (err) { toast.error(err.response?.data?.message || 'Failed to clear messages'); }
+    finally { setActionLoading(false); }
+  };
+
   const startRecording = async () => {
     if (isEnded || !group.can_post) return;
     try {
@@ -560,7 +535,6 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onLeft, onEnded }) {
     }
   };
 
-  // Stops recording and sends the blob as soon as onstop fires
   const stopAndSend = () => {
     if (!mediaRecorderRef.current || !recording) return;
     mediaRecorderRef.current.onstop = () => {
@@ -569,7 +543,7 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onLeft, onEnded }) {
       const duration = recordingTime;
       clearInterval(recordTimerRef.current);
       setRecording(false);
-      setAudioBlob(null); // skip preview
+      setAudioBlob(null);
       (async () => {
         setPosting(true);
         try {
@@ -631,17 +605,6 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onLeft, onEnded }) {
     return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
   };
 
-  const handleLeave = async () => {
-    setActionLoading(true);
-    try {
-      await api.post(`/group-discussions/${group.id}/leave`);
-      toast.success('You left the group. Students can continue chatting.');
-      setLeaveConfirm(false);
-      onLeft && onLeft();
-    } catch (err) { toast.error(err.response?.data?.message || 'Failed to leave'); }
-    finally { setActionLoading(false); }
-  };
-
   const handleEnd = async () => {
     setActionLoading(true);
     try {
@@ -669,7 +632,6 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onLeft, onEnded }) {
             <div style={{ color: '#fff', fontWeight: 700, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{group.name}</div>
             <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 11, marginTop: 1 }}>{group.class_name} · {(group.members || []).length} members</div>
           </div>
-          {/* Live indicator */}
           <div className="flex items-center gap-1 flex-shrink-0">
             {liveStatus === 'error'
               ? <WifiOff className="w-3.5 h-3.5" style={{ color: 'rgba(255,255,255,0.5)' }} />
@@ -679,20 +641,20 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onLeft, onEnded }) {
                 </div>
             }
           </div>
-          {/* Leave button */}
-          <button onClick={() => setLeaveConfirm(true)}
-            className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full transition-all active:scale-95 flex-shrink-0"
-            style={{ background: 'rgba(255,255,255,0.15)', color: 'white', border: '1px solid rgba(255,255,255,0.25)' }}
-            title="Leave this group conversation">
-            <LogOut className="w-3 h-3" /> Leave
-          </button>
+          {group.is_owner && (
+            <button onClick={() => setDmOpen(true)}
+              className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full transition-all active:scale-95 flex-shrink-0"
+              style={{ background: 'rgba(255,255,255,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.3)' }}
+              title="Private DM with the team leader">
+              <MessageCircle className="w-3.5 h-3.5" /> Team leader DM
+            </button>
+          )}
           <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: '50%', width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
             <X style={{ width: 14, height: 14 }} />
           </button>
         </div>
       </div>
 
-      {/* Access banner */}
       {isEnded ? (
         <div className="flex items-center justify-center gap-2 px-4 py-2 flex-shrink-0"
           style={{ background: 'rgba(220,38,38,0.08)', borderBottom: '1px solid var(--card-border)' }}>
@@ -706,15 +668,16 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onLeft, onEnded }) {
             <Check className="w-3.5 h-3.5" style={{ color: '#059669' }} />
             <span className="text-xs font-semibold" style={{ color: '#059669' }}>You're in — read and post freely</span>
           </div>
+          {group.is_owner && (
           <button onClick={() => setEndConfirm(true)}
             className="flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full transition-all active:scale-95 flex-shrink-0"
             style={{ background: 'rgba(220,38,38,0.1)', color: '#dc2626', border: '1px solid rgba(220,38,38,0.2)' }}>
             <StopCircle className="w-3 h-3" /> End Conversation
           </button>
+          )}
         </div>
       )}
 
-      {/* Members bar */}
       <div className="flex items-center gap-2 px-4 py-2 flex-shrink-0 overflow-x-auto" style={{ borderBottom: '1px solid var(--card-border)' }}>
         {(group.members || []).map(m => (
           <div key={m.id} className="flex items-center gap-1 flex-shrink-0 px-2 py-1 rounded-full text-xs font-semibold"
@@ -724,101 +687,112 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onLeft, onEnded }) {
             {m.name}{group.team_leader?.id === m.id && <Crown className="w-2.5 h-2.5 ml-0.5" style={{ color: '#d97706' }} />}
           </div>
         ))}
-        {(group.invitations || []).filter(i => i.status === 'accepted').map(i => (
-          <div key={i.id} className="flex items-center gap-1 flex-shrink-0 px-2 py-1 rounded-full text-xs font-semibold"
+        {!group.is_owner && group.teacher_name && (
+          <div className="flex items-center gap-1 flex-shrink-0 px-2 py-1 rounded-full text-xs font-semibold"
             style={{ background: 'rgba(99,102,241,0.09)', color: '#6366f1' }}>
             <div className="w-4 h-4 rounded-full flex items-center justify-center text-white text-[9px] font-bold"
-              style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}>{i.teacher_name[0].toUpperCase()}</div>
-            {i.teacher_name} <span style={{ opacity: 0.6 }}>(teacher)</span>
+              style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}>{group.teacher_name[0].toUpperCase()}</div>
+            {group.teacher_name} <span style={{ opacity: 0.6 }}>(owner)</span>
           </div>
-        ))}
+        )}
+        {!isEnded && (
+          <button onClick={() => setClearConfirm(true)}
+            className="flex items-center gap-1 flex-shrink-0 px-2 py-1 rounded-full text-xs font-semibold transition-all hover:opacity-80"
+            style={{ background: 'rgba(220,38,38,0.08)', color: '#dc2626', marginLeft: 'auto' }}
+            title="Delete every message you've sent in this group">
+            <Trash2 className="w-2.5 h-2.5" /> Clear my messages
+          </button>
+        )}
       </div>
 
-      {/* Messages */}
       <div className="chat-wallpaper flex-1 overflow-y-auto" style={{ padding: '16px 14px 8px' }}>
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full py-16 text-center">
             <div style={{ fontSize: 36, marginBottom: 10 }}>🤝</div>
-            <p className="font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>No messages yet</p>
-            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Messages appear here in real time.</p>
+            <p className="text-sm font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>Start the conversation</p>
+            <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Messages appear here in real time</p>
           </div>
-        ) : enriched.map(item => item.type === 'date' ? (
-          <div key={item.key} style={{ display: 'flex', justifyContent: 'center', margin: '14px 0 10px' }}>
-            <span className="chat-date-chip">{item.label}</span>
-          </div>
-        ) : (
-          <div key={item.key} style={{ display: 'flex', flexDirection: item.isMine ? 'row-reverse' : 'row', alignItems: 'flex-end', gap: 8, marginBottom: item.isLast ? 12 : 2 }}>
-            <div style={{ width: 28, flexShrink: 0, display: 'flex', alignItems: 'flex-end' }}>
-              {item.isLast && (
-                <div style={{ width: 28, height: 28, borderRadius: '50%', background: item.author_role === 'teacher' ? 'linear-gradient(135deg, #6366f1, #4f46e5)' : 'linear-gradient(135deg, #059669, #0d9488)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 11, fontWeight: 700 }}>
-                  {(item.author_name || '?')[0].toUpperCase()}
-                </div>
-              )}
+        ) : enriched.map(item => {
+          if (item.type === 'date') return (
+            <div key={item.key} className="flex items-center gap-2 my-3">
+              <div className="flex-1 h-px" style={{ background: 'var(--card-border)' }} />
+              <span className="text-[10px] font-semibold px-2" style={{ color: 'var(--text-secondary)' }}>{item.label}</span>
+              <div className="flex-1 h-px" style={{ background: 'var(--card-border)' }} />
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: item.isMine ? 'flex-end' : 'flex-start', maxWidth: '68%' }}>
-              {item.isFirst && (
-                <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 3, marginLeft: 4, color: item.author_role === 'teacher' ? '#6366f1' : '#059669' }}>
-                  {item.isMine ? 'You' : item.author_name}{item.author_role === 'teacher' && !item.isMine ? ' · teacher' : ''}
-                </div>
+          );
+          const isTeacherMsg = item.author_role === 'teacher';
+          const bubbleBg = item.isMine
+            ? `linear-gradient(135deg, ${a}, ${b})`
+            : isTeacherMsg ? 'linear-gradient(135deg, #7c3aed, #6d28d9)'
+            : 'var(--surface-100)';
+          const bubbleColor = item.isMine || isTeacherMsg ? '#fff' : 'var(--text-primary)';
+          return (
+            <div key={item.key} className={`group flex mb-1 items-center gap-1.5 ${item.isMine ? 'justify-end' : 'justify-start'}`}>
+              {item.isMine && (
+                <button onClick={() => handleDeleteMessage(item.id || item._id)}
+                  disabled={deletingId === (item.id || item._id)}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                  style={{ color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer' }}
+                  title="Delete this message">
+                  <Trash2 className="w-3 h-3" />
+                </button>
               )}
-              <div className={item.isMine ? 'chat-bubble-mine' : 'chat-bubble-other'}
-                style={{ padding: item.message_type === 'voice' ? '8px 12px' : '9px 13px', borderRadius: item.isFirst ? (item.isMine ? '18px 4px 18px 18px' : '4px 18px 18px 18px') : (item.isMine ? '18px 4px 4px 18px' : '4px 18px 18px 4px') }}>
-                {item.message_type === 'voice' ? (
-                  <TeacherVoiceBubble url={item.voice_url} duration={item.voice_duration} isMine={item.isMine} />
-                ) : (
-                  <p style={{ fontSize: 13.5, lineHeight: 1.5, wordBreak: 'break-word', margin: 0 }}>{item.content}</p>
+              <div style={{ maxWidth: '72%' }}>
+                {item.isFirst && !item.isMine && (
+                  <div className="flex items-center gap-1.5 mb-1 ml-1">
+                    <span className="text-[11px] font-bold" style={{ color: isTeacherMsg ? '#7c3aed' : 'var(--text-secondary)' }}>{item.author_name}</span>
+                    {isTeacherMsg && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: 'rgba(124,58,237,0.12)', color: '#7c3aed' }}>Teacher</span>}
+                  </div>
                 )}
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
-                  <span style={{ fontSize: 10, opacity: 0.6 }}>{new Date(item.created_at || Date.now()).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
+                <div style={{
+                  background: bubbleBg, color: bubbleColor, padding: '8px 12px',
+                  borderRadius: item.isMine ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+                  fontSize: 13.5, lineHeight: 1.45, wordBreak: 'break-word',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
+                }}>
+                  {item.message_type === 'voice'
+                    ? <TeacherVoiceBubble url={item.voice_url} duration={item.voice_duration} isMine={item.isMine} />
+                    : item.content}
                 </div>
+                {item.isLast && (
+                  <div className={`text-[10px] mt-0.5 ${item.isMine ? 'text-right mr-1' : 'ml-1'}`} style={{ color: 'var(--text-secondary)', opacity: 0.6 }}>
+                    {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                )}
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Composer */}
       {canPost ? (
-        audioBlob ? (
-          /* Voice note preview bar */
-          <div style={{ borderTop: '1px solid var(--card-border)', background: 'var(--card-bg)', padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-            <audio ref={audioPreviewRef} src={URL.createObjectURL(audioBlob)} style={{ display: 'none' }} />
-            <button onClick={cancelVoiceNote} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', padding: 4, borderRadius: '50%', display: 'flex' }}>
-              <Trash2 style={{ width: 18, height: 18 }} />
-            </button>
-            <button onClick={toggleAudioPreview}
-              style={{ width: 36, height: 36, borderRadius: '50%', background: `linear-gradient(135deg, ${a}, ${b})`, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', flexShrink: 0 }}>
-              {audioPlaying ? <Pause style={{ width: 16, height: 16 }} /> : <Play style={{ width: 16, height: 16 }} />}
-            </button>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <div style={{ height: 4, borderRadius: 2, background: `${a}33`, overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: '100%', background: `linear-gradient(90deg, ${a}, ${b})`, opacity: 0.7, borderRadius: 2 }} />
-              </div>
-              <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Voice note · {fmtDuration(audioDuration)}</span>
+        recording ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderTop: '1px solid var(--card-border)', padding: '10px 14px', background: 'var(--card-bg)', flexShrink: 0 }}>
+            <button onClick={cancelVoiceNote} style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: 'rgba(220,38,38,0.1)', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}><X style={{ width: 16, height: 16 }} /></button>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface-100)', borderRadius: 20, padding: '8px 14px', border: '1.5px solid #dc262630' }}>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#dc2626', animation: 'pulse 1s infinite' }} />
+              <span style={{ fontSize: 13, color: '#dc2626', fontWeight: 600 }}>Recording… {fmtDuration(recordingTime)}</span>
             </div>
-            <button className="send-btn" onClick={sendVoiceNote} disabled={posting} style={{ background: `linear-gradient(135deg, ${a}, ${b})` }}>
+            <button onClick={stopAndSend} style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: `linear-gradient(135deg, ${a}, ${b})`, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}><Send style={{ width: 16, height: 16 }} /></button>
+          </div>
+        ) : audioBlob ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderTop: '1px solid var(--card-border)', padding: '10px 14px', background: 'var(--card-bg)', flexShrink: 0 }}>
+            <button onClick={cancelVoiceNote} style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: 'rgba(220,38,38,0.1)', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}><Trash2 style={{ width: 16, height: 16 }} /></button>
+            {audioBlob && <audio ref={audioPreviewRef} src={URL.createObjectURL(audioBlob)} style={{ display: 'none' }} />}
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface-100)', borderRadius: 20, padding: '8px 14px', border: `1.5px solid ${a}40` }}>
+              <button onClick={toggleAudioPreview} style={{ width: 28, height: 28, borderRadius: '50%', border: 'none', background: `${a}20`, color: a, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+                {audioPlaying ? <Pause style={{ width: 12, height: 12 }} /> : <Play style={{ width: 12, height: 12 }} />}
+              </button>
+              <Mic style={{ width: 13, height: 13, color: a, opacity: 0.7 }} />
+              <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500 }}>Voice note · {fmtDuration(audioDuration)}</span>
+            </div>
+            <button onClick={sendVoiceNote} disabled={posting} style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: `linear-gradient(135deg, ${a}, ${b})`, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, opacity: posting ? 0.6 : 1 }}>
               {posting ? <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> : <Send style={{ width: 16, height: 16 }} />}
             </button>
           </div>
-        ) : recording ? (
-          /* Recording in progress */
-          <div style={{ borderTop: '1px solid var(--card-border)', background: 'rgba(220,38,38,0.04)', padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-            <button onClick={cancelVoiceNote} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', padding: 4, borderRadius: '50%', display: 'flex' }}>
-              <Trash2 style={{ width: 18, height: 18 }} />
-            </button>
-            <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse flex-shrink-0" />
-            <span style={{ fontSize: 13, color: '#dc2626', fontWeight: 700, flex: 1, fontVariantNumeric: 'tabular-nums' }}>
-              Recording… {fmtDuration(recordingTime)}
-            </span>
-            <button onClick={stopRecording}
-              style={{ width: 40, height: 40, borderRadius: '50%', background: '#dc2626', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', flexShrink: 0, boxShadow: '0 2px 8px rgba(220,38,38,0.4)' }}>
-              <Square style={{ width: 16, height: 16, fill: '#fff' }} />
-            </button>
-          </div>
         ) : (
-          /* Normal text composer */
-          <div style={{ borderTop: '1px solid var(--card-border)', background: 'var(--card-bg)', padding: '10px 12px', display: 'flex', alignItems: 'flex-end', gap: 8, flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, borderTop: '1px solid var(--card-border)', padding: '10px 14px', background: 'var(--card-bg)', flexShrink: 0 }}>
             <textarea ref={inputRef} value={text} onChange={handleTyping} onKeyDown={handleKey} rows={1}
               placeholder="Type a reply…"
               style={{ flex: 1, resize: 'none', border: '1.5px solid var(--card-border)', borderRadius: 20, padding: '9px 14px', fontSize: 13.5, lineHeight: 1.5, outline: 'none', background: 'var(--surface-100)', color: 'var(--text-primary)', minHeight: 40, maxHeight: 120, overflowY: 'auto' }} />
@@ -841,48 +815,312 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onLeft, onEnded }) {
         </div>
       )}
 
-      {/* Confirm dialogs */}
-      <ConfirmDialog isOpen={leaveConfirm} onClose={() => setLeaveConfirm(false)} onConfirm={handleLeave} loading={actionLoading}
-        title="Leave Group" message="You'll lose access to this conversation, but students will continue chatting." confirmText="Leave Group" variant="danger" />
+      <ConfirmDialog isOpen={clearConfirm} onClose={() => setClearConfirm(false)} onConfirm={handleClearMyMessages} loading={actionLoading}
+        title="Clear My Messages" message="This deletes every message you've sent in this group. Other members' messages stay." confirmText="Clear My Messages" variant="danger" />
       <ConfirmDialog isOpen={endConfirm} onClose={() => setEndConfirm(false)} onConfirm={handleEnd} loading={actionLoading}
         title="End Conversation" message="Everyone will lose typing access. This cannot be undone." confirmText="End Conversation" variant="danger" />
+      {dmOpen && (
+        <LeaderDmPanel groupId={group.id} myId={myId} peerName={group.team_leader?.name} onClose={() => setDmOpen(false)} />
+      )}
     </div>
     </AudioPlaybackProvider>
   );
 }
 
-/* ── Invitation row ─────────────────────────────────────────────────────── */
-function InvitationRow({ inv, onRespond, responding }) {
-  const STATUS_STYLE = {
-    pending:  { bg: 'rgba(217,119,6,0.1)',  color: '#d97706', label: 'Pending',  icon: Clock },
-    accepted: { bg: 'rgba(5,150,105,0.1)',  color: '#059669', label: 'Accepted', icon: Check },
-    denied:   { bg: 'rgba(220,38,38,0.1)',  color: '#dc2626', label: 'Declined', icon: XCircle },
+/* ── Private team-leader <-> teacher DM panel ────────────────────────────
+   Used on BOTH sides: the teacher opens it from GroupViewer (peer = team
+   leader), and the student/team-leader opens it from their group view
+   (peer = teacher). Identical thread, different vantage point. */
+function LeaderDmPanel({ groupId, myId, peerName, onClose }) {
+  const [messages, setMessages] = useState([]);
+  const [peer, setPeer] = useState(null);
+  const [text, setText] = useState('');
+  const [posting, setPosting] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState(null);
+  const [clearConfirm, setClearConfirm] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const messagesEndRef = useRef(null);
+  const pollRef = useRef(null);
+  const lastMsgTimeRef = useRef(null);
+
+  const fetchThread = useCallback(async (silent) => {
+    try {
+      const params = silent && lastMsgTimeRef.current ? { since: lastMsgTimeRef.current } : {};
+      const res = await api.get(`/group-discussions/${groupId}/leader-dm`, { params });
+      if (res.data.peer) setPeer(res.data.peer);
+      const fresh = res.data.messages || [];
+      if (fresh.length > 0) {
+        setMessages(prev => {
+          if (!silent) return fresh;
+          const existingIds = new Set(prev.map(m => String(m.id)));
+          const toAdd = fresh.filter(m => !existingIds.has(String(m.id)));
+          return toAdd.length ? [...prev, ...toAdd] : prev;
+        });
+        lastMsgTimeRef.current = fresh[fresh.length - 1].created_at;
+      }
+    } catch (err) { if (!silent) toast.error(err.response?.data?.message || 'Failed to load DM'); }
+    finally { setLoading(false); }
+  }, [groupId]);
+
+  useEffect(() => {
+    fetchThread(false);
+    pollRef.current = setInterval(() => fetchThread(true), 3000);
+    return () => clearInterval(pollRef.current);
+  }, [fetchThread]);
+
+  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages.length]);
+
+  const handleSend = async () => {
+    if (!text.trim() || posting) return;
+    const content = text.trim(); setText('');
+    setPosting(true);
+    try {
+      const res = await api.post(`/group-discussions/${groupId}/leader-dm`, { content });
+      setMessages(prev => [...prev, res.data.msg]);
+      lastMsgTimeRef.current = res.data.msg.created_at;
+    } catch (err) { toast.error(err.response?.data?.message || 'Failed to send'); setText(content); }
+    finally { setPosting(false); }
   };
-  const s = STATUS_STYLE[inv.status] || STATUS_STYLE.pending;
-  const StatusIcon = s.icon;
+
+  const handleDelete = async (messageId) => {
+    if (!window.confirm('Delete this message?')) return;
+    setDeletingId(messageId);
+    try {
+      await api.delete(`/group-discussions/${groupId}/leader-dm/${messageId}`);
+      setMessages(prev => prev.filter(m => String(m.id) !== String(messageId)));
+    } catch (err) { toast.error(err.response?.data?.message || 'Failed to delete'); }
+    finally { setDeletingId(null); }
+  };
+
+  const handleClear = async () => {
+    setClearing(true);
+    try {
+      await api.delete(`/group-discussions/${groupId}/leader-dm`);
+      setMessages(prev => prev.filter(m => String(m.sender_id) !== String(myId)));
+      setClearConfirm(false);
+      toast.success('Your messages were cleared');
+    } catch (err) { toast.error(err.response?.data?.message || 'Failed to clear'); }
+    finally { setClearing(false); }
+  };
+
+  const displayName = peer?.name || peerName || 'DM';
+
   return (
-    <div className="flex items-center gap-3 px-4 py-3.5" style={{ borderBottom: '1px solid var(--card-border)' }}>
-      <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-white" style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}>
-        <Mail className="w-4 h-4" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>{inv.group_name}</div>
-        <div className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>{inv.class_name} · invited by {inv.team_leader_name}</div>
-      </div>
-      {inv.status === 'pending' ? (
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <button disabled={responding} onClick={() => onRespond(inv, 'deny')}
-            className="text-xs font-bold px-3 py-1.5 rounded-lg transition-all disabled:opacity-50"
-            style={{ background: 'var(--surface-100)', color: '#dc2626', border: '1px solid var(--card-border)' }}>Decline</button>
-          <button disabled={responding} onClick={() => onRespond(inv, 'accept')}
-            className="text-xs font-bold px-3 py-1.5 rounded-lg text-white transition-all disabled:opacity-50"
-            style={{ background: 'linear-gradient(135deg, #059669, #0d9488)' }}>Accept</button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.45)' }}>
+      <div className="w-full flex flex-col rounded-2xl overflow-hidden shadow-2xl" style={{ maxWidth: 440, height: '70vh', background: 'var(--card-bg)' }}>
+        <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0" style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}>
+          <div className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0" style={{ background: 'rgba(255,255,255,0.2)' }}>
+            {displayName[0]?.toUpperCase() || '?'}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-white font-bold text-sm truncate">{displayName}</div>
+            <div className="text-white/60 text-[10px]">Private team leader DM</div>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-full hover:bg-white/10 text-white/80 transition-colors flex-shrink-0">
+            <X className="w-4 h-4" />
+          </button>
         </div>
-      ) : (
-        <span className="text-xs px-2.5 py-1 rounded-full font-bold flex items-center gap-1 flex-shrink-0" style={{ background: s.bg, color: s.color }}>
-          <StatusIcon className="w-3 h-3" /> {s.label}
-        </span>
-      )}
+
+        <div className="flex items-center justify-end px-3 py-1.5 flex-shrink-0" style={{ borderBottom: '1px solid var(--card-border)' }}>
+          <button onClick={() => setClearConfirm(true)}
+            className="flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-full transition-all hover:opacity-80"
+            style={{ color: '#dc2626' }}>
+            <Trash2 className="w-2.5 h-2.5" /> Clear my messages
+          </button>
+        </div>
+
+        <div className="chat-wallpaper flex-1 overflow-y-auto" style={{ padding: '14px 12px' }}>
+          {loading ? (
+            <div className="flex justify-center py-10"><div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" /></div>
+          ) : messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-center">
+              <MessageCircle className="w-8 h-8 mb-2" style={{ color: 'var(--text-secondary)', opacity: 0.4 }} />
+              <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>This DM is private to the two of you.</p>
+            </div>
+          ) : messages.map(m => {
+            const isMine = String(m.sender_id) === String(myId);
+            return (
+              <div key={m.id} className={`group flex mb-1.5 items-center gap-1.5 ${isMine ? 'justify-end' : 'justify-start'}`}>
+                {isMine && (
+                  <button onClick={() => handleDelete(m.id)} disabled={deletingId === m.id}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                    style={{ color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer' }}>
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                )}
+                <div style={{ maxWidth: '78%' }}>
+                  <div style={{
+                    background: isMine ? 'linear-gradient(135deg, #6366f1, #4f46e5)' : 'var(--surface-100)',
+                    color: isMine ? '#fff' : 'var(--text-primary)', padding: '8px 12px',
+                    borderRadius: isMine ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+                    fontSize: 13.5, lineHeight: 1.45, wordBreak: 'break-word',
+                  }}>
+                    {m.content}
+                  </div>
+                  <div className={`text-[10px] mt-0.5 ${isMine ? 'text-right mr-1' : 'ml-1'}`} style={{ color: 'var(--text-secondary)', opacity: 0.6 }}>
+                    {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          <div ref={messagesEndRef} />
+        </div>
+
+        <div className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0" style={{ borderTop: '1px solid var(--card-border)' }}>
+          <input value={text} onChange={e => setText(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+            placeholder={`Message ${displayName}…`}
+            className="flex-1 px-3.5 py-2 rounded-full text-sm outline-none"
+            style={{ background: 'var(--surface-100)', border: '1.5px solid var(--card-border)', color: 'var(--text-primary)' }} />
+          <button onClick={handleSend} disabled={!text.trim() || posting}
+            className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-all active:scale-95 disabled:opacity-40"
+            style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}>
+            <Send className="w-4 h-4 text-white" />
+          </button>
+        </div>
+      </div>
+
+      <ConfirmDialog isOpen={clearConfirm} onClose={() => setClearConfirm(false)} onConfirm={handleClear} loading={clearing}
+        title="Clear My Messages" message="This deletes every message you've sent in this private DM." confirmText="Clear My Messages" variant="danger" />
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════
+   Open Collaboration Panel
+══════════════════════════════════════════════ */
+function OpenCollaborationPanel() {
+  const [classes, setClasses]   = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [toggling, setToggling] = useState(null); // classId being toggled
+
+  const fetchClasses = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await api.get('/collaborations/my-classes');
+      setClasses(res.data.classes || []);
+    } catch { toast.error('Failed to load classes'); }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { fetchClasses(); }, [fetchClasses]);
+
+  const handleToggle = async (cls) => {
+    setToggling(cls.id);
+    try {
+      if (cls.collaboration_active) {
+        await api.post(`/collaborations/${cls.id}/close`);
+        toast.success(`Collaboration closed for ${cls.name}`);
+      } else {
+        await api.post(`/collaborations/${cls.id}/open`);
+        toast.success(`🟢 Collaboration is now live for ${cls.name}!`);
+      }
+      fetchClasses();
+    } catch (err) { toast.error(err.response?.data?.message || 'Action failed'); }
+    finally { setToggling(null); }
+  };
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="flex-shrink-0 px-5 py-5" style={{ borderBottom: '1px solid var(--card-border)' }}>
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-10 h-10 rounded-2xl flex items-center justify-center"
+            style={{ background: 'linear-gradient(135deg, #059669, #0d9488)' }}>
+            <Radio className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h3 className="font-bold text-base" style={{ color: 'var(--text-primary)' }}>Open Collaboration</h3>
+            <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+              Allow students to send private one-to-one messages within a class
+            </p>
+          </div>
+        </div>
+        <div className="mt-3 px-4 py-3 rounded-xl text-xs" style={{ background: 'rgba(5,150,105,0.07)', border: '1px solid rgba(5,150,105,0.15)', color: '#059669' }}>
+          <strong>How it works:</strong> When collaboration is live, every student in that class can search for and privately message any classmate. Only the two participants see their own conversation — no one else (not even the teacher) can read their private messages.
+        </div>
+      </div>
+
+      {/* Class list */}
+      <div className="flex-1 overflow-y-auto">
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="animate-spin w-7 h-7 rounded-full" style={{ border: '3px solid var(--card-border)', borderTopColor: '#059669' }} />
+          </div>
+        ) : classes.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
+            <div className="w-16 h-16 rounded-2xl mb-4 flex items-center justify-center" style={{ background: 'rgba(5,150,105,0.08)' }}>
+              <Users className="w-8 h-8" style={{ color: '#059669', opacity: 0.5 }} />
+            </div>
+            <p className="font-bold mb-1" style={{ color: 'var(--text-primary)' }}>No classes found</p>
+            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Classes you are assigned to will appear here.</p>
+          </div>
+        ) : classes.map(cls => (
+          <CollaborationClassRow
+            key={cls.id}
+            cls={cls}
+            onToggle={handleToggle}
+            toggling={toggling === cls.id}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CollaborationClassRow({ cls, onToggle, toggling }) {
+  const isActive = cls.collaboration_active;
+  return (
+    <div className="flex items-center gap-4 px-5 py-4" style={{ borderBottom: '1px solid var(--card-border)' }}>
+      {/* Class avatar */}
+      <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
+        style={{ background: isActive ? 'linear-gradient(135deg, #059669, #0d9488)' : 'var(--surface-100)', color: isActive ? '#fff' : 'var(--text-secondary)', border: isActive ? 'none' : '1.5px solid var(--card-border)' }}>
+        {(cls.name || 'C').slice(0, 2).toUpperCase()}
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <div className="font-bold text-sm truncate" style={{ color: 'var(--text-primary)' }}>{cls.name}</div>
+        {/* Status badge */}
+        <div className="flex items-center gap-1.5 mt-0.5">
+          {isActive ? (
+            <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold"
+              style={{ background: 'rgba(5,150,105,0.12)', color: '#059669' }}>
+              <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse inline-block" />
+              Collaboration is live
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold"
+              style={{ background: 'var(--surface-100)', color: 'var(--text-secondary)' }}>
+              <span className="w-1.5 h-1.5 rounded-full bg-gray-400 inline-block" />
+              Collaboration is off
+            </span>
+          )}
+        </div>
+        {isActive && cls.opened_at && (
+          <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-secondary)', opacity: 0.7 }}>
+            Opened {timeAgo(cls.opened_at)}
+          </p>
+        )}
+      </div>
+
+      {/* Toggle button */}
+      <button
+        onClick={() => onToggle(cls)}
+        disabled={toggling}
+        className="flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-xl transition-all active:scale-95 disabled:opacity-50 flex-shrink-0"
+        style={isActive
+          ? { background: 'rgba(220,38,38,0.1)', color: '#dc2626', border: '1px solid rgba(220,38,38,0.2)' }
+          : { background: 'linear-gradient(135deg, #059669, #0d9488)', color: '#fff' }
+        }>
+        {toggling
+          ? <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+          : isActive
+            ? <><ZapOff className="w-3.5 h-3.5" /> Close</>
+            : <><Zap className="w-3.5 h-3.5" /> Open</>
+        }
+      </button>
     </div>
   );
 }
@@ -904,9 +1142,6 @@ export default function TeacherGroups() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [deleteTarget, setDeleteTarget]   = useState(null);
   const [deleting, setDeleting]           = useState(false);
-  const [invitations, setInvitations] = useState([]);
-  const [invitationsLoading, setInvitationsLoading] = useState(true);
-  const [respondingId, setRespondingId] = useState(null);
 
   const fetchGroups = useCallback(async () => {
     setLoading(true);
@@ -918,22 +1153,11 @@ export default function TeacherGroups() {
     finally { setLoading(false); }
   }, [filterClass]);
 
-  const fetchInvitations = useCallback(async () => {
-    setInvitationsLoading(true);
-    try { const res = await api.get('/group-discussions/invitations/mine'); setInvitations(res.data.invitations || []); }
-    catch { toast.error('Failed to load invitations'); }
-    finally { setInvitationsLoading(false); }
-  }, []);
-
   useEffect(() => { fetchGroups(); }, [fetchGroups]);
-  useEffect(() => { fetchInvitations(); }, [fetchInvitations]);
   useEffect(() => { api.get('/classes?limit=100').then(r => setClasses(r.data.classes || [])).catch(() => {}); }, []);
-
-  const pendingInviteCount = invitations.filter(i => i.status === 'pending').length;
 
   const openGroup = async (g) => {
     setCreateMode(false); setActiveGroup(g);
-    if (g.my_invitation_status !== 'accepted') { setGroupDetail(null); return; }
     setDetailLoading(true);
     try { const res = await api.get(`/group-discussions/${g.id}`); setGroupDetail(res.data.group); }
     catch { toast.error('Failed to load group'); setGroupDetail(null); }
@@ -952,37 +1176,27 @@ export default function TeacherGroups() {
     finally { setDeleting(false); }
   };
 
-  const handleRespond = async (inv, action) => {
-    setRespondingId(inv.invitation_id);
-    try {
-      await api.post(`/group-discussions/invitations/${inv.invitation_id}/respond`, { action });
-      toast.success(action === 'accept' ? 'Invitation accepted 🎉' : 'Invitation declined');
-      fetchInvitations(); fetchGroups();
-      if (activeGroup?.id === inv.group_id) { setActiveGroup(null); setGroupDetail(null); }
-    } catch (err) { toast.error(err.response?.data?.message || 'Failed to respond'); }
-    finally { setRespondingId(null); }
-  };
-
-  const handleLeft = () => { setActiveGroup(null); setGroupDetail(null); fetchGroups(); };
   const handleEnded = () => { fetchGroups(); };
 
+  // Right panel: only for groups tab
   let rightPanel = null;
-  if (createMode) {
-    rightPanel = <CreateGroupPanel onClose={() => setCreateMode(false)} onCreated={() => { setCreateMode(false); fetchGroups(); }} />;
-  } else if (activeGroup) {
-    if (activeGroup.my_invitation_status !== 'accepted') {
-      rightPanel = <LockedGroupPanel g={activeGroup} onClose={() => setActiveGroup(null)} />;
-    } else {
+  if (tab === 'groups') {
+    if (createMode) {
+      rightPanel = <CreateGroupPanel onClose={() => setCreateMode(false)} onCreated={() => { setCreateMode(false); fetchGroups(); }} />;
+    } else if (activeGroup) {
       rightPanel = detailLoading || !groupDetail
         ? <div className="flex-1 flex items-center justify-center"><div className="text-center"><div className="animate-spin w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full mx-auto mb-3" /><p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Loading…</p></div></div>
-        : <GroupViewer group={groupDetail} myId={myId} onClose={() => { setActiveGroup(null); setGroupDetail(null); }} onMessageSent={fetchGroups} onLeft={handleLeft} onEnded={handleEnded} />;
+        : <GroupViewer group={groupDetail} myId={myId} onClose={() => { setActiveGroup(null); setGroupDetail(null); }} onMessageSent={fetchGroups} onEnded={handleEnded} />;
     }
   }
+
+  // For collaboration tab: full-width panel in right side
+  const showCollabPanel = tab === 'collaboration';
 
   return (
     <div className="flex h-full" style={{ minHeight: 'calc(100vh - 120px)', gap: 12 }}>
       {/* ── Left sidebar ── */}
-      <div className={`flex flex-col ${rightPanel ? 'hidden lg:flex lg:w-80 xl:w-96' : 'flex-1'}`}
+      <div className={`flex flex-col ${(rightPanel || showCollabPanel) ? 'hidden lg:flex lg:w-80 xl:w-96' : 'flex-1'}`}
         style={{ background: 'var(--card-bg)', borderRadius: 20, overflow: 'hidden', border: '1px solid var(--card-border)' }}>
 
         {/* Header */}
@@ -1001,27 +1215,34 @@ export default function TeacherGroups() {
             )}
           </div>
           <p className="text-white/55 text-xs mb-4">Manage student collaboration groups</p>
-          {/* Tabs */}
+
+          {/* 2-tab bar */}
           <div className="flex gap-1 p-1 rounded-xl mb-0" style={{ background: 'rgba(0,0,0,0.15)' }}>
-            <button onClick={() => { setTab('groups'); setCreateMode(false); }}
-              className="flex-1 text-xs font-bold px-3 py-1.5 rounded-lg transition-all"
-              style={tab === 'groups' ? { background: 'white', color: '#4f46e5', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' } : { color: 'rgba(255,255,255,0.75)' }}>
+            {/* My Groups */}
+            <button
+              onClick={() => { setTab('groups'); setCreateMode(false); }}
+              className="flex-1 text-xs font-bold px-2 py-1.5 rounded-lg transition-all"
+              style={tab === 'groups'
+                ? { background: 'white', color: '#4f46e5', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }
+                : { color: 'rgba(255,255,255,0.75)' }}>
               My Groups
             </button>
-            <button onClick={() => { setTab('invitations'); setActiveGroup(null); setGroupDetail(null); setCreateMode(false); }}
-              className="flex-1 text-xs font-bold px-3 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1.5"
-              style={tab === 'invitations' ? { background: 'white', color: '#4f46e5', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' } : { color: 'rgba(255,255,255,0.75)' }}>
-              <Inbox className="w-3 h-3" /> Invitations
-              {pendingInviteCount > 0 && (
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: '#f59e0b', color: 'white' }}>{pendingInviteCount}</span>
-              )}
+
+            {/* Open Collaboration */}
+            <button
+              onClick={() => { setTab('collaboration'); setActiveGroup(null); setGroupDetail(null); setCreateMode(false); }}
+              className="flex-1 text-xs font-bold px-2 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1"
+              style={tab === 'collaboration'
+                ? { background: 'white', color: '#059669', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }
+                : { color: 'rgba(255,255,255,0.75)' }}>
+              <Radio className="w-3 h-3" /> Collab
             </button>
           </div>
         </div>
 
+        {/* Tab bodies */}
         {tab === 'groups' ? (
           <>
-            {/* Class filter */}
             <div className="flex gap-1.5 px-3 py-2.5 overflow-x-auto flex-shrink-0" style={{ borderBottom: '1px solid var(--card-border)' }}>
               {[{ id: '', name: 'All' }, ...classes].map(c => (
                 <button key={c.id} onClick={() => setFilterClass(c.id)}
@@ -1055,28 +1276,23 @@ export default function TeacherGroups() {
             </div>
           </>
         ) : (
-          <div className="flex-1 overflow-y-auto">
-            {invitationsLoading ? (
-              <div className="flex items-center justify-center py-20">
-                <div className="animate-spin w-7 h-7 rounded-full" style={{ border: '3px solid var(--card-border)', borderTopColor: '#6366f1' }} />
-              </div>
-            ) : invitations.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
-                <div className="w-16 h-16 rounded-2xl mb-4 flex items-center justify-center" style={{ background: 'rgba(99,102,241,0.08)' }}>
-                  <Inbox className="w-8 h-8" style={{ color: '#6366f1', opacity: 0.5 }} />
-                </div>
-                <p className="font-bold mb-1" style={{ color: 'var(--text-primary)' }}>No invitations</p>
-                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Group invitations from team leaders appear here.</p>
-              </div>
-            ) : invitations.map(inv => (
-              <InvitationRow key={inv.invitation_id} inv={inv} onRespond={handleRespond} responding={respondingId === inv.invitation_id} />
-            ))}
+          /* Collapsed summary in sidebar when collab tab is selected on mobile */
+          <div className="flex-1 flex items-center justify-center p-6 text-center lg:hidden">
+            <div>
+              <Radio className="w-10 h-10 mx-auto mb-3" style={{ color: '#059669' }} />
+              <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Open Collaboration</p>
+              <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>Manage class-wide peer messaging</p>
+            </div>
           </div>
         )}
       </div>
 
       {/* ── Right panel ── */}
-      {rightPanel ? (
+      {showCollabPanel ? (
+        <div className="flex-1 flex flex-col rounded-2xl overflow-hidden" style={{ border: '1px solid var(--card-border)', background: 'var(--card-bg)' }}>
+          <OpenCollaborationPanel />
+        </div>
+      ) : rightPanel ? (
         <div className="flex-1 flex flex-col rounded-2xl overflow-hidden" style={{ border: '1px solid var(--card-border)', background: 'var(--card-bg)' }}>
           {rightPanel}
         </div>
@@ -1089,7 +1305,8 @@ export default function TeacherGroups() {
             </div>
             <h3 className="font-bold text-xl mb-2" style={{ color: 'var(--text-primary)' }}>Group Discussions</h3>
             <p className="text-sm mb-6 max-w-xs mx-auto" style={{ color: 'var(--text-secondary)' }}>
-              {tab === 'groups' ? 'Create groups, assign a team leader, and students bring you into the conversation.' : 'Accept an invitation to join a group conversation.'}
+              {tab === 'groups' ? 'Create groups, assign a team leader, and you get full access to every conversation automatically.'
+               : 'Enable peer-to-peer messaging for a class — students chat privately with any classmate.'}
             </p>
             {tab === 'groups' && (
               <button onClick={() => setCreateMode(true)}
