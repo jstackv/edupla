@@ -1,17 +1,21 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import Pagination from '../../components/common/Pagination';
 import { Search, Megaphone, BookOpen, Calendar } from 'lucide-react';
 
 export default function StudentAnnouncements() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [announcements, setAnnouncements] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
-  const [filterClass, setFilterClass] = useState('');
+  const [filterClass, setFilterClass] = useState(searchParams.get('classId') || '');
   const [loading, setLoading] = useState(true);
   const [classes, setClasses] = useState([]);
+  const [flashId, setFlashId] = useState(searchParams.get('highlight') || null);
+  const itemRefs = useRef({});
 
   const fetchAnnouncements = useCallback(async () => {
     setLoading(true);
@@ -29,6 +33,20 @@ export default function StudentAnnouncements() {
   useEffect(() => {
     api.get('/classes/my').then(r => setClasses(r.data.classes || [])).catch(() => {});
   }, []);
+
+  /* ── jump to & highlight the announcement a notification pointed to ── */
+  useEffect(() => {
+    if (!flashId || loading || !announcements.length) return;
+    const el = itemRefs.current[flashId];
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const t = setTimeout(() => {
+      setFlashId(null);
+      const next = new URLSearchParams(searchParams);
+      next.delete('highlight');
+      setSearchParams(next, { replace: true });
+    }, 3500);
+    return () => clearTimeout(t);
+  }, [flashId, loading, announcements]);
 
   return (
     <div className="space-y-5">
@@ -65,7 +83,12 @@ export default function StudentAnnouncements() {
       ) : (
         <div className="space-y-4">
           {announcements.map(a => (
-            <div key={a.id} className="card hover:shadow-soft transition-all">
+            <div key={a.id} ref={el => { itemRefs.current[a.id] = el; }}
+              className="card hover:shadow-soft transition-all"
+              style={flashId === a.id ? {
+                boxShadow: '0 0 0 2px #8b5cf6, 0 8px 24px rgba(139,92,246,0.25)',
+                transition: 'box-shadow 0.4s ease',
+              } : undefined}>
               <div className="flex items-start gap-4">
                 <div className="w-10 h-10 rounded-xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center flex-shrink-0">
                   <Megaphone className="w-5 h-5 text-violet-600" />

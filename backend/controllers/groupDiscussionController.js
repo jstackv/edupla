@@ -445,9 +445,22 @@ const getGroupMessages = async (req, res) => {
 
 // Confirms the requester is either the team leader or the owning teacher,
 // and returns their role label for convenience.
+//
+// NOTE: `group` may arrive either populated (team_leader/teacher_id are
+// objects with `_id`, e.g. from a `.populate(...)` query) or unpopulated
+// (team_leader/teacher_id are plain ObjectIds). Comparing a populated
+// object with String(obj) silently produces "[object Object]", which never
+// matches the requester's id — this was the root cause of the team-leader
+// <-> teacher DM rejecting both sides with a 403. Normalize to a plain id
+// string in both cases before comparing.
+function leaderDmId(field) {
+  if (!field) return null;
+  return String(field._id || field);
+}
+
 function leaderDmRole(group, userId, role) {
-  if (role === 'student' && String(group.team_leader) === userId) return 'student';
-  if (role === 'teacher' && String(group.teacher_id) === userId) return 'teacher';
+  if (role === 'student' && leaderDmId(group.team_leader) === userId) return 'student';
+  if (role === 'teacher' && leaderDmId(group.teacher_id) === userId) return 'teacher';
   return null;
 }
 

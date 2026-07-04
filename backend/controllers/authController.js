@@ -3,6 +3,29 @@ const jwt = require('jsonwebtoken');
 const { User, Maintenance } = require('../models/db');
 const { JWT_SECRET } = require('../middleware/auth');
 
+// Shape the full profile we send to the frontend — everything the Profile
+// page (and anywhere else) needs to render real data instead of "N/A",
+// without ever leaking the password hash.
+function toProfile(userDoc, extra = {}) {
+  const u = typeof userDoc.toObject === 'function' ? userDoc.toObject() : userDoc;
+  return {
+    id: u._id.toString(),
+    name: u.name,
+    email: u.email,
+    role: u.role,
+    level: u.level ?? null,
+    trade: u.trade ?? null,
+    class_year: u.class_year ?? null,
+    phone: u.phone ?? null,
+    avatar_color: u.avatar_color ?? null,
+    is_super_admin: u.is_super_admin || false,
+    is_active: u.is_active !== false,
+    created_at: u.created_at || u.createdAt || null,
+    updated_at: u.updated_at || u.updatedAt || null,
+    ...extra,
+  };
+}
+
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -37,16 +60,19 @@ const login = async (req, res) => {
       }
     }
 
-    const payload = {
+    // JWT payload stays minimal — it's only used by middleware for auth
+    // checks (id / role / is_super_admin), not for rendering the UI.
+    const jwtPayload = {
       id: user._id.toString(),
-      name: user.name,
-      email: user.email,
       role: user.role,
       is_super_admin: user.is_super_admin || false,
     };
-    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '24h' });
+    const token = jwt.sign(jwtPayload, JWT_SECRET, { expiresIn: '24h' });
 
-    res.json({ message: 'Login successful', token, user: payload });
+    // The `user` object sent back to the frontend is the FULL profile, so
+    // Profile.jsx (and anything else reading useAuth().user) has real
+    // level/trade/class_year/phone/status data immediately after login.
+    res.json({ message: 'Login successful', token, user: toProfile(user) });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -56,12 +82,26 @@ const logout = (req, res) => {
   res.json({ message: 'Logged out successfully' });
 };
 
-const me = (req, res) => {
+const me = async (req, res) => {
   const token = req.cookies?.token || req.headers.authorization?.split(' ')[1];
   if (!token) return res.status(401).json({ message: 'Not authenticated' });
   try {
-    const user = jwt.verify(token, JWT_SECRET);
-    res.json({ user });
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const userDoc = await User.findById(decoded.id);
+    if (!userDoc) return res.status(401).json({ message: 'Account not found.' });
+
+    // Re-fetch from the database on every call so the profile always
+    // reflects the latest saved data, not a snapshot frozen at login time.
+    // Impersonation flags only ever exist on the token, never in the DB,
+    // so they're carried over explicitly — this keeps the impersonation
+    // banner (Layout.jsx / App.jsx) working exactly as before.
+    const extra = {};
+    if (decoded.impersonation_session) {
+      extra.impersonation_session = true;
+      extra.impersonated_by = decoded.impersonated_by;
+    }
+
+    res.json({ user: toProfile(userDoc, extra) });
   } catch {
     res.status(401).json({ message: 'Invalid or expired token' });
   }

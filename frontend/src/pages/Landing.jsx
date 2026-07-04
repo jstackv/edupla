@@ -8,22 +8,60 @@ import {
   Play, Sparkles, Target, Layers, MessageSquare,
   Rocket, LayoutDashboard, ClipboardList, Megaphone,
   ChevronDown, Mail, Phone, MapPin,
-  Eye, BarChart2, Lock, CheckSquare
+  Eye, BarChart2, Lock, CheckSquare,
+  User, ClipboardCheck, Workflow, BadgeCheck, FileBarChart2,
+  School, ListChecks, FolderKanban, GitBranch, Boxes,
+  FileCheck2, UserCog, SlidersHorizontal, ArrowDown
 } from 'lucide-react';
 
 const FONT_IMPORT = `@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Outfit:wght@300;400;500;600;700;800;900&display=swap');`;
 
-const NAV = ['Features','How It Works','Testimonials','Pricing'];
+const NAV = ['Features','Curriculum','How It Works','Testimonials','Pricing'];
 
 const FEATURES = [
-  { icon: LayoutDashboard, color: '#6366f1', label: 'Unified Dashboard',    desc: 'One intelligent hub for attendance, grades, assignments and communications — all real-time.' },
-  { icon: BarChart2,       color: '#0ea5e9', label: 'Live Analytics',        desc: 'Deep performance insights with visual reports, trend analysis, and exportable grade books.' },
-  { icon: Users,           color: '#10b981', label: 'Role-Based Portals',    desc: 'Tailored experiences for admins, teachers, and students — each sees exactly what matters.' },
-  { icon: Bell,            color: '#f59e0b', label: 'Smart Announcements',   desc: 'Class-wide or school-wide push notifications with priority tags and acknowledgement tracking.' },
-  { icon: Eye,             color: '#8b5cf6', label: 'Document Viewer',       desc: 'Upload, organize, and view notes, assignments, PDFs and resources — inline without downloading.' },
-  { icon: Shield,          color: '#ef4444', label: 'Enterprise Security',   desc: 'Session-based auth, role permissions, encrypted file storage, and audit trails built in.' },
-  { icon: CheckSquare,     color: '#14b8a6', label: 'Smart Grading',         desc: 'Streamlined submission flows, bulk grading tools, and automatic grade calculations.' },
-  { icon: Globe,           color: '#f97316', label: 'Any Device',            desc: 'Fully responsive design — works flawlessly on desktop, tablet, and mobile.' },
+  { icon: FolderKanban,    color: '#8b5cf6', label: 'Document Management',  desc: 'Upload, organize and preview notes, PDFs and class resources by module — with inline viewing and download tracking.' },
+  { icon: ClipboardList,   color: '#f97316', label: 'Assignment Workflow',  desc: 'Create assignments with deadlines, collect submissions, grade in bulk, and return feedback — all tracked automatically.' },
+  { icon: UserCog,         color: '#0ea5e9', label: 'Teacher Management',   desc: 'Admins onboard teachers, assign them to classes and modules, and manage extra co-teachers per class.' },
+  { icon: Users,           color: '#10b981', label: 'Student Management',   desc: 'Enroll students by level, trade and class year, bulk-import records, and track every learner in one directory.' },
+  { icon: ListChecks,      color: '#6366f1', label: 'Assessment & Modules', desc: 'Configure modules with weighted marks, then run Formative (FA), Integrated (IA) and Comprehensive (CA) assessments per class.' },
+  { icon: FileBarChart2,   color: '#14b8a6', label: 'Report Management',    desc: 'Generate student report cards, per-assessment breakdowns and full class performance reports, ranked automatically.' },
+  { icon: SlidersHorizontal, color: '#ec4899', label: 'TVET Curriculum Setup', desc: 'Define Sector, Trade, Qualification Title and RTQF Level per class — fully aligned to competency-based TVET programs.' },
+  { icon: ClipboardCheck,  color: '#22c55e', label: 'Mark Approval Flow',   desc: 'Marks move through Draft → Submitted → Approved with admin review, so reports always reflect verified results.' },
+  { icon: Megaphone,       color: '#f59e0b', label: 'Smart Announcements', desc: 'Class-wide or school-wide notifications with read tracking, so nothing important is ever missed.' },
+  { icon: MessageSquare,   color: '#0ea5e9', label: 'Group Collaboration', desc: 'Teacher-led discussion groups with team leaders, plus optional peer-to-peer messaging within a class.' },
+  { icon: Shield,          color: '#ef4444', label: 'Enterprise Security', desc: 'Session-based auth, role permissions, encrypted file storage, and full activity audit trails built in.' },
+  { icon: Globe,           color: '#6366f1', label: 'Any Device',          desc: 'Fully responsive admin, teacher and student portals — flawless on desktop, tablet, and mobile.' },
+];
+
+// TVET / competency-based curriculum configuration pipeline
+const CURRICULUM_PIPELINE = [
+  { icon: Layers,   color: '#6366f1', label: 'Sector',             example: 'e.g. ICT, Construction, Hospitality' },
+  { icon: Target,   color: '#0ea5e9', label: 'Trade',               example: 'e.g. Software Development, Electrical' },
+  { icon: Award,    color: '#f59e0b', label: 'Qualification Title', example: 'e.g. Certificate, Diploma programs' },
+  { icon: BadgeCheck, color: '#10b981', label: 'RTQF Level',        example: 'e.g. Level 3, 4, 5' },
+  { icon: Boxes,    color: '#8b5cf6', label: 'Modules',             example: 'Complementary · General · Specific · Elective' },
+];
+
+// Assessment categories used inside a module
+const ASSESSMENT_TYPES = [
+  { code: 'FA', name: 'Formative Assessment', color: '#6366f1', desc: 'Ongoing checks during teaching to track ongoing understanding.' },
+  { code: 'IA', name: 'Integrated Assessment', color: '#0ea5e9', desc: 'Mid-term evaluation combining several learning outcomes.' },
+  { code: 'CA', name: 'Comprehensive Assessment', color: '#10b981', desc: 'End-of-term evaluation covering the full module scope.' },
+];
+
+// Mark review workflow
+const MARK_WORKFLOW = [
+  { label: 'Draft',     color: '#94a3b8', icon: FileText,        desc: 'Teacher enters marks per student for the assessment.' },
+  { label: 'Submitted', color: '#f59e0b', icon: Workflow,        desc: 'Teacher submits the full mark sheet for admin review.' },
+  { label: 'Approved',  color: '#10b981', icon: ClipboardCheck,  desc: 'Admin approves — marks lock in and reports update instantly.' },
+  { label: 'Rejected',  color: '#ef4444', icon: GitBranch,       desc: 'Admin sends it back with a review note for correction.' },
+];
+
+// Reporting outputs
+const REPORT_TYPES = [
+  { icon: FileCheck2,   color: '#6366f1', label: 'Student Report Card', desc: 'A full per-student breakdown across every module, term and assessment type.' },
+  { icon: BarChart2,    color: '#0ea5e9', label: 'Assessment Report',   desc: 'Ranked results for a single assessment, with class average and percentile.' },
+  { icon: FileBarChart2, color: '#10b981', label: 'Class Performance Report', desc: 'School-wide or per-class analytics across modules, sectors and trades.' },
 ];
 
 const STEPS = [
@@ -47,14 +85,16 @@ const PRICING = [
 
 const STATS = [
   { v: '2,400+', l: 'Students',  icon: Users,      c: '#6366f1' },
-  { v: '180+',   l: 'Courses',   icon: BookOpen,   c: '#0ea5e9' },
+  { v: '180+',   l: 'Modules',   icon: BookOpen,   c: '#0ea5e9' },
   { v: '120+',   l: 'Educators', icon: Award,      c: '#10b981' },
   { v: '96%',    l: 'Pass Rate', icon: TrendingUp, c: '#f59e0b' },
 ];
 
 const FAQS = [
   { q: 'How quickly can we get started?',   a: 'Most schools are fully set up in under 30 minutes. Our onboarding wizard guides you through creating classes, adding teachers, and enrolling students step by step.' },
-  { q: 'Is student data kept private?',     a: 'Absolutely. All data is encrypted at rest and in transit. We never sell user data and comply fully with FERPA guidelines.' },
+  { q: 'Does EDUPLA support TVET curriculum structures?', a: 'Yes — every class can be linked to a Sector, Trade, Qualification Title and RTQF Level. Modules inherit that structure, and Formative, Integrated and Comprehensive assessments are tracked per module automatically.' },
+  { q: 'How are reports generated?',        a: 'Once a teacher submits marks and an admin approves them, student report cards, assessment reports and class performance reports are generated automatically — always reflecting the latest approved marks.' },
+  { q: 'Is student data kept private?',     a: 'Absolutely. All data is encrypted at rest and in transit. We never sell user data and comply fully with data-privacy best practices.' },
   { q: 'Can teachers work offline?',        a: 'Lesson planning and document drafting work offline. Submissions and grading sync automatically when back online.' },
   { q: 'Do you support multiple campuses?', a: 'Yes — our District plan supports unlimited campuses with centralised reporting and per-campus admin roles.' },
 ];
@@ -343,14 +383,26 @@ export default function Landing() {
         .fade-up { animation: fadeUp 0.65s ease both }
         .float   { animation: floatY 3.5s ease-in-out infinite }
         .float2  { animation: floatY 4.2s ease-in-out infinite 1.1s }
+        section[id] { scroll-margin-top: 84px; }
         ::-webkit-scrollbar{width:4px;height:4px}
         ::-webkit-scrollbar-thumb{background:#6366f120;border-radius:9px}
-        @media(max-width:900px){.hero-grid{grid-template-columns:1fr!important}}
+        @media(max-width:900px){
+          .hero-grid{grid-template-columns:1fr!important}
+          .footer-grid{grid-template-columns:1fr 1fr!important; gap:2.25rem!important}
+          .footer-brand{grid-column:1/-1}
+          .footer-brand-desc{max-width:420px!important}
+        }
         @media(max-width:768px){
           .nav-links{display:none!important}
           .nav-ctas{display:none!important}
           .mob-btn{display:flex!important}
-          .footer-grid{grid-template-columns:1fr 1fr!important}
+          .footer-pad{padding-left:1.25rem!important; padding-right:1.25rem!important}
+        }
+        @media(max-width:640px){
+          .footer-grid{grid-template-columns:1fr!important; gap:2.5rem!important; text-align:left}
+          .footer-bottom{flex-direction:column!important; align-items:flex-start!important; gap:16px!important}
+          .footer-bottom-left{flex-direction:column!important; align-items:flex-start!important; gap:10px!important}
+          .footer-divider{display:none!important}
         }
         @media(min-width:769px){.mob-btn{display:none!important}}
       `}</style>
@@ -362,7 +414,7 @@ export default function Landing() {
       </div>
 
       {/* NAVBAR */}
-      <nav style={{ position:'sticky', top:0, zIndex:100, backdropFilter:'blur(24px)', background:scrolled?(dark?'rgba(8,12,24,0.92)':'rgba(248,250,255,0.92)'):'transparent', borderBottom:'1px solid '+(scrolled?t.bord:'transparent'), transition:'all 0.3s' }}>
+      <nav style={{ position:'fixed', top:0, left:0, right:0, width:'100%', zIndex:100, backdropFilter:'blur(24px)', background:scrolled?(dark?'rgba(8,12,24,0.92)':'rgba(248,250,255,0.92)'):(dark?'rgba(8,12,24,0.55)':'rgba(248,250,255,0.55)'), borderBottom:'1px solid '+(scrolled?t.bord:'transparent'), transition:'all 0.3s' }}>
         <div style={{ maxWidth:1200, margin:'0 auto', padding:'0 2rem', height:66, display:'flex', alignItems:'center', gap:32 }}>
           <Link to="/" style={{ display:'flex', alignItems:'center', gap:10, textDecoration:'none', flexShrink:0 }}>
             <div style={{ width:38, height:38, borderRadius:12, background:'linear-gradient(135deg,#6366f1,#8b5cf6)', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 4px 16px rgba(99,102,241,0.4)', transition:'transform 0.2s' }}
@@ -427,7 +479,7 @@ export default function Landing() {
         )}
       </nav>
 
-      <div style={{ position:'relative', zIndex:1 }}>
+      <div style={{ position:'relative', zIndex:1, paddingTop:66 }}>
 
         {/* HERO */}
         <section style={{ maxWidth:1200, margin:'0 auto', padding:'clamp(3.5rem,8vw,6rem) 2rem 3rem', display:'grid', gridTemplateColumns:'1fr 1fr', gap:'4rem', alignItems:'center' }} className="hero-grid">
@@ -435,11 +487,11 @@ export default function Landing() {
             <div style={{ display:'inline-flex', alignItems:'center', gap:8, padding:'6px 14px', borderRadius:100, background:dark?'rgba(99,102,241,0.12)':'rgba(99,102,241,0.07)', border:'1px solid '+(dark?'rgba(99,102,241,0.28)':'rgba(99,102,241,0.18)'), marginBottom:28 }}>
               <div style={{ width:7, height:7, borderRadius:'50%', background:'#34d399', animation:'glow 2s infinite' }} />
               <Sparkles size={12} color={dark?'#a78bfa':'#4f46e5'} />
-              <span style={{ fontSize:12, fontWeight:600, color:dark?'#a78bfa':'#4f46e5', letterSpacing:'0.04em' }}>The all-in-one school management platform</span>
+              <span style={{ fontSize:12, fontWeight:600, color:dark?'#a78bfa':'#4f46e5', letterSpacing:'0.04em' }}>The all-in-one school & TVET management platform</span>
             </div>
             <h1 style={{ fontFamily:"'Instrument Serif',serif", fontStyle:'italic', fontSize:'clamp(3rem,5.5vw,4.8rem)', fontWeight:400, lineHeight:1.06, letterSpacing:'-0.02em', margin:'0 0 10px', color:t.tp }}>Reimagine How</h1>
             <h1 style={{ fontFamily:"'Outfit',sans-serif", fontSize:'clamp(2.5rem,4.8vw,4.2rem)', fontWeight:900, lineHeight:1, letterSpacing:'-0.05em', margin:'0 0 26px', background:'linear-gradient(135deg,#4f46e5 0%,#7c3aed 50%,#0ea5e9 100%)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text' }}>Your School Runs</h1>
-            <p style={{ fontSize:17, lineHeight:1.78, color:t.tm, maxWidth:450, margin:'0 0 36px' }}>A beautiful unified platform that connects teachers, students, and administrators — with powerful tools that make learning feel effortless.</p>
+            <p style={{ fontSize:17, lineHeight:1.78, color:t.tm, maxWidth:470, margin:'0 0 36px' }}>One unified platform for documents, assignments, teacher & student management, modules and assessments, competency-based TVET curriculum setup, and automated report generation — built for admins, teachers, and students alike.</p>
             <div style={{ display:'flex', gap:12, flexWrap:'wrap', marginBottom:'2.5rem' }}>
               <Link to="/login"
                 style={{ display:'inline-flex', alignItems:'center', gap:8, padding:'14px 28px', borderRadius:13, background:'linear-gradient(135deg,#4f46e5,#7c3aed)', color:'white', fontWeight:700, fontSize:15, textDecoration:'none', boxShadow:'0 8px 28px rgba(99,102,241,0.45)', transition:'all 0.25s' }}
@@ -510,6 +562,110 @@ export default function Landing() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        </section>
+
+        {/* TVET CURRICULUM */}
+        <section id="curriculum" style={{ padding:'6rem 2rem' }}>
+          <div style={{ maxWidth:1200, margin:'0 auto' }}>
+            <div style={{ textAlign:'center', marginBottom:'3.5rem' }}>
+              <Label icon={School} text="Built for TVET" color="#ec4899" />
+              <h2 style={{ fontFamily:"'Instrument Serif',serif", fontStyle:'italic', fontSize:'clamp(2rem,3.5vw,3rem)', fontWeight:400, letterSpacing:'-0.02em', margin:'0 0 18px', color:t.tp }}>Competency-Based Curriculum, Configured Your Way</h2>
+              <p style={{ fontSize:16, color:t.tm, maxWidth:560, margin:'0 auto', lineHeight:1.75 }}>Every class is anchored to a real TVET program — Sector, Trade, Qualification Title and RTQF Level — so modules, assessments and reports always line up with the curriculum your institution follows.</p>
+            </div>
+
+            {/* pipeline */}
+            <div style={{ display:'flex', alignItems:'stretch', gap:10, flexWrap:'wrap', justifyContent:'center', marginBottom:'4rem' }}>
+              {CURRICULUM_PIPELINE.map(function(step, i) {
+                var Icon = step.icon;
+                return (
+                  <div key={step.label} style={{ display:'flex', alignItems:'center', gap:10 }}>
+                    <div style={{ width:190, padding:'20px 18px', borderRadius:18, background:t.card, border:'1px solid '+t.bord, backdropFilter:'blur(16px)', animation:'fadeUp 0.5s ease '+(i*0.08)+'s both' }}>
+                      <div style={{ width:38, height:38, borderRadius:11, background:step.color+'15', border:'1px solid '+step.color+'25', display:'flex', alignItems:'center', justifyContent:'center', marginBottom:12 }}>
+                        <Icon size={17} color={step.color} />
+                      </div>
+                      <h4 style={{ fontWeight:700, fontSize:14, margin:'0 0 6px', color:t.tp }}>{step.label}</h4>
+                      <p style={{ fontSize:12, lineHeight:1.55, color:t.tm, margin:0 }}>{step.example}</p>
+                    </div>
+                    {i < CURRICULUM_PIPELINE.length - 1 && (
+                      <ChevronRight size={18} color={t.tm} style={{ opacity:0.4, flexShrink:0 }} />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:24 }} className="hero-grid">
+              {/* assessment types */}
+              <div style={{ padding:'30px 28px', borderRadius:22, background:t.card, border:'1px solid '+t.bord, backdropFilter:'blur(16px)' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:20 }}>
+                  <ListChecks size={18} color="#6366f1" />
+                  <h3 style={{ fontWeight:700, fontSize:17, margin:0, color:t.tp }}>Assessment Types per Module</h3>
+                </div>
+                <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+                  {ASSESSMENT_TYPES.map(function(a) {
+                    return (
+                      <div key={a.code} style={{ display:'flex', gap:14, alignItems:'flex-start', padding:'12px 14px', borderRadius:14, background:a.color+'0a', border:'1px solid '+a.color+'22' }}>
+                        <div style={{ width:36, height:36, borderRadius:10, background:a.color+'18', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:800, color:a.color, flexShrink:0 }}>{a.code}</div>
+                        <div>
+                          <p style={{ fontWeight:700, fontSize:13.5, margin:'0 0 3px', color:t.tp }}>{a.name}</p>
+                          <p style={{ fontSize:12.5, lineHeight:1.6, color:t.tm, margin:0 }}>{a.desc}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* mark approval workflow */}
+              <div style={{ padding:'30px 28px', borderRadius:22, background:t.card, border:'1px solid '+t.bord, backdropFilter:'blur(16px)' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:20 }}>
+                  <Workflow size={18} color="#10b981" />
+                  <h3 style={{ fontWeight:700, fontSize:17, margin:0, color:t.tp }}>Mark Approval Workflow</h3>
+                </div>
+                <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                  {MARK_WORKFLOW.map(function(step, i) {
+                    var Icon = step.icon;
+                    return (
+                      <div key={step.label} style={{ display:'flex', gap:12, alignItems:'flex-start' }}>
+                        <div style={{ display:'flex', flexDirection:'column', alignItems:'center', flexShrink:0 }}>
+                          <div style={{ width:30, height:30, borderRadius:9, background:step.color+'18', border:'1px solid '+step.color+'30', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                            <Icon size={13} color={step.color} />
+                          </div>
+                          {i < MARK_WORKFLOW.length - 1 && <div style={{ width:1.5, flex:1, minHeight:14, background:t.bord, marginTop:3 }} />}
+                        </div>
+                        <div style={{ paddingBottom:i < MARK_WORKFLOW.length - 1 ? 6 : 0 }}>
+                          <p style={{ fontWeight:700, fontSize:13.5, margin:'0 0 2px', color:t.tp }}>{step.label}</p>
+                          <p style={{ fontSize:12.5, lineHeight:1.55, color:t.tm, margin:0 }}>{step.desc}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* report outputs */}
+            <div style={{ marginTop:'3rem' }}>
+              <div style={{ textAlign:'center', marginBottom:'2rem' }}>
+                <h3 style={{ fontFamily:"'Instrument Serif',serif", fontStyle:'italic', fontWeight:400, fontSize:22, margin:'0 0 8px', color:t.tp }}>Reports, Generated Automatically</h3>
+                <p style={{ fontSize:14.5, color:t.tm, margin:0 }}>Once marks are approved, every report below updates on its own — no spreadsheets required.</p>
+              </div>
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))', gap:16 }}>
+                {REPORT_TYPES.map(function(r, i) {
+                  var Icon = r.icon;
+                  return (
+                    <div key={r.label} style={{ padding:'22px 20px', borderRadius:18, background:t.card, border:'1px solid '+t.bord, backdropFilter:'blur(16px)', animation:'fadeUp 0.5s ease '+(i*0.08)+'s both' }}>
+                      <div style={{ width:42, height:42, borderRadius:12, background:r.color+'15', border:'1px solid '+r.color+'25', display:'flex', alignItems:'center', justifyContent:'center', marginBottom:14 }}>
+                        <Icon size={19} color={r.color} />
+                      </div>
+                      <h4 style={{ fontWeight:700, fontSize:14.5, margin:'0 0 8px', color:t.tp }}>{r.label}</h4>
+                      <p style={{ fontSize:13, lineHeight:1.65, color:t.tm, margin:0 }}>{r.desc}</p>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </section>
@@ -684,17 +840,17 @@ export default function Landing() {
           <div style={{ position:'absolute', top:-60, right:'5%', width:300, height:300, borderRadius:'50%', background:'radial-gradient(circle,rgba(139,92,246,0.08),transparent)', filter:'blur(60px)', pointerEvents:'none' }} />
 
           <div style={{ position:'relative', zIndex:1 }}>
-            <div style={{ borderBottom:'1px solid '+t.bord, padding:'3rem 2rem 2.5rem' }}>
-              <div style={{ maxWidth:1200, margin:'0 auto', display:'grid', gridTemplateColumns:'2.2fr 1fr 1fr 1.2fr', gap:'3rem' }}>
+            <div style={{ borderBottom:'1px solid '+t.bord, padding:'3rem 2rem 2.5rem' }} className="footer-pad">
+              <div className="footer-grid" style={{ maxWidth:1200, margin:'0 auto', display:'grid', gridTemplateColumns:'2.2fr 1fr 1fr 1.2fr', gap:'3rem' }}>
 
-                <div>
+                <div className="footer-brand">
                   <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:20 }}>
                     <div style={{ width:40, height:40, borderRadius:13, background:'linear-gradient(135deg,#4f46e5,#7c3aed)', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 4px 16px rgba(99,102,241,0.45)' }}>
                       <GraduationCap size={18} color="white" />
                     </div>
                     <span style={{ fontFamily:"'Instrument Serif',serif", fontStyle:'italic', fontSize:22, color:t.tp, letterSpacing:'-0.01em' }}>Edupla</span>
                   </div>
-                  <p style={{ fontSize:14, lineHeight:1.8, color:t.tm, maxWidth:270, marginBottom:28 }}>
+                  <p className="footer-brand-desc" style={{ fontSize:14, lineHeight:1.8, color:t.tm, maxWidth:270, marginBottom:28 }}>
                     The modern education management platform built to help schools teach better, connect deeper, and grow smarter.
                   </p>
                   <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
@@ -750,14 +906,13 @@ export default function Landing() {
                   <FooterLink label="Press"    dark={dark} tm={t.tm} />
                   <FooterLink label="Partners" dark={dark} tm={t.tm} />
                 </div>
-
                 <div>
                   <p style={{ fontWeight:700, fontSize:11, letterSpacing:'0.09em', textTransform:'uppercase', color:t.tp, opacity:0.45, margin:'0 0 20px' }}>Contact</p>
                   <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:14 }}>
                     <div style={{ width:32, height:32, borderRadius:9, background:'rgba(99,102,241,0.12)', border:'1px solid rgba(99,102,241,0.22)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
                       <Mail size={13} color="#6366f1" />
                     </div>
-                    <span style={{ fontSize:13.5, color:t.tm }}>jstackvm@gmail.com</span>
+                    <span style={{ fontSize:13.5, color:t.tm }}>edupla@yahoo.fr</span>
                   </div>
                   <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:14 }}>
                     <div style={{ width:32, height:32, borderRadius:9, background:'rgba(16,185,129,0.12)', border:'1px solid rgba(16,185,129,0.22)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
@@ -791,11 +946,11 @@ export default function Landing() {
               </div>
             </div>
 
-            <div style={{ padding:'1.25rem 2rem' }}>
-              <div style={{ maxWidth:1200, margin:'0 auto', display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:14 }}>
-                <div style={{ display:'flex', alignItems:'center', gap:14, flexWrap:'wrap' }}>
-                  <p style={{ fontSize:13, color:t.tm, margin:0 }}>© 2025 EDUPLA · Built for modern education</p>
-                  <div style={{ width:1, height:14, background:t.bord }} />
+            <div style={{ padding:'1.25rem 2rem' }} className="footer-pad">
+              <div className="footer-bottom" style={{ maxWidth:1200, margin:'0 auto', display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:14 }}>
+                <div className="footer-bottom-left" style={{ display:'flex', alignItems:'center', gap:14, flexWrap:'wrap' }}>
+                  <p style={{ fontSize:13, color:t.tm, margin:0 }}>© 2026 EDUPLA · Built for modern education by JSTACK Dev Company (Jean Marie Vianney)</p>
+                  <div className="footer-divider" style={{ width:1, height:14, background:t.bord }} />
                   <div style={{ display:'flex', alignItems:'center', gap:6 }}>
                     <div style={{ width:6, height:6, borderRadius:'50%', background:'#10b981', animation:'glow 2s infinite' }} />
                     <span style={{ fontSize:12, color:'#10b981', fontWeight:600 }}>All systems operational</span>

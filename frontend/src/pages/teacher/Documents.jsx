@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import Modal from '../../components/common/Modal';
@@ -243,6 +244,7 @@ function UploadModal({ isOpen, onClose, teacherClasses, onSuccess }) {
 
 /* ─── Main component ─── */
 export default function Documents() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [view, setView] = useState('classes');          // 'classes' | 'modules' | 'docs'
   const [selectedClass, setSelectedClass] = useState(null);   // { _id, name, modules[] }
   const [selectedModule, setSelectedModule] = useState(null); // course object
@@ -253,6 +255,9 @@ export default function Documents() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadingInit, setLoadingInit] = useState(true);
+  const [flashId, setFlashId] = useState(searchParams.get('highlight') || null);
+  const cardRefs = useRef({});
+  const deepLinkApplied = useRef(false);
 
   const [courses, setCourses] = useState([]);   // teacher's courses from /assessment/teacher/courses
   const [modal, setModal] = useState(false);
@@ -295,6 +300,22 @@ export default function Documents() {
     return Array.from(map.values());
   })();
 
+  // Deep-link: a notification may point straight at a class/module — jump there once loaded.
+  useEffect(() => {
+    if (deepLinkApplied.current || loadingInit || !courses.length) return;
+    const targetClassId = searchParams.get('classId');
+    const targetCourseId = searchParams.get('courseId');
+    if (!targetClassId && !targetCourseId) return;
+    deepLinkApplied.current = true;
+    const cls = targetClassId ? teacherClasses.find(c => String(c._id) === targetClassId) : null;
+    if (cls) {
+      setSelectedClass(cls);
+      const mod = targetCourseId ? cls.modules.find(m => String(m._id) === targetCourseId) : null;
+      if (mod) { setSelectedModule(mod); setView('docs'); }
+      else setView('modules');
+    }
+  }, [loadingInit, courses]);
+
   // Fetch documents for the selected module
   const fetchDocs = useCallback(async () => {
     if (view !== 'docs' || !selectedModule) return;
@@ -312,6 +333,20 @@ export default function Documents() {
   }, [view, search, page, selectedClass, selectedModule]);
 
   useEffect(() => { fetchDocs(); }, [fetchDocs]);
+
+  /* ── jump to & highlight the document a notification pointed to ── */
+  useEffect(() => {
+    if (!flashId || loading || !documents.length) return;
+    const el = cardRefs.current[flashId];
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const t = setTimeout(() => {
+      setFlashId(null);
+      const next = new URLSearchParams(searchParams);
+      next.delete('highlight'); next.delete('courseId'); next.delete('classId');
+      setSearchParams(next, { replace: true });
+    }, 3500);
+    return () => clearTimeout(t);
+  }, [flashId, loading, documents]);
 
   const handleEdit = async (e) => {
     e.preventDefault();
@@ -503,9 +538,13 @@ export default function Documents() {
         <div className="card p-4 space-y-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted mb-3">Notes</p>
           {documents.map(doc => (
-            <div key={doc.id}
+            <div key={doc.id} ref={el => { cardRefs.current[doc.id] = el; }}
               className="flex items-center gap-4 px-4 py-3.5 rounded-xl transition-colors hover:bg-primary-50/40 dark:hover:bg-primary-900/10"
-              style={{ background: 'var(--surface-50, var(--card-bg))', border: '1px solid var(--card-border)' }}>
+              style={{
+                background: 'var(--surface-50, var(--card-bg))', border: '1px solid var(--card-border)',
+                boxShadow: flashId === doc.id ? '0 0 0 2px #6366f1, 0 8px 24px rgba(99,102,241,0.25)' : undefined,
+                transition: 'box-shadow 0.4s ease',
+              }}>
               <FileIcon name={doc.original_name} />
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-sm truncate" style={{ color: 'var(--text-primary)' }}>{doc.title}</p>

@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import Pagination from '../../components/common/Pagination';
@@ -127,14 +128,15 @@ function SubmitModal({ assignment, isResubmit, onClose, onSuccess }) {
   );
 }
 
-function AssignmentCard({ a, onPreview, onSubmit, onResubmit }) {
+function AssignmentCard({ a, onPreview, onSubmit, onResubmit, cardRef, highlighted }) {
   const isSubmitted = !!a.submission_id;
   const isGraded = a.score !== null && a.score !== undefined;
   const overdue = new Date(a.deadline) < new Date();
   const canResubmit = isSubmitted && !overdue && !isGraded;
 
   return (
-    <div className="card hover:shadow-soft transition-all">
+    <div ref={cardRef} className="card hover:shadow-soft transition-all"
+      style={highlighted ? { boxShadow: '0 0 0 2px #6366f1, 0 8px 24px rgba(99,102,241,0.25)', transition: 'box-shadow 0.4s ease' } : undefined}>
       <div className="flex flex-col sm:flex-row sm:items-start gap-4">
         {/* Status Icon */}
         <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${
@@ -240,6 +242,7 @@ function AssignmentCard({ a, onPreview, onSubmit, onResubmit }) {
 }
 
 export default function StudentAssignments() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [view, setView] = useState('modules'); // 'modules' | 'list'
   const [selectedModule, setSelectedModule] = useState(null);
 
@@ -256,6 +259,8 @@ export default function StudentAssignments() {
 
   const [submitting, setSubmitting] = useState(null);
   const [viewingFile, setViewingFile] = useState(null);
+  const [flashId, setFlashId] = useState(searchParams.get('highlight') || null);
+  const cardRefs = useRef({});
 
   // Load the student's class + all modules assigned to that class
   useEffect(() => {
@@ -284,6 +289,13 @@ export default function StudentAssignments() {
         }
 
         setModules(fetchedModules);
+
+        // Came here from a notification pointing at a specific module — jump straight there.
+        const targetCourseId = searchParams.get('courseId');
+        if (targetCourseId) {
+          const match = fetchedModules.find(m => String(m._id) === targetCourseId);
+          if (match) { setSelectedModule(match); setView('list'); }
+        }
       } catch {
         toast.error('Failed to load class info');
       } finally {
@@ -312,6 +324,20 @@ export default function StudentAssignments() {
   }, [view, search, page, filter, selectedModule, studentClass]);
 
   useEffect(() => { fetchAssignments(); }, [fetchAssignments]);
+
+  /* ── jump to & highlight the assignment a notification pointed to ── */
+  useEffect(() => {
+    if (!flashId || loading || !assignments.length) return;
+    const el = cardRefs.current[flashId];
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const t = setTimeout(() => {
+      setFlashId(null);
+      const next = new URLSearchParams(searchParams);
+      next.delete('highlight'); next.delete('courseId'); next.delete('classId');
+      setSearchParams(next, { replace: true });
+    }, 3500);
+    return () => clearTimeout(t);
+  }, [flashId, loading, assignments]);
 
   const openModule = (mod) => { setSelectedModule(mod); setSearch(''); setFilter('all'); setPage(1); setAssignments([]); setView('list'); };
 
@@ -458,6 +484,8 @@ export default function StudentAssignments() {
               onPreview={setViewingFile}
               onSubmit={(assignment) => setSubmitting({ assignment, isResubmit: false })}
               onResubmit={(assignment) => setSubmitting({ assignment, isResubmit: true })}
+              cardRef={el => { cardRefs.current[a.id] = el; }}
+              highlighted={flashId === a.id}
             />
           ))}
         </div>

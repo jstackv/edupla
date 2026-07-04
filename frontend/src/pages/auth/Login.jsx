@@ -647,7 +647,7 @@ export default function Login() {
                         onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
                         onFocus={() => setFocused('email')}
                         onBlur={() => setFocused(null)}
-                        placeholder="you@school.edu"
+                        placeholder="Email address"
                         autoComplete="email"
                         style={inputStyle('email')}
                         aria-label="Email address"
@@ -678,7 +678,7 @@ export default function Login() {
                         onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
                         onFocus={() => setFocused('password')}
                         onBlur={() => setFocused(null)}
-                        placeholder="••••••••"
+                        placeholder="Edupla password"
                         autoComplete="current-password"
                         style={{ ...inputStyle('password'), paddingRight: 42 }}
                         aria-label="Password"

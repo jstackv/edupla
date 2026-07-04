@@ -10,59 +10,35 @@ import {
   Radio, Search, MessageCircle, ArrowLeft, ChevronRight, Eye,
 } from 'lucide-react';
 
-/* ── Animated modal wrapper (IMPROVED: fixes bottom sticking, better spacing) ─────────────────────────────────────────── */
+/* ── Animated modal wrapper ───────────────────────────────────────────
+   Fast by design: a single CSS keyframe animation on mount, no
+   JS-driven double-requestAnimationFrame visibility toggle, no animated
+   backdrop-filter transition (that combo is what made modals feel like
+   they lag on open). See .fast-modal-backdrop / .fast-modal-sheet in
+   index.css — the same pattern used by every modal in this file now. */
 function ChatModal({ onClose, children, accentFrom = '#6366f1', accentTo = '#4f46e5' }) {
-  const [visible, setVisible] = useState(false);
-  const [closing, setClosing] = useState(false);
-
   useEffect(() => {
-    requestAnimationFrame(() => requestAnimationFrame(() => setVisible(true)));
-  }, []);
-
-  const handleClose = () => {
-    setClosing(true);
-    setTimeout(onClose, 280);
-  };
+    document.body.style.overflow = 'hidden';
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => { document.body.style.overflow = ''; window.removeEventListener('keydown', onKey); };
+  }, [onClose]);
 
   return (
     <div
-      onClick={handleClose}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 200,
-        display: 'flex', justifyContent: 'center', alignItems: 'flex-start',
-        padding: '32px 20px',
-        boxSizing: 'border-box',
-        backdropFilter: visible && !closing ? 'blur(14px)' : 'blur(0px)',
-        background: visible && !closing ? 'rgba(0,0,0,0.45)' : 'rgba(0,0,0,0)',
-        transition: 'backdrop-filter 320ms ease, background 320ms ease',
-        overflowY: 'auto',
-      }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      className="fast-modal-backdrop"
     >
       {/* Modal sheet — top-aligned with guaranteed breathing room on every side,
           so it never gets clipped when the content is taller than the viewport
           (a plain "align-items:center" + overflow container clips its own top). */}
       <div
         onClick={e => e.stopPropagation()}
-        style={{
-          width: '100%',
-          maxWidth: 680,
-          maxHeight: 'min(90vh, calc(100vh - 64px))',
-          borderRadius: '24px',
-          overflow: 'hidden',
-          display: 'flex',
-          flexDirection: 'column',
-          flexShrink: 0,
-          background: 'var(--card-bg)',
-          boxShadow: '0 20px 80px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.06)',
-          transform: visible && !closing ? 'scale(1) translateY(0)' : 'scale(0.92) translateY(20px)',
-          opacity: visible && !closing ? 1 : 0,
-          transition: 'transform 280ms cubic-bezier(0.34,1.46,0.64,1), opacity 260ms ease',
-        }}
+        className="fast-modal-sheet"
+        style={{ maxWidth: 680, maxHeight: 'min(90vh, calc(100vh - 64px))' }}
       >
-        {/* Drag handle */}
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 4px', flexShrink: 0 }}>
-          <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--card-border)', opacity: 0.6 }} />
-        </div>
+        {/* Accent top bar */}
+        <div style={{ height: 4, background: `linear-gradient(90deg, ${accentFrom}, ${accentTo})`, flexShrink: 0 }} />
         {children}
       </div>
     </div>
@@ -128,48 +104,26 @@ function PeerChatModal({ onClose, children }) {
 
 /* ── Group members modal ─────────────────────────────────────────── */
 function MembersModal({ group, onClose }) {
-  const [visible, setVisible] = useState(false);
-  const [closing, setClosing] = useState(false);
   const [a, b] = groupColor(group.id);
 
   useEffect(() => {
-    requestAnimationFrame(() => requestAnimationFrame(() => setVisible(true)));
-  }, []);
-
-  const handleClose = () => {
-    setClosing(true);
-    setTimeout(onClose, 260);
-  };
+    document.body.style.overflow = 'hidden';
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => { document.body.style.overflow = ''; window.removeEventListener('keydown', onKey); };
+  }, [onClose]);
 
   const members = group.members || [];
 
   return (
     <div
-      onClick={handleClose}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 300,
-        display: 'flex', justifyContent: 'center', alignItems: 'flex-start',
-        padding: '32px 20px',
-        boxSizing: 'border-box',
-        overflowY: 'auto',
-        backdropFilter: visible && !closing ? 'blur(16px)' : 'blur(0px)',
-        background: visible && !closing ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0)',
-        transition: 'backdrop-filter 280ms ease, background 280ms ease',
-      }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      className="fast-modal-backdrop"
     >
       <div
         onClick={e => e.stopPropagation()}
-        style={{
-          width: '100%', maxWidth: 400,
-          flexShrink: 0,
-          borderRadius: 24,
-          overflow: 'hidden',
-          background: 'var(--card-bg)',
-          boxShadow: '0 20px 80px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.06)',
-          transform: visible && !closing ? 'scale(1) translateY(0)' : 'scale(0.92) translateY(20px)',
-          opacity: visible && !closing ? 1 : 0,
-          transition: 'transform 300ms cubic-bezier(0.34,1.46,0.64,1), opacity 260ms ease',
-        }}
+        className="fast-modal-sheet"
+        style={{ maxWidth: 400 }}
       >
         {/* Header */}
         <div style={{ background: `linear-gradient(135deg, ${a}, ${b})`, padding: '18px 20px' }}>
@@ -183,7 +137,7 @@ function MembersModal({ group, onClose }) {
                 <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 11 }}>{members.length} member{members.length !== 1 ? 's' : ''}</div>
               </div>
             </div>
-            <button onClick={handleClose} style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <X style={{ width: 14, height: 14 }} />
             </button>
           </div>
@@ -284,6 +238,19 @@ function AudioPlaybackProvider({ children }) {
     <AudioPlaybackContext.Provider value={{ register, unregister, stopOthers }}>
       {children}
     </AudioPlaybackContext.Provider>
+  );
+}
+
+/* ── Skeleton placeholder row (shown while the group list is loading) ─── */
+function GroupCardSkeleton({ delay = 0 }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', animation: `fastModalBackdropIn 0.3s ease both`, animationDelay: `${delay}ms` }}>
+      <div className="skeleton" style={{ width: 44, height: 44, borderRadius: 14, flexShrink: 0 }} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="skeleton" style={{ width: '55%', height: 12, marginBottom: 8 }} />
+        <div className="skeleton" style={{ width: '35%', height: 10 }} />
+      </div>
+    </div>
   );
 }
 
@@ -416,13 +383,20 @@ function LeaderTeacherDmModal({ groupId, myId, teacherName, onClose }) {
           if (!silent) return fresh;
           const existingIds = new Set(prev.map(m => String(m.id)));
           const toAdd = fresh.filter(m => !existingIds.has(String(m.id)));
+          if (toAdd.length) {
+            const fromPeer = toAdd.filter(m => String(m.sender_id) !== String(myId));
+            if (fromPeer.length) {
+              const senderName = fromPeer[fromPeer.length - 1].sender_name || 'Someone';
+              toast.success(`${senderName} sent you a message!`, { icon: '💬' });
+            }
+          }
           return toAdd.length ? [...prev, ...toAdd] : prev;
         });
         lastMsgTimeRef.current = fresh[fresh.length - 1].created_at;
       }
     } catch (err) { if (!silent) toast.error(err.response?.data?.message || 'Failed to load DM'); }
     finally { setLoading(false); }
-  }, [groupId]);
+  }, [groupId, myId]);
 
   useEffect(() => {
     fetchThread(false);
@@ -465,11 +439,20 @@ function LeaderTeacherDmModal({ groupId, myId, teacherName, onClose }) {
     finally { setClearing(false); }
   };
 
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
   const displayName = peer?.name || teacherName || 'Teacher';
 
   return (
-    <div className="fixed inset-0 z-[400] flex items-start justify-center p-4 overflow-y-auto" style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)', paddingTop: '5vh', boxSizing: 'border-box' }}>
-      <div className="w-full flex flex-col rounded-2xl overflow-hidden shadow-2xl" style={{ maxWidth: 440, maxHeight: 'calc(100vh - 32px)', background: 'var(--card-bg)' }}>
+    <div
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      className="fixed inset-0 z-[400] flex items-start justify-center p-4 overflow-y-auto"
+      style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)', paddingTop: '5vh', boxSizing: 'border-box', animation: 'fastModalBackdropIn 0.12s ease both' }}>
+      <div className="w-full flex flex-col rounded-2xl overflow-hidden shadow-2xl" style={{ maxWidth: 440, maxHeight: 'calc(100vh - 32px)', background: 'var(--card-bg)', animation: 'fastModalSheetIn 0.18s cubic-bezier(0.34,1.56,0.64,1) both' }}>
         <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0" style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}>
           <div className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0" style={{ background: 'rgba(255,255,255,0.2)' }}>
             {displayName[0]?.toUpperCase() || '?'}
@@ -680,6 +663,11 @@ function GroupChatContent({ group, myId, myName, onClose, onMessageSent }) {
             const existingIds = new Set(prev.map(m => String(m.id || m._id)));
             const fresh = newMsgs.filter(m => !existingIds.has(String(m.id || m._id)));
             if (fresh.length === 0) return prev;
+            const fromOthers = fresh.filter(m => String(m.author_id) !== String(myId));
+            if (fromOthers.length) {
+              const senderName = fromOthers[fromOthers.length - 1].author_name || 'Someone';
+              toast.success(`${senderName} sent you a message!`, { icon: '💬' });
+            }
             lastMsgTimeRef.current = fresh[fresh.length - 1].created_at;
             return [...prev, ...fresh];
           });
@@ -1062,6 +1050,9 @@ function PeerList({ classId, onSelectPeer, activePeerId }) {
   const [filter, setFilter] = useState('all'); // 'all' | 'unread'
   const [loading, setLoading] = useState(true);
   const pollRef = useRef(null);
+  const lastSeenAtRef = useRef({}); // peer_id -> last_at we've already toasted for
+  const firstLoadRef = useRef(true);
+  const nameByIdRef = useRef({});   // peer_id -> name, kept fresh for toast copy
 
   const fetchData = useCallback(async () => {
     try {
@@ -1069,10 +1060,34 @@ function PeerList({ classId, onSelectPeer, activePeerId }) {
         api.get(`/collaborations/class/${classId}/students`),
         api.get(`/collaborations/class/${classId}/conversations`),
       ]);
-      setClassmates(cm.data.classmates || []);
-      setConversations(cv.data.conversations || []);
+      const nextClassmates = cm.data.classmates || [];
+      const nextConversations = cv.data.conversations || [];
+      nextClassmates.forEach(c => { nameByIdRef.current[String(c.id)] = c.name; });
+
+      // Toast for any conversation with a newer last message than we've seen,
+      // as long as it isn't the peer whose thread is already open on screen
+      // (that thread already toasts for its own incoming messages).
+      if (!firstLoadRef.current) {
+        nextConversations.forEach(conv => {
+          const peerId = String(conv.peer_id);
+          if (peerId === String(activePeerId)) return;
+          const seenAt = lastSeenAtRef.current[peerId];
+          const lastAt = conv.last_at ? new Date(conv.last_at).getTime() : 0;
+          if (lastAt && (!seenAt || lastAt > seenAt) && conv.unread_count > 0) {
+            const senderName = nameByIdRef.current[peerId] || 'Someone';
+            toast.success(`${senderName} sent you a message!`, { icon: '💬' });
+          }
+        });
+      }
+      nextConversations.forEach(conv => {
+        lastSeenAtRef.current[String(conv.peer_id)] = conv.last_at ? new Date(conv.last_at).getTime() : 0;
+      });
+      firstLoadRef.current = false;
+
+      setClassmates(nextClassmates);
+      setConversations(nextConversations);
     } catch { } finally { setLoading(false); }
-  }, [classId]);
+  }, [classId, activePeerId]);
 
   useEffect(() => {
     fetchData();
@@ -1213,6 +1228,11 @@ function DMChatContent({ classId, peer, myId, onBack, onClose }) {
             const existingIds = new Set(prev.map(m => String(m.id)));
             const fresh = newMsgs.filter(m => !existingIds.has(String(m.id)));
             if (fresh.length === 0) return prev;
+            const fromPeer = fresh.filter(m => String(m.sender_id) !== String(myId));
+            if (fromPeer.length) {
+              const senderName = fromPeer[fromPeer.length - 1].sender_name || peer.name || 'Someone';
+              toast.success(`${senderName} sent you a message!`, { icon: '💬' });
+            }
             lastMsgTimeRef.current = fresh[fresh.length - 1].created_at;
             return [...prev, ...fresh];
           });
@@ -1223,7 +1243,7 @@ function DMChatContent({ classId, peer, myId, onBack, onClose }) {
       }
     } catch (err) { if (!since) toast.error('Failed to load messages'); }
     finally { setLoading(false); }
-  }, [classId, peer.id]);
+  }, [classId, peer.id, myId]);
 
   useEffect(() => {
     setMessages([]); setLoading(true); lastMsgTimeRef.current = null;
@@ -1702,7 +1722,8 @@ export default function StudentGroups() {
 
   const closeGroupChat = () => {
     setGroupChatOpen(false);
-    setTimeout(() => { setActiveGroup(null); setGroupDetail(null); }, 300);
+    setActiveGroup(null);
+    setGroupDetail(null);
   };
 
   const handleMessageSent = (newMsg) => {
@@ -1794,8 +1815,8 @@ export default function StudentGroups() {
         {/* Groups list */}
         <div style={{ minHeight: 300, maxHeight: 'calc(100vh - 300px)', overflowY: 'auto' }}>
           {loading ? (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 0' }}>
-              <div style={{ width: 28, height: 28, border: '3px solid var(--card-border)', borderTopColor: '#0891b2', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+            <div>
+              {[0, 1, 2, 3].map(i => <GroupCardSkeleton key={i} delay={i * 60} />)}
             </div>
           ) : groups.length === 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 24px', textAlign: 'center' }}>

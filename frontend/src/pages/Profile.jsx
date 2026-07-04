@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
 import {
-  User, Mail, Save, Shield, GraduationCap, BookOpen,
+  User, Mail, Save, Shield, ShieldCheck, GraduationCap, BookOpen,
   Edit3, CheckCircle, Star, Layers, Award, Zap,
-  Lock, Crown, Hexagon, Circle, Triangle } from 'lucide-react';
+  Lock, Crown, Hexagon, Circle, Triangle,
+  Fingerprint, Activity, Sparkles, Settings as SettingsIcon } from 'lucide-react';
 
 /* ─── gradient palette keyed by first char ─── */
 const PALETTES = [
@@ -20,19 +21,46 @@ const PALETTES = [
 const palette = (name) => PALETTES[(name?.charCodeAt(0) || 0) % PALETTES.length];
 const initials = (name) => name?.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '??';
 
+/* ─── format a date the user actually has (created_at) ─── */
+function formatJoined(dateStr) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return null;
+  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
 
 /* ════════════════════════════════════════════════════════════════
-   ADMIN PROFILE  — Dark Command Center / Brutalist Tech
-   Stark black with electric accent lines, authority + precision
+   ADMIN PROFILE  — "The Console"
+   A credential-grade access console. Etched hexagonal seal, a live
+   clearance gauge, and a permissions matrix that actually reflects
+   what the account can touch. Super Admin runs in a violet/gold
+   "Sovereign" finish; Admin runs in a steel/cyan "Sentinel" finish.
 ════════════════════════════════════════════════════════════════ */
+const ADMIN_MODULES = [
+  { key: 'teachers',    label: 'Teachers',         icon: BookOpen },
+  { key: 'students',    label: 'Students',         icon: GraduationCap },
+  { key: 'classes',     label: 'Classes',          icon: Layers },
+  { key: 'assessments', label: 'Assessments',      icon: Award },
+  { key: 'settings',    label: 'Settings',         icon: SettingsIcon },
+  { key: 'admins',      label: 'Admin Management', icon: Crown,       superOnly: true },
+  { key: 'maintenance', label: 'System Core',      icon: Fingerprint, superOnly: true },
+];
+
 function AdminProfile({ user, dark }) {
+  const { refreshUser } = useAuth();
   const isSuperAdmin = user?.is_super_admin;
+  const isActive = user?.is_active !== false;
+  const joined = formatJoined(user?.created_at);
   const [form, setForm] = useState({ name: user?.name || '', email: user?.email || '' });
   const [saving, setSaving] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  const [now, setNow] = useState(new Date());
 
-  const accent = isSuperAdmin ? '#a78bfa' : '#38bdf8';
-  const accentDim = isSuperAdmin ? '#7c3aed' : '#0284c7';
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
 
   const handleSave = async (e) => {
     e.preventDefault();
@@ -40,137 +68,193 @@ function AdminProfile({ user, dark }) {
     setSaving(true);
     try {
       await api.put('/auth/profile', { name: form.name, email: form.email });
+      await refreshUser();
       toast.success('Profile updated');
       setEditMode(false);
     } catch (err) { toast.error(err.response?.data?.message || 'Failed to update'); }
     finally { setSaving(false); }
   };
 
+  // ── Sovereign (super admin) vs Sentinel (admin) finish ──
+  const accentA   = isSuperAdmin ? '#c4b5fd' : '#7dd3fc';
+  const accentB   = isSuperAdmin ? '#a78bfa' : '#38bdf8';
+  const accentGold= isSuperAdmin ? '#fbbf24' : '#22d3ee';
+  const accentDim = isSuperAdmin ? '#6d28d9' : '#0369a1';
+  const SealIcon  = isSuperAdmin ? Crown : ShieldCheck;
+  const clearance = Math.round((ADMIN_MODULES.filter(m => !m.superOnly || isSuperAdmin).length / ADMIN_MODULES.length) * 100);
+  const R = 42, CIRC = 2 * Math.PI * R;
+  const dashOffset = CIRC * (1 - clearance / 100);
+
+  const panelBg = dark ? '#07070a' : '#0a0a14';
+
   return (
-    <div style={{ maxWidth: 740, margin: '0 auto' }}>
+    <div style={{ maxWidth: 860, margin: '0 auto' }}>
       <style>{`
-        .adm-wrap * { box-sizing: border-box; }
-        .adm-panel {
-          background: ${dark ? '#09090b' : '#0f172a'};
-          border: 1px solid ${accent}30;
-          border-radius: 4px;
-          overflow: hidden;
+        .cns * { box-sizing: border-box; }
+        @keyframes cns-rotate { to { transform: rotate(360deg); } }
+        @keyframes cns-rotate-rev { to { transform: rotate(-360deg); } }
+        @keyframes cns-pulse { 0%,100% { opacity: 1 } 50% { opacity: 0.35 } }
+        @keyframes cns-drift { 0% { background-position: 0 0; } 100% { background-position: 120px 120px; } }
+        @keyframes cns-holo { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+        @keyframes cns-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes spin { to { transform: rotate(360deg) } }
+        .cns-panel {
+          background: ${panelBg};
+          border: 1px solid ${accentB}26;
+          border-radius: 6px;
           position: relative;
-          margin-bottom: 12px;
+          overflow: hidden;
+          margin-bottom: 14px;
         }
-        .adm-panel::before {
-          content: '';
-          position: absolute;
-          top: 0; left: 0; right: 0;
-          height: 2px;
-          background: linear-gradient(90deg, transparent, ${accent}, transparent);
+        .cns-eyebrow {
+          font-family: 'Space Grotesk', 'DM Sans', sans-serif;
+          font-size: 10.5px; letter-spacing: 0.22em; text-transform: uppercase;
+          color: ${accentA}b0; font-weight: 600;
         }
-        .adm-label { font-size: 10px; letter-spacing: 0.15em; color: ${accent}99; text-transform: uppercase; margin-bottom: 4px; display: block; font-family: 'DM Sans', sans-serif; }
-        .adm-value { font-size: 14px; color: #e2e8f0; font-weight: 500; font-family: 'DM Sans', sans-serif; }
-        .adm-field {
-          width: 100%; padding: 10px 14px;
-          background: #ffffff08;
-          border: 1px solid ${accent}30;
-          border-radius: 3px;
-          color: #e2e8f0;
-          font-family: 'DM Sans', sans-serif;
-          font-size: 13px;
-          outline: none;
-          transition: border-color 0.15s, box-shadow 0.15s;
-        }
-        .adm-field:focus { border-color: ${accent}; box-shadow: 0 0 0 3px ${accent}15; }
-        .adm-field::placeholder { color: #ffffff30; }
-        .adm-btn {
+        .cns-mono { font-family: 'Space Grotesk', 'DM Sans', monospace; }
+        .cns-btn {
           display: inline-flex; align-items: center; gap: 8px;
-          padding: 10px 20px; border-radius: 3px;
-          font-family: 'DM Sans', sans-serif;
+          padding: 10px 20px; border-radius: 4px;
+          font-family: 'Space Grotesk', sans-serif;
           font-size: 12px; font-weight: 600;
           cursor: pointer; transition: all 0.15s;
-          letter-spacing: 0.05em;
+          letter-spacing: 0.06em;
         }
-        .adm-btn-primary { background: ${accent}; border: none; color: #000; }
-        .adm-btn-primary:hover { background: #fff; }
-        .adm-btn-ghost { background: transparent; border: 1px solid ${accent}50; color: ${accent}; }
-        .adm-btn-ghost:hover { border-color: ${accent}; background: ${accent}10; }
-        .adm-grid-row { display: grid; grid-template-columns: 140px 1fr; gap: 0; border-bottom: 1px solid ${accent}10; }
-        .adm-grid-row:last-child { border-bottom: none; }
-        @keyframes adm-pulse { 0%,100% { opacity: 1 } 50% { opacity: 0.4 } }
-        @keyframes spin { to { transform: rotate(360deg) } }
-        @keyframes adm-scan {
-          0% { transform: translateY(-100%); }
-          100% { transform: translateY(400%); }
+        .cns-btn-primary { background: linear-gradient(120deg, ${accentA}, ${accentB}); border: none; color: #05050a; }
+        .cns-btn-primary:hover { filter: brightness(1.12); }
+        .cns-btn-ghost { background: transparent; border: 1px solid ${accentB}55; color: ${accentA}; }
+        .cns-btn-ghost:hover { border-color: ${accentA}; background: ${accentB}12; }
+        .cns-field {
+          width: 100%; padding: 10px 14px;
+          background: #ffffff08; border: 1px solid ${accentB}30;
+          border-radius: 4px; color: #f1f5f9;
+          font-family: 'DM Sans', sans-serif; font-size: 13px; outline: none;
+          transition: border-color 0.15s, box-shadow 0.15s;
         }
+        .cns-field:focus { border-color: ${accentA}; box-shadow: 0 0 0 3px ${accentB}18; }
+        .cns-field::placeholder { color: #ffffff30; }
+        .cns-mod {
+          display: flex; align-items: center; gap: 10px;
+          padding: 12px 14px; border-radius: 5px;
+          animation: cns-rise 0.4s ease both;
+        }
+        .cns-row { display: flex; justify-content: space-between; align-items: center; padding: 13px 0; border-bottom: 1px solid ${accentB}12; }
+        .cns-row:last-child { border-bottom: none; }
       `}</style>
 
-      <div className="adm-wrap">
-        {/* Hero identity block */}
-        <div className="adm-panel" style={{ padding: 0 }}>
-          {/* Scan line effect */}
-          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 0 }}>
-            <div style={{ position: 'absolute', left: 0, right: 0, height: '30%', background: `linear-gradient(180deg, transparent, ${accent}06, transparent)`, animation: 'adm-scan 4s linear infinite' }} />
-            {/* Corner accents */}
-            {['top-left','top-right','bottom-left','bottom-right'].map(pos => (
+      <div className="cns">
+        {/* ── Hero: identity console ── */}
+        <div className="cns-panel" style={{ padding: 0 }}>
+          {/* Ambient backdrop: dot grid + holographic aurora sweep */}
+          <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0 }}>
+            <div style={{
+              position: 'absolute', inset: 0, opacity: 0.5,
+              backgroundImage: `radial-gradient(${accentB}22 1px, transparent 1px)`,
+              backgroundSize: '22px 22px',
+              animation: 'cns-drift 14s linear infinite',
+            }} />
+            <div style={{
+              position: 'absolute', top: '-40%', left: '-10%', width: '70%', height: '180%',
+              background: `linear-gradient(115deg, ${accentA}22, ${accentGold}14, transparent 60%)`,
+              backgroundSize: '200% 200%',
+              animation: 'cns-holo 9s ease-in-out infinite',
+              filter: 'blur(30px)',
+            }} />
+            {['top-left', 'top-right', 'bottom-left', 'bottom-right'].map(pos => (
               <div key={pos} style={{
                 position: 'absolute',
-                [pos.includes('top') ? 'top' : 'bottom']: 12,
-                [pos.includes('left') ? 'left' : 'right']: 12,
-                width: 20, height: 20,
-                borderTop: pos.includes('top') ? `2px solid ${accent}` : 'none',
-                borderBottom: pos.includes('bottom') ? `2px solid ${accent}` : 'none',
-                borderLeft: pos.includes('left') ? `2px solid ${accent}` : 'none',
-                borderRight: pos.includes('right') ? `2px solid ${accent}` : 'none' }} />
+                [pos.includes('top') ? 'top' : 'bottom']: 14,
+                [pos.includes('left') ? 'left' : 'right']: 14,
+                width: 22, height: 22,
+                borderTop: pos.includes('top') ? `2px solid ${accentA}70` : 'none',
+                borderBottom: pos.includes('bottom') ? `2px solid ${accentA}70` : 'none',
+                borderLeft: pos.includes('left') ? `2px solid ${accentA}70` : 'none',
+                borderRight: pos.includes('right') ? `2px solid ${accentA}70` : 'none',
+              }} />
             ))}
           </div>
 
-          <div style={{ padding: '40px 36px', position: 'relative', zIndex: 1 }}>
-            <div style={{ display: 'flex', gap: 28, alignItems: 'center' }}>
-              {/* Avatar */}
-              <div style={{ position: 'relative', flexShrink: 0 }}>
+          <div style={{ padding: '38px 34px 30px', position: 'relative', zIndex: 1 }}>
+            <div style={{ display: 'flex', gap: 26, alignItems: 'center', flexWrap: 'wrap' }}>
+              {/* Hexagonal clearance seal */}
+              <div style={{ position: 'relative', width: 108, height: 108, flexShrink: 0 }}>
+                <svg width="108" height="108" viewBox="0 0 108 108" style={{ position: 'absolute', inset: 0, animation: 'cns-rotate 16s linear infinite' }}>
+                  <circle cx="54" cy="54" r="52" fill="none" stroke={accentA} strokeOpacity="0.4" strokeWidth="1" strokeDasharray="2 7" />
+                </svg>
+                <svg width="108" height="108" viewBox="0 0 108 108" style={{ position: 'absolute', inset: 0, animation: 'cns-rotate-rev 22s linear infinite' }}>
+                  <circle cx="54" cy="54" r="46" fill="none" stroke={accentGold} strokeOpacity="0.5" strokeWidth="1" strokeDasharray="1 5" />
+                </svg>
                 <div style={{
-                  width: 90, height: 90, borderRadius: 4,
-                  background: `linear-gradient(135deg, ${accentDim}40, ${accent}20)`,
-                  border: `1px solid ${accent}50`,
+                  position: 'absolute', top: 9, left: 9, right: 9, bottom: 9,
+                  clipPath: 'polygon(50% 0%, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%)',
+                  background: `linear-gradient(150deg, ${accentDim}, #05050a 75%)`,
+                  border: `1px solid ${accentA}60`,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  position: 'relative' }}>
-                  <Shield size={38} color={accent} strokeWidth={1.5} />
-                  <div style={{ position: 'absolute', bottom: -1, right: -1, width: 20, height: 20, background: '#10b981', borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <CheckCircle size={12} color="#000" />
-                  </div>
+                }}>
+                  <SealIcon size={34} color={accentA} strokeWidth={1.5} />
+                </div>
+                <div style={{
+                  position: 'absolute', bottom: 2, right: 2, width: 20, height: 20, borderRadius: '50%',
+                  background: isActive ? '#10b981' : '#ef4444', border: `2px solid ${panelBg}`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <CheckCircle size={11} color="#fff" />
                 </div>
               </div>
 
-              <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                  <span style={{ fontSize: 10, letterSpacing: '0.2em', color: accent, textTransform: 'uppercase', fontWeight: 600 }}>
-                    {isSuperAdmin ? '⬡ SUPER ADMIN' : '◈ ADMINISTRATOR'}
-                  </span>
-                  <span style={{ width: 40, height: 1, background: `linear-gradient(90deg, ${accent}, transparent)` }} />
+              {/* Identity */}
+              <div style={{ flex: 1, minWidth: 220 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                  <Sparkles size={12} color={accentGold} />
+                  <span className="cns-eyebrow">{isSuperAdmin ? 'Sovereign Clearance' : 'Sentinel Clearance'}</span>
+                  <span style={{ width: 40, height: 1, background: `linear-gradient(90deg, ${accentA}, transparent)` }} />
                 </div>
-                <h1 style={{ margin: 0, fontSize: 28, fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.03em', lineHeight: 1 }}>
+                <h1 className="cns-mono" style={{
+                  margin: 0, fontSize: 34, fontWeight: 700,
+                  lineHeight: 1.05, letterSpacing: '-0.02em',
+                  backgroundImage: `linear-gradient(100deg, #f8fafc, ${accentA}, ${accentGold}, #f8fafc)`,
+                  backgroundSize: '250% 100%',
+                  WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent',
+                  animation: 'cns-holo 7s ease-in-out infinite',
+                }}>
                   {user?.name}
                 </h1>
-                <p style={{ margin: '8px 0 0', fontSize: 13, color: '#64748b' }}>{user?.email}</p>
+                <p style={{ margin: '8px 0 0', fontSize: 13, color: '#7d8aa3' }}>{user?.email}</p>
               </div>
 
-              <button className="adm-btn adm-btn-ghost" onClick={() => setEditMode(e => !e)}>
+              {/* Clearance gauge */}
+              <div style={{ position: 'relative', width: 104, height: 104, flexShrink: 0 }}>
+                <svg width="104" height="104" viewBox="0 0 104 104">
+                  <circle cx="52" cy="52" r={R} fill="none" stroke={`${accentB}20`} strokeWidth="7" />
+                  <circle cx="52" cy="52" r={R} fill="none" stroke={accentA} strokeWidth="7" strokeLinecap="round"
+                    strokeDasharray={CIRC} strokeDashoffset={dashOffset}
+                    transform="rotate(-90 52 52)" style={{ transition: 'stroke-dashoffset 0.6s ease' }} />
+                </svg>
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                  <span className="cns-mono" style={{ fontSize: 20, fontWeight: 700, color: '#f1f5f9' }}>{clearance}%</span>
+                  <span style={{ fontSize: 8.5, letterSpacing: '0.1em', color: '#7d8aa3', textTransform: 'uppercase' }}>Access</span>
+                </div>
+              </div>
+
+              <button className="cns-btn cns-btn-ghost" onClick={() => setEditMode(e => !e)}>
                 <Edit3 size={12} />
-                {editMode ? 'CANCEL' : 'MODIFY'}
+                {editMode ? 'Cancel' : 'Edit Identity'}
               </button>
             </div>
 
-            {/* Stats strip */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1, marginTop: 28, background: `${accent}15`, borderRadius: 2 }}>
+            {/* Live status strip */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1, marginTop: 30, background: `${accentB}14`, borderRadius: 4, overflow: 'hidden' }}>
               {[
-                { k: 'STATUS', v: 'ONLINE', dot: '#10b981' },
-                { k: 'ACCESS', v: isSuperAdmin ? 'LEVEL 99' : 'LEVEL 80', dot: accent },
-                { k: 'ROLE', v: isSuperAdmin ? 'SUPER ADMIN' : 'ADMIN', dot: '#f59e0b' },
-                { k: 'SYSTEM', v: 'EDUPLA', dot: '#64748b' },
-              ].map(({ k, v, dot }) => (
-                <div key={k} style={{ padding: '14px 16px', background: dark ? '#09090b' : '#0f172a', textAlign: 'center' }}>
-                  <span className="adm-label">{k}</span>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: dot, display: 'inline-block', animation: k === 'STATUS' ? 'adm-pulse 2s infinite' : 'none' }} />
-                    <span style={{ fontSize: 11, fontWeight: 700, color: '#e2e8f0', letterSpacing: '0.05em' }}>{v}</span>
+                { k: 'Status',   v: isActive ? 'Active' : 'Inactive', dot: isActive ? '#10b981' : '#ef4444', icon: Activity },
+                { k: 'Rank',     v: isSuperAdmin ? 'Super Admin' : 'Admin', dot: accentA, icon: SealIcon },
+                { k: 'Session',  v: now.toLocaleTimeString(), dot: accentGold, icon: Fingerprint, mono: true },
+                { k: 'Enrolled', v: joined || 'Unknown', dot: '#7d8aa3', icon: Star },
+              ].map(({ k, v, dot, icon: Icon, mono }) => (
+                <div key={k} style={{ padding: '13px 14px', background: panelBg, textAlign: 'left' }}>
+                  <span className="cns-eyebrow" style={{ display: 'block', marginBottom: 6, fontSize: 9.5 }}>{k}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Icon size={12} color={dot} style={{ flexShrink: 0 }} />
+                    <span className={mono ? 'cns-mono' : ''} style={{ fontSize: 12.5, fontWeight: 700, color: '#e2e8f0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{v}</span>
                   </div>
                 </div>
               ))}
@@ -178,51 +262,85 @@ function AdminProfile({ user, dark }) {
           </div>
         </div>
 
-        {/* Edit form */}
+        {/* ── Edit form ── */}
         {editMode && (
-          <div className="adm-panel" style={{ padding: '28px 32px' }}>
-            <p className="adm-label" style={{ marginBottom: 20 }}>// MODIFY RECORD</p>
+          <div className="cns-panel" style={{ padding: '26px 30px' }}>
+            <p className="cns-eyebrow" style={{ marginBottom: 18 }}>Modify Credential</p>
             <form onSubmit={handleSave}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
                 <div>
-                  <label className="adm-label">DISPLAY NAME</label>
-                  <input className="adm-field" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Full name" />
+                  <label className="cns-eyebrow" style={{ display: 'block', marginBottom: 6 }}>Display Name</label>
+                  <input className="cns-field" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Full name" />
                 </div>
                 <div>
-                  <label className="adm-label">EMAIL ADDRESS</label>
-                  <input className="adm-field" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="Email address" />
+                  <label className="cns-eyebrow" style={{ display: 'block', marginBottom: 6 }}>Email Address</label>
+                  <input className="cns-field" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="Email address" />
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-                <button type="button" className="adm-btn adm-btn-ghost" onClick={() => setEditMode(false)}>ABORT</button>
-                <button type="submit" className="adm-btn adm-btn-primary" disabled={saving}>
+                <button type="button" className="cns-btn cns-btn-ghost" onClick={() => setEditMode(false)}>Discard</button>
+                <button type="submit" className="cns-btn cns-btn-primary" disabled={saving}>
                   {saving ? <div style={{ width: 12, height: 12, border: '2px solid #00000040', borderTopColor: '#000', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> : <Save size={12} />}
-                  {saving ? 'WRITING…' : 'COMMIT'}
+                  {saving ? 'Writing…' : 'Commit Changes'}
                 </button>
               </div>
             </form>
           </div>
         )}
 
-        {/* Account data table */}
-        <div className="adm-panel">
-          <div style={{ padding: '18px 28px 10px', borderBottom: `1px solid ${accent}15` }}>
-            <span className="adm-label">// ACCOUNT RECORD</span>
+        {/* ── Permissions matrix ── */}
+        <div className="cns-panel" style={{ padding: '22px 28px 26px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
+            <ShieldCheck size={14} color={accentA} />
+            <span className="cns-eyebrow">System Access Matrix</span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 10 }}>
+            {ADMIN_MODULES.map(({ key, label, icon: Icon, superOnly }, i) => {
+              const unlocked = !superOnly || isSuperAdmin;
+              return (
+                <div key={key} className="cns-mod" style={{
+                  background: unlocked ? `${accentB}0f` : '#ffffff05',
+                  border: `1px solid ${unlocked ? accentB + '35' : '#ffffff12'}`,
+                  animationDelay: `${i * 0.05}s`,
+                }}>
+                  <div style={{
+                    width: 32, height: 32, borderRadius: 4, flexShrink: 0,
+                    background: unlocked ? `${accentA}20` : 'transparent',
+                    border: `1px solid ${unlocked ? accentA + '50' : '#ffffff18'}`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    {unlocked ? <Icon size={15} color={accentA} /> : <Lock size={13} color="#565f75" />}
+                  </div>
+                  <span style={{ fontSize: 12.5, fontWeight: 600, color: unlocked ? '#e2e8f0' : '#565f75' }}>{label}</span>
+                  {superOnly && (
+                    <span className="cns-mono" style={{ marginLeft: 'auto', fontSize: 9, letterSpacing: '0.05em', color: unlocked ? accentGold : '#565f75', textTransform: 'uppercase' }}>
+                      {unlocked ? 'Sovereign' : 'Locked'}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ── Account ledger ── */}
+        <div className="cns-panel" style={{ padding: '22px 28px 8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <Fingerprint size={14} color={accentA} />
+            <span className="cns-eyebrow">Account Record</span>
           </div>
           {[
-            ['IDENTIFIER', `#${user?.id || user?._id || '—'}`],
-            ['ROLE_CLASS', isSuperAdmin ? 'super_admin' : 'admin'],
-            ['EMAIL_ADDR', user?.email],
-            ['AUTH_LEVEL', isSuperAdmin ? 'FULL_SYSTEM_ACCESS' : 'ADMIN_ACCESS'],
-            ['PLATFORM_ID', 'EDUPLA_V2'],
+            ['Identifier',    `#${user?.id || user?._id || '—'}`],
+            ['Role Class',    isSuperAdmin ? 'super_admin' : 'admin'],
+            ['Email',         user?.email],
+            ['Phone',         user?.phone || '—'],
+            ['Auth Level',    isSuperAdmin ? 'Full System Access' : 'Admin Access'],
+            ['Account Status', isActive ? 'Active' : 'Inactive'],
+            ['Joined',        joined || '—'],
           ].map(([k, v]) => (
-            <div key={k} className="adm-grid-row">
-              <div style={{ padding: '14px 28px', background: `${accent}05`, borderRight: `1px solid ${accent}10` }}>
-                <span className="adm-label" style={{ margin: 0 }}>{k}</span>
-              </div>
-              <div style={{ padding: '14px 24px' }}>
-                <span className="adm-value">{v}</span>
-              </div>
+            <div key={k} className="cns-row">
+              <span style={{ fontSize: 12, color: '#7d8aa3', fontWeight: 500 }}>{k}</span>
+              <span className="cns-mono" style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}>{v}</span>
             </div>
           ))}
         </div>
@@ -237,6 +355,9 @@ function AdminProfile({ user, dark }) {
    Cream tones, editorial typography, refined & confident
 ════════════════════════════════════════════════════════════════ */
 function TeacherProfile({ user, dark }) {
+  const { refreshUser } = useAuth();
+  const isActive = user?.is_active !== false;
+  const joined = formatJoined(user?.created_at);
   const [form, setForm] = useState({ name: user?.name || '', email: user?.email || '' });
   const [saving, setSaving] = useState(false);
   const [editMode, setEditMode] = useState(false);
@@ -249,6 +370,7 @@ function TeacherProfile({ user, dark }) {
     setSaving(true);
     try {
       await api.put('/auth/profile', { name: form.name, email: form.email });
+      await refreshUser();
       toast.success('Profile updated');
       setEditMode(false);
     } catch (err) { toast.error(err.response?.data?.message || 'Failed to update'); }
@@ -314,7 +436,7 @@ function TeacherProfile({ user, dark }) {
             <div style={{ width: 1, height: 20, background: `linear-gradient(180deg, ${pal.a}40, transparent)`, margin: '4px 0' }} />
 
             {[
-              { icon: CheckCircle, label: 'Active', color: '#10b981' },
+              { icon: CheckCircle, label: isActive ? 'Active' : 'Inactive', color: isActive ? '#10b981' : '#ef4444' },
               { icon: BookOpen, label: 'Teacher', color: pal.a },
             ].map(({ icon: Icon, label, color }) => (
               <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', zIndex: 1 }}>
@@ -340,14 +462,14 @@ function TeacherProfile({ user, dark }) {
             <div style={{ width: 48, height: 2, background: `linear-gradient(90deg, ${pal.a}, transparent)`, marginBottom: 12 }} />
 
             <p style={{ margin: '0 0 20px', fontSize: 13, color: muted }}>
-              {user?.email}
+              {user?.email}{user?.phone ? ` · ${user.phone}` : ''}
             </p>
 
             {/* Metrics row */}
             <div style={{ display: 'flex', gap: 20, marginBottom: 20 }}>
               {[
-                { n: 'Active', s: 'Status' },
-                { n: 'EDUPLA', s: 'Platform' },
+                { n: isActive ? 'Active' : 'Inactive', s: 'Status' },
+                { n: joined || '—', s: 'Joined' },
                 { n: 'Teacher', s: 'Role' },
               ].map(({ n, s }) => (
                 <div key={s} style={{ textAlign: 'center' }}>
@@ -409,8 +531,10 @@ function TeacherProfile({ user, dark }) {
           ['Account ID', `#${user?.id || user?._id || '—'}`],
           ['Full Name', user?.name],
           ['Email', user?.email],
+          ['Phone', user?.phone || '—'],
           ['Role', 'Teacher'],
-          ['Platform', 'EDUPLA'],
+          ['Status', isActive ? 'Active' : 'Inactive'],
+          ['Joined', joined || '—'],
         ].map(([k, v]) => (
           <div key={k} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: `1px solid ${border}` }}>
             <span style={{ fontSize: 12, color: muted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{k}</span>
@@ -430,6 +554,8 @@ function TeacherProfile({ user, dark }) {
 function StudentProfile({ user, dark }) {
   const pal = palette(user?.name);
   const ini = initials(user?.name);
+  const isActive = user?.is_active !== false;
+  const joined = formatJoined(user?.created_at);
 
   const bg = dark ? '#0a0a10' : '#f0f0f7';
   const card = dark ? '#111118' : '#ffffff';
@@ -482,7 +608,7 @@ function StudentProfile({ user, dark }) {
                 letterSpacing: '-0.03em' }}>
                 {user?.name}
               </h1>
-              <p style={{ margin: 0, fontSize: 13, color: muted }}>{user?.email}</p>
+              <p style={{ margin: 0, fontSize: 13, color: muted }}>{user?.email}{user?.phone ? ` · ${user.phone}` : ''}</p>
             </div>
           </div>
 
@@ -507,10 +633,10 @@ function StudentProfile({ user, dark }) {
               </div>
             )}
 
-            {/* Active status */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px', borderRadius: 12, background: '#10b98115', border: '1.5px solid #10b98130' }}>
-              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#10b981', display: 'inline-block' }} />
-              <span style={{ fontSize: 13, fontWeight: 700, color: '#10b981' }}>Active</span>
+            {/* Real active status */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px', borderRadius: 12, background: isActive ? '#10b98115' : '#ef444415', border: `1.5px solid ${isActive ? '#10b98130' : '#ef444430'}` }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: isActive ? '#10b981' : '#ef4444', display: 'inline-block' }} />
+              <span style={{ fontSize: 13, fontWeight: 700, color: isActive ? '#10b981' : '#ef4444' }}>{isActive ? 'Active' : 'Inactive'}</span>
             </div>
           </div>
         </div>
@@ -519,9 +645,9 @@ function StudentProfile({ user, dark }) {
       {/* Stat cards grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 14 }}>
         {[
-          { icon: GraduationCap, label: 'Academic Level', value: user?.level || 'N/A', color: pal.a },
-          { icon: Award,         label: 'Trade / Field',  value: user?.trade || 'N/A', color: '#10b981' },
-          { icon: Star,          label: 'Class Year',     value: user?.class_year || 'N/A', color: '#f59e0b' },
+          { icon: GraduationCap, label: 'Academic Level', value: user?.level || 'Not assigned', color: pal.a },
+          { icon: Award,         label: 'Trade / Field',  value: user?.trade || 'Not assigned', color: '#10b981' },
+          { icon: Star,          label: 'Class Year',     value: user?.class_year || 'Not assigned', color: '#f59e0b' },
         ].map(({ icon: Icon, label, value, color }) => (
           <div key={label} className="stu-card stu-badge" style={{ margin: 0 }}>
             <div style={{ width: 46, height: 46, borderRadius: 14, background: `${color}15`, border: `1.5px solid ${color}25`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
@@ -554,10 +680,13 @@ function StudentProfile({ user, dark }) {
             ['Account ID', `#${user?.id || user?._id || '—'}`],
             ['Full Name', user?.name],
             ['Email', user?.email],
+            ['Phone', user?.phone || '—'],
             ['Role', 'Student'],
             ['Level', user?.level || '—'],
             ['Trade', user?.trade || '—'],
             ['Class Year', user?.class_year || '—'],
+            ['Status', isActive ? 'Active' : 'Inactive'],
+            ['Joined', joined || '—'],
           ].map(([k, v]) => (
             <div key={k} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: `1px solid ${border}` }}>
               <span style={{ fontSize: 12, color: muted, fontWeight: 500 }}>{k}</span>

@@ -145,6 +145,9 @@ const createAssignment = async (req, res) => {
           type: 'info',
           classId: classId,
           teacherId: req.session.user.id,
+          linkType: 'assignment',
+          linkId: a._id,
+          courseId: a.course_id || null,
         });
 
         // Email
@@ -299,6 +302,9 @@ const submitAssignment = async (req, res) => {
         classId: a.class_id,
         teacherId: a.teacher_id,
         audience: 'teacher',
+        linkType: 'submission',
+        linkId: a._id,
+        courseId: a.course_id || null,
       });
 
       // Email teacher

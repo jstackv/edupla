@@ -141,6 +141,9 @@ const uploadDocument = async (req, res) => {
         type: 'info',
         classId: classId || null,
         teacherId: req.session.user.id,
+        linkType: 'document',
+        linkId: doc._id,
+        courseId: courseId || null,
       });
       if (studentEmails.length) {
         notifyDocumentPosted({

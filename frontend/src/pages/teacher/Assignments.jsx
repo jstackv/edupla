@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import Modal from '../../components/common/Modal';
@@ -671,6 +672,7 @@ function AssignmentFormModal({ isOpen, onClose, editing, presetClass, presetModu
 
 // ─── Main Assignments Page ────────────────────────────────────────────────────
 export default function Assignments() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [view, setView] = useState('classes');               // 'classes' | 'modules' | 'list'
   const [selectedClass, setSelectedClass] = useState(null);   // { _id, name, modules[] }
   const [selectedModule, setSelectedModule] = useState(null); // course object
@@ -693,6 +695,9 @@ export default function Assignments() {
   const [viewingSubs, setViewingSubs] = useState(null);
   const [viewingGrades, setViewingGrades] = useState(null);
   const [viewingFile, setViewingFile] = useState(null);
+  const [flashId, setFlashId] = useState(searchParams.get('highlight') || null);
+  const cardRefs = useRef({});
+  const deepLinkApplied = useRef(false);
 
   // Load teacher's assigned modules (each carries its class_id)
   useEffect(() => {
@@ -725,6 +730,22 @@ export default function Assignments() {
     return Array.from(map.values());
   })();
 
+  // Deep-link: a notification may point straight at a class/module — jump there once loaded.
+  useEffect(() => {
+    if (deepLinkApplied.current || loadingInit || !courses.length) return;
+    const targetClassId = searchParams.get('classId');
+    const targetCourseId = searchParams.get('courseId');
+    if (!targetClassId && !targetCourseId) return;
+    deepLinkApplied.current = true;
+    const cls = targetClassId ? teacherClasses.find(c => String(c._id) === targetClassId) : null;
+    if (cls) {
+      setSelectedClass(cls);
+      const mod = targetCourseId ? cls.modules.find(m => String(m._id) === targetCourseId) : null;
+      if (mod) { setSelectedModule(mod); setView('list'); }
+      else setView('modules');
+    }
+  }, [loadingInit, courses]);
+
   // Fetch assignments scoped to the selected module
   const fetchAssignments = useCallback(async () => {
     if (view !== 'list' || !selectedModule) return;
@@ -741,6 +762,23 @@ export default function Assignments() {
   }, [view, search, page, selectedClass, selectedModule]);
 
   useEffect(() => { fetchAssignments(); }, [fetchAssignments]);
+
+  /* ── jump to, highlight, and (for submission notifications) open the
+     submissions panel for the assignment a notification pointed to ── */
+  useEffect(() => {
+    if (!flashId || loading || !assignments.length) return;
+    const match = assignments.find(a => String(a.id) === String(flashId));
+    const el = cardRefs.current[flashId];
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (match && searchParams.get('openSubmissions') === '1') setViewingSubs(match);
+    const t = setTimeout(() => {
+      setFlashId(null);
+      const next = new URLSearchParams(searchParams);
+      next.delete('highlight'); next.delete('courseId'); next.delete('classId'); next.delete('openSubmissions');
+      setSearchParams(next, { replace: true });
+    }, 3500);
+    return () => clearTimeout(t);
+  }, [flashId, loading, assignments]);
 
   const openModal = (a = null) => { setEditing(a); setModal(true); };
 
@@ -923,7 +961,9 @@ export default function Assignments() {
       ) : (
         <div className="space-y-3">
           {assignments.map(a => (
-            <div key={a.id} className="card hover:shadow-soft transition-all">
+            <div key={a.id} ref={el => { cardRefs.current[a.id] = el; }}
+              className="card hover:shadow-soft transition-all"
+              style={flashId === a.id ? { boxShadow: '0 0 0 2px #f59e0b, 0 8px 24px rgba(245,158,11,0.25)', transition: 'box-shadow 0.4s ease' } : undefined}>
               <div className="flex flex-col sm:flex-row sm:items-start gap-4">
                 <div className="w-11 h-11 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
                   <ClipboardList className="w-5 h-5 text-amber-600" />

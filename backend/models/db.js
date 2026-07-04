@@ -114,6 +114,12 @@ const notificationSchema = new mongoose.Schema({
   // 'teacher':  an event raised BY a student (e.g. assignment submission) that should be
   //             visible only to the teacher (teacher_id), never to any student.
   audience:   { type: String, enum: ['students', 'teacher'], default: 'students' },
+  // Deep-link target so clicking the notification can jump straight to where
+  // the action lives (the document, assignment, announcement, or submission
+  // that triggered it), instead of just opening the notification panel.
+  link_type:  { type: String, enum: ['document', 'assignment', 'announcement', 'submission', null], default: null },
+  link_id:    { type: mongoose.Schema.Types.ObjectId, default: null },
+  course_id:  { type: mongoose.Schema.Types.ObjectId, ref: 'Course', default: null },
   read_by:    [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   // Users who have "cleared" this notification from their own notification panel.
   // Clearing is per-user: it hides the notification for that user only, it does NOT

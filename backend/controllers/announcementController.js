@@ -74,6 +74,8 @@ const createAnnouncement = async (req, res) => {
         type: 'info',
         classId: classId || null,
         teacherId: req.session.user.id,
+        linkType: 'announcement',
+        linkId: a._id,
       });
       if (studentEmails.length) {
         notifyAnnouncement({

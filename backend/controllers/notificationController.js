@@ -75,8 +75,12 @@ const getNotifications = async (req, res) => {
 
     const result = notifications.map(n => ({
       ...n, id: n._id,
+      class_id: n.class_id?._id || n.class_id || null,
       class_name: n.class_id?.name,
       teacher_name: n.teacher_id?.name,
+      link_type: n.link_type || null,
+      link_id: n.link_id || null,
+      course_id: n.course_id || null,
       is_read: n.read_by.some(id => id.toString() === userId.toString()),
     }));
 

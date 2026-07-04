@@ -106,8 +106,26 @@ export function AuthProvider({ children }) {
     setTimeout(() => { window.location.href = '/login'; }, 300);
   };
 
+  /**
+   * refreshUser — re-fetches the current user's full profile from
+   * /auth/me and syncs both React state and sessionStorage. Call this
+   * after any action that changes the logged-in user's own data (e.g.
+   * saving profile edits) so the UI reflects real, current values
+   * immediately instead of waiting for the next full page load.
+   */
+  const refreshUser = async () => {
+    try {
+      const res = await api.get('/auth/me');
+      setUser(res.data.user);
+      sessionStorage.setItem('user', JSON.stringify(res.data.user));
+      return res.data.user;
+    } catch {
+      return null;
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, loginWithRole, logout, setImpersonatedUser, endImpersonation }}>
+    <AuthContext.Provider value={{ user, loading, login, loginWithRole, logout, setImpersonatedUser, endImpersonation, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

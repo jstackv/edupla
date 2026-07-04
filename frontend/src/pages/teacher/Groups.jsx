@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import {
   Plus, Search, Users, Trash2, X, Send,
-  Crown, Check,
+  Crown, Check, Eye,
   StopCircle, WifiOff,
   Mic, Square, Play, Pause,
   Zap, ZapOff, Radio, MessageCircle,
@@ -66,6 +66,19 @@ function OwnerBadge({ isOwner }) {
     <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ background: 'rgba(99,102,241,0.12)', color: '#6366f1' }}>
       <Crown className="w-2.5 h-2.5" /> Your group
     </span>
+  );
+}
+
+/* ── Skeleton placeholder row (shown while the group list is loading) ─── */
+function GroupCardSkeleton({ delay = 0 }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', animation: 'fastModalBackdropIn 0.3s ease both', animationDelay: `${delay}ms` }}>
+      <div className="skeleton" style={{ width: 44, height: 44, borderRadius: 14, flexShrink: 0 }} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="skeleton" style={{ width: '55%', height: 12, marginBottom: 8 }} />
+        <div className="skeleton" style={{ width: '35%', height: 10 }} />
+      </div>
+    </div>
   );
 }
 
@@ -366,6 +379,118 @@ function TeacherVoiceBubble({ url, duration, isMine }) {
   );
 }
 
+/* ── Group members modal (teacher view) ──────────────────────────────
+   Fast by design: pure CSS entrance animation, no JS-driven visibility
+   toggling — see .fast-modal-backdrop / .fast-modal-sheet in index.css. */
+function MembersModal({ group, onClose }) {
+  const [a, b] = groupColor(group.id);
+
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => { document.body.style.overflow = ''; window.removeEventListener('keydown', onKey); };
+  }, [onClose]);
+
+  const members = group.members || [];
+
+  return (
+    <div
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      className="fast-modal-backdrop"
+    >
+      <div onClick={e => e.stopPropagation()} className="fast-modal-sheet" style={{ maxWidth: 400 }}>
+        {/* Header */}
+        <div style={{ background: `linear-gradient(135deg, ${a}, ${b})`, padding: '18px 20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: '#fff', fontSize: 13 }}>
+                {(group.name || 'G').slice(0, 2).toUpperCase()}
+              </div>
+              <div>
+                <div style={{ color: '#fff', fontWeight: 700, fontSize: 15 }}>{group.name}</div>
+                <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 11 }}>{members.length} member{members.length !== 1 ? 's' : ''}</div>
+              </div>
+            </div>
+            <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <X style={{ width: 14, height: 14 }} />
+            </button>
+          </div>
+        </div>
+
+        {/* Members list */}
+        <div style={{ padding: '14px 16px', maxHeight: '60vh', overflowY: 'auto' }}>
+          {members.map((m, i) => {
+            const isLeader = group.team_leader?.id === m.id;
+            return (
+              <div key={m.id} style={{
+                display: 'flex', alignItems: 'center', gap: 12,
+                padding: '10px 12px', borderRadius: 14, marginBottom: 6,
+                background: 'var(--surface-100)',
+                border: isLeader ? `1.5px solid ${a}40` : '1.5px solid transparent',
+                animation: 'teacherMemberSlideIn 260ms ease both',
+                animationDelay: `${i * 40}ms`,
+              }}>
+                <div style={{
+                  width: 42, height: 42, borderRadius: '50%', flexShrink: 0,
+                  background: isLeader ? `linear-gradient(135deg, ${a}, ${b})` : 'linear-gradient(135deg, #059669, #0d9488)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: '#fff', fontWeight: 800, fontSize: 15,
+                  boxShadow: isLeader ? `0 4px 14px ${a}50` : 'none',
+                }}>
+                  {m.name[0].toUpperCase()}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</div>
+                  {isLeader && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                      <Crown style={{ width: 11, height: 11, color: '#d97706' }} />
+                      <span style={{ fontSize: 11, fontWeight: 600, color: '#b45309' }}>Team Leader</span>
+                    </div>
+                  )}
+                </div>
+                {isLeader && (
+                  <div style={{ width: 28, height: 28, borderRadius: '50%', background: `${a}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Crown style={{ width: 13, height: 13, color: a }} />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Owning teacher */}
+          {group.teacher_name && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              padding: '10px 12px', borderRadius: 14, marginBottom: 6,
+              background: 'rgba(99,102,241,0.06)',
+              border: '1.5px solid rgba(99,102,241,0.2)',
+              animation: 'teacherMemberSlideIn 260ms ease both',
+              animationDelay: `${members.length * 40}ms`,
+            }}>
+              <div style={{ width: 42, height: 42, borderRadius: '50%', flexShrink: 0, background: 'linear-gradient(135deg, #6366f1, #4f46e5)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 15, boxShadow: '0 4px 14px rgba(99,102,241,0.4)' }}>
+                {group.teacher_name[0].toUpperCase()}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--text-primary)' }}>{group.teacher_name}</div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#6366f1', marginTop: 2 }}>{group.is_owner ? 'You · Teacher' : 'Teacher (owner)'}</div>
+              </div>
+              <div style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20, background: 'rgba(99,102,241,0.12)', color: '#6366f1' }}>T</div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes teacherMemberSlideIn {
+          from { opacity: 0; transform: translateX(-12px); }
+          to   { opacity: 1; transform: translateX(0); }
+        }
+      `}</style>
+    </div>
+  );
+}
+
 function GroupViewer({ group, myId, onClose, onMessageSent, onEnded }) {
   const [a, b] = groupColor(group.id);
   const [messages, setMessages] = useState(group.messages || []);
@@ -378,6 +503,7 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onEnded }) {
   const [actionLoading, setActionLoading] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const [dmOpen, setDmOpen] = useState(false);
+  const [membersOpen, setMembersOpen] = useState(false);
   const [recording, setRecording]         = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [audioBlob, setAudioBlob]         = useState(null);
@@ -428,6 +554,11 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onEnded }) {
             const existingIds = new Set(prev.map(m => String(m.id || m._id)));
             const fresh = newMsgs.filter(m => !existingIds.has(String(m.id || m._id)));
             if (fresh.length === 0) return prev;
+            const fromOthers = fresh.filter(m => String(m.author_id) !== String(myId));
+            if (fromOthers.length) {
+              const senderName = fromOthers[fromOthers.length - 1].author_name || 'Someone';
+              toast.success(`${senderName} sent you a message!`, { icon: '💬' });
+            }
             lastMsgTimeRef.current = fresh[fresh.length - 1].created_at;
             return [...prev, ...fresh];
           });
@@ -641,6 +772,11 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onEnded }) {
                 </div>
             }
           </div>
+          <button onClick={() => setMembersOpen(true)}
+            className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full transition-all active:scale-95 flex-shrink-0"
+            style={{ background: 'rgba(255,255,255,0.18)', color: 'white', border: '1px solid rgba(255,255,255,0.28)' }}>
+            <Users className="w-3.5 h-3.5" /> {(group.members || []).length} <Eye className="w-3 h-3 opacity-80" />
+          </button>
           {group.is_owner && (
             <button onClick={() => setDmOpen(true)}
               className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full transition-all active:scale-95 flex-shrink-0"
@@ -822,6 +958,9 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onEnded }) {
       {dmOpen && (
         <LeaderDmPanel groupId={group.id} myId={myId} peerName={group.team_leader?.name} onClose={() => setDmOpen(false)} />
       )}
+      {membersOpen && (
+        <MembersModal group={group} onClose={() => setMembersOpen(false)} />
+      )}
     </div>
     </AudioPlaybackProvider>
   );
@@ -855,13 +994,20 @@ function LeaderDmPanel({ groupId, myId, peerName, onClose }) {
           if (!silent) return fresh;
           const existingIds = new Set(prev.map(m => String(m.id)));
           const toAdd = fresh.filter(m => !existingIds.has(String(m.id)));
+          if (toAdd.length) {
+            const fromPeer = toAdd.filter(m => String(m.sender_id) !== String(myId));
+            if (fromPeer.length) {
+              const senderName = fromPeer[fromPeer.length - 1].sender_name || 'Someone';
+              toast.success(`${senderName} sent you a message!`, { icon: '💬' });
+            }
+          }
           return toAdd.length ? [...prev, ...toAdd] : prev;
         });
         lastMsgTimeRef.current = fresh[fresh.length - 1].created_at;
       }
     } catch (err) { if (!silent) toast.error(err.response?.data?.message || 'Failed to load DM'); }
     finally { setLoading(false); }
-  }, [groupId]);
+  }, [groupId, myId]);
 
   useEffect(() => {
     fetchThread(false);
@@ -904,11 +1050,20 @@ function LeaderDmPanel({ groupId, myId, peerName, onClose }) {
     finally { setClearing(false); }
   };
 
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
   const displayName = peer?.name || peerName || 'DM';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.45)' }}>
-      <div className="w-full flex flex-col rounded-2xl overflow-hidden shadow-2xl" style={{ maxWidth: 440, height: '70vh', background: 'var(--card-bg)' }}>
+    <div
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', animation: 'fastModalBackdropIn 0.12s ease both' }}>
+      <div className="w-full flex flex-col rounded-2xl overflow-hidden shadow-2xl" style={{ maxWidth: 440, height: '70vh', background: 'var(--card-bg)', animation: 'fastModalSheetIn 0.18s cubic-bezier(0.34,1.56,0.64,1) both' }}>
         <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0" style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}>
           <div className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0" style={{ background: 'rgba(255,255,255,0.2)' }}>
             {displayName[0]?.toUpperCase() || '?'}
@@ -1254,8 +1409,8 @@ export default function TeacherGroups() {
             </div>
             <div className="flex-1 overflow-y-auto">
               {loading ? (
-                <div className="flex items-center justify-center py-20">
-                  <div className="animate-spin w-7 h-7 rounded-full" style={{ border: '3px solid var(--card-border)', borderTopColor: '#6366f1' }} />
+                <div>
+                  {[0, 1, 2, 3].map(i => <GroupCardSkeleton key={i} delay={i * 60} />)}
                 </div>
               ) : groups.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 px-6 text-center">

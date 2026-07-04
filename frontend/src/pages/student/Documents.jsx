@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import Pagination from '../../components/common/Pagination';
@@ -78,18 +79,19 @@ function FileBadge({ name, size = 48 }) {
 }
 
 /* ── Document card — list view ── */
-function DocListCard({ doc, onPreview, onDownload, isNew, index }) {
+function DocListCard({ doc, onPreview, onDownload, isNew, index, cardRef, highlighted }) {
   const [hov, setHov] = useState(false);
   const cfg = getFileConfig(doc.original_name);
   return (
-    <div style={{
+    <div ref={cardRef} style={{
       display: 'flex', alignItems: 'center', gap: 14,
       padding: '14px 16px', borderRadius: 16,
       background: hov ? 'var(--card-border)' : 'transparent',
       border: `1px solid ${hov ? cfg.text + '30' : 'var(--card-border)'}`,
-      transition: 'all 0.2s ease',
+      transition: 'all 0.2s ease, box-shadow 0.4s ease',
       transform: hov ? 'translateX(3px)' : 'translateX(0)',
       animation: `fadeSlide 0.35s ease ${index * 0.05}s both`,
+      boxShadow: highlighted ? `0 0 0 2px ${cfg.text}, 0 8px 24px ${cfg.text}33` : undefined,
     }}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}>
@@ -149,17 +151,17 @@ function DocListCard({ doc, onPreview, onDownload, isNew, index }) {
 }
 
 /* ── Document card — grid view ── */
-function DocGridCard({ doc, onPreview, onDownload, isNew, index }) {
+function DocGridCard({ doc, onPreview, onDownload, isNew, index, cardRef, highlighted }) {
   const [hov, setHov] = useState(false);
   const cfg = getFileConfig(doc.original_name);
   return (
-    <div style={{
+    <div ref={cardRef} style={{
       borderRadius: 18, overflow: 'hidden',
       border: `1px solid ${hov ? cfg.text + '40' : 'var(--card-border)'}`,
       background: 'var(--card-bg)',
       transform: hov ? 'translateY(-4px)' : 'translateY(0)',
-      boxShadow: hov ? `0 12px 32px ${cfg.text}22` : '0 2px 6px rgba(0,0,0,0.04)',
-      transition: 'all 0.22s cubic-bezier(0.34,1.56,0.64,1)',
+      boxShadow: highlighted ? `0 0 0 2px ${cfg.text}, 0 12px 32px ${cfg.text}33` : (hov ? `0 12px 32px ${cfg.text}22` : '0 2px 6px rgba(0,0,0,0.04)'),
+      transition: 'all 0.22s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.4s ease',
       animation: `fadeSlide 0.35s ease ${index * 0.05}s both`,
       display: 'flex', flexDirection: 'column',
     }}
@@ -372,6 +374,7 @@ function Spinner({ color = '#6366f1' }) {
 
 /* ══ MAIN ══ */
 export default function StudentDocuments() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [view, setView] = useState('modules');
   const [selectedModule, setSelectedModule] = useState(null);
   const [modules, setModules] = useState([]);
@@ -388,6 +391,8 @@ export default function StudentDocuments() {
   const [filterType, setFilterType] = useState('all');
   const [moduleSearch, setModuleSearch] = useState('');
   const [docCounts, setDocCounts] = useState({});
+  const [flashId, setFlashId] = useState(searchParams.get('highlight') || null);
+  const cardRefs = useRef({});
 
   const [seenIds, setSeenIds] = useState(() => {
     try { return new Set(JSON.parse(localStorage.getItem('edupla_seen_docs') || '[]')); }
@@ -418,6 +423,13 @@ export default function StudentDocuments() {
           } catch { }
         }
         setModules(fetchedModules);
+
+        // Came here from a notification pointing at a specific module — jump straight there.
+        const targetCourseId = searchParams.get('courseId');
+        if (targetCourseId) {
+          const match = fetchedModules.find(m => String(m._id) === targetCourseId);
+          if (match) { setSelectedModule(match); setView('docs'); }
+        }
       } catch { toast.error('Failed to load class info'); }
       finally { setLoadingModules(false); }
     })();
@@ -442,6 +454,22 @@ export default function StudentDocuments() {
   }, [view, search, page, selectedModule, studentClass]);
 
   useEffect(() => { fetchDocs(); }, [fetchDocs]);
+
+  /* ── jump to & highlight the document a notification pointed to ── */
+  useEffect(() => {
+    if (!flashId || loading || !documents.length) return;
+    const el = cardRefs.current[flashId];
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const t = setTimeout(() => {
+      setFlashId(null);
+      const next = new URLSearchParams(searchParams);
+      next.delete('highlight');
+      next.delete('courseId');
+      next.delete('classId');
+      setSearchParams(next, { replace: true });
+    }, 3500);
+    return () => clearTimeout(t);
+  }, [flashId, loading, documents]);
 
   const markSeen = (id) => {
     setSeenIds(prev => {
@@ -668,7 +696,9 @@ export default function StudentDocuments() {
               <DocGridCard key={doc.id} doc={doc} index={i}
                 isNew={!seenIds.has(doc.id)}
                 onPreview={handlePreview}
-                onDownload={handleDownload} />
+                onDownload={handleDownload}
+                cardRef={el => { cardRefs.current[doc.id] = el; }}
+                highlighted={flashId === doc.id} />
             ))}
           </div>
         ) : (
@@ -677,7 +707,9 @@ export default function StudentDocuments() {
               <DocListCard key={doc.id} doc={doc} index={i}
                 isNew={!seenIds.has(doc.id)}
                 onPreview={handlePreview}
-                onDownload={handleDownload} />
+                onDownload={handleDownload}
+                cardRef={el => { cardRefs.current[doc.id] = el; }}
+                highlighted={flashId === doc.id} />
             ))}
           </div>
         )}

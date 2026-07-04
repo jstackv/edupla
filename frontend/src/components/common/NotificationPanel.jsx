@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Bell, X, CheckCheck, Trash2, ClipboardList, FileText, Megaphone, Info, CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
 import api from '../../utils/api';
+import { useAuth } from '../../context/AuthContext';
 
 /* ── helpers ─────────────────────────────────────────────────────── */
 function timeAgo(dateStr) {
@@ -27,14 +29,43 @@ function guessIcon(n) {
   return (TYPE_META[n.type] || TYPE_META.info).icon;
 }
 
+/* ── resolve where a notification's action actually lives ──────────── */
+function resolveNotificationPath(n, role) {
+  const base = role === 'teacher' ? '/teacher' : '/student';
+  const classId = n.class_id?._id || n.class_id || '';
+  const courseId = n.course_id || '';
+  const linkId = n.link_id || '';
+  const qs = (extra = {}) => {
+    const params = new URLSearchParams();
+    if (classId) params.set('classId', classId);
+    if (courseId) params.set('courseId', courseId);
+    if (linkId) params.set('highlight', linkId);
+    Object.entries(extra).forEach(([k, v]) => params.set(k, v));
+    const s = params.toString();
+    return s ? `?${s}` : '';
+  };
+
+  switch (n.link_type) {
+    case 'document':     return `${base}/documents${qs()}`;
+    case 'assignment':    return `${base}/assignments${qs()}`;
+    case 'announcement':  return `${base}/announcements${qs()}`;
+    // A submission is only ever visible to the teacher who owns the class;
+    // route straight to that assignment with its submissions panel open.
+    case 'submission':    return `/teacher/assignments${qs({ openSubmissions: '1' })}`;
+    default:               return null;
+  }
+}
+
 /* ── single notification row ─────────────────────────────────────── */
-function NotifRow({ n, dark, onMarkRead }) {
+function NotifRow({ n, dark, onMarkRead, onOpen }) {
   const meta    = TYPE_META[n.type] || TYPE_META.info;
   const Icon    = guessIcon(n);
   const unread  = !n.is_read;
+  const hasTarget = !!n.link_type;
 
   const handleClick = () => {
     if (unread) onMarkRead(n.id || n._id);
+    if (hasTarget) onOpen(n);
   };
 
   return (
@@ -46,11 +77,11 @@ function NotifRow({ n, dark, onMarkRead }) {
           ? (dark ? 'rgba(99,102,241,0.06)' : 'rgba(99,102,241,0.04)')
           : 'transparent',
         borderBottom: `1px solid ${dark ? '#1e2535' : '#f1f5f9'}`,
-        cursor: unread ? 'pointer' : 'default',
+        cursor: (unread || hasTarget) ? 'pointer' : 'default',
         transition: 'background 0.15s',
       }}
-      onMouseEnter={e => { if (unread) e.currentTarget.style.background = dark ? 'rgba(99,102,241,0.1)' : 'rgba(99,102,241,0.07)'; }}
-      onMouseLeave={e => { if (unread) e.currentTarget.style.background = dark ? 'rgba(99,102,241,0.06)' : 'rgba(99,102,241,0.04)'; }}
+      onMouseEnter={e => { if (unread || hasTarget) e.currentTarget.style.background = dark ? 'rgba(99,102,241,0.1)' : 'rgba(99,102,241,0.07)'; }}
+      onMouseLeave={e => { if (unread || hasTarget) e.currentTarget.style.background = unread ? (dark ? 'rgba(99,102,241,0.06)' : 'rgba(99,102,241,0.04)') : 'transparent'; }}
     >
       {/* icon */}
       <div style={{
@@ -95,6 +126,9 @@ function NotifRow({ n, dark, onMarkRead }) {
             }}>{n.class_name}</span>
           )}
           <span style={{ fontSize: 10, color: dark ? '#475569' : '#9ca3af' }}>{timeAgo(n.created_at)}</span>
+          {hasTarget && (
+            <span style={{ fontSize: 10, fontWeight: 700, color: meta.color, marginLeft: 'auto' }}>View →</span>
+          )}
         </div>
       </div>
     </div>
@@ -105,6 +139,8 @@ function NotifRow({ n, dark, onMarkRead }) {
    MAIN COMPONENT
 ══════════════════════════════════════════════════════════════════ */
 export default function NotificationPanel({ dark }) {
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [open, setOpen]               = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -195,6 +231,14 @@ export default function NotificationPanel({ dark }) {
 
   /* ── load more ── */
   const loadMore = () => fetchPage(page + 1, false);
+
+  /* ── follow a notification to where its action actually lives ── */
+  const openNotification = (n) => {
+    const path = resolveNotificationPath(n, user?.role);
+    if (!path) return;
+    setOpen(false);
+    navigate(path);
+  };
 
   const hasUnread = unreadCount > 0;
 
@@ -382,6 +426,7 @@ export default function NotificationPanel({ dark }) {
                     n={n}
                     dark={dark}
                     onMarkRead={markRead}
+                    onOpen={openNotification}
                   />
                 ))}
                 {hasMore && (
