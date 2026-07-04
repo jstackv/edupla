@@ -1,31 +1,27 @@
 const mongoose = require('mongoose');
 const { DiscussionGroup, Class, User } = require('../models/db');
+const { createDirectNotification } = require('../services/notificationHelpers');
 
 /* ── helpers ──────────────────────────────────────────────────────────── */
 
-// Is this teacher assigned to the class behind a group (its main teacher or
-// one of its extra_teachers)? Any such teacher gets full, automatic
-// read/post access to the group's conversation — no invitation needed.
-async function isAssignedTeacher(classId, teacherId) {
-  const cls = await Class.findOne({
-    _id: classId,
-    $or: [{ teacher_id: teacherId }, { extra_teachers: teacherId }],
-  }, '_id').lean();
-  return !!cls;
+// A group is only visible to (and usable by) the teacher who created it —
+// other teachers assigned to the same class, even co-teachers, cannot see
+// or act on a group they didn't create.
+function isGroupOwner(group, userId) {
+  const ownerId = group.teacher_id?._id || group.teacher_id;
+  return String(ownerId) === String(userId);
 }
 
-/* ── Teacher: list all groups for classes they're assigned to ───────────── */
+/* ── Teacher: list only the groups THEY created ──────────────────────── */
 const getGroups = async (req, res) => {
   try {
     const { classId } = req.query;
     const teacherId = req.user.id;
 
-    const classFilter = { $or: [{ teacher_id: teacherId }, { extra_teachers: teacherId }] };
-    if (classId) classFilter._id = classId;
-    const myClasses = await Class.find(classFilter, '_id').lean();
-    const classIds = myClasses.map(c => c._id);
+    const filter = { teacher_id: teacherId };
+    if (classId) filter.class_id = classId;
 
-    const groups = await DiscussionGroup.find({ class_id: { $in: classIds } })
+    const groups = await DiscussionGroup.find(filter)
       .sort({ created_at: -1 })
       .populate('class_id', 'name')
       .populate('members', 'name')
@@ -43,9 +39,10 @@ const getGroups = async (req, res) => {
       team_leader: g.team_leader ? { id: g.team_leader._id, name: g.team_leader.name } : null,
       teacher_id: g.teacher_id?._id,
       teacher_name: g.teacher_id?.name,
-      // Only the creating teacher may delete the group or end the conversation.
-      is_owner: String(g.teacher_id?._id) === String(teacherId),
+      // Every group returned here belongs to the requesting teacher.
+      is_owner: true,
       message_count: g.messages?.length || 0,
+      last_message: g.messages?.length ? g.messages[g.messages.length - 1] : null,
       is_ended: g.is_ended || false,
       created_at: g.created_at,
       updated_at: g.updated_at,
@@ -75,14 +72,32 @@ const createGroup = async (req, res) => {
 
     // Verify all selected students are actually enrolled in the class
     const enrolledIds = (cls.students || []).map(s => String(s));
-    const validMembers = memberIds.filter(id => enrolledIds.includes(String(id)));
+    let validMembers = memberIds.filter(id => enrolledIds.includes(String(id)));
     if (validMembers.length === 0) {
       return res.status(400).json({ message: 'None of the selected students are enrolled in this class.' });
     }
 
+    // A student can only belong to ONE of your groups per class — they may
+    // still belong to a different teacher's group in the same class, since
+    // group membership is scoped per (class, teacher).
+    const conflicting = await DiscussionGroup.find({
+      class_id: classId,
+      teacher_id: req.user.id,
+      members: { $in: validMembers },
+    }).select('members').lean();
+    const conflictSet = new Set();
+    conflicting.forEach(g => g.members.forEach(m => conflictSet.add(String(m))));
+    validMembers = validMembers.filter(id => !conflictSet.has(String(id)));
+
+    if (validMembers.length === 0) {
+      return res.status(400).json({ message: 'Every selected student is already in another group you created for this class. Use "Move to…" from that group instead.' });
+    }
+
     // Team leader must be one of the chosen members
     if (!validMembers.map(String).includes(String(teamLeaderId))) {
-      return res.status(400).json({ message: 'The team leader must be one of the selected group members.' });
+      return res.status(400).json({ message: conflictSet.has(String(teamLeaderId))
+        ? 'The chosen team leader is already in another group you created for this class. Pick a different team leader.'
+        : 'The team leader must be one of the selected group members.' });
     }
 
     const group = await DiscussionGroup.create({
@@ -111,10 +126,174 @@ const deleteGroup = async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
+/* ── Teacher (owner only): add students to an existing group ─────────────
+   Only students enrolled in the group's class, not already members, may be
+   added. Each newly added student gets a direct in-app notification. ─────── */
+const addGroupMembers = async (req, res) => {
+  try {
+    const { studentIds } = req.body;
+    if (!Array.isArray(studentIds) || studentIds.length === 0) {
+      return res.status(400).json({ message: 'Select at least one student to add.' });
+    }
+
+    const group = await DiscussionGroup.findById(req.params.id);
+    if (!group) return res.status(404).json({ message: 'Group not found.' });
+
+    const allowed = isGroupOwner(group, req.user.id);
+    if (!allowed) return res.status(403).json({ message: 'Only the teacher who created this group can manage its members.' });
+
+    const cls = await Class.findById(group.class_id, 'students name').lean();
+    const enrolledIds = new Set((cls?.students || []).map(id => String(id)));
+    const existingIds = new Set(group.members.map(id => String(id)));
+
+    let toAdd = [...new Set(studentIds.map(String))]
+      .filter(id => enrolledIds.has(id) && !existingIds.has(id));
+
+    if (toAdd.length === 0) {
+      return res.status(400).json({ message: 'Selected students are already members or not enrolled in this class.' });
+    }
+
+    // A student can only belong to ONE of your groups per class — skip anyone
+    // who's already in a different group you created for this same class.
+    const conflicting = await DiscussionGroup.find({
+      class_id: group.class_id,
+      teacher_id: req.user.id,
+      _id: { $ne: group._id },
+      members: { $in: toAdd },
+    }).select('members').lean();
+    const conflictSet = new Set();
+    conflicting.forEach(g => g.members.forEach(m => conflictSet.add(String(m))));
+    const blocked = toAdd.filter(id => conflictSet.has(id));
+    toAdd = toAdd.filter(id => !conflictSet.has(id));
+
+    if (toAdd.length === 0) {
+      return res.status(400).json({ message: 'Every selected student is already in another group you created for this class. Use "Move to…" from that group instead.' });
+    }
+
+    group.members.push(...toAdd);
+    await group.save();
+
+    // Notify each newly added student — visible in their notification bell
+    // wherever they are in the app.
+    const addedUsers = await User.find({ _id: { $in: toAdd } }, 'name').lean();
+    await Promise.all(addedUsers.map(u => createDirectNotification({
+      title: 'Added to a group',
+      message: `You've been added to the group "${group.name}"${cls?.name ? ` in ${cls.name}` : ''}.`,
+      type: 'success',
+      classId: group.class_id,
+      teacherId: req.user.id,
+      recipientId: u._id,
+      linkType: 'group',
+      linkId: group._id,
+    })));
+
+    const suffix = blocked.length > 0 ? ` (${blocked.length} skipped — already in another of your groups for this class)` : '';
+    res.json({ message: `Added ${toAdd.length} student(s) to the group.${suffix}`, added_count: toAdd.length, skipped_count: blocked.length });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+/* ── Teacher (owner only): remove a student from a group ──────────────── */
+const removeGroupMember = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+
+    const group = await DiscussionGroup.findById(req.params.id);
+    if (!group) return res.status(404).json({ message: 'Group not found.' });
+
+    const allowed = isGroupOwner(group, req.user.id);
+    if (!allowed) return res.status(403).json({ message: 'Only the teacher who created this group can manage its members.' });
+
+    const isMember = group.members.some(m => String(m) === String(studentId));
+    if (!isMember) return res.status(404).json({ message: 'That student is not a member of this group.' });
+
+    if (String(group.team_leader) === String(studentId)) {
+      return res.status(400).json({ message: 'You cannot remove the team leader. Delete the group or choose a different member.' });
+    }
+
+    group.members = group.members.filter(m => String(m) !== String(studentId));
+    await group.save();
+
+    const removedUser = await User.findById(studentId, 'name').lean();
+    if (removedUser) {
+      await createDirectNotification({
+        title: 'Removed from a group',
+        message: `You've been removed from the group "${group.name}".`,
+        type: 'warning',
+        classId: group.class_id,
+        teacherId: req.user.id,
+        recipientId: removedUser._id,
+      });
+    }
+
+    res.json({ message: 'Student removed from the group.' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+/* ── Teacher (owner only): move a student from one of your groups to another ──
+   The proper way to reassign a student — since a student can only belong to
+   ONE of your groups per class, "add to group B" while still in group A would
+   violate that. This atomically removes them from the source group and adds
+   them to the destination group (both must be groups YOU created, in the
+   SAME class), and sends a single "moved" notification instead of two. ───── */
+const moveGroupMember = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const { toGroupId } = req.body;
+    if (!toGroupId) return res.status(400).json({ message: 'Choose a group to move this student to.' });
+    if (String(toGroupId) === String(req.params.id)) {
+      return res.status(400).json({ message: 'That student is already in this group.' });
+    }
+
+    const fromGroup = await DiscussionGroup.findById(req.params.id);
+    if (!fromGroup) return res.status(404).json({ message: 'Group not found.' });
+    if (!isGroupOwner(fromGroup, req.user.id)) {
+      return res.status(403).json({ message: 'Only the teacher who created this group can manage its members.' });
+    }
+
+    const toGroup = await DiscussionGroup.findById(toGroupId);
+    if (!toGroup) return res.status(404).json({ message: 'Destination group not found.' });
+    if (!isGroupOwner(toGroup, req.user.id)) {
+      return res.status(403).json({ message: 'You can only move a student into a group you created.' });
+    }
+    if (String(toGroup.class_id) !== String(fromGroup.class_id)) {
+      return res.status(400).json({ message: 'You can only move a student between groups in the same class.' });
+    }
+
+    const isMember = fromGroup.members.some(m => String(m) === String(studentId));
+    if (!isMember) return res.status(404).json({ message: 'That student is not a member of this group.' });
+    if (String(fromGroup.team_leader) === String(studentId)) {
+      return res.status(400).json({ message: 'You cannot move the team leader. Delete the group or choose a different member.' });
+    }
+    if (toGroup.members.some(m => String(m) === String(studentId))) {
+      return res.status(400).json({ message: 'That student is already a member of the destination group.' });
+    }
+
+    fromGroup.members = fromGroup.members.filter(m => String(m) !== String(studentId));
+    toGroup.members.push(studentId);
+    await fromGroup.save();
+    await toGroup.save();
+
+    const student = await User.findById(studentId, 'name').lean();
+    if (student) {
+      await createDirectNotification({
+        title: 'Moved to a different group',
+        message: `You've been moved from "${fromGroup.name}" to "${toGroup.name}".`,
+        type: 'info',
+        classId: fromGroup.class_id,
+        teacherId: req.user.id,
+        recipientId: student._id,
+        linkType: 'group',
+        linkId: toGroup._id,
+      });
+    }
+
+    res.json({ message: `Moved to "${toGroup.name}".` });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
 /* ── Shared: fetch a single group's conversation ─────────────────────────
    - Student: must be a member.
-   - Teacher: must be assigned to the group's class (main teacher or an
-     extra_teacher) — full automatic access, no invitation needed. */
+   - Teacher: must be the teacher who created the group — no one else. */
 const getGroup = async (req, res) => {
   try {
     const userId = String(req.user.id);
@@ -129,8 +308,7 @@ const getGroup = async (req, res) => {
     if (!group) return res.status(404).json({ message: 'Group not found.' });
 
     if (role === 'teacher') {
-      const allowed = await isAssignedTeacher(group.class_id?._id || group.class_id, userId);
-      if (!allowed) return res.status(403).json({ message: 'You are not assigned to this class.' });
+      if (!isGroupOwner(group, userId)) return res.status(403).json({ message: 'Only the teacher who created this group can view it.' });
     } else {
       const isMember = (group.members || []).some(m => String(m._id) === userId);
       if (!isMember) return res.status(403).json({ message: 'You are not a member of this group.' });
@@ -206,7 +384,7 @@ const getMyGroups = async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
-/* ── Student (always), or any teacher assigned to the class: post a message ── */
+/* ── Student (always), or the owning teacher: post a message ────────────── */
 const postMessage = async (req, res) => {
   try {
     const { content } = req.body;
@@ -225,8 +403,7 @@ const postMessage = async (req, res) => {
     }
 
     if (role === 'teacher') {
-      const allowed = await isAssignedTeacher(group.class_id, userId);
-      if (!allowed) return res.status(403).json({ message: 'You are not assigned to this class.' });
+      if (!isGroupOwner(group, userId)) return res.status(403).json({ message: 'Only the teacher who created this group can access it.' });
     } else {
       const isMember = group.members.some(m => String(m) === userId);
       if (!isMember) return res.status(403).json({ message: 'You are not a member of this group.' });
@@ -260,7 +437,7 @@ const postMessage = async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
-/* ── Student or any assigned teacher: post a voice note ─────────────────── */
+/* ── Student, or the owning teacher: post a voice note ───────────────────── */
 const postVoiceNote = async (req, res) => {
   try {
     const userId = String(req.user.id);
@@ -278,8 +455,7 @@ const postVoiceNote = async (req, res) => {
     }
 
     if (role === 'teacher') {
-      const allowed = await isAssignedTeacher(group.class_id, userId);
-      if (!allowed) return res.status(403).json({ message: 'You are not assigned to this class.' });
+      if (!isGroupOwner(group, userId)) return res.status(403).json({ message: 'Only the teacher who created this group can access it.' });
     } else {
       const isMember = group.members.some(m => String(m) === userId);
       if (!isMember) return res.status(403).json({ message: 'You are not a member of this group.' });
@@ -330,8 +506,7 @@ const deleteMessage = async (req, res) => {
 
     // Must still have access to the conversation to act within it.
     if (role === 'teacher') {
-      const allowed = await isAssignedTeacher(group.class_id, userId);
-      if (!allowed) return res.status(403).json({ message: 'You are not assigned to this class.' });
+      if (!isGroupOwner(group, userId)) return res.status(403).json({ message: 'Only the teacher who created this group can access it.' });
     } else {
       const isMember = group.members.some(m => String(m) === userId);
       if (!isMember) return res.status(403).json({ message: 'You are not a member of this group.' });
@@ -360,8 +535,7 @@ const clearMyMessages = async (req, res) => {
     if (!group) return res.status(404).json({ message: 'Group not found.' });
 
     if (role === 'teacher') {
-      const allowed = await isAssignedTeacher(group.class_id, userId);
-      if (!allowed) return res.status(403).json({ message: 'You are not assigned to this class.' });
+      if (!isGroupOwner(group, userId)) return res.status(403).json({ message: 'Only the teacher who created this group can access it.' });
     } else {
       const isMember = group.members.some(m => String(m) === userId);
       if (!isMember) return res.status(403).json({ message: 'You are not a member of this group.' });
@@ -405,8 +579,7 @@ const getGroupMessages = async (req, res) => {
 
     // Access check
     if (role === 'teacher') {
-      const allowed = await isAssignedTeacher(group.class_id, userId);
-      if (!allowed) return res.status(403).json({ message: 'Access denied.' });
+      if (!isGroupOwner(group, userId)) return res.status(403).json({ message: 'Access denied.' });
     } else {
       const isMember = group.members.some(m => String(m) === userId);
       if (!isMember) return res.status(403).json({ message: 'Access denied.' });
@@ -588,6 +761,7 @@ const clearMyLeaderDmMessages = async (req, res) => {
 
 module.exports = {
   getGroups, createGroup, deleteGroup, getGroup, getMyGroups,
+  addGroupMembers, removeGroupMember, moveGroupMember,
   postMessage, postVoiceNote, deleteMessage, clearMyMessages,
   endConversation, getGroupMessages,
   getLeaderDm, postLeaderDm, deleteLeaderDmMessage, clearMyLeaderDmMessages,

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, Fragment } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../utils/api';
@@ -10,7 +10,7 @@ import {
   TrendingUp, Hash, School, User2, Calendar, Target, Settings,
   Save, Image, AlignLeft, Phone, Mail, Globe, MapPin, Building2,
   CheckCircle2, Sparkles, Download, Eye, RefreshCw, ClipboardCheck,
-  CheckCircle, XCircle, Clock, Filter,
+  CheckCircle, XCircle, Clock, Filter, UploadCloud,
 } from 'lucide-react';
 
 /* ─────────── Constants ─────────── */
@@ -107,15 +107,21 @@ function TypeBadge({ type }) {
   );
 }
 
-/* ─────────── Report Config Storage ─────────── */
-function loadReportConfig() {
+/* ─────────── Report Config Storage ───────────
+ * The report header (school name, address, manager, etc) is stored server-side
+ * per admin account, so it's shared across devices/browsers instead of living
+ * only in this one browser's localStorage. */
+async function fetchReportConfig() {
   try {
-    const s = localStorage.getItem('edupla_report_config_v2');
-    return s ? { ...DEFAULT_REPORT_CONFIG, ...JSON.parse(s) } : { ...DEFAULT_REPORT_CONFIG };
-  } catch { return { ...DEFAULT_REPORT_CONFIG }; }
+    const res = await api.get('/admin/report-config');
+    return { ...DEFAULT_REPORT_CONFIG, ...res.data.reportConfig };
+  } catch {
+    return { ...DEFAULT_REPORT_CONFIG };
+  }
 }
-function saveReportConfig(cfg) {
-  localStorage.setItem('edupla_report_config_v2', JSON.stringify(cfg));
+async function persistReportConfig(cfg) {
+  const res = await api.put('/admin/report-config', cfg);
+  return { ...DEFAULT_REPORT_CONFIG, ...res.data.reportConfig };
 }
 
 /* ─────────── Category helpers ─────────── */
@@ -213,9 +219,105 @@ function MultiClassPicker({ classes, selectedIds, onChange, dark }) {
 /* ══════════════════════════════════════════════════════════════════════
    REPORT CONFIG PANEL  — removed: Programme/Qualification, Brand Colors
 ══════════════════════════════════════════════════════════════════════ */
+/* ─────────── Logo Uploader (drag & drop or click to browse) ───────────
+ * Uploading a file goes straight to the server (POST /admin/report-config/logo)
+ * and is saved immediately — no need to press "Save" afterwards — because it's
+ * a single, self-contained action. Removing it (or pasting a URL manually)
+ * still goes through the normal draft/Save flow like every other field. */
+function LogoUploader({ value, onUploaded, onRemove, dark }) {
+  const [dragOver, setDragOver]   = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const inputRef = useRef(null);
+
+  async function handleFile(file) {
+    if (!file) return;
+    const allowed = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/svg+xml'];
+    if (!allowed.includes(file.type)) {
+      toast.error('Please choose a PNG, JPG, WEBP, or SVG image.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Logo must be smaller than 5MB.');
+      return;
+    }
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('logo', file);
+      const res = await api.post('/admin/report-config/logo', formData);
+      onUploaded(res.data.reportConfig);
+      toast.success('Logo uploaded!');
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Error uploading logo');
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <div
+      onClick={() => !uploading && inputRef.current?.click()}
+      onDragOver={e => { e.preventDefault(); if (!uploading) setDragOver(true); }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={e => {
+        e.preventDefault();
+        setDragOver(false);
+        if (uploading) return;
+        const file = e.dataTransfer.files?.[0];
+        if (file) handleFile(file);
+      }}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 14, padding: 14, borderRadius: 12,
+        cursor: uploading ? 'wait' : 'pointer',
+        border: `2px dashed ${dragOver ? '#1a3a6b' : (dark ? '#2a3042' : '#d1d5db')}`,
+        background: dragOver ? (dark ? 'rgba(26,58,107,0.15)' : 'rgba(26,58,107,0.05)') : (dark ? '#1a1f2e' : '#f9fafb'),
+        transition: 'border-color 0.15s, background 0.15s',
+      }}
+    >
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/svg+xml"
+        style={{ display: 'none' }}
+        onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ''; }}
+      />
+      <div style={{
+        width: 56, height: 56, borderRadius: 12, flexShrink: 0, overflow: 'hidden',
+        background: dark ? '#0f1117' : '#fff', border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        {value
+          ? <img src={value} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} onError={e => e.target.style.display = 'none'} />
+          : <UploadCloud size={20} color={dark ? '#4a5168' : '#9ca3af'} />}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: dark ? '#e2e8f0' : '#111827' }}>
+          {uploading ? 'Uploading…' : value ? 'Click or drop to replace logo' : 'Click or drag & drop to upload logo'}
+        </p>
+        <p style={{ margin: '2px 0 0', fontSize: 11, color: dark ? '#7b839a' : '#9ca3af' }}>
+          PNG, JPG, WEBP or SVG · up to 5MB · appears on every printed report
+        </p>
+      </div>
+      {value && (
+        <button
+          type="button"
+          onClick={e => { e.stopPropagation(); onRemove(); }}
+          title="Remove logo"
+          style={{ border: 'none', background: 'none', cursor: 'pointer', color: dark ? '#7b839a' : '#9ca3af', padding: 4, flexShrink: 0 }}
+        >
+          <X size={16} />
+        </button>
+      )}
+    </div>
+  );
+}
+
 function ReportConfigPanel({ config, onChange, dark }) {
   const [draft, setDraft] = useState({ ...config });
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => { setDraft({ ...config }); }, [config]);
 
   const labelSt = {
     fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
@@ -235,7 +337,7 @@ function ReportConfigPanel({ config, onChange, dark }) {
 
   const field = (label, key, type = 'text', placeholder = '') => (
     <div>
-      <label style={labelSt}>{label}</label>
+      {label && <label style={labelSt}>{label}</label>}
       {type === 'textarea'
         ? <textarea value={draft[key] || ''} onChange={e => setDraft(d => ({ ...d, [key]: e.target.value }))} rows={3} placeholder={placeholder} style={{ ...inputSt, resize: 'vertical' }} />
         : <input type={type} value={draft[key] || ''} onChange={e => setDraft(d => ({ ...d, [key]: e.target.value }))} placeholder={placeholder} style={inputSt} />
@@ -243,12 +345,20 @@ function ReportConfigPanel({ config, onChange, dark }) {
     </div>
   );
 
-  function handleSave() {
-    saveReportConfig(draft);
-    onChange(draft);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-    toast.success('Report configuration saved!');
+  async function handleSave() {
+    setSaving(true);
+    try {
+      const saved_ = await persistReportConfig(draft);
+      onChange(saved_);
+      setDraft(saved_);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+      toast.success('Report configuration saved!');
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Error saving report configuration');
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -269,7 +379,19 @@ function ReportConfigPanel({ config, onChange, dark }) {
           {field('District', 'district', 'text', 'DISTRICT ...')}
           <div style={{ gridColumn: '1/-1' }}>{field('School / Lycée Name', 'schoolName', 'text', 'Lycée de Ruhango Ikirezi ...')}</div>
           <div style={{ gridColumn: '1/-1' }}>{field('School Motto / Tagline', 'schoolMotto', 'text', 'Excellence Through Knowledge')}</div>
-          <div style={{ gridColumn: '1/-1' }}>{field('Logo URL (optional)', 'schoolLogoUrl', 'text', 'https://…')}</div>
+          <div style={{ gridColumn: '1/-1' }}>
+            <label style={labelSt}>School Logo</label>
+            <LogoUploader
+              value={draft.schoolLogoUrl}
+              dark={dark}
+              onUploaded={(serverCfg) => { setDraft(d => ({ ...d, schoolLogoUrl: serverCfg.schoolLogoUrl })); onChange(serverCfg); }}
+              onRemove={() => setDraft(d => ({ ...d, schoolLogoUrl: '' }))}
+            />
+            <p style={{ margin: '8px 0 4px', fontSize: 10.5, color: dark ? '#5b6377' : '#9ca3af' }}>
+              Or paste an image URL directly (remember to press Save below):
+            </p>
+            {field('', 'schoolLogoUrl', 'text', 'https://…')}
+          </div>
         </div>
       </div>
 
@@ -311,15 +433,15 @@ function ReportConfigPanel({ config, onChange, dark }) {
         {field('Legend text (shown below the marks table)', 'footerNote', 'textarea')}
       </div>
 
-      <button onClick={handleSave} style={{
+      <button onClick={handleSave} disabled={saving} style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
         padding: '12px 24px', borderRadius: 12, border: 'none',
         background: saved ? 'linear-gradient(135deg,#10b981,#059669)' : 'linear-gradient(135deg,#1a3a6b,#1565c0)',
-        color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer',
-        boxShadow: '0 4px 20px rgba(26,58,107,0.35)', transition: 'all 0.3s',
+        color: '#fff', fontSize: 14, fontWeight: 700, cursor: saving ? 'wait' : 'pointer',
+        boxShadow: '0 4px 20px rgba(26,58,107,0.35)', transition: 'all 0.3s', opacity: saving ? 0.75 : 1,
       }}>
         {saved ? <CheckCircle2 size={16} /> : <Save size={16} />}
-        {saved ? 'Saved Successfully!' : 'Save Report Configuration'}
+        {saving ? 'Saving…' : saved ? 'Saved Successfully!' : 'Save Report Configuration'}
       </button>
     </div>
   );
@@ -334,7 +456,7 @@ export default function AdminAssessments() {
 
   const [tab, setTab]                   = useState('courses');
   const [reportType, setReportType]     = useState('class');
-  const [reportConfig, setReportConfig] = useState(loadReportConfig);
+  const [reportConfig, setReportConfig] = useState({ ...DEFAULT_REPORT_CONFIG });
 
   const [courses,     setCourses]     = useState([]);
   const [teachers,    setTeachers]    = useState([]);
@@ -415,6 +537,7 @@ export default function AdminAssessments() {
   }, []);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
+  useEffect(() => { fetchReportConfig().then(setReportConfig); }, []);
 
   const fetchSubmissions = useCallback(async () => {
     setSubmissionsLoading(true);
@@ -1288,9 +1411,14 @@ export default function AdminAssessments() {
                   <div>
                     <label style={labelStyle}>Term</label>
                     <select value={reportFilter.term} onChange={e => setReportFilter(f => ({ ...f, term: e.target.value }))} style={inputStyle}>
-                      <option value="">All Terms</option>
+                      <option value="">Annual (1st, 2nd, 3rd + Overall)</option>
                       {TERMS.map(t => <option key={t}>{t}</option>)}
                     </select>
+                    <p style={{ margin: '4px 0 0', fontSize: 10.5, color: dark ? '#7b839a' : '#9ca3af' }}>
+                      {reportFilter.term
+                        ? `Only ${reportFilter.term} will be shown on the report.`
+                        : 'Annual report shows all three terms plus the overall annual average.'}
+                    </p>
                   </div>
                   <div>
                     <label style={labelStyle}>Academic Year</label>
@@ -1329,7 +1457,7 @@ export default function AdminAssessments() {
 
           {reportData && (
             <div className="print-area">
-              <ReportView data={reportData} dark={dark} students={students} classes={classes} config={reportConfig} />
+              <ReportView data={reportData} dark={dark} students={students} classes={classes} config={reportConfig} selectedTerm={reportFilter.term || null} />
             </div>
           )}
         </div>
@@ -1571,24 +1699,43 @@ function ReportHeaderPreview({ config }) {
 /* ══════════════════════════════════════════════════════════
    REPORT VIEW ROUTER
 ══════════════════════════════════════════════════════════ */
-function ReportView({ data, dark, students, classes, config }) {
+function ReportView({ data, dark, students, classes, config, selectedTerm }) {
   const printStyle = `
     @media print {
-      @page { margin: 8mm 6mm; size: A4 portrait; }
-      html, body { font-size: 7.5px !important; background: #fff !important; }
+      /* A4 portrait, one report per sheet of paper */
+      @page { margin: 6mm 5mm; size: A4 portrait; }
+      html, body { font-size: 8.5px !important; background: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       .edupla-sidebar, .mobile-overlay, .edupla-topbar, header { display: none !important; }
       .edupla-layout { display: block !important; }
       .edupla-main { width: 100% !important; margin: 0 !important; padding: 0 !important; overflow: visible !important; }
-      .report-student-page { page-break-after: always; box-shadow: none !important; border: none !important; padding: 3mm !important; }
-      .report-student-page:last-child { page-break-after: avoid; }
+      /* Each student's report gets its own page: break AFTER every report so
+         the next one starts fresh on a new sheet, and avoid splitting a
+         single report's content across two pages. */
+      .report-student-page {
+        page-break-after: always !important;
+        break-after: page !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+        box-shadow: none !important;
+        border: none !important;
+        padding: 3mm !important;
+        margin: 0 !important;
+      }
+      .report-student-page:last-child { page-break-after: avoid !important; break-after: auto !important; }
       .print-area { padding: 0 !important; }
     }
   `;
 
   if (data.type === 'class') {
-    const { class: cls, assessments, students: reportStudents } = data;
-    if (!reportStudents || reportStudents.length === 0)
+    const { class: cls, assessments, students: reportStudentsRaw } = data;
+    if (!reportStudentsRaw || reportStudentsRaw.length === 0)
       return <div style={{ textAlign: 'center', padding: 40, color: dark ? '#7b839a' : '#9ca3af' }}>No student data for selected filters.</div>;
+
+    // Display order: ascending rank (rank 1 first). The API already sorts this
+    // way, but we re-sort defensively here too (e.g. against cached results).
+    const rankOf = (s) => (selectedTerm ? s.term_ranks?.[selectedTerm]?.rank : s.rank) ?? Infinity;
+    const reportStudents = [...reportStudentsRaw].sort((a, b) => rankOf(a) - rankOf(b));
+
     return (
       <div>
         <style>{printStyle}</style>
@@ -1601,6 +1748,7 @@ function ReportView({ data, dark, students, classes, config }) {
             allStudents={reportStudents}
             config={config}
             isLast={idx === reportStudents.length - 1}
+            selectedTerm={selectedTerm}
           />
         ))}
       </div>
@@ -1640,6 +1788,7 @@ function ReportView({ data, dark, students, classes, config }) {
           allStudents={[fakeStudent]}
           config={config}
           isLast
+          selectedTerm={selectedTerm}
         />
       </div>
     );
@@ -1702,9 +1851,16 @@ function ReportView({ data, dark, students, classes, config }) {
 }
 
 /* ══════════════════════════════════════════════════════════
-   TVET STUDENT REPORT  (unchanged from original)
+   TVET STUDENT REPORT
+   When `selectedTerm` is set (e.g. "Term 1"), the report shows ONLY that
+   term's columns — no other terms, no annual summary. When it's falsy
+   (the "Annual" option), the full 1st/2nd/3rd term + Annual grid is shown.
 ══════════════════════════════════════════════════════════ */
-function TVETStudentReport({ student, cls, allAssessments, allStudents, config, isLast }) {
+function TVETStudentReport({ student, cls, allAssessments, allStudents, config, isLast, selectedTerm }) {
+  const termsToRender = selectedTerm ? [selectedTerm] : TERMS;
+  const isAnnualView  = !selectedTerm;
+  const selTermIdx    = selectedTerm ? TERMS.indexOf(selectedTerm) : null;
+  const termShortLabel = (t) => (TERMS.indexOf(t) === 0 ? '1ST TERM' : TERMS.indexOf(t) === 1 ? '2ND TERM' : '3RD TERM');
   const pc = config?.primaryColor || '#1a3a6b';
   const reportDate = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
 
@@ -1780,10 +1936,28 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
   const termRanks   = student.term_ranks || {};
   const behaviourMarks = student.behaviour || null;
 
+  /*
+   * The report's final 3-column summary (%, Marks, Decision + Position) is
+   * either the ANNUAL total across all terms, or — when a single term is
+   * selected — that term's own total. Everything downstream reads from
+   * these "final*" values instead of the annual-only ones directly.
+   */
+  const finalLabel     = isAnnualView ? 'ANNUAL' : termShortLabel(selectedTerm);
+  const finalPct       = isAnnualView ? annualPct                    : termTotals[selTermIdx]?.pct ?? null;
+  const finalObtained  = isAnnualView ? annualObtained                : termTotals[selTermIdx]?.obtained ?? null;
+  const finalMax       = isAnnualView ? annualMax                     : termTotals[selTermIdx]?.max ?? null;
+  const finalDecision  = getRwandanDecision(finalPct);
+  const finalRankEntry = isAnnualView ? { rank: annualRank, total: totalRanked } : termRanks[selectedTerm];
+
   const border   = '1px solid #c8cdd8';
   const headerBg = '#e8ecf0';
-  const cellPad  = '3px 4px';
-  const fs       = 7.5;
+  // Base font size scales down slightly as the module list grows so a
+  // curriculum with many modules still fits one A4 portrait page, while
+  // smaller programs get noticeably larger, easier-to-read text.
+  const fs       = Math.max(7.5, Math.min(10.5, 11 - moduleRows.length * 0.15));
+  const scale    = fs / 7.5;
+  const fz       = (n) => Math.round(n * scale * 10) / 10;
+  const cellPad  = `${Math.round(3 * scale * 10) / 10}px ${Math.round(4 * scale * 10) / 10}px`;
 
   function decColor(d) { return d === 'C' ? '#059669' : d === 'P' ? '#b45309' : d === 'NYC' ? '#dc2626' : '#374151'; }
 
@@ -1794,7 +1968,7 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
 
   function VLabel({ text, bg }) {
     return (
-      <div style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', transform: 'rotate(180deg)', fontSize: 6.5, fontWeight: 700, whiteSpace: 'nowrap', lineHeight: 1, padding: '4px 1px', background: bg || 'transparent', color: '#374151' }}>
+      <div style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', transform: 'rotate(180deg)', fontSize: fz(6.5), fontWeight: 700, whiteSpace: 'nowrap', lineHeight: 1, padding: '4px 1px', background: bg || 'transparent', color: '#374151' }}>
         {text}
       </div>
     );
@@ -1806,7 +1980,7 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
         <tbody>
           <tr>
             <td style={{ width: '35%', verticalAlign: 'top', padding: '0 0 4px 0' }}>
-              <div style={{ fontSize: 8, lineHeight: 1.8, color: '#1a1a2e' }}>
+              <div style={{ fontSize: fz(8), lineHeight: 1.8, color: '#1a1a2e' }}>
                 <div style={{ fontWeight: 900 }}>{config?.republic || 'REPUBLIC OF RWANDA'}</div>
                 <div style={{ fontWeight: 700 }}>{config?.ministry || 'MINISTRY OF EDUCATION'}</div>
                 <div>{config?.district || 'DISTRICT ...'}</div>
@@ -1824,7 +1998,7 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
               </div>
             </td>
             <td style={{ width: '35%', verticalAlign: 'top', textAlign: 'right', padding: '0 0 4px 0' }}>
-              <div style={{ fontSize: 8, lineHeight: 1.8, color: '#1a1a2e' }}>
+              <div style={{ fontSize: fz(8), lineHeight: 1.8, color: '#1a1a2e' }}>
                 <div>ACADEMIC YEAR : <strong>{config?.academicYear || ''}</strong></div>
                 <div>CLASS : <strong>{cls?.name || student.class_name || 'N/A'}</strong></div>
                 <div>LEARNER NAME : <strong>{student.name}</strong></div>
@@ -1836,8 +2010,8 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
         </tbody>
       </table>
 
-      <div style={{ border, background: '#f8f9fa', padding: '4px', textAlign: 'center', fontWeight: 900, fontSize: 11, letterSpacing: '0.04em', marginBottom: 0, borderBottom: 'none' }}>
-        LEARNER'S ASSESSMENT REPORT
+      <div style={{ border, background: '#f8f9fa', padding: '4px', textAlign: 'center', fontWeight: 900, fontSize: fz(11), letterSpacing: '0.04em', marginBottom: 0, borderBottom: 'none' }}>
+        LEARNER'S ASSESSMENT REPORT {isAnnualView ? '— ANNUAL REPORT' : `— ${termShortLabel(selectedTerm)} REPORT`}
       </div>
 
       <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 0 }}>
@@ -1860,50 +2034,58 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
       <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', border, marginTop: 0 }}>
         <colgroup>
           <col style={{ width: 16 }} /><col style={{ width: 34 }} /><col style={{ width: 80 }} /><col style={{ width: 22 }} />
-          <col style={{ width: 18 }} /><col style={{ width: 18 }} /><col style={{ width: 18 }} /><col style={{ width: 22 }} />
-          <col style={{ width: 18 }} /><col style={{ width: 18 }} /><col style={{ width: 18 }} /><col style={{ width: 22 }} />
-          <col style={{ width: 18 }} /><col style={{ width: 18 }} /><col style={{ width: 18 }} /><col style={{ width: 22 }} />
+          {termsToRender.map(t => (
+            <Fragment key={`col-${t}`}>
+              <col style={{ width: 18 }} /><col style={{ width: 18 }} /><col style={{ width: 18 }} /><col style={{ width: 22 }} />
+            </Fragment>
+          ))}
           <col style={{ width: 22 }} /><col style={{ width: 22 }} /><col style={{ width: 22 }} />
         </colgroup>
         <thead>
           <tr>
-            <th rowSpan={2} style={{ ...hCell, fontSize: 6 }}>#</th>
-            <th rowSpan={2} style={{ ...hCell, textAlign: 'left', fontSize: 6 }}>Code</th>
-            <th rowSpan={2} style={{ ...hCell, textAlign: 'left', fontSize: 6 }}>Module Title</th>
-            <th rowSpan={2} style={{ ...hCell, fontSize: 6 }}>Max</th>
-            <th colSpan={4} style={{ ...hCell, background: '#d8e3ee', fontSize: 7 }}>1ST TERM</th>
-            <th colSpan={4} style={{ ...hCell, background: '#d8e3ee', fontSize: 7 }}>2ND TERM</th>
-            <th colSpan={4} style={{ ...hCell, background: '#d8e3ee', fontSize: 7 }}>3RD TERM</th>
-            <th colSpan={3} style={{ ...hCell, background: '#b8cfe0', fontSize: 7 }}>ANNUAL</th>
+            <th rowSpan={2} style={{ ...hCell, fontSize: fz(6) }}>#</th>
+            <th rowSpan={2} style={{ ...hCell, textAlign: 'left', fontSize: fz(6) }}>Code</th>
+            <th rowSpan={2} style={{ ...hCell, textAlign: 'left', fontSize: fz(6) }}>Module Title</th>
+            <th rowSpan={2} style={{ ...hCell, fontSize: fz(6) }}>Max</th>
+            {termsToRender.map(t => (
+              <th key={`hdr-${t}`} colSpan={4} style={{ ...hCell, background: '#d8e3ee', fontSize: fz(7) }}>{termShortLabel(t)}</th>
+            ))}
+            <th colSpan={3} style={{ ...hCell, background: '#b8cfe0', fontSize: fz(7) }}>{finalLabel}</th>
           </tr>
           <tr>
-            {TERMS.map((_, ti) => (
-              <>
-                <th key={`h${ti}fa`}  style={{ ...vHeaderCell, background: ti % 2 === 0 ? '#dde8f0' : '#d4e1ec' }}><VLabel text="Formative Assessment" /></th>
-                <th key={`h${ti}ia`}  style={{ ...vHeaderCell, background: ti % 2 === 0 ? '#dde8f0' : '#d4e1ec' }}><VLabel text="Integrated Assessment" /></th>
-                <th key={`h${ti}ca`}  style={{ ...vHeaderCell, background: ti % 2 === 0 ? '#dde8f0' : '#d4e1ec' }}><VLabel text="Comprehensive Assessment" /></th>
-                <th key={`h${ti}avg`} style={{ ...vHeaderCell, background: '#c8d8e8' }}><VLabel text="Average" bg="#c8d8e8" /></th>
-              </>
-            ))}
-            <th style={{ ...vHeaderCell, background: '#b0c8dc' }}><VLabel text="Annual %" bg="#b0c8dc" /></th>
-            <th style={{ ...vHeaderCell, background: '#b0c8dc' }}><VLabel text="Annual Marks" bg="#b0c8dc" /></th>
+            {termsToRender.map((t) => {
+              const ti = TERMS.indexOf(t);
+              return (
+                <Fragment key={`h${ti}`}>
+                  <th style={{ ...vHeaderCell, background: ti % 2 === 0 ? '#dde8f0' : '#d4e1ec' }}><VLabel text="Formative Assessment" /></th>
+                  <th style={{ ...vHeaderCell, background: ti % 2 === 0 ? '#dde8f0' : '#d4e1ec' }}><VLabel text="Integrated Assessment" /></th>
+                  <th style={{ ...vHeaderCell, background: ti % 2 === 0 ? '#dde8f0' : '#d4e1ec' }}><VLabel text="Comprehensive Assessment" /></th>
+                  <th style={{ ...vHeaderCell, background: '#c8d8e8' }}><VLabel text="Average" bg="#c8d8e8" /></th>
+                </Fragment>
+              );
+            })}
+            <th style={{ ...vHeaderCell, background: '#b0c8dc' }}><VLabel text={isAnnualView ? 'Annual %' : 'Term %'} bg="#b0c8dc" /></th>
+            <th style={{ ...vHeaderCell, background: '#b0c8dc' }}><VLabel text={isAnnualView ? 'Annual Marks' : 'Term Marks'} bg="#b0c8dc" /></th>
             <th style={{ ...vHeaderCell, background: '#b0c8dc' }}><VLabel text="Decision" bg="#b0c8dc" /></th>
           </tr>
           <tr style={{ background: '#f5f7fa' }}>
-            <td style={{ ...hCell, fontSize: 6 }} />
-            <td style={{ ...cellLeft, fontWeight: 700, fontSize: 6 }} colSpan={2}>Behaviour</td>
-            <td style={{ ...cell, fontWeight: 700, fontSize: 6 }}>{student.behaviourMax || 40}</td>
-            {TERMS.map((_, ti) => (
-              <>
-                <td key={`bfa${ti}`}  style={{ ...cell, color: '#9ca3af', fontSize: 6 }}>{behaviourMarks?.terms?.[ti]?.FA ?? 'N/A'}</td>
-                <td key={`bia${ti}`}  style={{ ...cell, color: '#9ca3af', fontSize: 6 }}>N/A</td>
-                <td key={`bca${ti}`}  style={{ ...cell, color: '#9ca3af', fontSize: 6 }}>N/A</td>
-                <td key={`bavg${ti}`} style={{ ...cell, fontWeight: 700, fontSize: 6 }}>{behaviourMarks?.terms?.[ti]?.avg ?? '—'}</td>
-              </>
-            ))}
-            <td style={{ ...cell, fontWeight: 700, background: '#f0f4f8', fontSize: 6 }}>{behaviourMarks?.annualPct ?? '—'}</td>
-            <td style={{ ...cell, fontWeight: 700, background: '#f0f4f8', fontSize: 6 }}>{behaviourMarks?.annualMarks ?? '—'}</td>
-            <td style={{ ...cell, fontWeight: 700, color: '#059669', background: '#f0f4f8', fontSize: 6 }}>C</td>
+            <td style={{ ...hCell, fontSize: fz(6) }} />
+            <td style={{ ...cellLeft, fontWeight: 700, fontSize: fz(6) }} colSpan={2}>Behaviour</td>
+            <td style={{ ...cell, fontWeight: 700, fontSize: fz(6) }}>{student.behaviourMax || 40}</td>
+            {termsToRender.map((t) => {
+              const ti = TERMS.indexOf(t);
+              return (
+                <Fragment key={`b${ti}`}>
+                  <td style={{ ...cell, color: '#9ca3af', fontSize: fz(6) }}>{behaviourMarks?.terms?.[ti]?.FA ?? 'N/A'}</td>
+                  <td style={{ ...cell, color: '#9ca3af', fontSize: fz(6) }}>N/A</td>
+                  <td style={{ ...cell, color: '#9ca3af', fontSize: fz(6) }}>N/A</td>
+                  <td style={{ ...cell, fontWeight: 700, fontSize: fz(6) }}>{behaviourMarks?.terms?.[ti]?.avg ?? '—'}</td>
+                </Fragment>
+              );
+            })}
+            <td style={{ ...cell, fontWeight: 700, background: '#f0f4f8', fontSize: fz(6) }}>{isAnnualView ? (behaviourMarks?.annualPct ?? '—') : (behaviourMarks?.terms?.[selTermIdx]?.avg ?? '—')}</td>
+            <td style={{ ...cell, fontWeight: 700, background: '#f0f4f8', fontSize: fz(6) }}>{isAnnualView ? (behaviourMarks?.annualMarks ?? '—') : '—'}</td>
+            <td style={{ ...cell, fontWeight: 700, color: '#059669', background: '#f0f4f8', fontSize: fz(6) }}>C</td>
           </tr>
         </thead>
 
@@ -1913,99 +2095,121 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
             if (catRows.length === 0) return null;
             const cb = catBadge(cat);
             return (
-              <>
-                <tr key={`cat-${cat}`} style={{ background: cb.bg }}>
-                  <td colSpan={19} style={{ padding: '2px 6px', fontSize: 7, fontWeight: 900, color: cb.text, letterSpacing: '0.05em', borderBottom: border, textTransform: 'uppercase', borderTop: `2px solid ${cb.dot}` }}>{cat}</td>
+              <Fragment key={`cat-${cat}`}>
+                <tr style={{ background: cb.bg }}>
+                  <td colSpan={4 + termsToRender.length * 4 + 3} style={{ padding: '2px 6px', fontSize: fz(7), fontWeight: 900, color: cb.text, letterSpacing: '0.05em', borderBottom: border, textTransform: 'uppercase', borderTop: `2px solid ${cb.dot}` }}>{cat}</td>
                 </tr>
-                {catRows.map((row, i) => (
-                  <tr key={row._id} style={{ background: i % 2 === 0 ? '#fff' : '#f9fafc' }}>
-                    <td style={{ ...cell, color: '#9ca3af', fontSize: 6 }}>{i + 1}</td>
-                    <td style={{ ...cellLeft, fontWeight: 700, color: cb.text, fontFamily: 'monospace', fontSize: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.code}</td>
-                    <td style={{ ...cellLeft, fontWeight: 500, textTransform: 'uppercase', fontSize: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={row.name}>{row.name}</td>
-                    <td style={{ ...cell, fontWeight: 700, fontSize: 6 }}>{row.weight}</td>
-                    {row.terms.map((td_, ti) => (
-                      <>
-                        <td key={`r${i}t${ti}fa`}  style={{ ...cell, color: td_.FA != null ? '#374151' : '#ccc', fontSize: 6 }}>{td_.FA != null ? td_.FA : 'N/A'}</td>
-                        <td key={`r${i}t${ti}ia`}  style={{ ...cell, color: td_.IA != null ? '#374151' : '#ccc', fontSize: 6 }}>{td_.IA != null ? td_.IA : 'N/A'}</td>
-                        <td key={`r${i}t${ti}ca`}  style={{ ...cell, color: td_.CA != null ? '#374151' : '#ccc', fontSize: 6 }}>{td_.CA != null ? td_.CA : 'N/A'}</td>
-                        <td key={`r${i}t${ti}avg`} style={{ ...cell, fontWeight: 700, color: pctColor(td_.avg), background: '#f8f9fc', fontSize: 6 }}>{td_.avg != null ? td_.avg + '%' : '—'}</td>
-                      </>
-                    ))}
-                    <td style={{ ...cell, fontWeight: 800, color: pctColor(row.annualAvg), background: '#f0f4f8', fontSize: 6 }}>{row.annualAvg != null ? row.annualAvg + '%' : '—'}</td>
-                    <td style={{ ...cell, fontWeight: 800, color: pctColor(row.annualAvg), background: '#f0f4f8', fontSize: 6 }}>{row.annualMarks != null ? row.annualMarks : '—'}</td>
-                    <td style={{ ...cell, fontWeight: 800, color: decColor(row.decision), background: '#f0f4f8', fontSize: 6 }}>{row.annualAvg != null ? row.decision : '—'}</td>
-                  </tr>
-                ))}
-              </>
+                {catRows.map((row, i) => {
+                  const finalRowSrc = isAnnualView
+                    ? { avg: row.annualAvg, marks: row.annualMarks, decision: row.decision }
+                    : { avg: row.terms[selTermIdx]?.avg ?? null, marks: row.terms[selTermIdx]?.obtained ?? null, decision: getRwandanDecision(row.terms[selTermIdx]?.avg ?? null) };
+                  return (
+                    <tr key={row._id} style={{ background: i % 2 === 0 ? '#fff' : '#f9fafc' }}>
+                      <td style={{ ...cell, color: '#9ca3af', fontSize: fz(6) }}>{i + 1}</td>
+                      <td style={{ ...cellLeft, fontWeight: 700, color: cb.text, fontFamily: 'monospace', fontSize: fz(6), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.code}</td>
+                      <td style={{ ...cellLeft, fontWeight: 500, textTransform: 'uppercase', fontSize: fz(6), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={row.name}>{row.name}</td>
+                      <td style={{ ...cell, fontWeight: 700, fontSize: fz(6) }}>{row.weight}</td>
+                      {termsToRender.map((t) => {
+                        const ti = TERMS.indexOf(t);
+                        const td_ = row.terms[ti];
+                        return (
+                          <Fragment key={`r${row._id}t${ti}`}>
+                            <td style={{ ...cell, color: td_.FA != null ? '#374151' : '#ccc', fontSize: fz(6) }}>{td_.FA != null ? td_.FA : 'N/A'}</td>
+                            <td style={{ ...cell, color: td_.IA != null ? '#374151' : '#ccc', fontSize: fz(6) }}>{td_.IA != null ? td_.IA : 'N/A'}</td>
+                            <td style={{ ...cell, color: td_.CA != null ? '#374151' : '#ccc', fontSize: fz(6) }}>{td_.CA != null ? td_.CA : 'N/A'}</td>
+                            <td style={{ ...cell, fontWeight: 700, color: pctColor(td_.avg), background: '#f8f9fc', fontSize: fz(6) }}>{td_.avg != null ? td_.avg + '%' : '—'}</td>
+                          </Fragment>
+                        );
+                      })}
+                      <td style={{ ...cell, fontWeight: 800, color: pctColor(finalRowSrc.avg), background: '#f0f4f8', fontSize: fz(6) }}>{finalRowSrc.avg != null ? finalRowSrc.avg + '%' : '—'}</td>
+                      <td style={{ ...cell, fontWeight: 800, color: pctColor(finalRowSrc.avg), background: '#f0f4f8', fontSize: fz(6) }}>{finalRowSrc.marks != null ? finalRowSrc.marks : '—'}</td>
+                      <td style={{ ...cell, fontWeight: 800, color: decColor(finalRowSrc.decision), background: '#f0f4f8', fontSize: fz(6) }}>{finalRowSrc.avg != null ? finalRowSrc.decision : '—'}</td>
+                    </tr>
+                  );
+                })}
+              </Fragment>
             );
           })}
         </tbody>
 
         <tfoot>
           <tr style={{ background: headerBg }}>
-            <td colSpan={3} style={{ ...hCell, textAlign: 'right', fontSize: 6 }}>Total Weights assessed:</td>
-            <td style={{ ...hCell, fontSize: 6 }}>{moduleRows.reduce((s, r) => s + r.weight, 0)}</td>
-            {termTotals.map((t, ti) => (
-              <>
-                <td key={`tf${ti}`} style={{ ...hCell, fontSize: 6 }}>—</td>
-                <td key={`ti${ti}`} style={{ ...hCell, fontSize: 6 }}>—</td>
-                <td key={`tc${ti}`} style={{ ...hCell, fontSize: 6 }}>—</td>
-                <td key={`ta${ti}`} style={{ ...hCell, color: pctColor(t.pct), fontSize: 6 }}>{t.obtained || 0}</td>
-              </>
-            ))}
-            <td style={{ ...hCell, background: '#b0c8dc', color: pctColor(annualPct), fontSize: 6 }}>{annualPct != null ? annualPct + '%' : '—'}</td>
-            <td style={{ ...hCell, background: '#b0c8dc', color: pctColor(annualPct), fontSize: 6 }}>{annualObtained || '—'}</td>
-            <td style={{ ...hCell, background: '#b0c8dc', color: decColor(getRwandanDecision(annualPct)), fontSize: 6 }}>{getRwandanDecision(annualPct)}</td>
-          </tr>
-          <tr style={{ background: '#f5f7fa' }}>
-            <td colSpan={3} style={{ ...hCell, textAlign: 'right', fontSize: 6 }}>TOTAL :</td>
-            <td style={{ ...hCell, fontSize: 6 }}>{moduleRows.reduce((s, r) => s + r.weight, 0)}</td>
-            {termTotals.map((t, ti) => (
-              <>
-                <td key={`tf2${ti}`} style={{ ...cell, fontSize: 6 }} />
-                <td key={`ti2${ti}`} style={{ ...cell, fontSize: 6 }} />
-                <td key={`tc2${ti}`} style={{ ...cell, fontSize: 6 }} />
-                <td key={`ta2${ti}`} style={{ ...hCell, color: pctColor(t.pct), fontSize: 6 }}>{t.obtained || 0}</td>
-              </>
-            ))}
-            <td style={{ ...hCell, background: '#b0c8dc', color: pctColor(annualPct), fontSize: 6 }}>{annualPct != null ? annualPct + '%' : '—'}</td>
-            <td style={{ ...hCell, background: '#b0c8dc', color: pctColor(annualPct), fontSize: 6 }}>{annualObtained}</td>
-            <td style={{ ...hCell, background: '#b0c8dc', fontSize: 6 }}>{annualMax}</td>
-          </tr>
-          <tr>
-            <td colSpan={3} style={{ ...hCell, textAlign: 'right', fontSize: 6 }}>PERCENTAGE :</td>
-            <td style={{ ...cell, fontSize: 6 }} />
-            {termTotals.map((t, ti) => (
-              <>
-                <td key={`pf${ti}`} style={{ ...cell, fontSize: 6 }} />
-                <td key={`pi${ti}`} style={{ ...cell, fontSize: 6 }} />
-                <td key={`pc${ti}`} style={{ ...cell, fontSize: 6 }} />
-                <td key={`pa${ti}`} style={{ ...hCell, color: pctColor(t.pct), fontSize: 6 }}>{t.pct != null ? t.pct + '%' : '—'}</td>
-              </>
-            ))}
-            <td colSpan={3} style={{ ...hCell, background: '#b0c8dc', color: pctColor(annualPct), fontWeight: 900, fontSize: 7 }}>{annualPct != null ? annualPct.toFixed(2) + '%' : '—'}</td>
-          </tr>
-          <tr>
-            <td colSpan={3} style={{ ...hCell, textAlign: 'right', fontSize: 6 }}>POSITION :</td>
-            <td style={{ ...cell, fontSize: 6 }} />
-            {TERMS.map((term, ti) => {
-              const tr_ = termRanks[term];
-              const posLabel = tr_ ? `${tr_.rank}/${tr_.total}` : '—';
+            <td colSpan={3} style={{ ...hCell, textAlign: 'right', fontSize: fz(6) }}>Total Weights assessed:</td>
+            <td style={{ ...hCell, fontSize: fz(6) }}>{moduleRows.reduce((s, r) => s + r.weight, 0)}</td>
+            {termsToRender.map((t) => {
+              const ti = TERMS.indexOf(t);
+              const tt = termTotals[ti];
               return (
-                <>
-                  <td key={`posf${ti}`} style={{ ...cell, fontSize: 6 }} />
-                  <td key={`posi${ti}`} style={{ ...cell, fontSize: 6 }} />
-                  <td key={`posc${ti}`} style={{ ...cell, fontSize: 6 }} />
-                  <td key={`posa${ti}`} style={{ ...hCell, fontSize: 6, color: tr_ ? '#1a3a6b' : '#9ca3af' }}>{posLabel}</td>
-                </>
+                <Fragment key={`tf${ti}`}>
+                  <td style={{ ...hCell, fontSize: fz(6) }}>—</td>
+                  <td style={{ ...hCell, fontSize: fz(6) }}>—</td>
+                  <td style={{ ...hCell, fontSize: fz(6) }}>—</td>
+                  <td style={{ ...hCell, color: pctColor(tt.pct), fontSize: fz(6) }}>{tt.obtained || 0}</td>
+                </Fragment>
               );
             })}
-            <td colSpan={3} style={{ ...hCell, background: '#b0c8dc', fontSize: 7, fontWeight: 900, color: annualRank ? '#1a3a6b' : '#9ca3af' }}>
-              {annualRank ? `${annualRank}/${totalRanked}` : '—'}
+            <td style={{ ...hCell, background: '#b0c8dc', color: pctColor(finalPct), fontSize: fz(6) }}>{finalPct != null ? finalPct + '%' : '—'}</td>
+            <td style={{ ...hCell, background: '#b0c8dc', color: pctColor(finalPct), fontSize: fz(6) }}>{finalObtained || '—'}</td>
+            <td style={{ ...hCell, background: '#b0c8dc', color: decColor(finalDecision), fontSize: fz(6) }}>{finalDecision}</td>
+          </tr>
+          <tr style={{ background: '#f5f7fa' }}>
+            <td colSpan={3} style={{ ...hCell, textAlign: 'right', fontSize: fz(6) }}>TOTAL :</td>
+            <td style={{ ...hCell, fontSize: fz(6) }}>{moduleRows.reduce((s, r) => s + r.weight, 0)}</td>
+            {termsToRender.map((t) => {
+              const ti = TERMS.indexOf(t);
+              const tt = termTotals[ti];
+              return (
+                <Fragment key={`tf2${ti}`}>
+                  <td style={{ ...cell, fontSize: fz(6) }} />
+                  <td style={{ ...cell, fontSize: fz(6) }} />
+                  <td style={{ ...cell, fontSize: fz(6) }} />
+                  <td style={{ ...hCell, color: pctColor(tt.pct), fontSize: fz(6) }}>{tt.obtained || 0}</td>
+                </Fragment>
+              );
+            })}
+            <td style={{ ...hCell, background: '#b0c8dc', color: pctColor(finalPct), fontSize: fz(6) }}>{finalPct != null ? finalPct + '%' : '—'}</td>
+            <td style={{ ...hCell, background: '#b0c8dc', color: pctColor(finalPct), fontSize: fz(6) }}>{finalObtained}</td>
+            <td style={{ ...hCell, background: '#b0c8dc', fontSize: fz(6) }}>{finalMax}</td>
+          </tr>
+          <tr>
+            <td colSpan={3} style={{ ...hCell, textAlign: 'right', fontSize: fz(6) }}>PERCENTAGE :</td>
+            <td style={{ ...cell, fontSize: fz(6) }} />
+            {termsToRender.map((t) => {
+              const ti = TERMS.indexOf(t);
+              const tt = termTotals[ti];
+              return (
+                <Fragment key={`pf${ti}`}>
+                  <td style={{ ...cell, fontSize: fz(6) }} />
+                  <td style={{ ...cell, fontSize: fz(6) }} />
+                  <td style={{ ...cell, fontSize: fz(6) }} />
+                  <td style={{ ...hCell, color: pctColor(tt.pct), fontSize: fz(6) }}>{tt.pct != null ? tt.pct + '%' : '—'}</td>
+                </Fragment>
+              );
+            })}
+            <td colSpan={3} style={{ ...hCell, background: '#b0c8dc', color: pctColor(finalPct), fontWeight: 900, fontSize: fz(7) }}>{finalPct != null ? finalPct.toFixed(2) + '%' : '—'}</td>
+          </tr>
+          <tr>
+            <td colSpan={3} style={{ ...hCell, textAlign: 'right', fontSize: fz(6) }}>POSITION :</td>
+            <td style={{ ...cell, fontSize: fz(6) }} />
+            {termsToRender.map((t) => {
+              const ti = TERMS.indexOf(t);
+              const tr_ = termRanks[t];
+              const posLabel = tr_ ? `${tr_.rank}/${tr_.total}` : '—';
+              return (
+                <Fragment key={`pos${ti}`}>
+                  <td style={{ ...cell, fontSize: fz(6) }} />
+                  <td style={{ ...cell, fontSize: fz(6) }} />
+                  <td style={{ ...cell, fontSize: fz(6) }} />
+                  <td style={{ ...hCell, fontSize: fz(6), color: tr_ ? '#1a3a6b' : '#9ca3af' }}>{posLabel}</td>
+                </Fragment>
+              );
+            })}
+            <td colSpan={3} style={{ ...hCell, background: '#b0c8dc', fontSize: fz(7), fontWeight: 900, color: finalRankEntry?.rank ? '#1a3a6b' : '#9ca3af' }}>
+              {finalRankEntry?.rank ? `${finalRankEntry.rank}/${finalRankEntry.total}` : '—'}
             </td>
           </tr>
           <tr>
-            <td colSpan={19} style={{ padding: '4px 8px', fontSize: 7, borderBottom: border, background: '#f8f9fa' }}>
+            <td colSpan={4 + termsToRender.length * 4 + 3} style={{ padding: '4px 8px', fontSize: fz(7), borderBottom: border, background: '#f8f9fa' }}>
               <strong>{cls?.teacher?.name || config?.classTrainer || 'Class Trainer'}</strong> (Class Trainer)'s Comments &amp; signature :
               <span style={{ display: 'inline-block', width: 180, borderBottom: '1px solid #999', marginLeft: 8, verticalAlign: 'bottom' }} />
             </td>
@@ -2017,7 +2221,7 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
         <tbody>
           <tr>
             <td style={{ verticalAlign: 'top', padding: '3px 8px 0 0', width: '55%' }}>
-              <div style={{ fontSize: 7, color: '#374151', lineHeight: 1.9 }}>
+              <div style={{ fontSize: fz(7), color: '#374151', lineHeight: 1.9 }}>
                 <div><strong>N/A:</strong> Not Applicable · <strong style={{ color: '#059669' }}>C:</strong> Competent · <strong style={{ color: '#dc2626' }}>NYC:</strong> Not Yet Competent · <strong style={{ color: '#b45309' }}>P:</strong> In progress</div>
                 <div><strong>Passing Line:</strong> 50% for complementary modules; <strong>70%</strong> for general &amp; specific modules.</div>
                 <div><strong>Term Average:</strong> (Formative Assessment% + Comprehensive Assessment%) ÷ 2.</div>
@@ -2026,26 +2230,26 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
               </div>
             </td>
             <td style={{ verticalAlign: 'top', padding: '0 8px', width: '25%', borderLeft: '1px solid #dee2e6' }}>
-              <div style={{ fontSize: 7.5, fontWeight: 800, marginBottom: 3 }}>Deliberation :</div>
+              <div style={{ fontSize: fz(7.5), fontWeight: 800, marginBottom: 3 }}>Deliberation :</div>
               {['Promoted at 1st sitting', 'Promoted after re-assessment', 'Re-assessment required', 'Advised to repeat', 'Dismissed'].map(opt => (
-                <div key={opt} style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3, fontSize: 7 }}>
+                <div key={opt} style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3, fontSize: fz(7) }}>
                   <div style={{ width: 10, height: 10, border: '1px solid #999', borderRadius: 2, flexShrink: 0 }} />
                   <span>{opt}</span>
                 </div>
               ))}
             </td>
             <td style={{ verticalAlign: 'bottom', textAlign: 'center', padding: '0 0 0 8px', width: '20%', borderLeft: '1px solid #dee2e6' }}>
-              <div style={{ fontSize: 7, color: '#6b7280', marginBottom: 22 }}>Date: {reportDate}</div>
+              <div style={{ fontSize: fz(7), color: '#6b7280', marginBottom: 22 }}>Date: {reportDate}</div>
               <div style={{ borderTop: '1px solid #374151', paddingTop: 4, marginTop: 4 }}>
-                <div style={{ fontSize: 8, fontWeight: 800, color: '#1a1a2e' }}>{config?.managerName || 'School Principal'}</div>
-                <div style={{ fontSize: 7, color: '#6b7280' }}>{config?.managerTitle || 'School Principal'}</div>
+                <div style={{ fontSize: fz(8), fontWeight: 800, color: '#1a1a2e' }}>{config?.managerName || 'School Principal'}</div>
+                <div style={{ fontSize: fz(7), color: '#6b7280' }}>{config?.managerTitle || 'School Principal'}</div>
               </div>
             </td>
           </tr>
         </tbody>
       </table>
 
-      <div style={{ marginTop: 5, textAlign: 'center', fontSize: 6.5, color: '#d1d5db' }}>
+      <div style={{ marginTop: 5, textAlign: 'center', fontSize: fz(6.5), color: '#d1d5db' }}>
         Report generated by {config?.schoolName || 'EDUPLA'} Academic Management System · {reportDate}
       </div>
     </div>

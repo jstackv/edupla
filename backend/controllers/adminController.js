@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
-const { User, Class, Assignment, Document, Announcement, Level, Trade, Submission, ProgramConfig } = require('../models/db');
+const { User, Class, Assignment, Document, Announcement, Level, Trade, Submission, ProgramConfig, ReportConfig } = require('../models/db');
 
 // Resolves a programConfigId (scoped to this admin) into the snapshot fields
 // stored directly on the Class document. Returns nulls if no id given or not found.
@@ -628,6 +628,70 @@ const deleteProgramConfig = async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
+// ── ReportConfig — school header/branding shown on printed assessment reports ──
+// One document per admin account (upserted), so it persists server-side instead
+// of living in the browser's localStorage.
+const REPORT_CONFIG_DEFAULTS = {
+  republic: 'REPUBLIC OF RWANDA',
+  ministry: 'MINISTRY OF EDUCATION',
+  district: '',
+  schoolName: 'EDUPLA Academy',
+  schoolMotto: 'Excellence Through Knowledge',
+  schoolLogoUrl: '',
+  schoolAddress: '',
+  schoolPhone: '',
+  schoolEmail: '',
+  schoolWebsite: '',
+  managerName: '',
+  managerTitle: 'School Principal',
+  footerNote: "Module Weight = Module's learning hours = Credit × 10. Passing Line: 50% for mathematics, sciences and complementary modules while 70% is for core modules (specific and general modules). Module Annual Average: (Average of Integrated A + Average of Comprehensive A) / number of assessed terms.",
+  primaryColor: '#1a3a6b',
+  accentColor: '#1565c0',
+  academicYear: '',
+};
+const REPORT_CONFIG_FIELDS = Object.keys(REPORT_CONFIG_DEFAULTS);
+
+const getReportConfig = async (req, res) => {
+  try {
+    const adminId = req.user.id;
+    const cfg = await ReportConfig.findOne({ created_by: adminId }).lean();
+    res.json({ reportConfig: { ...REPORT_CONFIG_DEFAULTS, ...(cfg || {}) } });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+const saveReportConfig = async (req, res) => {
+  try {
+    const adminId = req.user.id;
+    const update = {};
+    REPORT_CONFIG_FIELDS.forEach(key => {
+      if (req.body[key] !== undefined) update[key] = String(req.body[key] ?? '').trim();
+    });
+    const cfg = await ReportConfig.findOneAndUpdate(
+      { created_by: adminId },
+      { $set: update, $setOnInsert: { created_by: adminId } },
+      { new: true, upsert: true }
+    ).lean();
+    res.json({ reportConfig: { ...REPORT_CONFIG_DEFAULTS, ...cfg }, message: 'Report configuration saved' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+// Uploads a school logo image (Cloudinary, via the `logoUpload` multer
+// middleware) and immediately persists its URL onto the admin's ReportConfig,
+// so it shows up on every printed student report right away.
+const uploadReportLogo = async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ message: 'No logo file uploaded' });
+    const adminId = req.user.id;
+    const logoUrl = req.file.path; // Cloudinary secure URL
+    const cfg = await ReportConfig.findOneAndUpdate(
+      { created_by: adminId },
+      { $set: { schoolLogoUrl: logoUrl }, $setOnInsert: { created_by: adminId } },
+      { new: true, upsert: true }
+    ).lean();
+    res.json({ reportConfig: { ...REPORT_CONFIG_DEFAULTS, ...cfg }, logoUrl, message: 'Logo uploaded' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
 module.exports = {
   getDashboardStats, getTeachers, createTeacher, updateTeacher, deleteTeacher,
   getAllClasses, adminCreateClass, adminUpdateClass, adminDeleteClass, adminAssignClassToTeacher,
@@ -638,5 +702,6 @@ module.exports = {
   getLevels, createLevel, deleteLevel, updateLevel,
   getTrades, createTrade, deleteTrade, updateTrade,
   getProgramConfigs, createProgramConfig, updateProgramConfig, deleteProgramConfig,
+  getReportConfig, saveReportConfig, uploadReportLogo,
   toggleTeacherStatus, toggleStudentStatus, toggleClassStatus, toggleAdminStatus,
 };

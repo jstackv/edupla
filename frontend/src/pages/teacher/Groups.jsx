@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef, createContext, useContext } from 'react';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
+import { showChatToast, markMessageSeen, setActiveConversation, clearActiveConversation } from '../../utils/chatNotify';
 import { useAuth } from '../../context/AuthContext';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import {
@@ -9,6 +10,7 @@ import {
   StopCircle, WifiOff,
   Mic, Square, Play, Pause,
   Zap, ZapOff, Radio, MessageCircle,
+  UserPlus, UserMinus, ArrowLeftRight,
 } from 'lucide-react';
 
 /* ── Exclusive audio playback context ───────────────────────────────────
@@ -88,7 +90,7 @@ function GroupCard({ g, onOpen, onDelete, active }) {
   const initials = (g.name || 'G').slice(0, 2).toUpperCase();
   return (
     <div
-      className="group relative flex items-center gap-3 px-4 py-3.5 cursor-pointer transition-all"
+      className="tg-group-card group relative flex items-center gap-3 px-4 py-3.5 cursor-pointer"
       style={{
         borderBottom: '1px solid var(--card-border)',
         background: active
@@ -151,6 +153,7 @@ function GroupCard({ g, onOpen, onDelete, active }) {
 function CreateGroupPanel({ onClose, onCreated }) {
   const [classes, setClasses]   = useState([]);
   const [students, setStudents] = useState([]);
+  const [existingGroups, setExistingGroups] = useState([]); // this teacher's other groups in the selected class
   const [form, setForm]         = useState({ name: '', classId: '' });
   const [selected, setSelected] = useState(new Set());
   const [teamLeaderId, setTeamLeaderId] = useState('');
@@ -163,15 +166,26 @@ function CreateGroupPanel({ onClose, onCreated }) {
   }, []);
 
   useEffect(() => {
-    if (!form.classId) { setStudents([]); setSelected(new Set()); setTeamLeaderId(''); return; }
+    if (!form.classId) { setStudents([]); setSelected(new Set()); setTeamLeaderId(''); setExistingGroups([]); return; }
     setLoadingStudents(true);
-    api.get(`/classes/${form.classId}/students`)
-      .then(r => setStudents((r.data.students || []).map(s => ({ id: s._id || s.id, name: s.name }))))
+    Promise.all([
+      api.get(`/classes/${form.classId}/students`),
+      api.get('/group-discussions', { params: { classId: form.classId } }),
+    ])
+      .then(([studentsRes, groupsRes]) => {
+        setStudents((studentsRes.data.students || []).map(s => ({ id: s._id || s.id, name: s.name })));
+        setExistingGroups(groupsRes.data.groups || []);
+      })
       .catch(() => toast.error('Failed to load students'))
       .finally(() => setLoadingStudents(false));
   }, [form.classId]);
 
+  // studentId -> the group of yours (in this class) they already belong to
+  const busyElsewhere = new Map();
+  existingGroups.forEach(g => (g.members || []).forEach(m => busyElsewhere.set(String(m.id), g)));
+
   const toggleStudent = (id) => setSelected(prev => {
+    if (busyElsewhere.has(id)) return prev;
     const next = new Set(prev);
     if (next.has(id)) { next.delete(id); if (teamLeaderId === id) setTeamLeaderId(''); }
     else next.add(id);
@@ -179,6 +193,7 @@ function CreateGroupPanel({ onClose, onCreated }) {
   });
 
   const filteredStudents = students.filter(s => s.name.toLowerCase().includes(studentSearch.toLowerCase()));
+  const selectableStudents = students.filter(s => !busyElsewhere.has(s.id));
   const selectedStudents = students.filter(s => selected.has(s.id));
 
   const handleSubmit = async () => {
@@ -213,7 +228,7 @@ function CreateGroupPanel({ onClose, onCreated }) {
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-5 space-y-5">
+      <div className="flex-1 overflow-y-auto tg-scroll p-5 space-y-5">
         <div>
           <label className="block text-[11px] font-bold mb-1.5 uppercase tracking-widest" style={{ color: 'var(--text-secondary)' }}>Group Name *</label>
           <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
@@ -236,9 +251,9 @@ function CreateGroupPanel({ onClose, onCreated }) {
             <div className="flex items-center justify-between mb-2">
               <label className="text-[11px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-secondary)' }}>Students *</label>
               {students.length > 0 && (
-                <button onClick={() => { if (selected.size === students.length) { setSelected(new Set()); setTeamLeaderId(''); } else setSelected(new Set(students.map(s => s.id))); }}
+                <button onClick={() => { if (selected.size === selectableStudents.length) { setSelected(new Set()); setTeamLeaderId(''); } else setSelected(new Set(selectableStudents.map(s => s.id))); }}
                   className="text-xs font-semibold" style={{ color: '#6366f1' }}>
-                  {selected.size === students.length ? 'Deselect all' : 'Select all'}
+                  {selected.size === selectableStudents.length && selectableStudents.length > 0 ? 'Deselect all' : 'Select all'}
                 </button>
               )}
             </div>
@@ -254,23 +269,31 @@ function CreateGroupPanel({ onClose, onCreated }) {
               <p className="text-sm text-center py-4" style={{ color: 'var(--text-secondary)' }}>{students.length === 0 ? 'No students enrolled.' : 'No matches.'}</p>
             ) : (
               <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--card-border)', maxHeight: 220, overflowY: 'auto' }}>
-                {filteredStudents.map(s => (
-                  <label key={s.id} className="flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-all hover:opacity-80"
-                    style={{ borderBottom: '1px solid var(--card-border)', background: selected.has(s.id) ? 'rgba(99,102,241,0.07)' : undefined }}>
-                    <div className="relative flex-shrink-0">
-                      <input type="checkbox" checked={selected.has(s.id)} onChange={() => toggleStudent(s.id)} className="sr-only" />
-                      <div className="w-[18px] h-[18px] rounded-[5px] flex items-center justify-center transition-all"
-                        style={{ background: selected.has(s.id) ? 'linear-gradient(135deg, #6366f1, #4f46e5)' : 'transparent', border: selected.has(s.id) ? 'none' : '1.5px solid var(--card-border)' }}>
-                        {selected.has(s.id) && <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+                {filteredStudents.map(s => {
+                  const elsewhere = busyElsewhere.get(s.id);
+                  return (
+                    <label key={s.id} className={`flex items-center gap-3 px-3 py-2.5 transition-all ${elsewhere ? 'cursor-not-allowed opacity-55' : 'cursor-pointer hover:opacity-80'}`}
+                      style={{ borderBottom: '1px solid var(--card-border)', background: selected.has(s.id) ? 'rgba(99,102,241,0.07)' : undefined }}>
+                      <div className="relative flex-shrink-0">
+                        <input type="checkbox" checked={selected.has(s.id)} disabled={!!elsewhere} onChange={() => toggleStudent(s.id)} className="sr-only" />
+                        <div className="w-[18px] h-[18px] rounded-[5px] flex items-center justify-center transition-all"
+                          style={{ background: selected.has(s.id) ? 'linear-gradient(135deg, #6366f1, #4f46e5)' : 'transparent', border: selected.has(s.id) ? 'none' : '1.5px solid var(--card-border)' }}>
+                          {selected.has(s.id) && <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+                        </div>
                       </div>
-                    </div>
-                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-                      style={{ background: 'linear-gradient(135deg, #059669, #0d9488)' }}>
-                      {s.name[0].toUpperCase()}
-                    </div>
-                    <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{s.name}</span>
-                  </label>
-                ))}
+                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                        style={{ background: 'linear-gradient(135deg, #059669, #0d9488)' }}>
+                        {s.name[0].toUpperCase()}
+                      </div>
+                      <span className="text-sm font-medium flex-1" style={{ color: 'var(--text-primary)' }}>{s.name}</span>
+                      {elsewhere && (
+                        <span className="text-[10px] font-semibold flex-shrink-0" style={{ color: 'var(--text-secondary)' }}>
+                          in {elsewhere.name}
+                        </span>
+                      )}
+                    </label>
+                  );
+                })}
               </div>
             )}
             {selected.size > 0 && <p className="text-xs mt-2 font-semibold" style={{ color: '#6366f1' }}>{selected.size} selected</p>}
@@ -491,7 +514,267 @@ function MembersModal({ group, onClose }) {
   );
 }
 
-function GroupViewer({ group, myId, onClose, onMessageSent, onEnded }) {
+/* ── Manage members modal (teacher) ───────────────────────────────────
+   Lets any teacher assigned to the group's class add students who are
+   enrolled in the class but not yet members, or remove existing members
+   (the team leader can't be removed this way). Each add/remove sends the
+   affected student an in-app notification, wherever they are in the app. */
+function ManageMembersModal({ group, onClose, onChanged }) {
+  const [a, b] = groupColor(group.id);
+  const [roster, setRoster] = useState([]);
+  const [loadingRoster, setLoadingRoster] = useState(true);
+  const [siblingGroups, setSiblingGroups] = useState([]); // this teacher's other groups in the same class
+  const [search, setSearch] = useState('');
+  const [selected, setSelected] = useState(new Set());
+  const [adding, setAdding] = useState(false);
+  const [removingId, setRemovingId] = useState(null);
+  const [confirmRemove, setConfirmRemove] = useState(null);
+  const [movePickerFor, setMovePickerFor] = useState(null); // member id whose "move to…" dropdown is open
+  const [confirmMove, setConfirmMove] = useState(null); // { member, toGroup }
+  const [movingId, setMovingId] = useState(null);
+
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => { document.body.style.overflow = ''; window.removeEventListener('keydown', onKey); };
+  }, [onClose]);
+
+  useEffect(() => {
+    api.get(`/classes/${group.class_id}/students`)
+      .then(r => setRoster((r.data.students || []).map(s => ({ id: s._id || s.id, name: s.name }))))
+      .catch(() => toast.error('Failed to load class roster'))
+      .finally(() => setLoadingRoster(false));
+  }, [group.class_id]);
+
+  useEffect(() => {
+    api.get('/group-discussions', { params: { classId: group.class_id } })
+      .then(r => setSiblingGroups((r.data.groups || []).filter(g => g.id !== group.id)))
+      .catch(() => {});
+  }, [group.class_id, group.id]);
+
+  const memberIds = new Set((group.members || []).map(m => String(m.id)));
+  // studentId -> the OTHER group of yours (same class) they already belong to, if any
+  const busyElsewhere = new Map();
+  siblingGroups.forEach(g => (g.members || []).forEach(m => busyElsewhere.set(String(m.id), g)));
+
+  const nonMembers = roster.filter(s => !memberIds.has(String(s.id)));
+  const filteredNonMembers = nonMembers.filter(s => s.name.toLowerCase().includes(search.toLowerCase()));
+
+  const toggleSelect = (id) => setSelected(prev => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+
+  const handleAdd = async () => {
+    if (selected.size === 0) return;
+    setAdding(true);
+    try {
+      const res = await api.post(`/group-discussions/${group.id}/members`, { studentIds: [...selected] });
+      toast.success(res.data.message || 'Students added to the group');
+      setSelected(new Set());
+      onChanged();
+    } catch (err) { toast.error(err.response?.data?.message || 'Failed to add students'); }
+    finally { setAdding(false); }
+  };
+
+  const handleRemove = async (studentId) => {
+    setRemovingId(studentId);
+    try {
+      await api.delete(`/group-discussions/${group.id}/members/${studentId}`);
+      toast.success('Student removed from the group');
+      setConfirmRemove(null);
+      onChanged();
+    } catch (err) { toast.error(err.response?.data?.message || 'Failed to remove student'); }
+    finally { setRemovingId(null); }
+  };
+
+  const handleMove = async (studentId, toGroupId) => {
+    setMovingId(studentId);
+    try {
+      const res = await api.post(`/group-discussions/${group.id}/members/${studentId}/move`, { toGroupId });
+      toast.success(res.data.message || 'Student moved');
+      setConfirmMove(null);
+      setMovePickerFor(null);
+      onChanged();
+    } catch (err) { toast.error(err.response?.data?.message || 'Failed to move student'); }
+    finally { setMovingId(null); }
+  };
+
+  return (
+    <div onClick={e => { if (e.target === e.currentTarget) onClose(); }} className="fast-modal-backdrop">
+      <div onClick={e => e.stopPropagation()} className="fast-modal-sheet" style={{ maxWidth: 460, maxHeight: 'min(88vh, calc(100vh - 64px))' }}>
+        <div style={{ height: 4, background: `linear-gradient(90deg, ${a}, ${b})`, flexShrink: 0 }} />
+        {/* Header */}
+        <div style={{ background: `linear-gradient(135deg, ${a}, ${b})`, padding: '18px 20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <UserPlus style={{ width: 16, height: 16, color: '#fff' }} />
+              </div>
+              <div>
+                <div style={{ color: '#fff', fontWeight: 700, fontSize: 15 }}>Manage Members</div>
+                <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 11 }}>{group.name}</div>
+              </div>
+            </div>
+            <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <X style={{ width: 14, height: 14 }} />
+            </button>
+          </div>
+        </div>
+
+        <div className="tg-scroll" style={{ flex: 1, overflowY: 'auto', padding: '16px 18px' }}>
+          {/* Current members */}
+          <div style={{ marginBottom: 20 }}>
+            <p className="text-[11px] font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--text-secondary)' }}>
+              Current members ({(group.members || []).length})
+            </p>
+            <div className="space-y-1.5">
+              {(group.members || []).map(m => {
+                const isLeader = group.team_leader?.id === m.id;
+                const isMoveOpen = movePickerFor === m.id;
+                return (
+                  <div key={m.id} className="rounded-xl overflow-hidden" style={{ background: 'var(--surface-100)' }}>
+                    <div className="flex items-center gap-2.5 px-3 py-2">
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0"
+                        style={{ background: isLeader ? `linear-gradient(135deg, ${a}, ${b})` : 'linear-gradient(135deg, #059669, #0d9488)' }}>
+                        {m.name[0].toUpperCase()}
+                      </div>
+                      <span className="flex-1 min-w-0 text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{m.name}</span>
+                      {isLeader ? (
+                        <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full flex-shrink-0" style={{ background: 'rgba(245,158,11,0.12)', color: '#b45309' }}>
+                          <Crown className="w-2.5 h-2.5" /> Leader
+                        </span>
+                      ) : (
+                        <>
+                          {siblingGroups.length > 0 && (
+                            <button
+                              onClick={() => setMovePickerFor(isMoveOpen ? null : m.id)}
+                              disabled={movingId === m.id}
+                              title="Move to another group"
+                              className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 transition-colors hover:bg-indigo-50"
+                            >
+                              <ArrowLeftRight className="w-3.5 h-3.5" style={{ color: a }} />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => setConfirmRemove(m)}
+                            disabled={removingId === m.id}
+                            title="Remove from group"
+                            className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 transition-colors hover:bg-red-50"
+                          >
+                            <UserMinus className="w-3.5 h-3.5 text-red-400" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                    {isMoveOpen && (
+                      <div className="flex items-center gap-2 px-3 pb-2.5">
+                        <select
+                          defaultValue=""
+                          onChange={(e) => {
+                            const toGroup = siblingGroups.find(g => g.id === e.target.value);
+                            if (toGroup) setConfirmMove({ member: m, toGroup });
+                          }}
+                          className="flex-1 text-xs rounded-lg px-2 py-1.5 outline-none"
+                          style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', color: 'var(--text-primary)' }}
+                        >
+                          <option value="" disabled>Move to…</option>
+                          {siblingGroups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Add students */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-secondary)' }}>Add students</p>
+              {selected.size > 0 && <span className="text-[11px] font-bold" style={{ color: a }}>{selected.size} selected</span>}
+            </div>
+            <div className="relative mb-2">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: 'var(--text-secondary)' }} />
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search classmates not yet in this group…"
+                className="w-full pl-8 pr-3 py-2 rounded-lg text-sm outline-none"
+                style={{ background: 'var(--surface-100)', border: '1px solid var(--card-border)', color: 'var(--text-primary)' }} />
+            </div>
+            {loadingRoster ? (
+              <div className="flex justify-center py-6"><div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" /></div>
+            ) : filteredNonMembers.length === 0 ? (
+              <p className="text-sm text-center py-4" style={{ color: 'var(--text-secondary)' }}>
+                {nonMembers.length === 0 ? 'Every enrolled student is already in this group.' : 'No matches.'}
+              </p>
+            ) : (
+              <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--card-border)', maxHeight: 200, overflowY: 'auto' }}>
+                {filteredNonMembers.map(s => {
+                  const elsewhere = busyElsewhere.get(String(s.id));
+                  return (
+                    <label key={s.id} className={`flex items-center gap-3 px-3 py-2.5 transition-all ${elsewhere ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:opacity-80'}`}
+                      style={{ borderBottom: '1px solid var(--card-border)', background: selected.has(s.id) ? `${a}12` : undefined }}>
+                      <input type="checkbox" checked={selected.has(s.id)} disabled={!!elsewhere} onChange={() => toggleSelect(s.id)}
+                        className="w-4 h-4 rounded flex-shrink-0" style={{ accentColor: a }} />
+                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-white font-bold text-[11px] flex-shrink-0"
+                        style={{ background: 'linear-gradient(135deg, #94a3b8, #64748b)' }}>
+                        {s.name[0].toUpperCase()}
+                      </div>
+                      <span className="text-sm font-medium truncate flex-1" style={{ color: 'var(--text-primary)' }}>{s.name}</span>
+                      {elsewhere && (
+                        <span className="text-[10px] font-semibold flex-shrink-0" style={{ color: 'var(--text-secondary)' }}>
+                          in {elsewhere.name}
+                        </span>
+                      )}
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: '12px 18px', borderTop: '1px solid var(--card-border)', flexShrink: 0 }}>
+          <button
+            onClick={handleAdd}
+            disabled={selected.size === 0 || adding}
+            className="w-full py-2.5 rounded-xl text-sm font-bold text-white transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+            style={{ background: selected.size === 0 ? 'var(--surface-200)' : `linear-gradient(135deg, ${a}, ${b})`, opacity: selected.size === 0 ? 0.6 : 1, cursor: selected.size === 0 ? 'default' : 'pointer' }}
+          >
+            {adding ? 'Adding…' : selected.size > 0 ? `Add ${selected.size} student${selected.size !== 1 ? 's' : ''}` : 'Select students to add'}
+          </button>
+        </div>
+      </div>
+
+      <ConfirmDialog
+        isOpen={!!confirmRemove}
+        onClose={() => setConfirmRemove(null)}
+        onConfirm={() => handleRemove(confirmRemove.id)}
+        loading={removingId === confirmRemove?.id}
+        title="Remove member"
+        message={confirmRemove ? `Remove ${confirmRemove.name} from "${group.name}"? They'll be notified and lose access to this group's chat.` : ''}
+        confirmText="Remove"
+        variant="danger"
+      />
+
+      <ConfirmDialog
+        isOpen={!!confirmMove}
+        onClose={() => { setConfirmMove(null); setMovePickerFor(null); }}
+        onConfirm={() => handleMove(confirmMove.member.id, confirmMove.toGroup.id)}
+        loading={movingId === confirmMove?.member?.id}
+        title="Move member"
+        message={confirmMove ? `Move ${confirmMove.member.name} from "${group.name}" to "${confirmMove.toGroup.name}"? They'll be notified of the change.` : ''}
+        confirmText="Move"
+        variant="default"
+      />
+    </div>
+  );
+}
+
+function GroupViewer({ group, myId, onClose, onMessageSent, onEnded, onMembersChanged }) {
   const [a, b] = groupColor(group.id);
   const [messages, setMessages] = useState(group.messages || []);
   const [text, setText]         = useState('');
@@ -504,6 +787,7 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onEnded }) {
   const [deletingId, setDeletingId] = useState(null);
   const [dmOpen, setDmOpen] = useState(false);
   const [membersOpen, setMembersOpen] = useState(false);
+  const [manageOpen, setManageOpen] = useState(false);
   const [recording, setRecording]         = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [audioBlob, setAudioBlob]         = useState(null);
@@ -542,6 +826,12 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onEnded }) {
   }, [audioBlob, recording, posting]);
 
   useEffect(() => {
+    const key = `group:${group.id}`;
+    setActiveConversation(key);
+    return () => clearActiveConversation(key);
+  }, [group.id]);
+
+  useEffect(() => {
     if (isEnded) return;
     const poll = async () => {
       try {
@@ -554,10 +844,11 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onEnded }) {
             const existingIds = new Set(prev.map(m => String(m.id || m._id)));
             const fresh = newMsgs.filter(m => !existingIds.has(String(m.id || m._id)));
             if (fresh.length === 0) return prev;
+            fresh.forEach(m => markMessageSeen(m.id || m._id));
             const fromOthers = fresh.filter(m => String(m.author_id) !== String(myId));
             if (fromOthers.length) {
-              const senderName = fromOthers[fromOthers.length - 1].author_name || 'Someone';
-              toast.success(`${senderName} sent you a message!`, { icon: '💬' });
+              const last = fromOthers[fromOthers.length - 1];
+              showChatToast({ name: `${last.author_name} · ${group.name}`, preview: last.content, isVoice: last.message_type === 'voice' });
             }
             lastMsgTimeRef.current = fresh[fresh.length - 1].created_at;
             return [...prev, ...fresh];
@@ -754,12 +1045,12 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onEnded }) {
   return (
     <AudioPlaybackProvider>
     <div className="flex flex-col h-full">
-      <div style={{ background: `linear-gradient(135deg, ${a}, ${b})`, borderRadius: '16px 16px 0 0', padding: '12px 16px', flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div className="tg-viewer-header" style={{ background: `linear-gradient(135deg, ${a}, ${b})`, borderRadius: '16px 16px 0 0', padding: '12px 16px', flexShrink: 0 }}>
+        <div className="tg-header-row" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#fff', fontSize: 14, flexShrink: 0 }}>
             {(group.name || 'G').slice(0, 2).toUpperCase()}
           </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ flex: 1, minWidth: 120 }}>
             <div style={{ color: '#fff', fontWeight: 700, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{group.name}</div>
             <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 11, marginTop: 1 }}>{group.class_name} · {(group.members || []).length} members</div>
           </div>
@@ -772,76 +1063,65 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onEnded }) {
                 </div>
             }
           </div>
-          <button onClick={() => setMembersOpen(true)}
-            className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full transition-all active:scale-95 flex-shrink-0"
-            style={{ background: 'rgba(255,255,255,0.18)', color: 'white', border: '1px solid rgba(255,255,255,0.28)' }}>
-            <Users className="w-3.5 h-3.5" /> {(group.members || []).length} <Eye className="w-3 h-3 opacity-80" />
-          </button>
-          {group.is_owner && (
-            <button onClick={() => setDmOpen(true)}
-              className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full transition-all active:scale-95 flex-shrink-0"
-              style={{ background: 'rgba(255,255,255,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.3)' }}
-              title="Private DM with the team leader">
-              <MessageCircle className="w-3.5 h-3.5" /> Team leader DM
+          <div className="tg-header-actions flex items-center gap-1.5 flex-shrink-0">
+            <button onClick={() => setMembersOpen(true)}
+              className="tg-header-btn flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full flex-shrink-0"
+              style={{ background: 'rgba(255,255,255,0.18)', color: 'white', border: '1px solid rgba(255,255,255,0.28)' }}>
+              <Users className="w-3.5 h-3.5" /> {(group.members || []).length} <Eye className="w-3 h-3 opacity-80" />
             </button>
-          )}
-          <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: '50%', width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
-            <X style={{ width: 14, height: 14 }} />
-          </button>
+            <button onClick={() => setManageOpen(true)}
+              className="tg-header-btn flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full flex-shrink-0"
+              style={{ background: 'rgba(255,255,255,0.18)', color: 'white', border: '1px solid rgba(255,255,255,0.28)' }}
+              title="Add or remove members">
+              <UserPlus className="w-3.5 h-3.5" /> <span className="tg-btn-label">Manage</span>
+            </button>
+            {group.is_owner && (
+              <button onClick={() => setDmOpen(true)}
+                className="tg-header-btn flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full flex-shrink-0"
+                style={{ background: 'rgba(255,255,255,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.3)' }}
+                title="Private DM with the team leader">
+                <MessageCircle className="w-3.5 h-3.5" /> <span className="tg-btn-label">Team leader DM</span>
+              </button>
+            )}
+            <button onClick={onClose} className="tg-icon-btn" style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: '50%', width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+              <X style={{ width: 14, height: 14 }} />
+            </button>
+          </div>
         </div>
       </div>
 
       {isEnded ? (
-        <div className="flex items-center justify-center gap-2 px-4 py-2 flex-shrink-0"
+        <div className="flex items-center justify-center gap-2 px-4 py-2.5 flex-shrink-0"
           style={{ background: 'rgba(220,38,38,0.08)', borderBottom: '1px solid var(--card-border)' }}>
           <StopCircle className="w-3.5 h-3.5 flex-shrink-0" style={{ color: '#dc2626' }} />
           <span className="text-xs font-semibold" style={{ color: '#dc2626' }}>Conversation ended — no one can post anymore</span>
         </div>
       ) : (
-        <div className="flex items-center justify-between gap-2 px-4 py-2 flex-shrink-0"
+        <div className="flex items-center justify-between gap-2 px-4 py-2 flex-shrink-0 flex-wrap"
           style={{ background: 'rgba(5,150,105,0.07)', borderBottom: '1px solid var(--card-border)' }}>
           <div className="flex items-center gap-2">
             <Check className="w-3.5 h-3.5" style={{ color: '#059669' }} />
             <span className="text-xs font-semibold" style={{ color: '#059669' }}>You're in — read and post freely</span>
           </div>
-          {group.is_owner && (
-          <button onClick={() => setEndConfirm(true)}
-            className="flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full transition-all active:scale-95 flex-shrink-0"
-            style={{ background: 'rgba(220,38,38,0.1)', color: '#dc2626', border: '1px solid rgba(220,38,38,0.2)' }}>
-            <StopCircle className="w-3 h-3" /> End Conversation
-          </button>
-          )}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button onClick={() => setClearConfirm(true)}
+              className="tg-pill-btn flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full flex-shrink-0"
+              style={{ background: 'rgba(220,38,38,0.08)', color: '#dc2626', border: '1px solid rgba(220,38,38,0.15)' }}
+              title="Delete every message you've sent in this group">
+              <Trash2 className="w-3 h-3" /> Clear my messages
+            </button>
+            {group.is_owner && (
+            <button onClick={() => setEndConfirm(true)}
+              className="tg-pill-btn flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full flex-shrink-0"
+              style={{ background: 'rgba(220,38,38,0.1)', color: '#dc2626', border: '1px solid rgba(220,38,38,0.2)' }}>
+              <StopCircle className="w-3 h-3" /> End Conversation
+            </button>
+            )}
+          </div>
         </div>
       )}
 
-      <div className="flex items-center gap-2 px-4 py-2 flex-shrink-0 overflow-x-auto" style={{ borderBottom: '1px solid var(--card-border)' }}>
-        {(group.members || []).map(m => (
-          <div key={m.id} className="flex items-center gap-1 flex-shrink-0 px-2 py-1 rounded-full text-xs font-semibold"
-            style={{ background: 'rgba(5,150,105,0.09)', color: '#059669' }}>
-            <div className="w-4 h-4 rounded-full flex items-center justify-center text-white text-[9px] font-bold"
-              style={{ background: 'linear-gradient(135deg, #059669, #0d9488)' }}>{m.name[0].toUpperCase()}</div>
-            {m.name}{group.team_leader?.id === m.id && <Crown className="w-2.5 h-2.5 ml-0.5" style={{ color: '#d97706' }} />}
-          </div>
-        ))}
-        {!group.is_owner && group.teacher_name && (
-          <div className="flex items-center gap-1 flex-shrink-0 px-2 py-1 rounded-full text-xs font-semibold"
-            style={{ background: 'rgba(99,102,241,0.09)', color: '#6366f1' }}>
-            <div className="w-4 h-4 rounded-full flex items-center justify-center text-white text-[9px] font-bold"
-              style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}>{group.teacher_name[0].toUpperCase()}</div>
-            {group.teacher_name} <span style={{ opacity: 0.6 }}>(owner)</span>
-          </div>
-        )}
-        {!isEnded && (
-          <button onClick={() => setClearConfirm(true)}
-            className="flex items-center gap-1 flex-shrink-0 px-2 py-1 rounded-full text-xs font-semibold transition-all hover:opacity-80"
-            style={{ background: 'rgba(220,38,38,0.08)', color: '#dc2626', marginLeft: 'auto' }}
-            title="Delete every message you've sent in this group">
-            <Trash2 className="w-2.5 h-2.5" /> Clear my messages
-          </button>
-        )}
-      </div>
-
-      <div className="chat-wallpaper flex-1 overflow-y-auto" style={{ padding: '16px 14px 8px' }}>
+      <div className="chat-wallpaper tg-scroll flex-1 overflow-y-auto" style={{ padding: '16px 14px 8px' }}>
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full py-16 text-center">
             <div style={{ fontSize: 36, marginBottom: 10 }}>🤝</div>
@@ -961,6 +1241,13 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onEnded }) {
       {membersOpen && (
         <MembersModal group={group} onClose={() => setMembersOpen(false)} />
       )}
+      {manageOpen && (
+        <ManageMembersModal
+          group={group}
+          onClose={() => setManageOpen(false)}
+          onChanged={() => { setManageOpen(false); onMembersChanged && onMembersChanged(); }}
+        />
+      )}
     </div>
     </AudioPlaybackProvider>
   );
@@ -983,6 +1270,12 @@ function LeaderDmPanel({ groupId, myId, peerName, onClose }) {
   const pollRef = useRef(null);
   const lastMsgTimeRef = useRef(null);
 
+  useEffect(() => {
+    const key = `leaderdm:${groupId}`;
+    setActiveConversation(key);
+    return () => clearActiveConversation(key);
+  }, [groupId]);
+
   const fetchThread = useCallback(async (silent) => {
     try {
       const params = silent && lastMsgTimeRef.current ? { since: lastMsgTimeRef.current } : {};
@@ -995,10 +1288,12 @@ function LeaderDmPanel({ groupId, myId, peerName, onClose }) {
           const existingIds = new Set(prev.map(m => String(m.id)));
           const toAdd = fresh.filter(m => !existingIds.has(String(m.id)));
           if (toAdd.length) {
+            toAdd.forEach(m => markMessageSeen(m.id));
             const fromPeer = toAdd.filter(m => String(m.sender_id) !== String(myId));
             if (fromPeer.length) {
-              const senderName = fromPeer[fromPeer.length - 1].sender_name || 'Someone';
-              toast.success(`${senderName} sent you a message!`, { icon: '💬' });
+              const last = fromPeer[fromPeer.length - 1];
+              const senderName = last.sender_name || 'Someone';
+              showChatToast({ name: senderName, preview: last.content, accent: '#f59e0b', accent2: '#d97706' });
             }
           }
           return toAdd.length ? [...prev, ...toAdd] : prev;
@@ -1085,11 +1380,11 @@ function LeaderDmPanel({ groupId, myId, peerName, onClose }) {
           </button>
         </div>
 
-        <div className="chat-wallpaper flex-1 overflow-y-auto" style={{ padding: '14px 12px' }}>
+        <div className="chat-wallpaper tg-scroll flex-1 overflow-y-auto" style={{ padding: '14px 12px' }}>
           {loading ? (
             <div className="flex justify-center py-10"><div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" /></div>
           ) : messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center">
+            <div className="tg-empty-state flex flex-col items-center justify-center h-full text-center">
               <MessageCircle className="w-8 h-8 mb-2" style={{ color: 'var(--text-secondary)', opacity: 0.4 }} />
               <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>This DM is private to the two of you.</p>
             </div>
@@ -1199,7 +1494,7 @@ function OpenCollaborationPanel() {
       </div>
 
       {/* Class list */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto tg-scroll">
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <div className="animate-spin w-7 h-7 rounded-full" style={{ border: '3px solid var(--card-border)', borderTopColor: '#059669' }} />
@@ -1228,7 +1523,7 @@ function OpenCollaborationPanel() {
 function CollaborationClassRow({ cls, onToggle, toggling }) {
   const isActive = cls.collaboration_active;
   return (
-    <div className="flex items-center gap-4 px-5 py-4" style={{ borderBottom: '1px solid var(--card-border)' }}>
+    <div className="tg-collab-row flex items-center gap-4 px-5 py-4" style={{ borderBottom: '1px solid var(--card-border)', transition: 'background 0.15s ease' }}>
       {/* Class avatar */}
       <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
         style={{ background: isActive ? 'linear-gradient(135deg, #059669, #0d9488)' : 'var(--surface-100)', color: isActive ? '#fff' : 'var(--text-secondary)', border: isActive ? 'none' : '1.5px solid var(--card-border)' }}>
@@ -1264,7 +1559,7 @@ function CollaborationClassRow({ cls, onToggle, toggling }) {
       <button
         onClick={() => onToggle(cls)}
         disabled={toggling}
-        className="flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-xl transition-all active:scale-95 disabled:opacity-50 flex-shrink-0"
+        className="tg-pill-btn flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-xl disabled:opacity-50 flex-shrink-0"
         style={isActive
           ? { background: 'rgba(220,38,38,0.1)', color: '#dc2626', border: '1px solid rgba(220,38,38,0.2)' }
           : { background: 'linear-gradient(135deg, #059669, #0d9488)', color: '#fff' }
@@ -1341,7 +1636,7 @@ export default function TeacherGroups() {
     } else if (activeGroup) {
       rightPanel = detailLoading || !groupDetail
         ? <div className="flex-1 flex items-center justify-center"><div className="text-center"><div className="animate-spin w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full mx-auto mb-3" /><p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Loading…</p></div></div>
-        : <GroupViewer group={groupDetail} myId={myId} onClose={() => { setActiveGroup(null); setGroupDetail(null); }} onMessageSent={fetchGroups} onEnded={handleEnded} />;
+        : <GroupViewer group={groupDetail} myId={myId} onClose={() => { setActiveGroup(null); setGroupDetail(null); }} onMessageSent={fetchGroups} onEnded={handleEnded} onMembersChanged={() => { openGroup(activeGroup); fetchGroups(); }} />;
     }
   }
 
@@ -1349,7 +1644,101 @@ export default function TeacherGroups() {
   const showCollabPanel = tab === 'collaboration';
 
   return (
-    <div className="flex h-full" style={{ minHeight: 'calc(100vh - 120px)', gap: 12 }}>
+    <div className="tg-page flex h-full" style={{ minHeight: 'calc(100vh - 120px)', gap: 12 }}>
+      <style>{`
+        /* ── Scrollbars ───────────────────────────────────────────── */
+        .tg-page .tg-scroll::-webkit-scrollbar,
+        .tg-page .tg-sidebar-scroll::-webkit-scrollbar { width: 7px; height: 7px; }
+        .tg-page .tg-scroll::-webkit-scrollbar-track,
+        .tg-page .tg-sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
+        .tg-page .tg-scroll::-webkit-scrollbar-thumb,
+        .tg-page .tg-sidebar-scroll::-webkit-scrollbar-thumb {
+          background: color-mix(in srgb, var(--text-secondary) 30%, transparent);
+          border-radius: 20px;
+        }
+        .tg-page .tg-scroll:hover::-webkit-scrollbar-thumb,
+        .tg-page .tg-sidebar-scroll:hover::-webkit-scrollbar-thumb {
+          background: color-mix(in srgb, var(--text-secondary) 45%, transparent);
+        }
+
+        /* ── Group cards ──────────────────────────────────────────── */
+        .tg-page .tg-group-card {
+          transition: background 0.2s ease, transform 0.18s cubic-bezier(0.22,1,0.36,1), box-shadow 0.18s ease, border-color 0.18s ease;
+        }
+        .tg-page .tg-group-card:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 6px 18px -10px rgba(15,23,42,0.18);
+        }
+        .tg-page .tg-group-card:active { transform: translateY(0) scale(0.995); }
+
+        /* ── Generic pill / header buttons ───────────────────────── */
+        .tg-page .tg-pill-btn,
+        .tg-page .tg-header-btn,
+        .tg-page .tg-icon-btn {
+          transition: transform 0.15s cubic-bezier(0.22,1,0.36,1), background 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+        }
+        .tg-page .tg-pill-btn:hover { filter: brightness(0.97); transform: translateY(-1px); box-shadow: 0 4px 10px -4px rgba(0,0,0,0.15); }
+        .tg-page .tg-pill-btn:active { transform: translateY(0) scale(0.97); }
+        .tg-page .tg-header-btn:hover { background: rgba(255,255,255,0.3) !important; transform: translateY(-1px); box-shadow: 0 4px 12px -4px rgba(0,0,0,0.25); }
+        .tg-page .tg-header-btn:active { transform: translateY(0) scale(0.96); }
+        .tg-page .tg-icon-btn:hover { background: rgba(255,255,255,0.28) !important; transform: rotate(90deg); }
+        .tg-page .tg-icon-btn:active { transform: rotate(90deg) scale(0.9); }
+
+        /* ── Tabs / filter chips ──────────────────────────────────── */
+        .tg-page .tg-tab-btn { transition: all 0.2s cubic-bezier(0.22,1,0.36,1); }
+        .tg-page .tg-tab-btn:hover:not([data-active="true"]) { background: rgba(255,255,255,0.08); color: white; }
+        .tg-page .tg-filter-chip { transition: all 0.18s cubic-bezier(0.22,1,0.36,1); }
+        .tg-page .tg-filter-chip:hover:not([data-active="true"]) { filter: brightness(0.96); transform: translateY(-1px); }
+        .tg-page .tg-filter-chip:active { transform: translateY(0) scale(0.96); }
+
+        /* ── Inputs: refined focus ring ───────────────────────────── */
+        .tg-page input:not([type="checkbox"]):not([type="radio"]),
+        .tg-page select,
+        .tg-page textarea {
+          transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+        }
+        .tg-page input:not([type="checkbox"]):not([type="radio"]):focus,
+        .tg-page select:focus,
+        .tg-page textarea:focus {
+          border-color: #6366f1 !important;
+          box-shadow: 0 0 0 3.5px rgba(99,102,241,0.15);
+        }
+
+        /* Keyboard accessibility: visible focus-ring on interactive elements */
+        .tg-page button:focus-visible,
+        .tg-page a:focus-visible {
+          outline: 2px solid #6366f1;
+          outline-offset: 2px;
+          border-radius: 6px;
+        }
+
+        /* ── Send button micro-interaction ───────────────────────── */
+        .tg-page .send-btn {
+          transition: transform 0.15s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.15s ease, opacity 0.15s ease;
+          box-shadow: 0 3px 10px -3px rgba(99,102,241,0.5);
+        }
+        .tg-page .send-btn:hover:not(:disabled) { transform: scale(1.08); box-shadow: 0 5px 16px -4px rgba(99,102,241,0.6); }
+        .tg-page .send-btn:active:not(:disabled) { transform: scale(0.94); }
+
+        /* ── Collaboration rows ───────────────────────────────────── */
+        .tg-page .tg-collab-row:hover { background: color-mix(in srgb, var(--surface-100) 100%, transparent); }
+
+        /* ── Empty state entrance ─────────────────────────────────── */
+        .tg-empty-state { animation: tgFadeUp 0.4s cubic-bezier(0.22,1,0.36,1) both; }
+        @keyframes tgFadeUp {
+          from { opacity: 0; transform: translateY(10px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ── Responsive: group viewer header ─────────────────────── */
+        @media (max-width: 900px) {
+          .tg-header-actions .tg-btn-label { display: none; }
+          .tg-header-actions .tg-header-btn { padding-left: 10px; padding-right: 10px; }
+        }
+        @media (max-width: 640px) {
+          .tg-viewer-header { border-radius: 0 !important; }
+        }
+      `}</style>
       {/* ── Left sidebar ── */}
       <div className={`flex flex-col ${(rightPanel || showCollabPanel) ? 'hidden lg:flex lg:w-80 xl:w-96' : 'flex-1'}`}
         style={{ background: 'var(--card-bg)', borderRadius: 20, overflow: 'hidden', border: '1px solid var(--card-border)' }}>
@@ -1363,7 +1752,7 @@ export default function TeacherGroups() {
             </h2>
             {tab === 'groups' && (
               <button onClick={() => { setCreateMode(true); setActiveGroup(null); setGroupDetail(null); }}
-                className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-1.5 rounded-full transition-all active:scale-95"
+                className="tg-header-btn flex items-center gap-1.5 text-xs font-bold px-3.5 py-1.5 rounded-full"
                 style={{ background: 'rgba(255,255,255,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.3)' }}>
                 <Plus className="w-3.5 h-3.5" /> New
               </button>
@@ -1376,7 +1765,8 @@ export default function TeacherGroups() {
             {/* My Groups */}
             <button
               onClick={() => { setTab('groups'); setCreateMode(false); }}
-              className="flex-1 text-xs font-bold px-2 py-1.5 rounded-lg transition-all"
+              data-active={tab === 'groups'}
+              className="tg-tab-btn flex-1 text-xs font-bold px-2 py-1.5 rounded-lg"
               style={tab === 'groups'
                 ? { background: 'white', color: '#4f46e5', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }
                 : { color: 'rgba(255,255,255,0.75)' }}>
@@ -1386,7 +1776,8 @@ export default function TeacherGroups() {
             {/* Open Collaboration */}
             <button
               onClick={() => { setTab('collaboration'); setActiveGroup(null); setGroupDetail(null); setCreateMode(false); }}
-              className="flex-1 text-xs font-bold px-2 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1"
+              data-active={tab === 'collaboration'}
+              className="tg-tab-btn flex-1 text-xs font-bold px-2 py-1.5 rounded-lg flex items-center justify-center gap-1"
               style={tab === 'collaboration'
                 ? { background: 'white', color: '#059669', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }
                 : { color: 'rgba(255,255,255,0.75)' }}>
@@ -1398,29 +1789,30 @@ export default function TeacherGroups() {
         {/* Tab bodies */}
         {tab === 'groups' ? (
           <>
-            <div className="flex gap-1.5 px-3 py-2.5 overflow-x-auto flex-shrink-0" style={{ borderBottom: '1px solid var(--card-border)' }}>
+            <div className="flex gap-1.5 px-3 py-2.5 overflow-x-auto flex-shrink-0 tg-scroll" style={{ borderBottom: '1px solid var(--card-border)' }}>
               {[{ id: '', name: 'All' }, ...classes].map(c => (
                 <button key={c.id} onClick={() => setFilterClass(c.id)}
-                  className="flex-shrink-0 text-xs px-3 py-1.5 rounded-full font-semibold whitespace-nowrap transition-all"
+                  data-active={filterClass === c.id}
+                  className="tg-filter-chip flex-shrink-0 text-xs px-3 py-1.5 rounded-full font-semibold whitespace-nowrap"
                   style={filterClass === c.id ? { background: 'linear-gradient(135deg, #6366f1, #4f46e5)', color: 'white' } : { background: 'var(--surface-100)', color: 'var(--text-secondary)' }}>
                   {c.name}
                 </button>
               ))}
             </div>
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto tg-sidebar-scroll">
               {loading ? (
                 <div>
                   {[0, 1, 2, 3].map(i => <GroupCardSkeleton key={i} delay={i * 60} />)}
                 </div>
               ) : groups.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
+                <div className="tg-empty-state flex flex-col items-center justify-center py-20 px-6 text-center">
                   <div className="w-16 h-16 rounded-2xl mb-4 flex items-center justify-center" style={{ background: 'rgba(99,102,241,0.08)' }}>
                     <Users className="w-8 h-8" style={{ color: '#6366f1', opacity: 0.5 }} />
                   </div>
                   <p className="font-bold mb-1" style={{ color: 'var(--text-primary)' }}>No groups yet</p>
                   <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>Create a group to let students collaborate.</p>
                   <button onClick={() => setCreateMode(true)}
-                    className="flex items-center gap-1.5 text-sm font-bold px-4 py-2 rounded-xl text-white"
+                    className="tg-pill-btn flex items-center gap-1.5 text-sm font-bold px-4 py-2 rounded-xl text-white"
                     style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}>
                     <Plus className="w-4 h-4" /> New Group
                   </button>
@@ -1454,7 +1846,7 @@ export default function TeacherGroups() {
       ) : (
         <div className="hidden lg:flex flex-1 items-center justify-center rounded-2xl"
           style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
-          <div className="text-center px-8">
+          <div className="tg-empty-state text-center px-8">
             <div className="w-20 h-20 rounded-2xl mx-auto mb-5 flex items-center justify-center" style={{ background: 'rgba(99,102,241,0.08)' }}>
               <Users className="w-10 h-10" style={{ color: '#6366f1', opacity: 0.6 }} />
             </div>
@@ -1465,7 +1857,7 @@ export default function TeacherGroups() {
             </p>
             {tab === 'groups' && (
               <button onClick={() => setCreateMode(true)}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white active:scale-95 transition-all"
+                className="tg-pill-btn inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white"
                 style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}>
                 <Plus className="w-4 h-4" /> Create First Group
               </button>

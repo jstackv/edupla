@@ -7,6 +7,7 @@ const {
   getGroup,  getMyGroups, postMessage, postVoiceNote, deleteMessage, clearMyMessages,
   endConversation, getGroupMessages,
   getLeaderDm, postLeaderDm, deleteLeaderDmMessage, clearMyLeaderDmMessages,
+  addGroupMembers, removeGroupMember, moveGroupMember,
 } = require('../controllers/groupDiscussionController');
 
 // Student — list own groups (MUST be before /:id — Express matches "my" as an id param otherwise)
@@ -19,6 +20,11 @@ router.delete('/:id',    isAuthenticated, isTeacher, deleteGroup);
 
 // Teacher (owner): end conversation
 router.post('/:id/end',   isAuthenticated, isTeacher, endConversation);
+
+// Teacher (any assigned to the class): add or remove group members
+router.post('/:id/members',              isAuthenticated, isTeacher, addGroupMembers);
+router.delete('/:id/members/:studentId', isAuthenticated, isTeacher, removeGroupMember);
+router.post('/:id/members/:studentId/move', isAuthenticated, isTeacher, moveGroupMember);
 
 // Shared — group detail & messaging. Access is enforced inside the controller:
 // students must be members; any teacher assigned to the class has full,

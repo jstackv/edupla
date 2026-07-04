@@ -114,10 +114,14 @@ const notificationSchema = new mongoose.Schema({
   // 'teacher':  an event raised BY a student (e.g. assignment submission) that should be
   //             visible only to the teacher (teacher_id), never to any student.
   audience:   { type: String, enum: ['students', 'teacher'], default: 'students' },
+  // When set, this notification is meant for this ONE user only (e.g. "you were
+  // added to a group"), regardless of the usual class/teacher broadcast scoping.
+  // Left null for normal class-wide broadcasts (assignments, documents, etc.).
+  recipient_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   // Deep-link target so clicking the notification can jump straight to where
   // the action lives (the document, assignment, announcement, or submission
   // that triggered it), instead of just opening the notification panel.
-  link_type:  { type: String, enum: ['document', 'assignment', 'announcement', 'submission', null], default: null },
+  link_type:  { type: String, enum: ['document', 'assignment', 'announcement', 'submission', 'group', null], default: null },
   link_id:    { type: mongoose.Schema.Types.ObjectId, default: null },
   course_id:  { type: mongoose.Schema.Types.ObjectId, ref: 'Course', default: null },
   read_by:    [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
@@ -134,6 +138,42 @@ const programConfigSchema = new mongoose.Schema({
   qualificationTitle: { type: String, required: true },
   rtqfLevel:          { type: String, required: true },
   created_by:         { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+}, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
+
+// ── ReportConfig — one document per admin: the header/branding info that
+// appears on every printed assessment report (school name, address, manager,
+// etc). Stored server-side so it is shared across devices/browsers instead
+// of living in localStorage.
+const reportConfigSchema = new mongoose.Schema({
+  created_by:    { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
+
+  // Government / authority header
+  republic:      { type: String, default: 'REPUBLIC OF RWANDA' },
+  ministry:      { type: String, default: 'MINISTRY OF EDUCATION' },
+  district:      { type: String, default: '' },
+
+  // School identity
+  schoolName:    { type: String, default: 'EDUPLA Academy' },
+  schoolMotto:   { type: String, default: 'Excellence Through Knowledge' },
+  schoolLogoUrl: { type: String, default: '' },
+
+  // Contact information
+  schoolAddress: { type: String, default: '' },
+  schoolPhone:   { type: String, default: '' },
+  schoolEmail:   { type: String, default: '' },
+  schoolWebsite: { type: String, default: '' },
+
+  // Signatory
+  managerName:   { type: String, default: '' },
+  managerTitle:  { type: String, default: 'School Principal' },
+
+  // Footer legend shown below the marks table
+  footerNote:    { type: String, default: "Module Weight = Module's learning hours = Credit × 10. Passing Line: 50% for mathematics, sciences and complementary modules while 70% is for core modules (specific and general modules). Module Annual Average: (Average of Integrated A + Average of Comprehensive A) / number of assessed terms." },
+
+  // Cosmetic
+  primaryColor:  { type: String, default: '#1a3a6b' },
+  accentColor:   { type: String, default: '#1565c0' },
+  academicYear:  { type: String, default: '' },
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
 // Levels & Trades are now admin-scoped: created_by links to the admin who owns them
@@ -320,6 +360,7 @@ const Submission   = mongoose.model('Submission',   submissionSchema);
 const Announcement = mongoose.model('Announcement', announcementSchema);
 const Notification = mongoose.model('Notification', notificationSchema);
 const ProgramConfig = mongoose.model('ProgramConfig', programConfigSchema);
+const ReportConfig  = mongoose.model('ReportConfig',  reportConfigSchema);
 const Level        = mongoose.model('Level',        levelSchema);
 const Trade        = mongoose.model('Trade',        tradeSchema);
 const Course       = mongoose.model('Course',       courseSchema);
@@ -334,7 +375,7 @@ const DirectMessage      = mongoose.model('DirectMessage',      directMessageSch
 module.exports = {
   connectDB,
   User, Class, Document, Assignment, Submission, Announcement, Notification, Level, Trade,
-  ProgramConfig,
+  ProgramConfig, ReportConfig,
   Course, Assessment, Mark, AssessmentSubmission,
   Maintenance,
   DiscussionGroup,

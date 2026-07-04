@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useMaintenance } from '../../context/MaintenanceContext';
+import { ChatNotifyProvider } from '../../context/ChatNotifyContext';
 import toast from 'react-hot-toast';
 import {
   LayoutDashboard, BookOpen, Users, FileText, ClipboardList,
@@ -681,6 +682,7 @@ export default function Layout({ children }) {
   );
 
   return (
+    <ChatNotifyProvider>
     <>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=DM+Sans:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap');
@@ -713,6 +715,23 @@ export default function Layout({ children }) {
         nav::-webkit-scrollbar { display: none; }
         @keyframes edupla-pulse { 0%,100% { opacity:1 } 50% { opacity:0.4 } }
         @media (min-width: 768px) { .topbar-user-text { display: block !important; } }
+
+        /* PRINT: the shell below normally locks itself to the viewport
+           height (100vh) with overflow:hidden so the app never scrolls as a
+           whole page — only .edupla-main scrolls internally. That's correct
+           on screen, but during printing it clips everything to a single
+           sheet and crushes multi-page content (e.g. reports) into one
+           page. Reset the shell to flow naturally so print/PDF output can
+           span as many physical pages as the content needs. */
+        @media print {
+          .edupla-layout, .edupla-content-col, .edupla-main {
+            display: block !important;
+            height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
+          }
+          .edupla-sidebar, .mobile-overlay, .edupla-topbar { display: none !important; }
+        }
       `}</style>
 
       <LogoutModal
@@ -745,7 +764,7 @@ export default function Layout({ children }) {
         </div>
 
         {/* MAIN */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
+        <div className="edupla-content-col" style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
           {/* TOPBAR */}
           <header className="edupla-topbar" style={{
             height: 52, flexShrink: 0,
@@ -870,6 +889,7 @@ export default function Layout({ children }) {
         @media (max-width: 1023px) { .mobile-hamburger { display: flex !important; } }
       `}</style>
     </>
+    </ChatNotifyProvider>
   );
 }
 

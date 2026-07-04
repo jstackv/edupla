@@ -49,6 +49,7 @@ function resolveNotificationPath(n, role) {
     case 'document':     return `${base}/documents${qs()}`;
     case 'assignment':    return `${base}/assignments${qs()}`;
     case 'announcement':  return `${base}/announcements${qs()}`;
+    case 'group':          return `${base}/groups`;
     // A submission is only ever visible to the teacher who owns the class;
     // route straight to that assignment with its submissions panel open.
     case 'submission':    return `/teacher/assignments${qs({ openSubmissions: '1' })}`;

@@ -30,15 +30,26 @@ const buildStudentNotificationFilter = async (userId) => {
   });
   const teacherIds = [...teacherIdSet].map(id => new mongoose.Types.ObjectId(id));
 
+  // A notification addressed directly to this student (recipient_id) is always
+  // visible to them, regardless of the class/teacher broadcast scoping below —
+  // e.g. "you were added to/removed from a group".
+  const directToMe = { audience: 'students', recipient_id: userId };
+
   if (teacherIds.length === 0) {
-    // Not enrolled anywhere — nothing to show.
-    return { _id: null };
+    // Not enrolled anywhere — only directly-addressed notifications can show.
+    return directToMe;
   }
 
   return {
-    audience: 'students',
-    teacher_id: { $in: teacherIds },
-    $or: [{ class_id: null }, { class_id: { $in: enrolledClassIds } }],
+    $or: [
+      {
+        audience: 'students',
+        recipient_id: null,
+        teacher_id: { $in: teacherIds },
+        $or: [{ class_id: null }, { class_id: { $in: enrolledClassIds } }],
+      },
+      directToMe,
+    ],
   };
 };
 
@@ -63,7 +74,7 @@ const getNotifications = async (req, res) => {
 
     let filter;
     if (role === 'teacher') {
-      filter = { teacher_id: userId };
+      filter = { teacher_id: userId, audience: 'teacher' };
     } else {
       filter = await buildStudentNotificationFilter(userId);
     }
@@ -95,7 +106,7 @@ const getUnreadCount = async (req, res) => {
 
     let filter;
     if (role === 'teacher') {
-      filter = { teacher_id: userId, read_by: { $ne: userId } };
+      filter = { teacher_id: userId, audience: 'teacher', read_by: { $ne: userId } };
     } else {
       const studentFilter = await buildStudentNotificationFilter(userId);
       filter = { ...studentFilter, read_by: { $ne: userId } };
@@ -148,7 +159,7 @@ const markRead = async (req, res) => {
     // (own notifications for a teacher; teacher-and-class scoped notifications for a student).
     let scope;
     if (role === 'teacher') {
-      scope = { teacher_id: new mongoose.Types.ObjectId(userId) };
+      scope = { teacher_id: new mongoose.Types.ObjectId(userId), audience: 'teacher' };
     } else {
       scope = await buildStudentNotificationFilter(new mongoose.Types.ObjectId(userId));
     }
@@ -169,7 +180,7 @@ const markAllRead = async (req, res) => {
 
     let filter;
     if (role === 'teacher') {
-      filter = { teacher_id: userId };
+      filter = { teacher_id: userId, audience: 'teacher' };
     } else {
       filter = await buildStudentNotificationFilter(userId);
     }
@@ -195,7 +206,7 @@ const clearAllNotifications = async (req, res) => {
 
     let filter;
     if (role === 'teacher') {
-      filter = { teacher_id: userId };
+      filter = { teacher_id: userId, audience: 'teacher' };
     } else {
       // Covers students and admins alike — whatever set of notifications
       // is currently visible to this user is what gets cleared for them.
@@ -216,7 +227,7 @@ const clearNotification = async (req, res) => {
 
     let scope;
     if (role === 'teacher') {
-      scope = { teacher_id: new mongoose.Types.ObjectId(userId) };
+      scope = { teacher_id: new mongoose.Types.ObjectId(userId), audience: 'teacher' };
     } else {
       scope = await buildStudentNotificationFilter(new mongoose.Types.ObjectId(userId));
     }

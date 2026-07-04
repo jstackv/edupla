@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef, createContext, useContext } from 'react';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
+import { showChatToast, markMessageSeen, setActiveConversation, clearActiveConversation } from '../../utils/chatNotify';
 import { useAuth } from '../../context/AuthContext';
 import ConfirmModal from '../../components/common/ConfirmModal';
 import {
@@ -372,6 +373,12 @@ function LeaderTeacherDmModal({ groupId, myId, teacherName, onClose }) {
   const pollRef = useRef(null);
   const lastMsgTimeRef = useRef(null);
 
+  useEffect(() => {
+    const key = `leaderdm:${groupId}`;
+    setActiveConversation(key);
+    return () => clearActiveConversation(key);
+  }, [groupId]);
+
   const fetchThread = useCallback(async (silent) => {
     try {
       const params = silent && lastMsgTimeRef.current ? { since: lastMsgTimeRef.current } : {};
@@ -384,10 +391,11 @@ function LeaderTeacherDmModal({ groupId, myId, teacherName, onClose }) {
           const existingIds = new Set(prev.map(m => String(m.id)));
           const toAdd = fresh.filter(m => !existingIds.has(String(m.id)));
           if (toAdd.length) {
+            toAdd.forEach(m => markMessageSeen(m.id));
             const fromPeer = toAdd.filter(m => String(m.sender_id) !== String(myId));
             if (fromPeer.length) {
               const senderName = fromPeer[fromPeer.length - 1].sender_name || 'Someone';
-              toast.success(`${senderName} sent you a message!`, { icon: '💬' });
+              showChatToast({ name: senderName, preview: fromPeer[fromPeer.length - 1].content, accent: '#f59e0b', accent2: '#d97706' });
             }
           }
           return toAdd.length ? [...prev, ...toAdd] : prev;
@@ -651,6 +659,12 @@ function GroupChatContent({ group, myId, myName, onClose, onMessageSent }) {
   }, [audioBlob, recording, posting]);
 
   useEffect(() => {
+    const key = `group:${group.id}`;
+    setActiveConversation(key);
+    return () => clearActiveConversation(key);
+  }, [group.id]);
+
+  useEffect(() => {
     if (isEnded) return;
     const poll = async () => {
       try {
@@ -663,10 +677,11 @@ function GroupChatContent({ group, myId, myName, onClose, onMessageSent }) {
             const existingIds = new Set(prev.map(m => String(m.id || m._id)));
             const fresh = newMsgs.filter(m => !existingIds.has(String(m.id || m._id)));
             if (fresh.length === 0) return prev;
+            fresh.forEach(m => markMessageSeen(m.id || m._id));
             const fromOthers = fresh.filter(m => String(m.author_id) !== String(myId));
             if (fromOthers.length) {
-              const senderName = fromOthers[fromOthers.length - 1].author_name || 'Someone';
-              toast.success(`${senderName} sent you a message!`, { icon: '💬' });
+              const last = fromOthers[fromOthers.length - 1];
+              showChatToast({ name: `${last.author_name} · ${group.name}`, preview: last.content, isVoice: last.message_type === 'voice' });
             }
             lastMsgTimeRef.current = fresh[fresh.length - 1].created_at;
             return [...prev, ...fresh];
@@ -1054,6 +1069,12 @@ function PeerList({ classId, onSelectPeer, activePeerId }) {
   const firstLoadRef = useRef(true);
   const nameByIdRef = useRef({});   // peer_id -> name, kept fresh for toast copy
 
+  useEffect(() => {
+    const key = `dmlist:${classId}`;
+    setActiveConversation(key);
+    return () => clearActiveConversation(key);
+  }, [classId]);
+
   const fetchData = useCallback(async () => {
     try {
       const [cm, cv] = await Promise.all([
@@ -1075,7 +1096,7 @@ function PeerList({ classId, onSelectPeer, activePeerId }) {
           const lastAt = conv.last_at ? new Date(conv.last_at).getTime() : 0;
           if (lastAt && (!seenAt || lastAt > seenAt) && conv.unread_count > 0) {
             const senderName = nameByIdRef.current[peerId] || 'Someone';
-            toast.success(`${senderName} sent you a message!`, { icon: '💬' });
+            showChatToast({ name: senderName, preview: conv.last_message, isVoice: conv.last_message === '🎤 Voice note' });
           }
         });
       }
@@ -1217,6 +1238,12 @@ function DMChatContent({ classId, peer, myId, onBack, onClose }) {
   const pollRef = useRef(null);
   const lastMsgTimeRef = useRef(null);
 
+  useEffect(() => {
+    const key = `dm:${classId}:${peer.id}`;
+    setActiveConversation(key);
+    return () => clearActiveConversation(key);
+  }, [classId, peer.id]);
+
   const fetchMessages = useCallback(async (since = null) => {
     try {
       const params = since ? { since } : {};
@@ -1230,8 +1257,9 @@ function DMChatContent({ classId, peer, myId, onBack, onClose }) {
             if (fresh.length === 0) return prev;
             const fromPeer = fresh.filter(m => String(m.sender_id) !== String(myId));
             if (fromPeer.length) {
-              const senderName = fromPeer[fromPeer.length - 1].sender_name || peer.name || 'Someone';
-              toast.success(`${senderName} sent you a message!`, { icon: '💬' });
+              const last = fromPeer[fromPeer.length - 1];
+              const senderName = last.sender_name || peer.name || 'Someone';
+              showChatToast({ name: senderName, preview: last.content, isVoice: last.message_type === 'voice' });
             }
             lastMsgTimeRef.current = fresh[fresh.length - 1].created_at;
             return [...prev, ...fresh];

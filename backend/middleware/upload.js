@@ -53,4 +53,31 @@ const voiceNoteUpload = multer({
   },
 });
 
-module.exports = { documentUpload, assignmentUpload, voiceNoteUpload, cloudinary };
+// School/report logo: stored as an actual image (not 'raw') so Cloudinary can
+// optimise/serve it correctly, and shown on the printed student report header.
+const logoStorage = new CloudinaryStorage({
+  cloudinary,
+  params: async (req, file) => ({
+    folder: 'edupla/report_logos',
+    resource_type: 'image',
+    public_id: `logo-${Date.now()}-${Math.round(Math.random() * 1e9)}`,
+    use_filename: false,
+    // Keep the stored file small/consistent — reports render it at ~48-56px.
+    transformation: [{ width: 400, height: 400, crop: 'limit' }],
+  }),
+});
+
+const logoUpload = multer({
+  storage: logoStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB max
+  fileFilter: (req, file, cb) => {
+    const allowed = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/svg+xml'];
+    if (allowed.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PNG, JPG, WEBP, or SVG images are allowed for the logo.'));
+    }
+  },
+});
+
+module.exports = { documentUpload, assignmentUpload, voiceNoteUpload, logoUpload, cloudinary };

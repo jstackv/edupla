@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { isAuthenticated, isAdmin, isSuperAdmin } = require('../middleware/auth');
+const { logoUpload } = require('../middleware/upload');
 const {
   getDashboardStats, getTeachers, createTeacher, updateTeacher, deleteTeacher,
   getAllClasses, adminCreateClass, adminUpdateClass, adminDeleteClass, adminAssignClassToTeacher,
@@ -11,6 +12,7 @@ const {
   getLevels, createLevel, deleteLevel, updateLevel,
   getTrades, createTrade, deleteTrade, updateTrade,
   getProgramConfigs, createProgramConfig, updateProgramConfig, deleteProgramConfig,
+  getReportConfig, saveReportConfig, uploadReportLogo,
   toggleTeacherStatus, toggleStudentStatus, toggleClassStatus, toggleAdminStatus,
 } = require('../controllers/adminController');
 
@@ -289,6 +291,11 @@ router.get('/program-configs', getProgramConfigs);
 router.post('/program-configs', createProgramConfig);
 router.put('/program-configs/:id', updateProgramConfig);
 router.delete('/program-configs/:id', deleteProgramConfig);
+
+// Report header configuration (school name, address, manager, etc — shown on printed reports)
+router.get('/report-config', getReportConfig);
+router.put('/report-config', saveReportConfig);
+router.post('/report-config/logo', logoUpload.single('logo'), uploadReportLogo);
 
 // ── Admin Analytics ─────────────────────────────────────────────────────────
 router.get('/analytics', async (req, res) => {

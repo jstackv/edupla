@@ -433,6 +433,16 @@ exports.adminClassReport = async (req, res) => {
       s.rank_total = annualRanked.length;
     });
 
+    /*
+     * Display order: ascending rank (rank 1 first). When a single term was
+     * requested, order by that term's rank; otherwise use the overall/annual
+     * rank. Students with no rank (no marks yet) are pushed to the end.
+     */
+    students.sort((a, b) => {
+      const rankOf = (s) => (term ? s.term_ranks?.[term]?.rank : s.rank) ?? Infinity;
+      return rankOf(a) - rankOf(b);
+    });
+
     res.json({
       class: {
         id: cls._id, name: cls.name,
