@@ -644,7 +644,7 @@ const REPORT_CONFIG_DEFAULTS = {
   schoolWebsite: '',
   managerName: '',
   managerTitle: 'School Principal',
-  footerNote: "Module Weight = Module's learning hours = Credit × 10. Passing Line: 50% for mathematics, sciences and complementary modules while 70% is for core modules (specific and general modules). Module Annual Average: (Average of Integrated A + Average of Comprehensive A) / number of assessed terms.",
+  footerNote: "Module Weight = Module's learning hours = Credit × 10. Passing Line: 70% for Specific modules; 50% for General and Complementary modules. Module Annual Average: (Average of Integrated A + Average of Comprehensive A) / number of assessed terms.",
   primaryColor: '#1a3a6b',
   accentColor: '#1565c0',
   academicYear: '',

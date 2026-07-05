@@ -41,7 +41,7 @@ const DEFAULT_REPORT_CONFIG = {
   schoolLogoUrl: '',
   managerName: 'School Manager',
   managerTitle: 'School Principal',
-  footerNote: "Module Weight = Module's learning hours = Credit × 10. Passing Line: 50% for mathematics, sciences and complementary modules while 70% is for core modules (specific and general modules). Module Annual Average: (Average of Integrated A + Average of Comprehensive A) / number of assessed terms.",
+  footerNote: "Module Weight = Module's learning hours = Credit × 10. Passing Line: 70% for Specific modules; 50% for General and Complementary modules. Module Annual Average: (Average of Integrated A + Average of Comprehensive A) / number of assessed terms.",
   primaryColor: '#1a3a6b',
   accentColor:  '#1565c0',
   termLabel:    '2nd TERM',
@@ -74,9 +74,31 @@ function getGrade(obtained, max) {
   return 'F';
 }
 
-function getRwandanDecision(pct) {
+// Rwandan TVET RTQF passing lines: Specific modules require 70% to be
+// Competent; General and Complementary modules (and anything else, e.g.
+// Elective Non Examinable) require 50%.
+function passingLineForCategory(category) {
+  return category === 'Specific modules' ? 70 : 50;
+}
+
+function getRwandanDecision(pct, category) {
   if (pct == null) return '—';
-  return pct >= 70 ? 'C' : pct >= 50 ? 'P' : 'NYC';
+  return pct >= passingLineForCategory(category) ? 'C' : 'NYC';
+}
+
+/* ─────────── Responsive helper ───────────
+ * Inline styles (used everywhere in this file) always win over external CSS,
+ * so we can't rely on plain @media queries to reflow grids/columns. Instead,
+ * components read the viewport width via this hook and switch their layout
+ * (grid columns, sidebar stacking, etc.) in JS. */
+function useIsMobile(breakpoint = 768) {
+  const [isMobile, setIsMobile] = useState(() => (typeof window !== 'undefined' ? window.innerWidth <= breakpoint : false));
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth <= breakpoint);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [breakpoint]);
+  return isMobile;
 }
 
 function GradeBadge({ grade }) {
@@ -316,6 +338,7 @@ function ReportConfigPanel({ config, onChange, dark }) {
   const [draft, setDraft] = useState({ ...config });
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+  const isMobile = useIsMobile(640);
 
   useEffect(() => { setDraft({ ...config }); }, [config]);
 
@@ -373,7 +396,7 @@ function ReportConfigPanel({ config, onChange, dark }) {
             <p style={{ margin: 0, fontSize: 11, color: dark ? '#7b839a' : '#9ca3af' }}>Shown top-left of the report</p>
           </div>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
           <div style={{ gridColumn: '1/-1' }}>{field('Republic / Country', 'republic', 'text', 'REPUBLIC OF RWANDA')}</div>
           <div style={{ gridColumn: '1/-1' }}>{field('Ministry', 'ministry', 'text', 'MINISTRY OF EDUCATION')}</div>
           {field('District', 'district', 'text', 'DISTRICT ...')}
@@ -402,7 +425,7 @@ function ReportConfigPanel({ config, onChange, dark }) {
           </div>
           <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: dark ? '#f1f5f9' : '#111827' }}>Contact Information</p>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
           <div style={{ gridColumn: '1/-1' }}>{field('Address', 'schoolAddress')}</div>
           {field('Phone / Tel', 'schoolPhone')}
           {field('Email', 'schoolEmail', 'email')}
@@ -417,7 +440,7 @@ function ReportConfigPanel({ config, onChange, dark }) {
           </div>
           <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: dark ? '#f1f5f9' : '#111827' }}>Report Signatory</p>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
           {field('Principal / Director Name', 'managerName', 'text', 'Full Name')}
           {field('Title / Role', 'managerTitle', 'text', 'School Principal')}
         </div>
@@ -453,6 +476,7 @@ function ReportConfigPanel({ config, onChange, dark }) {
 export default function AdminAssessments() {
   const { dark } = useTheme();
   const { user } = useAuth();
+  const isMobile = useIsMobile(760);
 
   const [tab, setTab]                   = useState('courses');
   const [reportType, setReportType]     = useState('class');
@@ -814,6 +838,11 @@ export default function AdminAssessments() {
         }
         .course-card:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(26,58,107,0.18) !important; }
         .course-card       { transition: all 0.2s ease; }
+        .assess-tabbar { scrollbar-width: none; -ms-overflow-style: none; }
+        .assess-tabbar::-webkit-scrollbar { display: none; }
+        @media (max-width: 640px) {
+          .assess-page-title { font-size: 18px !important; }
+        }
       `}</style>
 
       {/* ── Page Header ── */}
@@ -824,7 +853,7 @@ export default function AdminAssessments() {
               <div style={{ width: 40, height: 40, borderRadius: 12, background: 'linear-gradient(135deg,#1a3a6b,#1565c0)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <GraduationCap size={20} color="#fff" />
               </div>
-              <h1 style={{ fontSize: 22, fontWeight: 800, color: dark ? '#f1f5f9' : '#111827', margin: 0, fontFamily: "'Sora',sans-serif" }}>
+              <h1 className="assess-page-title" style={{ fontSize: 22, fontWeight: 800, color: dark ? '#f1f5f9' : '#111827', margin: 0, fontFamily: "'Sora',sans-serif" }}>
                 Modules, Submissions and Report Management
               </h1>
             </div>
@@ -847,11 +876,11 @@ export default function AdminAssessments() {
         </div>
 
         {/* Tabs */}
-        <div style={{ display: 'flex', gap: 4, marginTop: 20, borderBottom: `2px solid ${dark ? '#1e2130' : '#e5e7eb'}` }}>
+        <div className="assess-tabbar" style={{ display: 'flex', gap: 4, marginTop: 20, borderBottom: `2px solid ${dark ? '#1e2130' : '#e5e7eb'}`, overflowX: 'auto' }}>
           {tabs.map(({ key, label, icon: Icon }) => (
             <button key={key} onClick={() => setTab(key)} style={{
               display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px',
-              border: 'none', borderRadius: '10px 10px 0 0',
+              border: 'none', borderRadius: '10px 10px 0 0', flexShrink: 0, whiteSpace: 'nowrap',
               background: tab === key ? (dark ? '#1d2235' : '#fff') : 'transparent',
               color: tab === key ? '#1a3a6b' : (dark ? '#7b839a' : '#6b7280'),
               fontWeight: tab === key ? 700 : 500, fontSize: 13, cursor: 'pointer',
@@ -1036,7 +1065,8 @@ export default function AdminAssessments() {
                   ) : (
                     /* ── Table view ── */
                     <div style={{ borderRadius: 12, overflow: 'hidden', border: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}` }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                      <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 640 }}>
                         <thead>
                           <tr style={{ background: dark ? '#1a1f2e' : '#f9fafb', borderBottom: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}` }}>
                             {['Code', 'Module Name', 'Weight', 'Classes', 'Teacher', 'Actions'].map(h => (
@@ -1090,6 +1120,7 @@ export default function AdminAssessments() {
                           })}
                         </tbody>
                       </table>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1480,9 +1511,9 @@ export default function AdminAssessments() {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: 20, alignItems: 'start' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 380px', gap: 20, alignItems: 'start' }}>
             <ReportConfigPanel config={reportConfig} onChange={cfg => setReportConfig(cfg)} dark={dark} />
-            <div style={{ position: 'sticky', top: 20 }}>
+            <div style={{ position: isMobile ? 'static' : 'sticky', top: 20 }}>
               <div style={{ ...card, marginBottom: 12 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
                   <Eye size={14} color="#1a3a6b" />
@@ -1502,8 +1533,8 @@ export default function AdminAssessments() {
 
       {/* ══════════ COURSE MODAL ══════════ */}
       {showCourseModal && (
-        <div onClick={e => { if (e.target === e.currentTarget) setShowCourseModal(false); }} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ width: 560, borderRadius: 22, background: dark ? '#13161f' : '#fff', border: `1px solid ${dark ? '#1e2535' : '#e5e7eb'}`, padding: 30, boxShadow: '0 32px 80px rgba(0,0,0,0.4)', maxHeight: '90vh', overflowY: 'auto' }}>
+        <div onClick={e => { if (e.target === e.currentTarget) setShowCourseModal(false); }} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ width: 560, maxWidth: '100%', borderRadius: 22, background: dark ? '#13161f' : '#fff', border: `1px solid ${dark ? '#1e2535' : '#e5e7eb'}`, padding: isMobile ? 18 : 30, boxShadow: '0 32px 80px rgba(0,0,0,0.4)', maxHeight: '90vh', overflowY: 'auto' }}>
             {/* Modal header */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 22 }}>
               <div style={{ width: 42, height: 42, borderRadius: 12, background: 'linear-gradient(135deg,#1a3a6b,#1565c0)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1523,7 +1554,7 @@ export default function AdminAssessments() {
               {/* Module Type */}
               <div>
                 <label style={{ ...labelStyle, marginBottom: 8 }}>Module Type *</label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: 8 }}>
                   {MODULE_CATEGORIES.map(cat => {
                     const cb = catBadge(cat);
                     const selected = courseForm.category === cat;
@@ -1546,7 +1577,7 @@ export default function AdminAssessments() {
               </div>
 
               {/* Name + Code + Weight */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
                 <div style={{ gridColumn: '1/-1' }}>
                   <label style={labelStyle}>Module Name *</label>
                   <input value={courseForm.name} onChange={e => setCourseForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. CREATE A BUSINESS" style={inputStyle} />
@@ -1664,10 +1695,10 @@ function ReportHeaderPreview({ config }) {
           <div style={{ color: '#6b7280' }}>{config.schoolPhone}</div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-          <div style={{ width: 32, height: 32, borderRadius: '50%', background: pc + '15', border: '1px solid ' + pc + '30', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: 42, height: 42, borderRadius: '50%', background: pc + '15', border: '1px solid ' + pc + '30', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             {config.schoolLogoUrl
-              ? <img src={config.schoolLogoUrl} style={{ width: 28, height: 28, objectFit: 'contain', borderRadius: '50%' }} alt="" onError={e => e.target.style.display = 'none'} />
-              : <School size={14} color={pc} />}
+              ? <img src={config.schoolLogoUrl} style={{ width: 37, height: 37, objectFit: 'contain', borderRadius: '50%' }} alt="" onError={e => e.target.style.display = 'none'} />
+              : <School size={18} color={pc} />}
           </div>
         </div>
         <div style={{ fontSize: 7, lineHeight: 1.7, color: '#374151', textAlign: 'right' }}>
@@ -1827,7 +1858,7 @@ function ReportView({ data, dark, students, classes, config, selectedTerm }) {
             <tbody>
               {(sData || []).sort((a, b) => (b.percentage ?? -1) - (a.percentage ?? -1)).map((s, i) => {
                 const displayPct = s.percentage != null ? Math.min(s.percentage, 100) : null;
-                const dec = getRwandanDecision(displayPct);
+                const dec = getRwandanDecision(displayPct, assessment?.course_id?.category);
                 return (
                   <tr key={i} style={{ background: i % 2 === 0 ? 'transparent' : (dark ? '#ffffff05' : '#f9fafb50') }}>
                     <td style={{ ...td, color: dark ? '#7b839a' : '#9ca3af' }}>{i + 1}</td>
@@ -1837,7 +1868,7 @@ function ReportView({ data, dark, students, classes, config, selectedTerm }) {
                     <td style={{ ...td, fontWeight: 700, color: pctColor(displayPct) }}>{displayPct != null ? displayPct + '%' : '—'}</td>
                     <td style={td}><GradeBadge grade={s.grade} /></td>
                     <td style={td}>{s.rank ? <span style={{ fontWeight: 700 }}>#{s.rank}</span> : '—'}</td>
-                    <td style={td}><span style={{ fontWeight: 700, color: dec === 'C' ? '#059669' : dec === 'P' ? '#b45309' : '#dc2626' }}>{dec}</span></td>
+                    <td style={td}><span style={{ fontWeight: 700, color: dec === 'C' ? '#059669' : '#dc2626' }}>{dec}</span></td>
                   </tr>
                 );
               })}
@@ -1911,11 +1942,21 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
       const maxTotal = maxes.reduce((s, v) => s + v, 0);
       return { ...d, maxData: mx, obtained: scores.length > 0 ? obtained : null, maxTotal: maxTotal || null, avg };
     });
-    const termAvgs      = terms.map(t => t.avg).filter(v => v != null);
-    const annualAvg     = termAvgs.length > 0 ? Math.min(Math.round(termAvgs.reduce((s, v) => s + v, 0) / termAvgs.length), 100) : null;
+    /*
+     * Annual average = mean of ALL 3 terms, with an unrecorded term counted
+     * as 0 — not skipped. E.g. term1=38%, term2/term3 not yet recorded:
+     * annualAvg = (38 + 0 + 0) / 3 = 12.66% ≈ 13%, NOT just 38%.
+     * Exception: a module with NO data in any term yet (nothing to average)
+     * stays null so the report shows '—' instead of a false 0%/NYC.
+     */
+    const termAvgs      = terms.map(t => t.avg);
+    const hasAnyTermAvg = termAvgs.some(v => v != null);
+    const annualAvg     = hasAnyTermAvg
+      ? Math.min(Math.round(termAvgs.reduce((s, v) => s + (v ?? 0), 0) / termAvgs.length), 100)
+      : null;
     const totalObtained = terms.reduce((s, t) => s + (t.obtained || 0), 0);
     const totalMax      = terms.reduce((s, t) => s + (t.maxTotal || 0), 0);
-    return { ...row, terms, annualAvg, annualMarks: totalMax > 0 ? totalObtained : null, annualMax: totalMax, decision: getRwandanDecision(annualAvg) };
+    return { ...row, terms, annualAvg, annualMarks: totalMax > 0 ? totalObtained : null, annualMax: totalMax, decision: getRwandanDecision(annualAvg, row.category) };
   });
 
   const grouped = {};
@@ -1927,9 +1968,24 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
     return { obtained: allObtained, max: allMax, pct: allMax > 0 ? Math.min(Math.round((allObtained / allMax) * 100), 100) : null };
   });
 
+  /*
+   * The overall ANNUAL % is the weight-weighted mean of each module's own
+   * annual average (the same "mean of 3 terms, missing = 0" rule computed
+   * above) — NOT a raw marks-obtained ÷ marks-possible sum. A module that
+   * has never been assessed contributes 0% against its FULL weight here,
+   * so it pulls the annual score down instead of being silently excluded.
+   * Without this, a student with only 1st term recorded (and several
+   * modules never assessed at all) could show a deceptively high "Annual"
+   * percentage and a false "Competent" decision, as if the year were done.
+   * (Raw obtained/max sums are still kept below for the reference "Marks"
+   * columns — they just no longer drive the percentage or the decision.)
+   */
+  const annualWeightTotal = moduleRows.reduce((s, r) => s + (r.weight || 0), 0);
+  const annualPct = annualWeightTotal > 0
+    ? Math.min(Math.round(moduleRows.reduce((s, r) => s + (r.annualAvg ?? 0) * (r.weight || 0), 0) / annualWeightTotal), 100)
+    : null;
   const annualObtained = moduleRows.reduce((s, r) => s + (r.annualMarks || 0), 0);
-  const annualMax      = moduleRows.reduce((s, r) => s + (r.annualMax  || 0), 0);
-  const annualPct      = annualMax > 0 ? Math.min(Math.round((annualObtained / annualMax) * 100), 100) : null;
+  const annualMax      = annualWeightTotal;
 
   const annualRank  = student.rank       || null;
   const totalRanked = student.rank_total || allStudents.length;
@@ -1946,8 +2002,42 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
   const finalPct       = isAnnualView ? annualPct                    : termTotals[selTermIdx]?.pct ?? null;
   const finalObtained  = isAnnualView ? annualObtained                : termTotals[selTermIdx]?.obtained ?? null;
   const finalMax       = isAnnualView ? annualMax                     : termTotals[selTermIdx]?.max ?? null;
-  const finalDecision  = getRwandanDecision(finalPct);
+  const finalDecision  = getRwandanDecision(finalPct); // overall combined total → flat 50% promotion threshold
   const finalRankEntry = isAnnualView ? { rank: annualRank, total: totalRanked } : termRanks[selectedTerm];
+
+  /*
+   * Deliberation: a student is promoted only if BOTH hold —
+   *  (a) their overall average (annual, or the selected term when viewing
+   *      a single term) is at least 50%, AND
+   *  (b) none of their modules came back NYC (using each module's own
+   *      passing line: 70% for Specific modules, 50% for everything else).
+   * Modules with no data at all are skipped when counting NYC — they can't
+   * fail a student on their own — but they still weigh down the overall
+   * percentage above via the full-curriculum-weight calculation.
+   */
+  const nycCount = moduleRows.filter(row => {
+    const avg = isAnnualView ? row.annualAvg : (row.terms[selTermIdx]?.avg ?? null);
+    if (avg == null) return false;
+    return getRwandanDecision(avg, row.category) === 'NYC';
+  }).length;
+  const isPromoted = finalPct != null && finalPct >= 50 && nycCount === 0;
+  const deliberationOptions = ['Promoted at 1st sitting', 'Promoted after re-assessment', 'Re-assessment required', 'Advised to repeat', 'Dismissed'];
+  /*
+   * Only two outcomes are derived automatically from marks:
+   *  - "Promoted at 1st sitting" when the promotion rule above is met.
+   *  - Otherwise, tiered by how many modules came back NYC: a handful
+   *    (0–2) gets "Re-assessment required"; 3 or more gets "Advised to
+   *    repeat". This is a starting threshold — adjust the `nycCount`
+   *    comparison below if your school uses a different cutoff.
+   * "Promoted after re-assessment" (needs actual resit marks we don't have)
+   * and "Dismissed" (a disciplinary/administrative call) are never
+   * auto-ticked — left for the class trainer / school manager to decide.
+   */
+  const autoDeliberation = finalPct == null
+    ? null
+    : isPromoted
+      ? 'Promoted at 1st sitting'
+      : (nycCount <= 2 ? 'Re-assessment required' : 'Advised to repeat');
 
   const border   = '1px solid #c8cdd8';
   const headerBg = '#e8ecf0';
@@ -1959,7 +2049,7 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
   const fz       = (n) => Math.round(n * scale * 10) / 10;
   const cellPad  = `${Math.round(3 * scale * 10) / 10}px ${Math.round(4 * scale * 10) / 10}px`;
 
-  function decColor(d) { return d === 'C' ? '#059669' : d === 'P' ? '#b45309' : d === 'NYC' ? '#dc2626' : '#374151'; }
+  function decColor(d) { return d === 'C' ? '#059669' : d === 'NYC' ? '#dc2626' : '#374151'; }
 
   const cell     = { padding: cellPad, fontSize: fs, borderRight: border, borderBottom: border, textAlign: 'center', verticalAlign: 'middle' };
   const cellLeft = { ...cell, textAlign: 'left' };
@@ -1991,10 +2081,10 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
               </div>
             </td>
             <td style={{ width: '30%', verticalAlign: 'middle', textAlign: 'center', padding: '0 8px' }}>
-              <div style={{ width: 56, height: 56, borderRadius: '50%', background: pc + '10', border: '2px solid ' + pc + '30', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto' }}>
+              <div style={{ width: 82, height: 82, borderRadius: '50%', background: pc + '10', border: '2px solid ' + pc + '30', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto' }}>
                 {config?.schoolLogoUrl
-                  ? <img src={config.schoolLogoUrl} style={{ width: 48, height: 48, objectFit: 'contain', borderRadius: '50%' }} alt="Logo" onError={e => e.target.style.display = 'none'} />
-                  : <School size={24} color={pc} />}
+                  ? <img src={config.schoolLogoUrl} style={{ width: 72, height: 72, objectFit: 'contain', borderRadius: '50%' }} alt="Logo" onError={e => e.target.style.display = 'none'} />
+                  : <School size={32} color={pc} />}
               </div>
             </td>
             <td style={{ width: '35%', verticalAlign: 'top', textAlign: 'right', padding: '0 0 4px 0' }}>
@@ -2102,7 +2192,7 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
                 {catRows.map((row, i) => {
                   const finalRowSrc = isAnnualView
                     ? { avg: row.annualAvg, marks: row.annualMarks, decision: row.decision }
-                    : { avg: row.terms[selTermIdx]?.avg ?? null, marks: row.terms[selTermIdx]?.obtained ?? null, decision: getRwandanDecision(row.terms[selTermIdx]?.avg ?? null) };
+                    : { avg: row.terms[selTermIdx]?.avg ?? null, marks: row.terms[selTermIdx]?.obtained ?? null, decision: getRwandanDecision(row.terms[selTermIdx]?.avg ?? null, row.category) };
                   return (
                     <tr key={row._id} style={{ background: i % 2 === 0 ? '#fff' : '#f9fafc' }}>
                       <td style={{ ...cell, color: '#9ca3af', fontSize: fz(6) }}>{i + 1}</td>
@@ -2220,24 +2310,35 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
       <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 5 }}>
         <tbody>
           <tr>
-            <td style={{ verticalAlign: 'top', padding: '3px 8px 0 0', width: '55%' }}>
+            <td style={{ verticalAlign: 'top', padding: '3px 8px 0 0', width: isAnnualView ? '55%' : '80%' }}>
               <div style={{ fontSize: fz(7), color: '#374151', lineHeight: 1.9 }}>
-                <div><strong>N/A:</strong> Not Applicable · <strong style={{ color: '#059669' }}>C:</strong> Competent · <strong style={{ color: '#dc2626' }}>NYC:</strong> Not Yet Competent · <strong style={{ color: '#b45309' }}>P:</strong> In progress</div>
-                <div><strong>Passing Line:</strong> 50% for complementary modules; <strong>70%</strong> for general &amp; specific modules.</div>
+                <div><strong>N/A:</strong> Not Applicable · <strong style={{ color: '#059669' }}>C:</strong> Competent · <strong style={{ color: '#dc2626' }}>NYC:</strong> Not Yet Competent</div>
+                <div><strong>Passing Line:</strong> 50% for General &amp; Complementary modules; <strong>70%</strong> for Specific modules.</div>
                 <div><strong>Term Average:</strong> (Formative Assessment% + Comprehensive Assessment%) ÷ 2.</div>
-                <div><strong>Annual Average:</strong> Mean of all term averages with data.</div>
+                <div><strong>Annual Average:</strong> Mean of all 3 terms — an unrecorded term counts as 0%.</div>
                 <div><strong>Position:</strong> Ranked within class per term and annually.</div>
               </div>
             </td>
-            <td style={{ verticalAlign: 'top', padding: '0 8px', width: '25%', borderLeft: '1px solid #dee2e6' }}>
-              <div style={{ fontSize: fz(7.5), fontWeight: 800, marginBottom: 3 }}>Deliberation :</div>
-              {['Promoted at 1st sitting', 'Promoted after re-assessment', 'Re-assessment required', 'Advised to repeat', 'Dismissed'].map(opt => (
-                <div key={opt} style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3, fontSize: fz(7) }}>
-                  <div style={{ width: 10, height: 10, border: '1px solid #999', borderRadius: 2, flexShrink: 0 }} />
-                  <span>{opt}</span>
-                </div>
-              ))}
-            </td>
+            {isAnnualView && (
+              <td style={{ verticalAlign: 'top', padding: '0 8px', width: '25%', borderLeft: '1px solid #dee2e6' }}>
+                <div style={{ fontSize: fz(7.5), fontWeight: 800, marginBottom: 3 }}>Deliberation :</div>
+                {deliberationOptions.map(opt => {
+                  const checked = opt === autoDeliberation;
+                  return (
+                    <div key={opt} style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3, fontSize: fz(7) }}>
+                      <div style={{
+                        width: 10, height: 10, borderRadius: 2, flexShrink: 0,
+                        border: `1px solid ${checked ? pc : '#999'}`, background: checked ? pc : 'transparent',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        {checked && <span style={{ color: '#fff', fontSize: 8, lineHeight: 1, fontWeight: 900 }}>✓</span>}
+                      </div>
+                      <span style={{ fontWeight: checked ? 800 : 400 }}>{opt}</span>
+                    </div>
+                  );
+                })}
+              </td>
+            )}
             <td style={{ verticalAlign: 'bottom', textAlign: 'center', padding: '0 0 0 8px', width: '20%', borderLeft: '1px solid #dee2e6' }}>
               <div style={{ fontSize: fz(7), color: '#6b7280', marginBottom: 22 }}>Date: {reportDate}</div>
               <div style={{ borderTop: '1px solid #374151', paddingTop: 4, marginTop: 4 }}>
