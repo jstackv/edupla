@@ -239,6 +239,130 @@ function MultiClassPicker({ classes, selectedIds, onChange, dark }) {
 }
 
 /* ══════════════════════════════════════════════════════════════════════
+   STUDENT SEARCH BOX — type-to-filter student picker used across Reports.
+   Works in two modes:
+     - "single": picks exactly one student (Single Student report)
+     - "multi" : picks one at a time and hands each pick to onSelect,
+                 letting the caller keep its own selected-list state
+                 (Class Report → optional per-student filter)
+   `students` should already be pre-scoped (e.g. only the selected class),
+   so search always happens *within* whatever class is currently active.
+══════════════════════════════════════════════════════════════════════ */
+function StudentSearchBox({
+  students, mode = 'single', value = '', onSelect, onClear,
+  excludeIds = [], showAllOption = false, onSelectAll,
+  placeholder = 'Search student by name…', dark, disabled = false,
+}) {
+  const [query, setQuery]   = useState('');
+  const [open, setOpen]     = useState(false);
+  const wrapRef  = useRef(null);
+  const inputRef = useRef(null);
+
+  const selected = mode === 'single' ? students.find(s => (s._id || s.id) === value) : null;
+
+  useEffect(() => {
+    function onClickOutside(e) { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); }
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, []);
+
+  const pool = mode === 'multi' ? students.filter(s => !excludeIds.includes(s._id || s.id)) : students;
+  const q = query.trim().toLowerCase();
+  const filtered = q ? pool.filter(s => (s.name || '').toLowerCase().includes(q)) : pool;
+
+  function pick(id) {
+    onSelect(id);
+    if (mode === 'single') setOpen(false);
+    setQuery('');
+    if (mode === 'multi') inputRef.current?.focus();
+  }
+
+  const displayValue = mode === 'single' && selected && !open ? selected.name : query;
+
+  return (
+    <div ref={wrapRef} style={{ position: 'relative' }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', borderRadius: 10,
+        border: `1.5px solid ${open ? '#1a3a6b' : (dark ? '#2a3042' : '#d1d5db')}`,
+        background: disabled ? (dark ? '#161a24' : '#f1f5f9') : (dark ? '#1a1f2e' : '#f9fafb'),
+        boxShadow: open ? '0 0 0 3px rgba(26,58,107,0.12)' : 'none', transition: 'all 0.15s',
+      }}>
+        <Search size={13} color={open ? '#1a3a6b' : (dark ? '#7b839a' : '#9ca3af')} style={{ flexShrink: 0 }} />
+        <input
+          ref={inputRef}
+          disabled={disabled}
+          value={displayValue}
+          onFocus={() => { setOpen(true); if (mode === 'single' && selected) setQuery(''); }}
+          onChange={e => { setQuery(e.target.value); setOpen(true); }}
+          placeholder={placeholder}
+          style={{
+            flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent',
+            fontSize: 13, fontWeight: selected ? 700 : 500,
+            color: disabled ? (dark ? '#4a5168' : '#9ca3af') : (dark ? '#e2e8f0' : '#111827'),
+            cursor: disabled ? 'not-allowed' : 'text',
+          }}
+        />
+        {mode === 'single' && selected && (
+          <button type="button" onClick={() => { onClear ? onClear() : onSelect(''); setQuery(''); }} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 2, color: dark ? '#7b839a' : '#9ca3af', display: 'flex', flexShrink: 0 }}>
+            <X size={13} />
+          </button>
+        )}
+      </div>
+
+      {open && !disabled && (
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, zIndex: 60,
+          background: dark ? '#161a24' : '#fff', border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`,
+          borderRadius: 12, boxShadow: '0 16px 40px rgba(0,0,0,0.2)', overflow: 'hidden',
+          animation: 'fadeUp 0.12s ease',
+        }}>
+          <div style={{ maxHeight: 240, overflowY: 'auto', padding: 4 }}>
+            {showAllOption && (
+              <div
+                onClick={() => { onSelectAll?.(); setOpen(false); setQuery(''); }}
+                style={{ padding: '8px 10px', cursor: 'pointer', fontSize: 12.5, fontWeight: 700, color: '#1a3a6b', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 7 }}
+                onMouseEnter={e => e.currentTarget.style.background = dark ? '#1d2233' : '#f0f4f8'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              >
+                <Users size={12} /> — Add All Students —
+              </div>
+            )}
+            {filtered.length === 0 ? (
+              <div style={{ padding: '16px 12px', textAlign: 'center', fontSize: 12, color: dark ? '#7b839a' : '#9ca3af' }}>
+                No student matches “{query}”
+              </div>
+            ) : filtered.map((s) => {
+              const id = s._id || s.id;
+              const isSel = mode === 'single' && id === value;
+              return (
+                <div
+                  key={id}
+                  onClick={() => pick(id)}
+                  onMouseEnter={e => { e.currentTarget.style.background = dark ? '#1d2233' : '#f0f4f8'; }}
+                  onMouseLeave={e => e.currentTarget.style.background = isSel ? 'rgba(26,58,107,0.08)' : 'transparent'}
+                  style={{
+                    padding: '8px 10px', cursor: 'pointer', fontSize: 13, borderRadius: 8,
+                    fontWeight: isSel ? 800 : 500, color: isSel ? '#1a3a6b' : (dark ? '#e2e8f0' : '#374151'),
+                    background: isSel ? 'rgba(26,58,107,0.08)' : 'transparent',
+                    display: 'flex', alignItems: 'center', gap: 8,
+                  }}
+                >
+                  <div style={{ width: 20, height: 20, borderRadius: '50%', background: isSel ? '#1a3a6b' : (dark ? '#2a3042' : '#e5e7eb'), display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <User2 size={11} color={isSel ? '#fff' : (dark ? '#7b839a' : '#9ca3af')} />
+                  </div>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</span>
+                  {isSel && <CheckCircle2 size={13} color="#1a3a6b" style={{ marginLeft: 'auto', flexShrink: 0 }} />}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════════
    REPORT CONFIG PANEL  — removed: Programme/Qualification, Brand Colors
 ══════════════════════════════════════════════════════════════════════ */
 /* ─────────── Logo Uploader (drag & drop or click to browse) ───────────
@@ -400,6 +524,7 @@ function ReportConfigPanel({ config, onChange, dark }) {
           <div style={{ gridColumn: '1/-1' }}>{field('Republic / Country', 'republic', 'text', 'REPUBLIC OF RWANDA')}</div>
           <div style={{ gridColumn: '1/-1' }}>{field('Ministry', 'ministry', 'text', 'MINISTRY OF EDUCATION')}</div>
           {field('District', 'district', 'text', 'DISTRICT ...')}
+          {field('Academic Year', 'academicYear', 'text', '2025-2026')}
           <div style={{ gridColumn: '1/-1' }}>{field('School / Lycée Name', 'schoolName', 'text', 'Lycée de Ruhango Ikirezi ...')}</div>
           <div style={{ gridColumn: '1/-1' }}>{field('School Motto / Tagline', 'schoolMotto', 'text', 'Excellence Through Knowledge')}</div>
           <div style={{ gridColumn: '1/-1' }}>
@@ -1927,13 +2052,30 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
       const mx = row.termMaxData[term];
       const hasAnyData = d.FA != null || d.IA != null || d.CA != null;
       let avg = null;
+      const mw = row.weight || 100;
       if (hasAnyData) {
         if (d.FA == null && d.CA == null && d.IA != null) {
-          avg = Math.min(Math.round((d.IA / (mx.IA || 100)) * 100), 100);
+          if (term === 'Term 3') {
+            // Term 3's Integrated Assessment follows the same mw-based rule
+            // as FA/CA: the module's weight is the assumed max for IA too.
+            // e.g. mw=100, IA=82 → avg = 82*100/100 = 82%
+            avg = Math.min(Math.round((d.IA * 100) / mw), 100);
+          } else {
+            // IA isn't normally used in Term 1/2 for this curriculum, but if
+            // it ever is, fall back to its own recorded max (previous behavior).
+            avg = Math.min(Math.round((d.IA / (mx.IA || 100)) * 100), 100);
+          }
         } else {
-          const faPct = d.FA != null ? (d.FA / (mx.FA || 100)) * 100 : 0;
-          const caPct = d.CA != null ? (d.CA / (mx.CA || 100)) * 100 : 0;
-          avg = Math.min(Math.round((faPct + caPct) / 2), 100);
+          /*
+           * Term average = (FA + CA) * 100 / (module weight * 2).
+           * The module's own weight (mw) is treated as the max for BOTH FA
+           * and CA — so total possible = mw * 2 — and an unrecorded FA or
+           * CA counts as literal 0 marks, not as excluded from the sum.
+           * e.g. mw=100, FA=65, CA=78  → tot=143 → avg = 143*100/200 = 71.5% → 72%
+           * e.g. mw=100, FA=60, CA n/a → tot=60  → avg =  60*100/200 = 30%
+           */
+          const tot = (d.FA || 0) + (d.CA || 0);
+          avg = Math.min(Math.round((tot * 100) / (mw * 2)), 100);
         }
       }
       const scores   = [d.FA, d.IA, d.CA].filter(v => v != null);
@@ -1962,10 +2104,23 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
   const grouped = {};
   ALL_MODULE_CATEGORIES.forEach(cat => { grouped[cat] = moduleRows.filter(r => r.category === cat); });
 
+  /*
+   * Same principle as the annual fix: a single term's overall % is the
+   * weight-weighted mean of each module's OWN average for that term, where
+   * a module with no data recorded for this term counts as 0% against its
+   * FULL weight — not silently excluded. Otherwise a term with only a
+   * couple of modules marked so far would show an inflated percentage
+   * based only on the fraction that's been graded.
+   * (Raw obtained/max sums are kept for the reference "Marks" column only.)
+   */
+  const termWeightTotal = moduleRows.reduce((s, r) => s + (r.weight || 0), 0);
   const termTotals = TERMS.map((_, ti) => {
     const allObtained = moduleRows.reduce((s, r) => s + (r.terms[ti].obtained || 0), 0);
     const allMax      = moduleRows.reduce((s, r) => s + (r.terms[ti].maxTotal || 0), 0);
-    return { obtained: allObtained, max: allMax, pct: allMax > 0 ? Math.min(Math.round((allObtained / allMax) * 100), 100) : null };
+    const pct = termWeightTotal > 0
+      ? Math.min(Math.round(moduleRows.reduce((s, r) => s + (r.terms[ti].avg ?? 0) * (r.weight || 0), 0) / termWeightTotal), 100)
+      : null;
+    return { obtained: allObtained, max: allMax, pct };
   });
 
   /*
@@ -2223,25 +2378,6 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
         </tbody>
 
         <tfoot>
-          <tr style={{ background: headerBg }}>
-            <td colSpan={3} style={{ ...hCell, textAlign: 'right', fontSize: fz(6) }}>Total Weights assessed:</td>
-            <td style={{ ...hCell, fontSize: fz(6) }}>{moduleRows.reduce((s, r) => s + r.weight, 0)}</td>
-            {termsToRender.map((t) => {
-              const ti = TERMS.indexOf(t);
-              const tt = termTotals[ti];
-              return (
-                <Fragment key={`tf${ti}`}>
-                  <td style={{ ...hCell, fontSize: fz(6) }}>—</td>
-                  <td style={{ ...hCell, fontSize: fz(6) }}>—</td>
-                  <td style={{ ...hCell, fontSize: fz(6) }}>—</td>
-                  <td style={{ ...hCell, color: pctColor(tt.pct), fontSize: fz(6) }}>{tt.obtained || 0}</td>
-                </Fragment>
-              );
-            })}
-            <td style={{ ...hCell, background: '#b0c8dc', color: pctColor(finalPct), fontSize: fz(6) }}>{finalPct != null ? finalPct + '%' : '—'}</td>
-            <td style={{ ...hCell, background: '#b0c8dc', color: pctColor(finalPct), fontSize: fz(6) }}>{finalObtained || '—'}</td>
-            <td style={{ ...hCell, background: '#b0c8dc', color: decColor(finalDecision), fontSize: fz(6) }}>{finalDecision}</td>
-          </tr>
           <tr style={{ background: '#f5f7fa' }}>
             <td colSpan={3} style={{ ...hCell, textAlign: 'right', fontSize: fz(6) }}>TOTAL :</td>
             <td style={{ ...hCell, fontSize: fz(6) }}>{moduleRows.reduce((s, r) => s + r.weight, 0)}</td>
@@ -2276,7 +2412,9 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
                 </Fragment>
               );
             })}
-            <td colSpan={3} style={{ ...hCell, background: '#b0c8dc', color: pctColor(finalPct), fontWeight: 900, fontSize: fz(7) }}>{finalPct != null ? finalPct.toFixed(2) + '%' : '—'}</td>
+            <td colSpan={3} style={{ ...hCell, background: '#b0c8dc', color: decColor(finalDecision), fontWeight: 900, fontSize: fz(7) }}>
+              {finalPct != null ? `${finalPct.toFixed(2)}%  —  ${finalDecision}` : '—'}
+            </td>
           </tr>
           <tr>
             <td colSpan={3} style={{ ...hCell, textAlign: 'right', fontSize: fz(6) }}>POSITION :</td>
@@ -2299,59 +2437,114 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
             </td>
           </tr>
           <tr>
-            <td colSpan={4 + termsToRender.length * 4 + 3} style={{ padding: '4px 8px', fontSize: fz(7), borderBottom: border, background: '#f8f9fa' }}>
-              <strong>{cls?.teacher?.name || config?.classTrainer || 'Class Trainer'}</strong> (Class Trainer)'s Comments &amp; signature :
-              <span style={{ display: 'inline-block', width: 180, borderBottom: '1px solid #999', marginLeft: 8, verticalAlign: 'bottom' }} />
+            <td colSpan={4} style={{ padding: '6px 8px', borderBottom: border, background: `linear-gradient(135deg, ${pc}0d, ${pc}02)`, borderTop: `2px solid ${pc}`, verticalAlign: 'middle' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ width: 4, height: 13, background: pc, borderRadius: 2, display: 'inline-block', flexShrink: 0 }} />
+                <span style={{ fontSize: fz(7), fontWeight: 800, color: '#1a1a2e', lineHeight: 1.3 }}>
+                  {cls?.teacher?.name || config?.classTrainer || 'Class Trainer'}
+                  <br /><span style={{ fontWeight: 500, color: '#6b7280', fontSize: fz(6.5) }}>Class Trainer — Sign per term:</span>
+                </span>
+              </div>
             </td>
+            {isAnnualView ? (
+              <>
+                {termsToRender.map((t, i) => (
+                  <td key={`sig-${t}`} colSpan={4} style={{ padding: '6px 8px', borderBottom: border, borderLeft: '1px solid #dee2e6', background: `linear-gradient(135deg, ${pc}0d, ${pc}02)`, borderTop: `2px solid ${pc}`, verticalAlign: 'bottom' }}>
+                    <div style={{ height: 18, borderBottom: '1px solid #9aa5b1' }} />
+                    <div style={{ fontSize: fz(6.5), color: '#6b7280', marginTop: 3, textAlign: 'center', fontWeight: 700, letterSpacing: 0.3 }}>
+                      {{ 'Term 1': '1st Term', 'Term 2': '2nd Term', 'Term 3': '3rd Term' }[t] || t}
+                    </div>
+                  </td>
+                ))}
+                <td colSpan={3} style={{ padding: '6px 8px', borderBottom: border, borderLeft: '1px solid #dee2e6', background: `linear-gradient(135deg, ${pc}0d, ${pc}02)`, borderTop: `2px solid ${pc}`, verticalAlign: 'bottom' }}>
+                  <div style={{ height: 18, borderBottom: '1px solid #9aa5b1' }} />
+                  <div style={{ fontSize: fz(6.5), color: '#6b7280', marginTop: 3, textAlign: 'center', fontWeight: 700, letterSpacing: 0.3 }}>Annual</div>
+                </td>
+              </>
+            ) : (
+              <td colSpan={4 + 3} style={{ padding: '6px 8px', borderBottom: border, borderLeft: '1px solid #dee2e6', background: `linear-gradient(135deg, ${pc}0d, ${pc}02)`, borderTop: `2px solid ${pc}`, verticalAlign: 'bottom' }}>
+                <div style={{ height: 18, borderBottom: '1px solid #9aa5b1' }} />
+                <div style={{ fontSize: fz(6.5), color: '#6b7280', marginTop: 3, textAlign: 'center', fontWeight: 700, letterSpacing: 0.3 }}>
+                  {{ 'Term 1': '1st Term', 'Term 2': '2nd Term', 'Term 3': '3rd Term' }[selectedTerm] || selectedTerm}
+                </div>
+              </td>
+            )}
           </tr>
         </tfoot>
       </table>
 
-      <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 5 }}>
+      <div style={{ margin: '8px -14px -12px -14px', padding: '8px 14px 10px', background: '#fafbfc', borderTop: '1px solid #eceef1' }}>
+        <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 6, margin: 0 }}>
         <tbody>
           <tr>
-            <td style={{ verticalAlign: 'top', padding: '3px 8px 0 0', width: isAnnualView ? '55%' : '80%' }}>
-              <div style={{ fontSize: fz(7), color: '#374151', lineHeight: 1.9 }}>
-                <div><strong>N/A:</strong> Not Applicable · <strong style={{ color: '#059669' }}>C:</strong> Competent · <strong style={{ color: '#dc2626' }}>NYC:</strong> Not Yet Competent</div>
-                <div><strong>Passing Line:</strong> 50% for General &amp; Complementary modules; <strong>70%</strong> for Specific modules.</div>
-                <div><strong>Term Average:</strong> (Formative Assessment% + Comprehensive Assessment%) ÷ 2.</div>
-                <div><strong>Annual Average:</strong> Mean of all 3 terms — an unrecorded term counts as 0%.</div>
-                <div><strong>Position:</strong> Ranked within class per term and annually.</div>
+            <td style={{ verticalAlign: 'top', padding: 0, width: isAnnualView ? '52%' : '78%' }}>
+              <div style={{ border: '1px solid #e2e5ea', borderRadius: 8, padding: '7px 10px', background: '#fbfbfc', height: '100%' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
+                  <span style={{ width: 4, height: 12, background: '#9aa5b1', borderRadius: 2, display: 'inline-block' }} />
+                  <span style={{ fontSize: fz(7.5), fontWeight: 800, color: '#1a1a2e' }}>Legend &amp; Grading Notes</span>
+                </div>
+                <div style={{ fontSize: fz(7), color: '#4b5563', lineHeight: 1.95 }}>
+                  <div><strong>N/A:</strong> Not Applicable · <strong style={{ color: '#059669' }}>C:</strong> Competent · <strong style={{ color: '#dc2626' }}>NYC:</strong> Not Yet Competent</div>
+                  <div><strong>Passing Line:</strong> 50% for General &amp; Complementary modules; <strong>70%</strong> for Specific modules.</div>
+                  <div><strong>Term Average:</strong> (Formative Assessment% + Comprehensive Assessment%) ÷ 2.</div>
+                  <div><strong>Annual Average:</strong> Mean of all 3 terms — an unrecorded term counts as 0%.</div>
+                  <div><strong>Position:</strong> Ranked within class per term and annually.</div>
+                </div>
               </div>
             </td>
             {isAnnualView && (
-              <td style={{ verticalAlign: 'top', padding: '0 8px', width: '25%', borderLeft: '1px solid #dee2e6' }}>
-                <div style={{ fontSize: fz(7.5), fontWeight: 800, marginBottom: 3 }}>Deliberation :</div>
-                {deliberationOptions.map(opt => {
-                  const checked = opt === autoDeliberation;
-                  return (
-                    <div key={opt} style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3, fontSize: fz(7) }}>
-                      <div style={{
-                        width: 10, height: 10, borderRadius: 2, flexShrink: 0,
-                        border: `1px solid ${checked ? pc : '#999'}`, background: checked ? pc : 'transparent',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+              <td style={{ verticalAlign: 'top', padding: 0, width: '26%' }}>
+                <div style={{ border: `1px solid ${pc}35`, borderRadius: 8, padding: '7px 10px', background: `${pc}08`, height: '100%' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                    <span style={{ width: 4, height: 12, background: pc, borderRadius: 2, display: 'inline-block' }} />
+                    <span style={{ fontSize: fz(7.5), fontWeight: 800, color: '#1a1a2e' }}>Deliberation</span>
+                  </div>
+                  {deliberationOptions.map(opt => {
+                    const checked = opt === autoDeliberation;
+                    return (
+                      <div key={opt} style={{
+                        display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3, fontSize: fz(7),
+                        padding: '2px 4px', borderRadius: 5, background: checked ? `${pc}18` : 'transparent',
                       }}>
-                        {checked && <span style={{ color: '#fff', fontSize: 8, lineHeight: 1, fontWeight: 900 }}>✓</span>}
+                        <div style={{
+                          width: 11, height: 11, borderRadius: '50%', flexShrink: 0,
+                          border: `1.5px solid ${checked ? pc : '#c3c9d2'}`, background: checked ? pc : '#fff',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}>
+                          {checked && <span style={{ color: '#fff', fontSize: 7.5, lineHeight: 1, fontWeight: 900 }}>✓</span>}
+                        </div>
+                        <span style={{ fontWeight: checked ? 800 : 500, color: checked ? pc : '#4b5563' }}>{opt}</span>
                       </div>
-                      <span style={{ fontWeight: checked ? 800 : 400 }}>{opt}</span>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </td>
             )}
-            <td style={{ verticalAlign: 'bottom', textAlign: 'center', padding: '0 0 0 8px', width: '20%', borderLeft: '1px solid #dee2e6' }}>
-              <div style={{ fontSize: fz(7), color: '#6b7280', marginBottom: 22 }}>Date: {reportDate}</div>
-              <div style={{ borderTop: '1px solid #374151', paddingTop: 4, marginTop: 4 }}>
-                <div style={{ fontSize: fz(8), fontWeight: 800, color: '#1a1a2e' }}>{config?.managerName || 'School Principal'}</div>
-                <div style={{ fontSize: fz(7), color: '#6b7280' }}>{config?.managerTitle || 'School Principal'}</div>
+            <td style={{ verticalAlign: 'top', padding: 0, width: '22%' }}>
+              <div style={{ border: '1px solid #e2e5ea', borderRadius: 8, padding: '8px 10px', background: '#fbfbfc', textAlign: 'center', height: '100%', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ fontSize: fz(6.5), color: '#9ca3af', fontWeight: 600, letterSpacing: 0.3 }}>DATE: {reportDate}</div>
+                <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 8, margin: '8px 0 6px', minHeight: 46 }}>
+                  <div style={{
+                    width: 44, height: 44, borderRadius: '50%', flexShrink: 0,
+                    border: `1.5px dashed ${pc}80`, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <span style={{ fontSize: fz(5.5), color: `${pc}90`, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 }}>Stamp</span>
+                  </div>
+                  <div style={{ flex: 1, height: 44 }} />
+                </div>
+                <div style={{ borderTop: `1.5px solid ${pc}`, paddingTop: 5 }}>
+                  <div style={{ fontSize: fz(8), fontWeight: 800, color: '#1a1a2e' }}>{config?.managerName || 'School Principal'}</div>
+                  <div style={{ fontSize: fz(6.5), color: pc, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', marginTop: 1 }}>{config?.managerTitle || 'School Principal'}</div>
+                </div>
               </div>
             </td>
           </tr>
         </tbody>
       </table>
 
-      <div style={{ marginTop: 5, textAlign: 'center', fontSize: fz(6.5), color: '#d1d5db' }}>
-        Report generated by {config?.schoolName || 'EDUPLA'} Academic Management System · {reportDate}
+        <div style={{ marginTop: 5, textAlign: 'center', fontSize: fz(6.5), color: '#d1d5db' }}>
+          Report generated by {config?.schoolName || 'EDUPLA'} Academic Management System · {reportDate}
+        </div>
       </div>
     </div>
   );

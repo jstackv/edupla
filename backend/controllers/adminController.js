@@ -647,7 +647,7 @@ const REPORT_CONFIG_DEFAULTS = {
   footerNote: "Module Weight = Module's learning hours = Credit × 10. Passing Line: 70% for Specific modules; 50% for General and Complementary modules. Module Annual Average: (Average of Integrated A + Average of Comprehensive A) / number of assessed terms.",
   primaryColor: '#1a3a6b',
   accentColor: '#1565c0',
-  academicYear: '',
+  academicYear: `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
 };
 const REPORT_CONFIG_FIELDS = Object.keys(REPORT_CONFIG_DEFAULTS);
 
