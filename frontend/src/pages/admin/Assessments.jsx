@@ -86,6 +86,19 @@ function getRwandanDecision(pct, category) {
   return pct >= passingLineForCategory(category) ? 'C' : 'NYC';
 }
 
+/* ─────────── ID helper ───────────
+ * Normalizes an id that might arrive as a raw string, a Mongo ObjectId
+ * (already a string once JSON-serialized, but sometimes still wrapped),
+ * or a populated object ({ _id, id, ... }). Every id comparison in this
+ * file should go through this so string/object mismatches never silently
+ * break a lookup (this was the root cause of class rosters looking empty
+ * even when students existed). */
+function idStr(x) {
+  if (x == null) return null;
+  if (typeof x === 'object') return String(x._id || x.id || '') || null;
+  return String(x);
+}
+
 /* ─────────── Responsive helper ───────────
  * Inline styles (used everywhere in this file) always win over external CSS,
  * so we can't rely on plain @media queries to reflow grids/columns. Instead,
@@ -339,7 +352,7 @@ function StudentSearchBox({
                   key={id}
                   onClick={() => pick(id)}
                   onMouseEnter={e => { e.currentTarget.style.background = dark ? '#1d2233' : '#f0f4f8'; }}
-                  onMouseLeave={e => e.currentTarget.style.background = isSel ? 'rgba(26,58,107,0.08)' : 'transparent'}
+                  onMouseLeave={e => { e.currentTarget.style.background = isSel ? 'rgba(26,58,107,0.08)' : 'transparent'; }}
                   style={{
                     padding: '8px 10px', cursor: 'pointer', fontSize: 13, borderRadius: 8,
                     fontWeight: isSel ? 800 : 500, color: isSel ? '#1a3a6b' : (dark ? '#e2e8f0' : '#374151'),
@@ -754,12 +767,37 @@ export default function AdminAssessments() {
     });
   }
 
+  /*
+   * Returns the students that belong to a given class. This checks BOTH
+   * directions so a stale/partial `class.students` array on the class side
+   * never hides students whose own record correctly points at the class:
+   *   1. class-side:   cls.students includes this student's id
+   *   2. student-side: student.class_id / classId / class / classes
+   *                     (single value or array) references this class
+   * All ids are normalized through idStr() first, since populated API
+   * responses mix raw string ids with populated {_id,...} objects, and a
+   * strict includes() on mismatched types (ObjectId vs string) is exactly
+   * the kind of bug that makes a roster of many students collapse to one.
+   */
   const classStudents = useCallback((classId) => {
     if (!classId) return students;
-    const cls = classes.find(c => (c._id || c.id) === classId);
-    if (!cls) return [];
-    const ids = (cls.students || []).map(s => s._id || s.id || s);
-    return students.filter(s => ids.includes(s._id || s.id));
+    const targetId = idStr(classId);
+    const cls = classes.find(c => idStr(c._id || c.id) === targetId);
+
+    const fromClassSide = new Set(
+      (cls?.students || []).map(idStr).filter(Boolean)
+    );
+
+    function matchesFromStudentSide(s) {
+      const raw = [s.class_id, s.classId, s.class, s.classes].filter(v => v != null);
+      const candidates = raw.flatMap(v => (Array.isArray(v) ? v : [v])).map(idStr).filter(Boolean);
+      return candidates.includes(targetId);
+    }
+
+    return students.filter(s => {
+      const sid = idStr(s._id || s.id);
+      return (sid && fromClassSide.has(sid)) || matchesFromStudentSide(s);
+    });
   }, [students, classes]);
 
   /* ── Course CRUD ── */
@@ -868,6 +906,27 @@ export default function AdminAssessments() {
   }, [reportFilter, reportType, tab]); // eslint-disable-line
 
   const selectedClassStudents = classStudents(reportFilter.classId);
+
+  /* Export gives the printed/saved-as-PDF file a clean, descriptive name
+     (browsers name a "Save as PDF" output after document.title), while
+     Print leaves the page title untouched for a normal print job. */
+  const handleExportPdf = () => {
+    const prevTitle = document.title;
+    let label = 'Report';
+    if (reportType === 'class') {
+      const cls = classes.find(c => (c._id || c.id) === reportFilter.classId);
+      label = `ClassReport_${(cls?.name || 'Class').replace(/\s+/g, '_')}`;
+    } else if (reportType === 'student') {
+      const st = students.find(s => (s._id || s.id) === reportFilter.studentId);
+      label = `StudentReport_${(st?.name || 'Student').replace(/\s+/g, '_')}`;
+    } else if (reportType === 'assessment') {
+      const asmt = assessments.find(a => (a._id || a.id) === reportFilter.assessmentId);
+      label = `AssessmentResults_${(asmt?.title || 'Assessment').replace(/\s+/g, '_')}`;
+    }
+    document.title = label;
+    window.print();
+    setTimeout(() => { document.title = prevTitle; }, 1000);
+  };
 
   /* ── Derived: courses belonging to selected class (submissions tab) ── */
   const coursesForSubmissionClass = submissionClassFilter
@@ -1479,21 +1538,30 @@ export default function AdminAssessments() {
       {tab === 'reports' && (
         <div style={{ animation: 'fadeUp 0.3s ease' }}>
           <div className="no-print" style={{ ...card, marginBottom: 20 }}>
-            <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: dark ? '#94a3b8' : '#374151' }}>Select Report Type</p>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+              <div style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg,#1a3a6b,#1565c0)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Sparkles size={16} color="#fff" />
+              </div>
+              <div>
+                <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: dark ? '#e8ecf4' : '#111827' }}>Select Report Type</p>
+                <p style={{ margin: 0, fontSize: 11.5, color: dark ? '#7b839a' : '#9ca3af' }}>Choose what kind of report you'd like to generate</p>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 22 }}>
               {[
                 { key: 'class',      label: 'Class Report',       icon: Users,         desc: 'Full TVET report per student in class' },
                 { key: 'student',    label: 'Single Student',     icon: GraduationCap, desc: 'Individual progress report' },
                 { key: 'assessment', label: 'Assessment Results', icon: FileText,      desc: 'Results for one assessment' },
               ].map(({ key, label, icon: Icon, desc }) => (
                 <button key={key} onClick={() => { setReportType(key); setReportData(null); }} style={{
-                  display: 'flex', alignItems: 'center', gap: 10, padding: '12px 18px', borderRadius: 12, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 10, padding: '13px 18px', borderRadius: 12, cursor: 'pointer',
                   border: `2px solid ${reportType === key ? '#1a3a6b' : (dark ? '#2a3042' : '#e5e7eb')}`,
                   background: reportType === key ? 'rgba(26,58,107,0.08)' : (dark ? '#1a1f2e' : '#f9fafb'),
-                  transition: 'all 0.15s', flex: 1, minWidth: 160,
+                  boxShadow: reportType === key ? '0 4px 14px rgba(26,58,107,0.15)' : 'none',
+                  transition: 'all 0.15s', flex: 1, minWidth: 170,
                 }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 9, background: reportType === key ? 'linear-gradient(135deg,#1a3a6b,#1565c0)' : (dark ? '#2a3042' : '#e5e7eb'), display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Icon size={17} color={reportType === key ? '#fff' : (dark ? '#7b839a' : '#9ca3af')} />
+                  <div style={{ width: 38, height: 38, borderRadius: 10, background: reportType === key ? 'linear-gradient(135deg,#1a3a6b,#1565c0)' : (dark ? '#2a3042' : '#e5e7eb'), display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Icon size={18} color={reportType === key ? '#fff' : (dark ? '#7b839a' : '#9ca3af')} />
                   </div>
                   <div style={{ textAlign: 'left' }}>
                     <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: reportType === key ? '#1a3a6b' : (dark ? '#e8ecf4' : '#111827') }}>{label}</p>
@@ -1503,91 +1571,108 @@ export default function AdminAssessments() {
               ))}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 12 }}>
-              {reportType === 'student' && (
-                <div>
-                  <label style={labelStyle}>Student</label>
-                  <select value={reportFilter.studentId} onChange={e => setReportFilter(f => ({ ...f, studentId: e.target.value }))} style={inputStyle}>
-                    <option value="">Select student…</option>
-                    {students.map(s => <option key={s._id || s.id} value={s._id || s.id}>{s.name}</option>)}
-                  </select>
-                </div>
-              )}
-              {reportType === 'assessment' && (
-                <div>
-                  <label style={labelStyle}>Assessment</label>
-                  <select value={reportFilter.assessmentId} onChange={e => setReportFilter(f => ({ ...f, assessmentId: e.target.value }))} style={inputStyle}>
-                    <option value="">Select assessment…</option>
-                    {assessments.map(a => <option key={a._id || a.id} value={a._id || a.id}>{a.title} — {a.course_id?.name}</option>)}
-                  </select>
-                </div>
-              )}
-              {reportType === 'class' && (
-                <>
-                  <div>
-                    <label style={labelStyle}>Class</label>
-                    <select value={reportFilter.classId} onChange={e => setReportFilter(f => ({ ...f, classId: e.target.value, studentIds: [] }))} style={inputStyle}>
-                      <option value="">Select class…</option>
-                      {classes.map(c => <option key={c._id || c.id} value={c._id || c.id}>{c.name}</option>)}
-                    </select>
-                  </div>
-                  {reportFilter.classId && (
+            <div style={{ paddingTop: 18, borderTop: `1px solid ${dark ? '#1e2130' : '#f1f5f9'}` }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))', gap: 14 }}>
+                {reportType === 'student' && (
+                  <>
                     <div>
-                      <label style={labelStyle}>Filter Students (optional)</label>
-                      <select value="" onChange={e => {
-                        const v = e.target.value;
-                        if (v === '__all__') setReportFilter(f => ({ ...f, studentIds: [] }));
-                        else if (v && !reportFilter.studentIds.includes(v)) setReportFilter(f => ({ ...f, studentIds: [...f.studentIds, v] }));
-                      }} style={inputStyle}>
-                        <option value="">Add student…</option>
-                        <option value="__all__">— All Students —</option>
-                        {selectedClassStudents.filter(s => !reportFilter.studentIds.includes(s._id || s.id)).map(s => (
-                          <option key={s._id || s.id} value={s._id || s.id}>{s.name}</option>
-                        ))}
+                      <label style={labelStyle}>Class (optional)</label>
+                      <select value={reportFilter.classId} onChange={e => setReportFilter(f => ({ ...f, classId: e.target.value, studentId: '' }))} style={inputStyle}>
+                        <option value="">All classes</option>
+                        {classes.map(c => <option key={c._id || c.id} value={c._id || c.id}>{c.name}</option>)}
                       </select>
-                      {reportFilter.studentIds.length > 0 && (
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 6 }}>
-                          {reportFilter.studentIds.map(id => {
-                            const st = students.find(s => (s._id || s.id) === id);
-                            return st ? (
-                              <span key={id} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 6, background: 'rgba(26,58,107,0.12)', border: '1px solid rgba(26,58,107,0.25)', fontSize: 11, color: '#1a3a6b', fontWeight: 600 }}>
-                                {st.name}
-                                <button onClick={() => setReportFilter(f => ({ ...f, studentIds: f.studentIds.filter(x => x !== id) }))} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0, color: '#1a3a6b' }}>×</button>
-                              </span>
-                            ) : null;
-                          })}
-                        </div>
-                      )}
+                      <p style={{ margin: '4px 0 0', fontSize: 10.5, color: dark ? '#7b839a' : '#9ca3af' }}>
+                        Pick a class first to narrow the student search below.
+                      </p>
                     </div>
-                  )}
-                </>
-              )}
-              {(reportType === 'student' || reportType === 'class') && (
-                <>
+                    <div>
+                      <label style={labelStyle}>Student</label>
+                      <StudentSearchBox
+                        students={classStudents(reportFilter.classId)}
+                        mode="single"
+                        value={reportFilter.studentId}
+                        onSelect={id => setReportFilter(f => ({ ...f, studentId: id }))}
+                        placeholder={reportFilter.classId ? 'Type a name in this class…' : 'Type student name…'}
+                        dark={dark}
+                      />
+                    </div>
+                  </>
+                )}
+                {reportType === 'assessment' && (
                   <div>
-                    <label style={labelStyle}>Term</label>
-                    <select value={reportFilter.term} onChange={e => setReportFilter(f => ({ ...f, term: e.target.value }))} style={inputStyle}>
-                      <option value="">Annual (1st, 2nd, 3rd + Overall)</option>
-                      {TERMS.map(t => <option key={t}>{t}</option>)}
-                    </select>
-                    <p style={{ margin: '4px 0 0', fontSize: 10.5, color: dark ? '#7b839a' : '#9ca3af' }}>
-                      {reportFilter.term
-                        ? `Only ${reportFilter.term} will be shown on the report.`
-                        : 'Annual report shows all three terms plus the overall annual average.'}
-                    </p>
-                  </div>
-                  <div>
-                    <label style={labelStyle}>Academic Year</label>
-                    <select value={reportFilter.year} onChange={e => setReportFilter(f => ({ ...f, year: e.target.value }))} style={inputStyle}>
-                      <option value="">All Years</option>
-                      {YEARS.map(y => <option key={y}>{y}</option>)}
+                    <label style={labelStyle}>Assessment</label>
+                    <select value={reportFilter.assessmentId} onChange={e => setReportFilter(f => ({ ...f, assessmentId: e.target.value }))} style={inputStyle}>
+                      <option value="">Select assessment…</option>
+                      {assessments.map(a => <option key={a._id || a.id} value={a._id || a.id}>{a.title} — {a.course_id?.name}</option>)}
                     </select>
                   </div>
-                </>
-              )}
+                )}
+                {reportType === 'class' && (
+                  <>
+                    <div>
+                      <label style={labelStyle}>Class</label>
+                      <select value={reportFilter.classId} onChange={e => setReportFilter(f => ({ ...f, classId: e.target.value, studentIds: [] }))} style={inputStyle}>
+                        <option value="">Select class…</option>
+                        {classes.map(c => <option key={c._id || c.id} value={c._id || c.id}>{c.name}</option>)}
+                      </select>
+                    </div>
+                    {reportFilter.classId && (
+                      <div>
+                        <label style={labelStyle}>Filter Students (optional)</label>
+                        <StudentSearchBox
+                          students={selectedClassStudents}
+                          mode="multi"
+                          excludeIds={reportFilter.studentIds}
+                          onSelect={id => setReportFilter(f => ({ ...f, studentIds: [...f.studentIds, id] }))}
+                          showAllOption
+                          onSelectAll={() => setReportFilter(f => ({ ...f, studentIds: selectedClassStudents.map(s => s._id || s.id) }))}
+                          placeholder="Type a name in this class to add…"
+                          dark={dark}
+                        />
+                        {reportFilter.studentIds.length > 0 && (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 8 }}>
+                            {reportFilter.studentIds.map(id => {
+                              const st = students.find(s => (s._id || s.id) === id);
+                              return st ? (
+                                <span key={id} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 6, background: 'rgba(26,58,107,0.12)', border: '1px solid rgba(26,58,107,0.25)', fontSize: 11, color: '#1a3a6b', fontWeight: 600 }}>
+                                  {st.name}
+                                  <button onClick={() => setReportFilter(f => ({ ...f, studentIds: f.studentIds.filter(x => x !== id) }))} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0, color: '#1a3a6b' }}>×</button>
+                                </span>
+                              ) : null;
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
+                {(reportType === 'student' || reportType === 'class') && (
+                  <>
+                    <div>
+                      <label style={labelStyle}>Term</label>
+                      <select value={reportFilter.term} onChange={e => setReportFilter(f => ({ ...f, term: e.target.value }))} style={inputStyle}>
+                        <option value="">Annual (1st, 2nd, 3rd + Overall)</option>
+                        {TERMS.map(t => <option key={t}>{t}</option>)}
+                      </select>
+                      <p style={{ margin: '4px 0 0', fontSize: 10.5, color: dark ? '#7b839a' : '#9ca3af' }}>
+                        {reportFilter.term
+                          ? `Only ${reportFilter.term} will be shown on the report.`
+                          : 'Annual report shows all three terms plus the overall annual average.'}
+                      </p>
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Academic Year</label>
+                      <select value={reportFilter.year} onChange={e => setReportFilter(f => ({ ...f, year: e.target.value }))} style={inputStyle}>
+                        <option value="">All Years</option>
+                        {YEARS.map(y => <option key={y}>{y}</option>)}
+                      </select>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
 
-            <div style={{ marginTop: 16, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ marginTop: 18, paddingTop: 16, borderTop: `1px solid ${dark ? '#1e2130' : '#f1f5f9'}`, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
               {reportLoading && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderRadius: 10, background: 'rgba(26,58,107,0.08)', border: '1px solid rgba(26,58,107,0.2)' }}>
                   <div style={{ width: 14, height: 14, border: '2px solid rgba(26,58,107,0.4)', borderTopColor: '#1a3a6b', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
@@ -1600,10 +1685,13 @@ export default function AdminAssessments() {
                     <CheckCircle size={13} color="#10b981" />
                     <span style={{ fontSize: 12, color: '#10b981', fontWeight: 600 }}>Report ready</span>
                   </div>
-                  <button onClick={() => window.print()} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 18px', borderRadius: 10, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#e2e8f0' : '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                    <Printer size={14} /> Print / Export PDF
+                  <button onClick={() => window.print()} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 10, border: `1.5px solid ${dark ? '#2a3042' : '#cbd5e1'}`, background: dark ? '#1a1f2e' : '#fff', color: dark ? '#e2e8f0' : '#374151', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                    <Printer size={14} /> Print Report
                   </button>
-                  <button onClick={() => setReportData(null)} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px', borderRadius: 10, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#7b839a' : '#9ca3af', fontSize: 13, cursor: 'pointer' }}>
+                  <button onClick={handleExportPdf} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#1a3a6b,#1565c0)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 14px rgba(26,58,107,0.3)' }}>
+                    <Download size={14} /> Export as PDF
+                  </button>
+                  <button onClick={() => setReportData(null)} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 10, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#7b839a' : '#9ca3af', fontSize: 13, cursor: 'pointer' }}>
                     <RefreshCw size={13} /> Clear
                   </button>
                 </>
@@ -2543,7 +2631,7 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
       </table>
 
         <div style={{ marginTop: 5, textAlign: 'center', fontSize: fz(6.5), color: '#d1d5db' }}>
-          Report generated by {config?.schoolName || 'EDUPLA'} Academic Management System · {reportDate}
+          Report generated by {config?.schoolName || 'EDUPLA'} - with EDUPLA academic Management System · {reportDate}
         </div>
       </div>
     </div>

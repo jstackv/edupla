@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const { Assignment, Submission, Class, User, Course } = require('../models/db');
-const { cloudinary } = require('../middleware/upload');
+const { cloudinary, getResourceType } = require('../middleware/upload');
 const { notifyAssignmentPosted, notifyAssignmentSubmitted } = require('../services/emailService');
 const { createInAppNotification, getStudentEmails, getTeacherEmail } = require('../services/notificationHelpers');
 
@@ -178,7 +178,7 @@ const updateAssignment = async (req, res) => {
 
     if (req.file) {
       if (filename) {
-        try { await cloudinary.uploader.destroy(filename, { resource_type: 'raw' }); } catch (_) {}
+        try { await cloudinary.uploader.destroy(filename, { resource_type: getResourceType(original_name, mime_type) }); } catch (_) {}
       }
       filename      = req.file.filename;
       original_name = req.file.originalname;
@@ -213,7 +213,7 @@ const deleteAssignment = async (req, res) => {
     const a = await Assignment.findOneAndDelete({ _id: req.params.id, teacher_id: req.session.user.id });
     if (!a) return res.status(404).json({ message: 'Assignment not found' });
     if (a.filename) {
-      try { await cloudinary.uploader.destroy(a.filename, { resource_type: 'raw' }); } catch (_) {}
+      try { await cloudinary.uploader.destroy(a.filename, { resource_type: getResourceType(a.original_name, a.mime_type) }); } catch (_) {}
     }
     res.json({ message: 'Assignment deleted' });
   } catch (err) { res.status(500).json({ message: err.message }); }
@@ -265,7 +265,7 @@ const submitAssignment = async (req, res) => {
       const update = { notes, submitted_at: new Date() };
       if (req.file) {
         if (existing.filename) {
-          try { await cloudinary.uploader.destroy(existing.filename, { resource_type: 'raw' }); } catch (_) {}
+          try { await cloudinary.uploader.destroy(existing.filename, { resource_type: getResourceType(existing.original_name) }); } catch (_) {}
         }
         update.filename      = req.file.filename;
         update.original_name = req.file.originalname;

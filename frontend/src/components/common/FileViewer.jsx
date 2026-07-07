@@ -62,7 +62,13 @@ function toInlineUrl(cloudUrl, fileType) {
 
   switch (fileType) {
     case 'pdf':
-      // Add fl_inline flag so Cloudinary serves with Content-Disposition: inline
+      // New uploads are stored as resource_type:'image' (see backend/middleware/upload.js)
+      // specifically to dodge Cloudinary's default block on delivering raw PDF/ZIP files —
+      // those URLs already look like /image/upload/... and render inline as-is.
+      if (cloudUrl.includes('/image/upload/')) return cloudUrl;
+      // Legacy documents uploaded before that fix are still resource_type:'raw'. fl_inline
+      // only works for these if the Cloudinary account has "Allow delivery of PDF and ZIP
+      // files" enabled under Console → Settings → Security.
       return cloudUrl.replace('/raw/upload/', '/raw/upload/fl_inline/');
     case 'image':
       // Images: change resource type from raw → image

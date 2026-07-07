@@ -8,11 +8,24 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
+// Cloudinary blocks in-browser delivery of PDF/ZIP files uploaded as
+// resource_type:'raw' by default (account-level security policy, since it
+// treats raw PDFs/ZIPs as a potential abuse vector). That's why PDFs were
+// opening blank while docx/xlsx/pptx (also 'raw', but not PDF/ZIP) worked
+// fine. Uploading PDFs as resource_type:'image' instead sidesteps that
+// restriction entirely — Cloudinary serves the original file unchanged
+// when no transformation is requested — while everything else stays 'raw'.
+function getResourceType(originalName = '', mimeType = '') {
+  const ext = (originalName || '').split('.').pop().toLowerCase();
+  const isPdf = ext === 'pdf' || mimeType === 'application/pdf';
+  return isPdf ? 'image' : 'raw';
+}
+
 const makeStorage = (folder) => new CloudinaryStorage({
   cloudinary,
   params: async (req, file) => ({
     folder: `edupla/${folder}`,
-    resource_type: 'raw',   // supports PDFs, docx, zip — all non-image types
+    resource_type: getResourceType(file.originalname, file.mimetype),
     public_id: `${Date.now()}-${Math.round(Math.random() * 1e9)}`,
     use_filename: false,
   }),
@@ -80,4 +93,4 @@ const logoUpload = multer({
   },
 });
 
-module.exports = { documentUpload, assignmentUpload, voiceNoteUpload, logoUpload, cloudinary };
+module.exports = { documentUpload, assignmentUpload, voiceNoteUpload, logoUpload, cloudinary, getResourceType };

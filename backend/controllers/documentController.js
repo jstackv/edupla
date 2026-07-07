@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const { Document, Class, User } = require('../models/db');
-const { cloudinary } = require('../middleware/upload');
+const { cloudinary, getResourceType } = require('../middleware/upload');
 const { notifyDocumentPosted } = require('../services/emailService');
 const { createInAppNotification, getStudentEmails, getTeacherEmail } = require('../services/notificationHelpers');
 
@@ -176,7 +176,7 @@ const deleteDocument = async (req, res) => {
     // Delete from Cloudinary
     if (doc.filename) {
       try {
-        await cloudinary.uploader.destroy(doc.filename, { resource_type: 'raw' });
+        await cloudinary.uploader.destroy(doc.filename, { resource_type: getResourceType(doc.original_name, doc.mime_type) });
       } catch (cloudErr) {
         console.error('Cloudinary delete error:', cloudErr.message);
       }
