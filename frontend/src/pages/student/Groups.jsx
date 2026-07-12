@@ -1,15 +1,20 @@
 import { useState, useEffect, useCallback, useRef, createContext, useContext } from 'react';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
-import { showChatToast, markMessageSeen, setActiveConversation, clearActiveConversation } from '../../utils/chatNotify';
+import { showChatToast, markMessageSeen, setActiveConversation, clearActiveConversation, onPendingChatTarget, consumePendingChatTarget } from '../../utils/chatNotify';
 import { useAuth } from '../../context/AuthContext';
 import ConfirmModal from '../../components/common/ConfirmModal';
+import { ChatImageBubble, ChatFileBubble, fmtFileSize, AttachmentTypeIcon, AttachMenu, EmojiPicker } from '../../components/common/ChatMediaBubble';
 import {
   Users, MessageSquare, Send, CheckCheck, X, Crown,
   Check, StopCircle, WifiOff,
   Mic, Play, Pause, Trash2,
   Radio, Search, MessageCircle, ArrowLeft, ChevronRight, Eye,
+  Plus, Smile,
 } from 'lucide-react';
+
+/* Max size for a shared photo/file (matches backend chatMediaUpload limit) */
+const MAX_CHAT_FILE_MB = 25;
 
 /* ── Animated modal wrapper ───────────────────────────────────────────
    Fast by design: a single CSS keyframe animation on mount, no
@@ -299,7 +304,7 @@ function GroupCard({ g, onClick, active }) {
   const lastMsg = g.last_message;
 
   return (
-    <div onClick={onClick} className="flex items-center gap-3 px-4 py-3.5 cursor-pointer transition-all"
+    <div onClick={onClick} className="discussion-list-item flex items-center gap-3 px-4 py-3.5 cursor-pointer transition-all"
       style={{
         borderBottom: '1px solid var(--card-border)',
         background: active ? `linear-gradient(135deg, ${a}12, ${b}08)` : 'transparent',
@@ -325,7 +330,12 @@ function GroupCard({ g, onClick, active }) {
         </div>
         <p className="text-xs truncate mb-1.5" style={{ color: 'var(--text-secondary)' }}>
           {lastMsg
-            ? <><span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{lastMsg.author_name}:</span> {lastMsg.message_type === 'voice' ? '🎤 Voice note' : lastMsg.content}</>
+            ? <><span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{lastMsg.author_name}:</span> {
+                lastMsg.message_type === 'voice' ? '🎤 Voice note'
+                : lastMsg.message_type === 'image' ? '📷 Photo'
+                : lastMsg.message_type === 'file' ? '📎 File'
+                : lastMsg.content
+              }</>
             : <span className="italic">No messages yet — say hello!</span>
           }
         </p>
@@ -610,12 +620,24 @@ function VoiceBubble({ url, duration, isMine }) {
 }
 
 /* ── Group chat content (inside modal) ───────────────────────────────── */
-function GroupChatContent({ group, myId, myName, onClose, onMessageSent }) {
+function GroupChatContent({ group, myId, myName, onClose, onMessageSent, autoOpenDm, onAutoOpenHandled }) {
   const [text, setText]         = useState('');
   const [posting, setPosting]   = useState(false);
   const [messages, setMessages] = useState(group.messages || []);
   const [isEnded, setIsEnded]   = useState(group.is_ended || false);
   const [dmOpen, setDmOpen]     = useState(false);
+
+  // Deep-link support: a toast for a leader-DM message can ask this chat to
+  // auto-open the teacher DM panel — on first mount, or again later if
+  // another such toast is clicked while this same group is already open.
+  useEffect(() => {
+    if (autoOpenDm) {
+      setDmOpen(true);
+      onAutoOpenHandled && onAutoOpenHandled();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpenDm]);
+
   const [membersOpen, setMembersOpen] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const [clearConfirm, setClearConfirm] = useState(false);
@@ -626,11 +648,18 @@ function GroupChatContent({ group, myId, myName, onClose, onMessageSent }) {
   const [audioBlob, setAudioBlob]     = useState(null);
   const [audioDuration, setAudioDuration] = useState(0);
   const [audioPlaying, setAudioPlaying]   = useState(false);
+  const [selectedFile, setSelectedFile]   = useState(null); // File staged for sending
+  const [filePreviewUrl, setFilePreviewUrl] = useState(null); // object URL if image
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [attachMenuOpen, setAttachMenuOpen] = useState(false);
+  const [emojiOpen, setEmojiOpen] = useState(false);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef   = useRef([]);
   const recordTimerRef   = useRef(null);
   const audioPreviewRef  = useRef(null);
   const inputRef       = useRef(null);
+  const fileInputRef   = useRef(null);
+  const imageInputRef  = useRef(null);
   const messagesEndRef = useRef(null);
   const pollRef        = useRef(null);
   const lastMsgTimeRef = useRef(null);
@@ -681,7 +710,7 @@ function GroupChatContent({ group, myId, myName, onClose, onMessageSent }) {
             const fromOthers = fresh.filter(m => String(m.author_id) !== String(myId));
             if (fromOthers.length) {
               const last = fromOthers[fromOthers.length - 1];
-              showChatToast({ name: `${last.author_name} · ${group.name}`, preview: last.content, isVoice: last.message_type === 'voice' });
+              showChatToast({ name: `${last.author_name} · ${group.name}`, preview: last.content, kind: last.message_type !== 'text' ? last.message_type : null });
             }
             lastMsgTimeRef.current = fresh[fresh.length - 1].created_at;
             return [...prev, ...fresh];
@@ -739,6 +768,7 @@ function GroupChatContent({ group, myId, myName, onClose, onMessageSent }) {
       e.preventDefault();
       if (recording) { stopAndSend(); }
       else if (audioBlob) { sendVoiceNote(); }
+      else if (selectedFile) { sendFile(); }
       else { handleSend(); }
     }
   };
@@ -853,9 +883,47 @@ function GroupChatContent({ group, myId, myName, onClose, onMessageSent }) {
     return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
   };
 
+  const handleFilePick = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // allow picking the same file again later
+    if (!file || isEnded) return;
+    if (file.size > MAX_CHAT_FILE_MB * 1024 * 1024) {
+      toast.error(`File is too large — max ${MAX_CHAT_FILE_MB}MB.`);
+      return;
+    }
+    setSelectedFile(file);
+    setFilePreviewUrl(file.type.startsWith('image/') ? URL.createObjectURL(file) : null);
+  };
+
+  const cancelFile = () => {
+    if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl);
+    setSelectedFile(null);
+    setFilePreviewUrl(null);
+  };
+
+  const sendFile = async () => {
+    if (!selectedFile || uploadingFile || isEnded) return;
+    setUploadingFile(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      const res = await api.post(`/group-discussions/${group.id}/media`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+      const newMsg = res.data.msg;
+      setMessages(prev => [...prev, newMsg]);
+      lastMsgTimeRef.current = newMsg.created_at;
+      onMessageSent && onMessageSent(newMsg);
+      cancelFile();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to send file');
+    } finally { setUploadingFile(false); }
+  };
+
   return (
     <AudioPlaybackProvider>
       <div className="flex flex-col" style={{ flex: 1, minHeight: 0 }}>
+        {/* Hidden file pickers for shared photos/files */}
+        <input ref={fileInputRef} type="file" onChange={handleFilePick} style={{ display: 'none' }} />
+        <input ref={imageInputRef} type="file" accept="image/*" onChange={handleFilePick} style={{ display: 'none' }} />
         {/* Header */}
         <div style={{ background: `linear-gradient(135deg, ${a}, ${b})`, padding: '14px 16px', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -964,9 +1032,18 @@ function GroupChatContent({ group, myId, myName, onClose, onMessageSent }) {
                       {isTeacherMsg && <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 10, fontWeight: 700, background: 'rgba(124,58,237,0.12)', color: '#7c3aed' }}>Teacher</span>}
                     </div>
                   )}
-                  <div style={{ background: bubbleBg, color: bubbleColor, padding: '9px 13px', borderRadius: item.isMine ? '18px 18px 4px 18px' : '18px 18px 18px 4px', fontSize: 13.5, lineHeight: 1.5, wordBreak: 'break-word', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+                  <div style={{
+                    background: item.message_type === 'image' || item.message_type === 'file' ? 'transparent' : bubbleBg,
+                    color: bubbleColor, padding: item.message_type === 'image' || item.message_type === 'file' ? 0 : '9px 13px',
+                    borderRadius: item.isMine ? '18px 18px 4px 18px' : '18px 18px 18px 4px', fontSize: 13.5, lineHeight: 1.5, wordBreak: 'break-word',
+                    boxShadow: item.message_type === 'image' || item.message_type === 'file' ? 'none' : '0 1px 3px rgba(0,0,0,0.08)',
+                  }}>
                     {item.message_type === 'voice'
                       ? <VoiceBubble url={item.voice_url} duration={item.voice_duration} isMine={item.isMine} />
+                      : item.message_type === 'image'
+                      ? <ChatImageBubble url={item.file_url} name={item.file_name} mimeType={item.mime_type} />
+                      : item.message_type === 'file'
+                      ? <ChatFileBubble url={item.file_url} name={item.file_name} size={item.file_size} mimeType={item.mime_type} />
                       : item.content}
                   </div>
                   {item.isLast && (
@@ -983,6 +1060,27 @@ function GroupChatContent({ group, myId, myName, onClose, onMessageSent }) {
 
         {/* Input area */}
         {!isEnded ? (
+          selectedFile ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderTop: '1px solid var(--card-border)', padding: '10px 14px', background: 'var(--card-bg)', flexShrink: 0 }}>
+              <button onClick={cancelFile} style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: 'rgba(220,38,38,0.1)', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}><X style={{ width: 16, height: 16 }} /></button>
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface-100)', borderRadius: 14, padding: '6px 10px', border: `1.5px solid ${a}40`, minWidth: 0 }}>
+                {filePreviewUrl ? (
+                  <img src={filePreviewUrl} alt="" style={{ width: 30, height: 30, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
+                ) : (
+                  <div style={{ width: 30, height: 30, borderRadius: 8, background: `${a}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <AttachmentTypeIcon mimeType={selectedFile.type} style={{ width: 15, height: 15, color: a }} />
+                  </div>
+                )}
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedFile.name}</div>
+                  <div style={{ fontSize: 10.5, color: 'var(--text-secondary)' }}>{fmtFileSize(selectedFile.size)}</div>
+                </div>
+              </div>
+              <button onClick={sendFile} disabled={uploadingFile} style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: `linear-gradient(135deg, ${a}, ${b})`, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, opacity: uploadingFile ? 0.6 : 1 }}>
+                {uploadingFile ? <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> : <Send style={{ width: 16, height: 16 }} />}
+              </button>
+            </div>
+          ) :
           recording ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderTop: '1px solid var(--card-border)', padding: '10px 14px', background: 'var(--card-bg)', flexShrink: 0 }}>
               <button onClick={cancelVoiceNote} style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: 'rgba(220,38,38,0.1)', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}><X style={{ width: 16, height: 16 }} /></button>
@@ -1008,22 +1106,43 @@ function GroupChatContent({ group, myId, myName, onClose, onMessageSent }) {
               </button>
             </div>
           ) : (
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, borderTop: '1px solid var(--card-border)', padding: '10px 14px', background: 'var(--card-bg)', flexShrink: 0 }}>
-              <textarea ref={inputRef} value={text} onChange={handleTyping} onKeyDown={handleKey} rows={1}
-                placeholder="Type a message…"
-                style={{ flex: 1, resize: 'none', border: '1.5px solid var(--card-border)', borderRadius: 20, padding: '9px 14px', fontSize: 13.5, lineHeight: 1.5, outline: 'none', background: 'var(--surface-100)', color: 'var(--text-primary)', minHeight: 40, maxHeight: 120, overflowY: 'auto' }}
-                onFocus={e => { e.target.style.borderColor = a; e.target.style.boxShadow = `0 0 0 3px ${a}22`; }}
-                onBlur={e => { e.target.style.borderColor = 'var(--card-border)'; e.target.style.boxShadow = 'none'; }}
-              />
-              {!text.trim() && (
-                <button onClick={startRecording} style={{ width: 40, height: 40, borderRadius: '50%', background: `${a}15`, border: `1.5px solid ${a}40`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: a, flexShrink: 0 }}>
-                  <Mic style={{ width: 18, height: 18 }} />
-                </button>
-              )}
-              <button onClick={handleSend} disabled={posting || !text.trim()}
-                style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: text.trim() ? `linear-gradient(135deg, ${a}, ${b})` : 'var(--surface-100)', color: text.trim() ? '#fff' : 'var(--text-secondary)', cursor: text.trim() ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                {posting ? <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> : <Send style={{ width: 16, height: 16 }} />}
-              </button>
+            <div style={{ borderTop: '1px solid var(--card-border)', padding: '10px 14px', background: 'var(--card-bg)', flexShrink: 0 }}>
+              <div className="wa-input-pill" style={{ '--wa-accent': a, '--wa-accent-2': b, '--wa-accent-soft': `${a}22` }}>
+                <div style={{ position: 'relative', flexShrink: 0 }}>
+                  <button className="wa-icon-btn" onClick={() => { setAttachMenuOpen(o => !o); setEmojiOpen(false); }} title="Attach">
+                    <Plus style={{ width: 20, height: 20 }} />
+                  </button>
+                  <AttachMenu
+                    open={attachMenuOpen}
+                    onClose={() => setAttachMenuOpen(false)}
+                    onPickImage={() => imageInputRef.current?.click()}
+                    onPickFile={() => fileInputRef.current?.click()}
+                  />
+                </div>
+                <div style={{ position: 'relative', flexShrink: 0 }}>
+                  <button className="wa-icon-btn" onClick={() => { setEmojiOpen(o => !o); setAttachMenuOpen(false); }} title="Emoji">
+                    <Smile style={{ width: 20, height: 20 }} />
+                  </button>
+                  <EmojiPicker
+                    open={emojiOpen}
+                    onClose={() => setEmojiOpen(false)}
+                    onPick={(e) => { setText(t => t + e); inputRef.current?.focus(); }}
+                  />
+                </div>
+                <textarea ref={inputRef} value={text} onChange={handleTyping} onKeyDown={handleKey} rows={1}
+                  placeholder="Type a message"
+                  className="wa-input-textarea"
+                />
+                {text.trim() ? (
+                  <button key="send" onClick={handleSend} disabled={posting} className="wa-icon-btn wa-icon-send wa-icon-swap">
+                    {posting ? <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> : <Send style={{ width: 17, height: 17 }} />}
+                  </button>
+                ) : (
+                  <button key="mic" onClick={startRecording} className="wa-icon-btn wa-icon-swap" title="Record a voice note">
+                    <Mic style={{ width: 20, height: 20 }} />
+                  </button>
+                )}
+              </div>
             </div>
           )
         ) : (
@@ -1183,10 +1302,10 @@ function PeerList({ classId, onSelectPeer, activePeerId }) {
           const unreadCount = conv?.unread_count || 0;
           return (
             <div key={peer.id} onClick={() => onSelectPeer(peer)}
-              className="flex items-center gap-3 px-4 py-3 sm:py-3.5 cursor-pointer transition-colors active:bg-black/5"
-              style={{ borderBottom: '1px solid var(--card-border)', background: isActive ? 'rgba(99,102,241,0.07)' : 'transparent', borderLeft: isActive ? '3px solid #6366f1' : '3px solid transparent' }}>
+              className="discussion-list-item flex items-center gap-3 px-4 py-3 sm:py-3.5 cursor-pointer transition-colors active:bg-black/5"
+              style={{ borderBottom: '1px solid var(--card-border)', background: isActive ? 'rgba(18,140,126,0.08)' : 'transparent', borderLeft: isActive ? '3px solid #128C7E' : '3px solid transparent' }}>
               <div className="relative w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
-                style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}>
+                style={{ background: 'linear-gradient(135deg, #128C7E, #075E54)' }}>
                 {peer.name[0].toUpperCase()}
                 {unreadCount > 0 && (
                   <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-white font-bold text-xs" style={{ background: '#dc2626' }}>
@@ -1202,7 +1321,7 @@ function PeerList({ classId, onSelectPeer, activePeerId }) {
                 {conv && <span className="text-[10px]" style={{ color: 'var(--text-secondary)', opacity: 0.6 }}>{timeAgo(conv.last_at)}</span>}
                 {unreadCount > 0 && (
                   <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white"
-                    style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}>
+                    style={{ background: 'linear-gradient(135deg, #128C7E, #075E54)' }}>
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </span>
                 )}
@@ -1229,12 +1348,19 @@ function DMChatContent({ classId, peer, myId, onBack, onClose }) {
   const [audioBlob, setAudioBlob]         = useState(null);
   const [audioDuration, setAudioDuration] = useState(0);
   const [audioPlaying, setAudioPlaying]   = useState(false);
+  const [selectedFile, setSelectedFile]   = useState(null);
+  const [filePreviewUrl, setFilePreviewUrl] = useState(null);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [attachMenuOpen, setAttachMenuOpen] = useState(false);
+  const [emojiOpen, setEmojiOpen] = useState(false);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef   = useRef([]);
   const recordTimerRef   = useRef(null);
   const audioPreviewRef  = useRef(null);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const imageInputRef = useRef(null);
   const pollRef = useRef(null);
   const lastMsgTimeRef = useRef(null);
 
@@ -1259,7 +1385,7 @@ function DMChatContent({ classId, peer, myId, onBack, onClose }) {
             if (fromPeer.length) {
               const last = fromPeer[fromPeer.length - 1];
               const senderName = last.sender_name || peer.name || 'Someone';
-              showChatToast({ name: senderName, preview: last.content, isVoice: last.message_type === 'voice' });
+              showChatToast({ name: senderName, preview: last.content, kind: last.message_type !== 'text' ? last.message_type : null });
             }
             lastMsgTimeRef.current = fresh[fresh.length - 1].created_at;
             return [...prev, ...fresh];
@@ -1309,7 +1435,7 @@ function DMChatContent({ classId, peer, myId, onBack, onClose }) {
   };
 
   const handleKey = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (recording) stopAndSend(); else if (audioBlob) sendVoiceNote(); else handleSend(); }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (recording) stopAndSend(); else if (audioBlob) sendVoiceNote(); else if (selectedFile) sendFile(); else handleSend(); }
   };
 
   const handleDeleteMessage = async (messageId) => {
@@ -1389,6 +1515,41 @@ function DMChatContent({ classId, peer, myId, onBack, onClose }) {
   };
   const fmtDuration = (secs) => { const s = Math.round(secs || 0); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 
+  const handleFilePick = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (file.size > MAX_CHAT_FILE_MB * 1024 * 1024) {
+      toast.error(`File is too large — max ${MAX_CHAT_FILE_MB}MB.`);
+      return;
+    }
+    setSelectedFile(file);
+    setFilePreviewUrl(file.type.startsWith('image/') ? URL.createObjectURL(file) : null);
+  };
+
+  const cancelFile = () => {
+    if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl);
+    setSelectedFile(null);
+    setFilePreviewUrl(null);
+  };
+
+  const sendFile = async () => {
+    if (!selectedFile || uploadingFile) return;
+    setUploadingFile(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      formData.append('receiverId', peer.id);
+      const res = await api.post(`/collaborations/class/${classId}/media`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+      const newMsg = res.data.msg;
+      setMessages(prev => [...prev, { ...newMsg, sender_name: 'You' }]);
+      lastMsgTimeRef.current = newMsg.created_at;
+      cancelFile();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to send file');
+    } finally { setUploadingFile(false); }
+  };
+
   const enriched = [];
   let lastDate = null;
   messages.forEach((m, i) => {
@@ -1401,8 +1562,11 @@ function DMChatContent({ classId, peer, myId, onBack, onClose }) {
   return (
     <AudioPlaybackProvider>
       <div className="flex flex-col" style={{ flex: 1, minHeight: 0 }}>
+        {/* Hidden file pickers for shared photos/files */}
+        <input ref={fileInputRef} type="file" onChange={handleFilePick} style={{ display: 'none' }} />
+        <input ref={imageInputRef} type="file" accept="image/*" onChange={handleFilePick} style={{ display: 'none' }} />
         {/* Header */}
-        <div style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)', padding: '14px 16px', flexShrink: 0 }}>
+        <div style={{ background: 'linear-gradient(135deg, #128C7E, #075E54)', padding: '14px 16px', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <button onClick={onBack} style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <ArrowLeft style={{ width: 14, height: 14 }} />
@@ -1416,7 +1580,7 @@ function DMChatContent({ classId, peer, myId, onBack, onClose }) {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#a5b4fc', animation: 'pulse 1.5s infinite' }} />
+                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#7fd9c4', animation: 'pulse 1.5s infinite' }} />
                 <span style={{ color: 'rgba(255,255,255,0.75)', fontSize: 10 }} className="hidden sm:inline">Live</span>
               </div>
               {onClose && (
@@ -1429,8 +1593,8 @@ function DMChatContent({ classId, peer, myId, onBack, onClose }) {
         </div>
 
         {/* Privacy + clear */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 14px', background: 'rgba(99,102,241,0.05)', borderBottom: '1px solid var(--card-border)', flexShrink: 0 }}>
-          {/* <span style={{ fontSize: 10.5, fontWeight: 600, color: '#6366f1' }}>Private chat with {peer.name}</span> */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 14px', background: 'rgba(18,140,126,0.06)', borderBottom: '1px solid var(--card-border)', flexShrink: 0 }}>
+          {/* <span style={{ fontSize: 10.5, fontWeight: 600, color: '#128C7E' }}>Private chat with {peer.name}</span> */}
           <button onClick={() => setClearConfirm(true)} className="hover:opacity-70 transition-opacity" style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 600, color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 2px' }}>
             <Trash2 style={{ width: 11, height: 11 }} /> Clear my messages
           </button>
@@ -1440,7 +1604,7 @@ function DMChatContent({ classId, peer, myId, onBack, onClose }) {
         <div className="chat-wallpaper flex-1 min-h-0 overflow-y-auto overscroll-contain" style={{ padding: '16px 14px 8px' }}>
           {loading ? (
             <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 0' }}>
-              <div style={{ width: 28, height: 28, border: '3px solid #6366f1', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+              <div style={{ width: 28, height: 28, border: '3px solid #128C7E', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
             </div>
           ) : enriched.length === 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', textAlign: 'center', padding: '40px 0' }}>
@@ -1466,14 +1630,24 @@ function DMChatContent({ classId, peer, myId, onBack, onClose }) {
                   </button>
                 )}
                 <div style={{ maxWidth: '72%' }}>
-                  <div style={{ background: item.isMine ? 'linear-gradient(135deg, #6366f1, #4f46e5)' : 'var(--surface-100)', color: item.isMine ? '#fff' : 'var(--text-primary)', padding: '9px 13px', borderRadius: item.isMine ? '18px 18px 4px 18px' : '18px 18px 18px 4px', fontSize: 13.5, lineHeight: 1.5, wordBreak: 'break-word', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+                  <div style={{
+                    background: item.message_type === 'image' || item.message_type === 'file' ? 'transparent' : (item.isMine ? 'linear-gradient(135deg, #128C7E, #075E54)' : 'var(--surface-100)'),
+                    color: item.isMine ? '#fff' : 'var(--text-primary)',
+                    padding: item.message_type === 'image' || item.message_type === 'file' ? 0 : '9px 13px',
+                    borderRadius: item.isMine ? '18px 18px 4px 18px' : '18px 18px 18px 4px', fontSize: 13.5, lineHeight: 1.5, wordBreak: 'break-word',
+                    boxShadow: item.message_type === 'image' || item.message_type === 'file' ? 'none' : '0 1px 3px rgba(0,0,0,0.08)',
+                  }}>
                     {item.message_type === 'voice'
                       ? <VoiceBubble url={item.voice_url} duration={item.voice_duration} isMine={item.isMine} />
+                      : item.message_type === 'image'
+                      ? <ChatImageBubble url={item.file_url} name={item.file_name} mimeType={item.mime_type} />
+                      : item.message_type === 'file'
+                      ? <ChatFileBubble url={item.file_url} name={item.file_name} size={item.file_size} mimeType={item.mime_type} />
                       : item.content}
                   </div>
                   <div style={{ fontSize: 10, marginTop: 3, textAlign: item.isMine ? 'right' : 'left', paddingLeft: item.isMine ? 0 : 4, paddingRight: item.isMine ? 4 : 0, color: 'var(--text-secondary)', opacity: 0.6 }}>
                     {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    {item.isMine && item.read && <CheckCheck style={{ display: 'inline', width: 12, height: 12, marginLeft: 4, color: '#6366f1' }} />}
+                    {item.isMine && item.read && <CheckCheck style={{ display: 'inline', width: 12, height: 12, marginLeft: 4, color: '#128C7E' }} />}
                   </div>
                 </div>
               </div>
@@ -1483,48 +1657,89 @@ function DMChatContent({ classId, peer, myId, onBack, onClose }) {
         </div>
 
         {/* Input */}
-        {recording ? (
+        {selectedFile ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderTop: '1px solid var(--card-border)', padding: '10px 14px', background: 'var(--card-bg)', flexShrink: 0 }}>
+            <button onClick={cancelFile} style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: 'rgba(220,38,38,0.1)', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}><X style={{ width: 16, height: 16 }} /></button>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface-100)', borderRadius: 14, padding: '6px 10px', border: '1.5px solid #128C7E40', minWidth: 0 }}>
+              {filePreviewUrl ? (
+                <img src={filePreviewUrl} alt="" style={{ width: 30, height: 30, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
+              ) : (
+                <div style={{ width: 30, height: 30, borderRadius: 8, background: '#128C7E20', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <AttachmentTypeIcon mimeType={selectedFile.type} style={{ width: 15, height: 15, color: '#128C7E' }} />
+                </div>
+              )}
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedFile.name}</div>
+                <div style={{ fontSize: 10.5, color: 'var(--text-secondary)' }}>{fmtFileSize(selectedFile.size)}</div>
+              </div>
+            </div>
+            <button onClick={sendFile} disabled={uploadingFile} style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'linear-gradient(135deg, #128C7E, #075E54)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, opacity: uploadingFile ? 0.6 : 1 }}>
+              {uploadingFile ? <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> : <Send style={{ width: 16, height: 16 }} />}
+            </button>
+          </div>
+        ) : recording ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderTop: '1px solid var(--card-border)', padding: '10px 14px', background: 'var(--card-bg)', flexShrink: 0 }}>
             <button onClick={cancelVoiceNote} style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: 'rgba(220,38,38,0.1)', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}><X style={{ width: 16, height: 16 }} /></button>
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface-100)', borderRadius: 20, padding: '8px 14px', border: '1.5px solid #dc262630' }}>
               <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#dc2626', animation: 'pulse 1s infinite' }} />
               <span style={{ fontSize: 13, color: '#dc2626', fontWeight: 600 }}>Recording… {fmtDuration(recordingTime)}</span>
             </div>
-            <button onClick={stopAndSend} style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'linear-gradient(135deg, #6366f1, #4f46e5)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}><Send style={{ width: 16, height: 16 }} /></button>
+            <button onClick={stopAndSend} style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'linear-gradient(135deg, #128C7E, #075E54)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}><Send style={{ width: 16, height: 16 }} /></button>
           </div>
         ) : audioBlob ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderTop: '1px solid var(--card-border)', padding: '10px 14px', background: 'var(--card-bg)', flexShrink: 0 }}>
             <button onClick={cancelVoiceNote} style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: 'rgba(220,38,38,0.1)', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}><Trash2 style={{ width: 16, height: 16 }} /></button>
             <audio ref={audioPreviewRef} src={URL.createObjectURL(audioBlob)} style={{ display: 'none' }} />
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface-100)', borderRadius: 20, padding: '8px 14px', border: '1.5px solid #6366f140' }}>
-              <button onClick={toggleAudioPreview} style={{ width: 28, height: 28, borderRadius: '50%', border: 'none', background: '#6366f120', color: '#6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface-100)', borderRadius: 20, padding: '8px 14px', border: '1.5px solid #128C7E40' }}>
+              <button onClick={toggleAudioPreview} style={{ width: 28, height: 28, borderRadius: '50%', border: 'none', background: '#128C7E20', color: '#128C7E', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
                 {audioPlaying ? <Pause style={{ width: 12, height: 12 }} /> : <Play style={{ width: 12, height: 12 }} />}
               </button>
-              <Mic style={{ width: 13, height: 13, color: '#6366f1', opacity: 0.7 }} />
+              <Mic style={{ width: 13, height: 13, color: '#128C7E', opacity: 0.7 }} />
               <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500 }}>Voice note · {fmtDuration(audioDuration)}</span>
             </div>
-            <button onClick={sendVoiceNote} disabled={posting} style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'linear-gradient(135deg, #6366f1, #4f46e5)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, opacity: posting ? 0.6 : 1 }}>
+            <button onClick={sendVoiceNote} disabled={posting} style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'linear-gradient(135deg, #128C7E, #075E54)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, opacity: posting ? 0.6 : 1 }}>
               {posting ? <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> : <Send style={{ width: 16, height: 16 }} />}
             </button>
           </div>
         ) : (
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, borderTop: '1px solid var(--card-border)', padding: '10px 14px', background: 'var(--card-bg)', flexShrink: 0 }}>
-            <textarea ref={inputRef} value={text} onChange={e => { setText(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'; }}
-              onKeyDown={handleKey} rows={1}
-              placeholder={`Message ${peer.name}…`}
-              style={{ flex: 1, resize: 'none', border: '1.5px solid var(--card-border)', borderRadius: 20, padding: '9px 14px', fontSize: 13.5, lineHeight: 1.5, outline: 'none', background: 'var(--surface-100)', color: 'var(--text-primary)', minHeight: 40, maxHeight: 120, overflowY: 'auto' }}
-              onFocus={e => { e.target.style.borderColor = '#6366f1'; e.target.style.boxShadow = '0 0 0 3px rgba(99,102,241,0.12)'; }}
-              onBlur={e => { e.target.style.borderColor = 'var(--card-border)'; e.target.style.boxShadow = 'none'; }}
-            />
-            {!text.trim() && (
-              <button onClick={startRecording} style={{ width: 40, height: 40, borderRadius: '50%', background: '#6366f115', border: '1.5px solid #6366f140', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6366f1', flexShrink: 0 }}>
-                <Mic style={{ width: 18, height: 18 }} />
-              </button>
-            )}
-            <button onClick={handleSend} disabled={posting || !text.trim()}
-              style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: text.trim() ? 'linear-gradient(135deg, #6366f1, #4f46e5)' : 'var(--surface-100)', color: text.trim() ? '#fff' : 'var(--text-secondary)', cursor: text.trim() ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              {posting ? <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> : <Send style={{ width: 16, height: 16 }} />}
-            </button>
+          <div style={{ borderTop: '1px solid var(--card-border)', padding: '10px 14px', background: 'var(--card-bg)', flexShrink: 0 }}>
+            <div className="wa-input-pill" style={{ '--wa-accent': '#128C7E', '--wa-accent-2': '#075E54', '--wa-accent-soft': 'rgba(18,140,126,0.14)' }}>
+              <div style={{ position: 'relative', flexShrink: 0 }}>
+                <button className="wa-icon-btn" onClick={() => { setAttachMenuOpen(o => !o); setEmojiOpen(false); }} title="Attach">
+                  <Plus style={{ width: 20, height: 20 }} />
+                </button>
+                <AttachMenu
+                  open={attachMenuOpen}
+                  onClose={() => setAttachMenuOpen(false)}
+                  onPickImage={() => imageInputRef.current?.click()}
+                  onPickFile={() => fileInputRef.current?.click()}
+                />
+              </div>
+              <div style={{ position: 'relative', flexShrink: 0 }}>
+                <button className="wa-icon-btn" onClick={() => { setEmojiOpen(o => !o); setAttachMenuOpen(false); }} title="Emoji">
+                  <Smile style={{ width: 20, height: 20 }} />
+                </button>
+                <EmojiPicker
+                  open={emojiOpen}
+                  onClose={() => setEmojiOpen(false)}
+                  onPick={(e) => { setText(t => t + e); inputRef.current?.focus(); }}
+                />
+              </div>
+              <textarea ref={inputRef} value={text} onChange={e => { setText(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'; }}
+                onKeyDown={handleKey} rows={1}
+                placeholder={`Message ${peer.name}`}
+                className="wa-input-textarea"
+              />
+              {text.trim() ? (
+                <button key="send" onClick={handleSend} disabled={posting} className="wa-icon-btn wa-icon-send wa-icon-swap">
+                  {posting ? <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> : <Send style={{ width: 17, height: 17 }} />}
+                </button>
+              ) : (
+                <button key="mic" onClick={startRecording} className="wa-icon-btn wa-icon-swap" title="Record a voice note">
+                  <Mic style={{ width: 20, height: 20 }} />
+                </button>
+              )}
+            </div>
           </div>
         )}
 
@@ -1545,7 +1760,7 @@ function DMChatContent({ classId, peer, myId, onBack, onClose }) {
 }
 
 /* Collaboration panel (IMPROVED) */
-function CollaborationPanel({ myId, onClose }) {
+function CollaborationPanel({ myId, onClose, initialTarget, onInitialTargetHandled }) {
   const [myClasses, setMyClasses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedClass, setSelectedClass] = useState(null);
@@ -1557,11 +1772,27 @@ function CollaborationPanel({ myId, onClose }) {
       .then(res => {
         const active = (res.data.classes || []).filter(c => c.collaboration_active);
         setMyClasses(active);
-        if (active.length === 1) setSelectedClass(active[0]);
+        if (!initialTarget && active.length === 1) setSelectedClass(active[0]);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Deep-link: jump straight to a specific classmate's conversation. Runs on
+  // mount and again any time a fresh target arrives (e.g. another toast
+  // clicked while this panel is already open), as soon as the class list
+  // is available to resolve it against.
+  useEffect(() => {
+    if (!initialTarget || myClasses.length === 0) return;
+    const cls = myClasses.find(c => String(c.id) === String(initialTarget.classId));
+    if (cls) {
+      setSelectedClass(cls);
+      setActivePeer({ id: initialTarget.peerId, name: initialTarget.peerName });
+    }
+    onInitialTargetHandled && onInitialTargetHandled();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialTarget, myClasses]);
 
   const CloseBtn = ({ light }) => (
     <button onClick={onClose} title="Close" className="flex items-center justify-center flex-shrink-0 transition-opacity hover:opacity-80"
@@ -1718,6 +1949,12 @@ export default function StudentGroups() {
   // Group chat modal
   const [groupChatOpen, setGroupChatOpen] = useState(false);
 
+  // Deep-link targets consumed from toast clicks (see ChatNotifyContext) —
+  // "open this exact group" / "auto-open the leader DM inside it" / "open
+  // this exact classmate conversation" instead of just landing on the list.
+  const [pendingLeaderDmGroupId, setPendingLeaderDmGroupId] = useState(null);
+  const [pendingDmTarget, setPendingDmTarget] = useState(null);
+
   const fetchGroups = useCallback(async () => {
     setLoading(true);
     try { const res = await api.get('/group-discussions/my/groups'); setGroups(res.data.groups || []); }
@@ -1761,6 +1998,33 @@ export default function StudentGroups() {
         : g
     ));
   };
+
+  // Deep-link handling: react to a toast click (see ChatNotifyContext),
+  // whether it arrives while this page is already mounted (event) or right
+  // after navigating here fresh (consumePendingChatTarget on mount).
+  useEffect(() => {
+    const applyTarget = (t) => {
+      if (!t) return;
+      if (t.type === 'group') {
+        setTab('groups');
+        setCollabModalOpen(false);
+        openGroup({ id: t.groupId });
+      } else if (t.type === 'leaderdm') {
+        setTab('groups');
+        setCollabModalOpen(false);
+        setPendingLeaderDmGroupId(t.groupId);
+        openGroup({ id: t.groupId });
+      } else if (t.type === 'dm') {
+        setGroupChatOpen(false);
+        setPendingDmTarget({ classId: t.classId, peerId: t.peerId, peerName: t.peerName });
+        setTab('collab');
+        setCollabModalOpen(true);
+      }
+    };
+    applyTarget(consumePendingChatTarget());
+    return onPendingChatTarget(applyTarget);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const switchTab = (t) => { setTab(t); };
 
@@ -1875,11 +2139,14 @@ export default function StudentGroups() {
             </div>
           ) : (
             <GroupChatContent
+              key={groupDetail.id}
               group={groupDetail}
               myId={myId}
               myName={myName}
               onClose={closeGroupChat}
               onMessageSent={handleMessageSent}
+              autoOpenDm={pendingLeaderDmGroupId != null && String(pendingLeaderDmGroupId) === String(groupDetail.id)}
+              onAutoOpenHandled={() => setPendingLeaderDmGroupId(null)}
             />
           )}
         </ChatModal>
@@ -1888,7 +2155,12 @@ export default function StudentGroups() {
       {/* ── Peer Chat (collaboration) modal — student-to-student ── */}
       {collabModalOpen && (
         <PeerChatModal onClose={() => { setCollabModalOpen(false); setTab('groups'); }}>
-          <CollaborationPanel myId={myId} onClose={() => { setCollabModalOpen(false); setTab('groups'); }} />
+          <CollaborationPanel
+            myId={myId}
+            onClose={() => { setCollabModalOpen(false); setTab('groups'); }}
+            initialTarget={pendingDmTarget}
+            onInitialTargetHandled={() => setPendingDmTarget(null)}
+          />
         </PeerChatModal>
       )}
 

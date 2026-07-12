@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { isAuthenticated, isAdmin, isTeacher } = require('../middleware/auth');
+const { excelUpload } = require('../middleware/upload');
 const ctrl = require('../controllers/assessmentController');
 
 // ── ADMIN routes ─────────────────────────────────────────────────────────
@@ -47,6 +48,10 @@ router.delete('/teacher/assessments/:id',isAuthenticated, isTeacher, ctrl.teache
 router.get('/teacher/assessments/:id/marks',  isAuthenticated, isTeacher, ctrl.teacherGetMarks);
 router.post('/teacher/assessments/:id/marks', isAuthenticated, isTeacher, ctrl.teacherSaveMarks);
 router.post('/teacher/assessments/:id/submit',isAuthenticated, isTeacher, ctrl.teacherSubmitMarks);
+
+// Excel marks template download / upload
+router.get('/teacher/assessments/:id/marks/template', isAuthenticated, isTeacher, ctrl.teacherDownloadMarksTemplate);
+router.post('/teacher/assessments/:id/marks/upload',  isAuthenticated, isTeacher, excelUpload.single('file'), ctrl.teacherUploadMarks);
 router.get('/teacher/reports/:assessmentId',  isAuthenticated, isTeacher, ctrl.teacherAssessmentReport);
 
 // Student: get all courses assigned to their class

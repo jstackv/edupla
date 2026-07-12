@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useRef, createContext, useContext } from 'react';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
-import { showChatToast, markMessageSeen, setActiveConversation, clearActiveConversation } from '../../utils/chatNotify';
+import { showChatToast, markMessageSeen, setActiveConversation, clearActiveConversation, onPendingChatTarget, consumePendingChatTarget } from '../../utils/chatNotify';
 import { useAuth } from '../../context/AuthContext';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
+import { ChatImageBubble, ChatFileBubble, fmtFileSize, AttachmentTypeIcon, AttachMenu, EmojiPicker } from '../../components/common/ChatMediaBubble';
 import {
   Plus, Search, Users, Trash2, X, Send,
   Crown, Check, Eye,
@@ -11,7 +12,11 @@ import {
   Mic, Square, Play, Pause,
   Zap, ZapOff, Radio, MessageCircle,
   UserPlus, UserMinus, ArrowLeftRight,
+  Smile,
 } from 'lucide-react';
+
+/* Max size for a shared photo/file (matches backend chatMediaUpload limit) */
+const MAX_CHAT_FILE_MB = 25;
 
 /* ── Exclusive audio playback context ───────────────────────────────────
    Only one voice note may play at a time within a conversation.
@@ -774,7 +779,7 @@ function ManageMembersModal({ group, onClose, onChanged }) {
   );
 }
 
-function GroupViewer({ group, myId, onClose, onMessageSent, onEnded, onMembersChanged }) {
+function GroupViewer({ group, myId, onClose, onMessageSent, onEnded, onMembersChanged, autoOpenDm, onAutoOpenHandled }) {
   const [a, b] = groupColor(group.id);
   const [messages, setMessages] = useState(group.messages || []);
   const [text, setText]         = useState('');
@@ -786,6 +791,17 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onEnded, onMembersCh
   const [actionLoading, setActionLoading] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const [dmOpen, setDmOpen] = useState(false);
+
+  // Deep-link support: a toast for a leader-DM message can ask this view to
+  // auto-open the team-leader DM panel — on first mount, or again later if
+  // another such toast is clicked while this same group is already open.
+  useEffect(() => {
+    if (autoOpenDm) {
+      setDmOpen(true);
+      onAutoOpenHandled && onAutoOpenHandled();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpenDm]);
   const [membersOpen, setMembersOpen] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
   const [recording, setRecording]         = useState(false);
@@ -793,11 +809,18 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onEnded, onMembersCh
   const [audioBlob, setAudioBlob]         = useState(null);
   const [audioDuration, setAudioDuration] = useState(0);
   const [audioPlaying, setAudioPlaying]   = useState(false);
+  const [selectedFile, setSelectedFile]   = useState(null);
+  const [filePreviewUrl, setFilePreviewUrl] = useState(null);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [attachMenuOpen, setAttachMenuOpen] = useState(false);
+  const [emojiOpen, setEmojiOpen] = useState(false);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef   = useRef([]);
   const recordTimerRef   = useRef(null);
   const audioPreviewRef  = useRef(null);
   const inputRef       = useRef(null);
+  const fileInputRef   = useRef(null);
+  const imageInputRef  = useRef(null);
   const messagesEndRef = useRef(null);
   const pollRef        = useRef(null);
   const lastMsgTimeRef = useRef(null);
@@ -848,7 +871,7 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onEnded, onMembersCh
             const fromOthers = fresh.filter(m => String(m.author_id) !== String(myId));
             if (fromOthers.length) {
               const last = fromOthers[fromOthers.length - 1];
-              showChatToast({ name: `${last.author_name} · ${group.name}`, preview: last.content, isVoice: last.message_type === 'voice' });
+              showChatToast({ name: `${last.author_name} · ${group.name}`, preview: last.content, kind: last.message_type !== 'text' ? last.message_type : null });
             }
             lastMsgTimeRef.current = fresh[fresh.length - 1].created_at;
             return [...prev, ...fresh];
@@ -900,6 +923,7 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onEnded, onMembersCh
       e.preventDefault();
       if (recording) { stopAndSend(); }
       else if (audioBlob) { sendVoiceNote(); }
+      else if (selectedFile) { sendFile(); }
       else { handleSend(); }
     }
   };
@@ -1027,6 +1051,41 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onEnded, onMembersCh
     return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
   };
 
+  const handleFilePick = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || isEnded || !group.can_post) return;
+    if (file.size > MAX_CHAT_FILE_MB * 1024 * 1024) {
+      toast.error(`File is too large — max ${MAX_CHAT_FILE_MB}MB.`);
+      return;
+    }
+    setSelectedFile(file);
+    setFilePreviewUrl(file.type.startsWith('image/') ? URL.createObjectURL(file) : null);
+  };
+
+  const cancelFile = () => {
+    if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl);
+    setSelectedFile(null);
+    setFilePreviewUrl(null);
+  };
+
+  const sendFile = async () => {
+    if (!selectedFile || uploadingFile || isEnded) return;
+    setUploadingFile(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      const res = await api.post(`/group-discussions/${group.id}/media`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+      const newMsg = res.data.msg;
+      setMessages(prev => [...prev, newMsg]);
+      lastMsgTimeRef.current = newMsg.created_at;
+      onMessageSent && onMessageSent(newMsg);
+      cancelFile();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to send file');
+    } finally { setUploadingFile(false); }
+  };
+
   const handleEnd = async () => {
     setActionLoading(true);
     try {
@@ -1045,6 +1104,9 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onEnded, onMembersCh
   return (
     <AudioPlaybackProvider>
     <div className="flex flex-col h-full">
+      {/* Hidden file pickers for shared photos/files */}
+      <input ref={fileInputRef} type="file" onChange={handleFilePick} style={{ display: 'none' }} />
+      <input ref={imageInputRef} type="file" accept="image/*" onChange={handleFilePick} style={{ display: 'none' }} />
       <div className="tg-viewer-header" style={{ background: `linear-gradient(135deg, ${a}, ${b})`, borderRadius: '16px 16px 0 0', padding: '12px 16px', flexShrink: 0 }}>
         <div className="tg-header-row" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#fff', fontSize: 14, flexShrink: 0 }}>
@@ -1161,13 +1223,18 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onEnded, onMembersCh
                   </div>
                 )}
                 <div style={{
-                  background: bubbleBg, color: bubbleColor, padding: '8px 12px',
+                  background: item.message_type === 'image' || item.message_type === 'file' ? 'transparent' : bubbleBg,
+                  color: bubbleColor, padding: item.message_type === 'image' || item.message_type === 'file' ? 0 : '8px 12px',
                   borderRadius: item.isMine ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
                   fontSize: 13.5, lineHeight: 1.45, wordBreak: 'break-word',
-                  boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
+                  boxShadow: item.message_type === 'image' || item.message_type === 'file' ? 'none' : '0 1px 2px rgba(0,0,0,0.06)',
                 }}>
                   {item.message_type === 'voice'
                     ? <TeacherVoiceBubble url={item.voice_url} duration={item.voice_duration} isMine={item.isMine} />
+                    : item.message_type === 'image'
+                    ? <ChatImageBubble url={item.file_url} name={item.file_name} mimeType={item.mime_type} />
+                    : item.message_type === 'file'
+                    ? <ChatFileBubble url={item.file_url} name={item.file_name} size={item.file_size} mimeType={item.mime_type} />
                     : item.content}
                 </div>
                 {item.isLast && (
@@ -1183,6 +1250,27 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onEnded, onMembersCh
       </div>
 
       {canPost ? (
+        selectedFile ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderTop: '1px solid var(--card-border)', padding: '10px 14px', background: 'var(--card-bg)', flexShrink: 0 }}>
+            <button onClick={cancelFile} style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: 'rgba(220,38,38,0.1)', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}><X style={{ width: 16, height: 16 }} /></button>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface-100)', borderRadius: 14, padding: '6px 10px', border: `1.5px solid ${a}40`, minWidth: 0 }}>
+              {filePreviewUrl ? (
+                <img src={filePreviewUrl} alt="" style={{ width: 30, height: 30, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
+              ) : (
+                <div style={{ width: 30, height: 30, borderRadius: 8, background: `${a}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <AttachmentTypeIcon mimeType={selectedFile.type} style={{ width: 15, height: 15, color: a }} />
+                </div>
+              )}
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedFile.name}</div>
+                <div style={{ fontSize: 10.5, color: 'var(--text-secondary)' }}>{fmtFileSize(selectedFile.size)}</div>
+              </div>
+            </div>
+            <button onClick={sendFile} disabled={uploadingFile} style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: `linear-gradient(135deg, ${a}, ${b})`, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, opacity: uploadingFile ? 0.6 : 1 }}>
+              {uploadingFile ? <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> : <Send style={{ width: 16, height: 16 }} />}
+            </button>
+          </div>
+        ) :
         recording ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderTop: '1px solid var(--card-border)', padding: '10px 14px', background: 'var(--card-bg)', flexShrink: 0 }}>
             <button onClick={cancelVoiceNote} style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: 'rgba(220,38,38,0.1)', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}><X style={{ width: 16, height: 16 }} /></button>
@@ -1208,19 +1296,42 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onEnded, onMembersCh
             </button>
           </div>
         ) : (
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, borderTop: '1px solid var(--card-border)', padding: '10px 14px', background: 'var(--card-bg)', flexShrink: 0 }}>
-            <textarea ref={inputRef} value={text} onChange={handleTyping} onKeyDown={handleKey} rows={1}
-              placeholder="Type a reply…"
-              style={{ flex: 1, resize: 'none', border: '1.5px solid var(--card-border)', borderRadius: 20, padding: '9px 14px', fontSize: 13.5, lineHeight: 1.5, outline: 'none', background: 'var(--surface-100)', color: 'var(--text-primary)', minHeight: 40, maxHeight: 120, overflowY: 'auto' }} />
-            {!text.trim() && (
-              <button onClick={startRecording} title="Record a voice note"
-                style={{ width: 40, height: 40, borderRadius: '50%', background: `${a}15`, border: `1.5px solid ${a}40`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: a, flexShrink: 0, transition: 'all 0.15s' }}>
-                <Mic style={{ width: 18, height: 18 }} />
-              </button>
-            )}
-            <button className="send-btn" onClick={handleSend} disabled={posting || !text.trim()} style={{ background: `linear-gradient(135deg, ${a}, ${b})` }}>
-              {posting ? <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> : <Send style={{ width: 16, height: 16 }} />}
-            </button>
+          <div style={{ borderTop: '1px solid var(--card-border)', padding: '10px 14px', background: 'var(--card-bg)', flexShrink: 0 }}>
+            <div className="wa-input-pill" style={{ '--wa-accent': a, '--wa-accent-2': b, '--wa-accent-soft': `${a}22` }}>
+              <div style={{ position: 'relative', flexShrink: 0 }}>
+                <button className="wa-icon-btn" onClick={() => { setAttachMenuOpen(o => !o); setEmojiOpen(false); }} title="Attach">
+                  <Plus style={{ width: 20, height: 20 }} />
+                </button>
+                <AttachMenu
+                  open={attachMenuOpen}
+                  onClose={() => setAttachMenuOpen(false)}
+                  onPickImage={() => imageInputRef.current?.click()}
+                  onPickFile={() => fileInputRef.current?.click()}
+                />
+              </div>
+              <div style={{ position: 'relative', flexShrink: 0 }}>
+                <button className="wa-icon-btn" onClick={() => { setEmojiOpen(o => !o); setAttachMenuOpen(false); }} title="Emoji">
+                  <Smile style={{ width: 20, height: 20 }} />
+                </button>
+                <EmojiPicker
+                  open={emojiOpen}
+                  onClose={() => setEmojiOpen(false)}
+                  onPick={(e) => { setText(t => t + e); inputRef.current?.focus(); }}
+                />
+              </div>
+              <textarea ref={inputRef} value={text} onChange={handleTyping} onKeyDown={handleKey} rows={1}
+                placeholder="Type a reply"
+                className="wa-input-textarea" />
+              {text.trim() ? (
+                <button key="send" onClick={handleSend} disabled={posting} className="wa-icon-btn wa-icon-send wa-icon-swap">
+                  {posting ? <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> : <Send style={{ width: 17, height: 17 }} />}
+                </button>
+              ) : (
+                <button key="mic" onClick={startRecording} className="wa-icon-btn wa-icon-swap" title="Record a voice note">
+                  <Mic style={{ width: 20, height: 20 }} />
+                </button>
+              )}
+            </div>
           </div>
         )
       ) : (
@@ -1593,6 +1704,11 @@ export default function TeacherGroups() {
   const [deleteTarget, setDeleteTarget]   = useState(null);
   const [deleting, setDeleting]           = useState(false);
 
+  // Deep-link target consumed from a toast click (see ChatNotifyContext) —
+  // auto-opens the exact group, and its leader-DM panel if that's what the
+  // notification was about, instead of just landing on the groups list.
+  const [pendingLeaderDmGroupId, setPendingLeaderDmGroupId] = useState(null);
+
   const fetchGroups = useCallback(async () => {
     setLoading(true);
     try {
@@ -1628,6 +1744,26 @@ export default function TeacherGroups() {
 
   const handleEnded = () => { fetchGroups(); };
 
+  // Deep-link handling: react to a toast click, whether it arrives while
+  // this page is already mounted (event) or right after navigating here
+  // fresh (consumePendingChatTarget on mount).
+  useEffect(() => {
+    const applyTarget = (t) => {
+      if (!t) return;
+      if (t.type === 'group') {
+        setTab('groups');
+        openGroup({ id: t.groupId });
+      } else if (t.type === 'leaderdm') {
+        setTab('groups');
+        setPendingLeaderDmGroupId(t.groupId);
+        openGroup({ id: t.groupId });
+      }
+    };
+    applyTarget(consumePendingChatTarget());
+    return onPendingChatTarget(applyTarget);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Right panel: only for groups tab
   let rightPanel = null;
   if (tab === 'groups') {
@@ -1636,7 +1772,17 @@ export default function TeacherGroups() {
     } else if (activeGroup) {
       rightPanel = detailLoading || !groupDetail
         ? <div className="flex-1 flex items-center justify-center"><div className="text-center"><div className="animate-spin w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full mx-auto mb-3" /><p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Loading…</p></div></div>
-        : <GroupViewer group={groupDetail} myId={myId} onClose={() => { setActiveGroup(null); setGroupDetail(null); }} onMessageSent={fetchGroups} onEnded={handleEnded} onMembersChanged={() => { openGroup(activeGroup); fetchGroups(); }} />;
+        : <GroupViewer
+            key={groupDetail.id}
+            group={groupDetail}
+            myId={myId}
+            onClose={() => { setActiveGroup(null); setGroupDetail(null); }}
+            onMessageSent={fetchGroups}
+            onEnded={handleEnded}
+            onMembersChanged={() => { openGroup(activeGroup); fetchGroups(); }}
+            autoOpenDm={pendingLeaderDmGroupId != null && String(pendingLeaderDmGroupId) === String(groupDetail.id)}
+            onAutoOpenHandled={() => setPendingLeaderDmGroupId(null)}
+          />;
     }
   }
 

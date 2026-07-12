@@ -17,7 +17,7 @@
  *    each assessment was created for.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../utils/api';
@@ -27,6 +27,7 @@ import {
   Plus, Edit2, Trash2, X, BookOpen, FileText, Users,
   ChevronRight, Send, Save, Clock, CheckCircle, XCircle,
   AlertCircle, School, GraduationCap, RefreshCw,
+  Download, Upload, TrendingUp,
 } from 'lucide-react';
 
 /* ─────────── Constants ─────────── */
@@ -136,6 +137,10 @@ export default function TeacherAssessments() {
   const [marksData, setMarksData]     = useState({});
   const [marksLoading, setMarksLoading]   = useState(false);
   const [marksSaving, setMarksSaving]     = useState(false);
+  const [templateDownloading, setTemplateDownloading] = useState(false);
+  const [marksUploading, setMarksUploading]           = useState(false);
+  const [sortedByPerformance, setSortedByPerformance] = useState(false);
+  const fileInputRef = useRef(null);
 
   /* ── Confirm modal ── */
   const [confirmModal, setConfirmModal] = useState({ open: false });
@@ -303,6 +308,7 @@ export default function TeacherAssessments() {
   async function openMarks(a) {
     setMarksLoading(true);
     setMarksModal(null);
+    setSortedByPerformance(false);
     try {
       const res = await api.get('/assessment/teacher/assessments/' + (a._id || a.id) + '/marks');
       const { assessment, students, submission } = res.data;
@@ -368,6 +374,84 @@ export default function TeacherAssessments() {
       fetchData();
     } catch (e) { toast.error(e.response?.data?.message || 'Error saving'); }
     finally { setMarksSaving(false); }
+  }
+
+  /* ── Download the fillable Excel template for this assessment.
+     Students are listed ascending by name (server-side), with any marks
+     already recorded pre-filled in. ── */
+  async function downloadTemplate() {
+    if (!marksModal?.assessment?._id) return;
+    setTemplateDownloading(true);
+    try {
+      const res = await api.get(
+        '/assessment/teacher/assessments/' + marksModal.assessment._id + '/marks/template',
+        { responseType: 'blob' }
+      );
+      const blob = new Blob([res.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const cls = (marksModal.assessment?.class_id?.name || 'class').replace(/[^a-z0-9]+/gi, '-');
+      a.download = `marks-template-${marksModal.assessment.type}-${cls}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      // The blob response may contain a JSON error — try to read it.
+      let message = 'Failed to download template';
+      if (e.response?.data instanceof Blob) {
+        try {
+          const text = await e.response.data.text();
+          message = JSON.parse(text)?.message || message;
+        } catch { /* ignore parse failure, use default message */ }
+      } else {
+        message = e.response?.data?.message || message;
+      }
+      toast.error(message);
+    } finally { setTemplateDownloading(false); }
+  }
+
+  /* ── Upload a filled-in Excel template. On success, the marks table is
+     refilled with the uploaded values and re-sorted by performance (marks
+     obtained, highest first) as required — the ascending-by-name order is
+     only the default before marks are recorded. ── */
+  async function handleUploadFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!marksModal?.assessment?._id) return;
+
+    setMarksUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await api.post(
+        '/assessment/teacher/assessments/' + marksModal.assessment._id + '/marks/upload',
+        formData,
+        { headers: { 'Content-Type': 'multipart/form-data' } }
+      );
+      const { students, errors, updated, message } = res.data;
+
+      const newMarks = {};
+      students.forEach(s => { newMarks[s.student_id] = s.marks ?? ''; });
+      setMarksData(newMarks);
+      setMarksModal(prev => ({ ...prev, students }));
+      setSortedByPerformance(true);
+
+      if (errors && errors.length > 0) {
+        toast.error(`${message} (${updated} mark${updated === 1 ? '' : 's'} applied)`, { duration: 6000 });
+        console.warn('Marks upload issues:', errors);
+      } else {
+        toast.success(`${message} — ${updated} mark${updated === 1 ? '' : 's'} applied`);
+      }
+    } catch (e2) {
+      toast.error(e2.response?.data?.message || 'Failed to upload marks');
+    } finally {
+      setMarksUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   }
 
   /* ── Submit marks ── */
@@ -787,6 +871,83 @@ export default function TeacherAssessments() {
                     <X size={16} color={dark ? '#94a3b8' : '#6b7280'} />
                   </button>
                 </div>
+
+                {/* ── Excel template download / upload ── */}
+                {!marksLocked && (
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+                    marginBottom: 16, padding: '12px 14px', borderRadius: 12,
+                    background: dark
+                      ? 'linear-gradient(135deg, rgba(13,148,136,0.1), rgba(139,92,246,0.1))'
+                      : 'linear-gradient(135deg, rgba(13,148,136,0.06), rgba(139,92,246,0.06))',
+                    border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`,
+                  }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: dark ? '#7b839a' : '#6b7280', whiteSpace: 'nowrap' }}>
+                      Bulk entry:
+                    </span>
+                    <button
+                      onClick={downloadTemplate}
+                      disabled={templateDownloading}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 10,
+                        border: 'none',
+                        background: templateDownloading
+                          ? (dark ? '#2a3042' : '#e5e7eb')
+                          : 'linear-gradient(135deg,#0d9488,#14b8a6)',
+                        color: templateDownloading ? (dark ? '#7b839a' : '#9ca3af') : '#fff',
+                        fontSize: 12.5, fontWeight: 700,
+                        cursor: templateDownloading ? 'default' : 'pointer',
+                        boxShadow: templateDownloading ? 'none' : '0 4px 14px rgba(13,148,136,0.35)',
+                        transition: 'transform 0.15s, box-shadow 0.15s',
+                      }}
+                      onMouseEnter={e => { if (!templateDownloading) e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; }}
+                    >
+                      <Download size={14} /> {templateDownloading ? 'Preparing…' : 'Download Excel Template'}
+                    </button>
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={marksUploading}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 10,
+                        border: 'none',
+                        background: marksUploading
+                          ? (dark ? '#2a3042' : '#e5e7eb')
+                          : 'linear-gradient(135deg,#7c3aed,#a855f7)',
+                        color: marksUploading ? (dark ? '#7b839a' : '#9ca3af') : '#fff',
+                        fontSize: 12.5, fontWeight: 700,
+                        cursor: marksUploading ? 'default' : 'pointer',
+                        boxShadow: marksUploading ? 'none' : '0 4px 14px rgba(124,58,237,0.35)',
+                        transition: 'transform 0.15s, box-shadow 0.15s',
+                      }}
+                      onMouseEnter={e => { if (!marksUploading) e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; }}
+                    >
+                      <Upload size={14} /> {marksUploading ? 'Uploading…' : 'Upload Filled Sheet'}
+                    </button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".xlsx,.xls"
+                      onChange={handleUploadFile}
+                      style={{ display: 'none' }}
+                    />
+                    <span style={{ fontSize: 11, color: dark ? '#7b839a' : '#9ca3af' }}>
+                      Download, fill in marks, then re-upload — the table below refills automatically.
+                    </span>
+                  </div>
+                )}
+
+                {sortedByPerformance && (
+                  <div style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 12,
+                    padding: '4px 10px', borderRadius: 999,
+                    fontSize: 11, fontWeight: 700, color: '#7c3aed',
+                    background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.25)',
+                  }}>
+                    <TrendingUp size={13} /> Sorted by performance (highest marks first) after upload
+                  </div>
+                )}
 
                 {/* ── Marking progress bar ── */}
                 {!marksLocked && (

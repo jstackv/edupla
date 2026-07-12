@@ -1,10 +1,10 @@
 const express = require('express');
 const router  = express.Router();
 const { isAuthenticated, isTeacher } = require('../middleware/auth');
-const { voiceNoteUpload } = require('../middleware/upload');
+const { voiceNoteUpload, chatMediaUpload } = require('../middleware/upload');
 const {
   getGroups, createGroup, deleteGroup,
-  getGroup,  getMyGroups, postMessage, postVoiceNote, deleteMessage, clearMyMessages,
+  getGroup,  getMyGroups, postMessage, postVoiceNote, postMedia, deleteMessage, clearMyMessages,
   endConversation, getGroupMessages,
   getLeaderDm, postLeaderDm, deleteLeaderDmMessage, clearMyLeaderDmMessages,
   addGroupMembers, removeGroupMember, moveGroupMember,
@@ -39,6 +39,9 @@ router.delete('/:id/messages/:messageId', isAuthenticated, deleteMessage);
 
 // Voice notes: multipart upload via Cloudinary, then saved as a message with type='voice'
 router.post('/:id/voice-notes', isAuthenticated, voiceNoteUpload.single('audio'), postVoiceNote);
+
+// Photos & files: multipart upload via Cloudinary, saved as a message with type='image'|'file'
+router.post('/:id/media', isAuthenticated, chatMediaUpload.single('file'), postMedia);
 
 // Team leader <-> owning teacher private DM
 router.get('/:id/leader-dm',              isAuthenticated, getLeaderDm);

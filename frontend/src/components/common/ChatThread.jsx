@@ -1,6 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { Send, Smile, Paperclip, Mic, Phone, Video, MoreVertical, CheckCheck } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { Send, Smile, Mic, Phone, Video, MoreVertical, CheckCheck, X, Plus } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { ChatImageBubble, ChatFileBubble, fmtFileSize, AttachmentTypeIcon, AttachMenu, EmojiPicker } from './ChatMediaBubble';
+
+const MAX_CHAT_FILE_MB = 25;
 
 /* ── Avatar ── */
 function Avatar({ name, role, size = 'sm' }) {
@@ -98,10 +102,19 @@ function MessageBubble({ msg, isMine, isFirstInGroup, isLastInGroup }) {
         )}
 
         <div className={isMine ? 'chat-bubble-mine' : 'chat-bubble-other'}
-          style={{ padding: '9px 13px', borderRadius: radius, position: 'relative' }}>
-          <p style={{ fontSize: 13.5, lineHeight: 1.5, wordBreak: 'break-word', margin: 0 }}>
-            {msg.content}
-          </p>
+          style={{
+            padding: msg.message_type === 'image' || msg.message_type === 'file' ? 4 : '9px 13px',
+            borderRadius: radius, position: 'relative',
+          }}>
+          {msg.message_type === 'image' ? (
+            <ChatImageBubble url={msg.file_url} name={msg.file_name} mimeType={msg.mime_type} />
+          ) : msg.message_type === 'file' ? (
+            <ChatFileBubble url={msg.file_url} name={msg.file_name} size={msg.file_size} mimeType={msg.mime_type} />
+          ) : (
+            <p style={{ fontSize: 13.5, lineHeight: 1.5, wordBreak: 'break-word', margin: 0 }}>
+              {msg.content}
+            </p>
+          )}
           {/* Time + ticks */}
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
@@ -137,7 +150,7 @@ function fmtDateSep(ts) {
 /* ══════════════════════════════════════════════
    Main component
 ══════════════════════════════════════════════ */
-export default function ChatThread({ thread, isTeacher, onSendComment, posting, threadRef }) {
+export default function ChatThread({ thread, isTeacher, onSendComment, onSendMedia, posting, threadRef }) {
   const { user } = useAuth();          // get the logged-in user from context
   const myName = user?.name || '';     // display_name or name field
   const myRole = user?.role || (isTeacher ? 'teacher' : 'student');
@@ -145,8 +158,15 @@ export default function ChatThread({ thread, isTeacher, onSendComment, posting, 
   const [text, setText] = useState('');
   const [otherTyping, setOtherTyping] = useState(false);
   const [otherTypingName, setOtherTypingName] = useState('');
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [filePreviewUrl, setFilePreviewUrl] = useState(null);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [attachMenuOpen, setAttachMenuOpen] = useState(false);
+  const [emojiOpen, setEmojiOpen] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const imageInputRef = useRef(null);
   const typingTimer = useRef(null);
 
   /* scroll to bottom whenever messages change */
@@ -192,6 +212,30 @@ export default function ChatThread({ thread, isTeacher, onSendComment, posting, 
 
   const handleKey = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
+  };
+
+  const handleFilePick = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (file.size > MAX_CHAT_FILE_MB * 1024 * 1024) return;
+    setSelectedFile(file);
+    setFilePreviewUrl(file.type.startsWith('image/') ? URL.createObjectURL(file) : null);
+  };
+
+  const cancelFile = () => {
+    if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl);
+    setSelectedFile(null);
+    setFilePreviewUrl(null);
+  };
+
+  const sendFile = async () => {
+    if (!selectedFile || uploadingFile || !onSendMedia) return;
+    setUploadingFile(true);
+    try {
+      await onSendMedia(selectedFile);
+      cancelFile();
+    } finally { setUploadingFile(false); }
   };
 
   if (!thread) return null;
@@ -324,55 +368,94 @@ export default function ChatThread({ thread, isTeacher, onSendComment, posting, 
       </div>
 
       {/* ── Input bar ── */}
+      <input ref={fileInputRef} type="file" onChange={handleFilePick} style={{ display: 'none' }} />
+      <input ref={imageInputRef} type="file" accept="image/*" onChange={handleFilePick} style={{ display: 'none' }} />
+
+      {selectedFile && (
+        <div style={{
+          borderTop: '1px solid var(--card-border)', background: 'var(--card-bg)',
+          padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0,
+        }}>
+          <button onClick={cancelFile} className="chat-toolbar-btn" style={{ color: '#dc2626' }}>
+            <X style={{ width: 16, height: 16 }} />
+          </button>
+          <div style={{
+            flex: 1, display: 'flex', alignItems: 'center', gap: 8,
+            background: 'var(--surface-100)', borderRadius: 14, padding: '6px 10px',
+            border: '1.5px solid rgba(99,102,241,0.25)', minWidth: 0,
+          }}>
+            {filePreviewUrl ? (
+              <img src={filePreviewUrl} alt="" style={{ width: 30, height: 30, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
+            ) : (
+              <div style={{ width: 30, height: 30, borderRadius: 8, background: 'rgba(99,102,241,0.14)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <AttachmentTypeIcon mimeType={selectedFile.type} style={{ width: 15, height: 15, color: '#6366f1' }} />
+              </div>
+            )}
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedFile.name}</div>
+              <div style={{ fontSize: 10.5, color: 'var(--text-secondary)' }}>{fmtFileSize(selectedFile.size)}</div>
+            </div>
+          </div>
+          <button onClick={sendFile} disabled={uploadingFile} className="send-btn">
+            {uploadingFile
+              ? <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+              : <Send style={{ width: 16, height: 16 }} />}
+          </button>
+        </div>
+      )}
+
       <div style={{
         borderTop: '1px solid var(--card-border)',
         background: 'var(--card-bg)',
         padding: '10px 12px',
-        display: 'flex', alignItems: 'flex-end', gap: 8,
+        display: selectedFile ? 'none' : 'block',
         flexShrink: 0,
       }}>
-        <button className="chat-toolbar-btn"><Smile style={{ width: 20, height: 20 }} /></button>
-        <button className="chat-toolbar-btn"><Paperclip style={{ width: 20, height: 20 }} /></button>
+        <div className="wa-input-pill" style={{ '--wa-accent': '#128C7E', '--wa-accent-2': '#075E54', '--wa-accent-soft': 'rgba(18,140,126,0.14)' }}>
+          <div style={{ position: 'relative', flexShrink: 0 }}>
+            <button className="wa-icon-btn" onClick={() => { setAttachMenuOpen(o => !o); setEmojiOpen(false); }} title="Attach">
+              <Plus style={{ width: 20, height: 20 }} />
+            </button>
+            <AttachMenu
+              open={attachMenuOpen}
+              onClose={() => setAttachMenuOpen(false)}
+              onPickImage={() => imageInputRef.current?.click()}
+              onPickFile={() => fileInputRef.current?.click()}
+            />
+          </div>
+          <div style={{ position: 'relative', flexShrink: 0 }}>
+            <button className="wa-icon-btn" onClick={() => { setEmojiOpen(o => !o); setAttachMenuOpen(false); }} title="Emoji">
+              <Smile style={{ width: 20, height: 20 }} />
+            </button>
+            <EmojiPicker
+              open={emojiOpen}
+              onClose={() => setEmojiOpen(false)}
+              onPick={(e) => { setText(t => t + e); inputRef.current?.focus(); }}
+            />
+          </div>
 
-        <textarea
-          ref={inputRef}
-          value={text}
-          onChange={handleTyping}
-          onKeyDown={handleKey}
-          rows={1}
-          placeholder={isTeacher ? 'Reply to your class…' : 'Share your thoughts…'}
-          style={{
-            flex: 1,
-            resize: 'none',
-            border: '1.5px solid var(--card-border)',
-            borderRadius: 20,
-            padding: '9px 14px',
-            fontSize: 13.5,
-            lineHeight: 1.5,
-            outline: 'none',
-            background: 'var(--surface-100)',
-            color: 'var(--text-primary)',
-            minHeight: 40,
-            maxHeight: 120,
-            overflowY: 'auto',
-            transition: 'border-color 0.15s, box-shadow 0.15s',
-          }}
-          onFocus={e => { e.target.style.borderColor = '#6366f1'; e.target.style.boxShadow = '0 0 0 3px rgba(99,102,241,0.12)'; }}
-          onBlur={e => { e.target.style.borderColor = 'var(--card-border)'; e.target.style.boxShadow = 'none'; }}
-        />
+          <textarea
+            ref={inputRef}
+            value={text}
+            onChange={handleTyping}
+            onKeyDown={handleKey}
+            rows={1}
+            placeholder={isTeacher ? 'Reply to your class' : 'Share your thoughts'}
+            className="wa-input-textarea"
+          />
 
-        <button
-          className="send-btn"
-          onClick={handleSend}
-          disabled={posting || !text.trim()}
-        >
-          {posting
-            ? <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
-            : text.trim()
-              ? <Send style={{ width: 16, height: 16 }} />
-              : <Mic style={{ width: 16, height: 16 }} />
-          }
-        </button>
+          {text.trim() ? (
+            <button key="send" className="wa-icon-btn wa-icon-send wa-icon-swap" onClick={handleSend} disabled={posting}>
+              {posting
+                ? <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+                : <Send style={{ width: 17, height: 17 }} />}
+            </button>
+          ) : (
+            <button key="mic" className="wa-icon-btn wa-icon-swap" title="Voice note">
+              <Mic style={{ width: 20, height: 20 }} />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useRef, useCallback } from 'react
 import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import { useAuth } from './AuthContext';
-import { showChatToast, isConversationActive, hasSeenMessage, markMessageSeen } from '../utils/chatNotify';
+import { showChatToast, isConversationActive, hasSeenMessage, markMessageSeen, setPendingChatTarget } from '../utils/chatNotify';
 
 const ChatNotifyContext = createContext(null);
 export const useChatNotify = () => useContext(ChatNotifyContext);
@@ -33,6 +33,24 @@ export function ChatNotifyProvider({ children }) {
     navigateRef.current(user.role === 'teacher' ? '/teacher/groups' : '/student/groups');
   }, [user]);
 
+  // Deep-link straight into a specific group's conversation.
+  const goToGroup = useCallback((groupId) => {
+    setPendingChatTarget({ type: 'group', groupId });
+    goToGroups();
+  }, [goToGroups]);
+
+  // Deep-link into a group's private team-leader ↔ teacher thread.
+  const goToLeaderDm = useCallback((groupId) => {
+    setPendingChatTarget({ type: 'leaderdm', groupId });
+    goToGroups();
+  }, [goToGroups]);
+
+  // Deep-link into a specific classmate's private conversation (students only).
+  const goToPeerDm = useCallback((classId, peerId, peerName) => {
+    setPendingChatTarget({ type: 'dm', classId, peerId, peerName });
+    goToGroups();
+  }, [goToGroups]);
+
   const maybeToastPeerDm = useCallback((classId, convo) => {
     const key = `dm:${classId}:${convo.peer_id}`;
     const firstTime = !seededRef.current.has(key);
@@ -48,10 +66,13 @@ export function ChatNotifyProvider({ children }) {
     showChatToast({
       name: convo.peer_name,
       preview: truncate(convo.last_message),
-      isVoice: convo.last_message === '🎤 Voice note',
-      onClick: goToGroups,
+      kind: convo.last_message === '🎤 Voice note' ? 'voice'
+        : convo.last_message === '📷 Photo' ? 'image'
+        : convo.last_message === '📎 File' ? 'file'
+        : null,
+      onClick: () => goToPeerDm(classId, convo.peer_id, convo.peer_name),
     });
-  }, [goToGroups]);
+  }, [goToPeerDm]);
 
   const maybeToastGroupMessage = useCallback((group, myId) => {
     const key = `group:${group.id}`;
@@ -73,10 +94,10 @@ export function ChatNotifyProvider({ children }) {
     showChatToast({
       name: `${lm.author_name} · ${group.name}`,
       preview: truncate(lm.content),
-      isVoice: lm.message_type === 'voice',
-      onClick: goToGroups,
+      kind: lm.message_type !== 'text' ? lm.message_type : null,
+      onClick: () => goToGroup(group.id),
     });
-  }, [goToGroups]);
+  }, [goToGroup]);
 
   const maybeToastLeaderDm = useCallback(async (groupId, groupName, myId) => {
     const key = `leaderdm:${groupId}`;
@@ -102,11 +123,11 @@ export function ChatNotifyProvider({ children }) {
       showChatToast({
         name: `${last.sender_name} · ${groupName}`,
         preview: truncate(last.content),
-        onClick: goToGroups,
+        onClick: () => goToLeaderDm(groupId),
         accent: '#f59e0b', accent2: '#d97706',
       });
     } catch { /* silent — background poll */ }
-  }, [goToGroups]);
+  }, [goToLeaderDm]);
 
   const pollStudent = useCallback(async (myId) => {
     try {

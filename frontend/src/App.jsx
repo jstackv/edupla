@@ -3,6 +3,7 @@ import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { MaintenanceProvider, useMaintenance } from './context/MaintenanceContext';
+import { ChatNotifyProvider } from './context/ChatNotifyContext';
 import Layout from './components/common/Layout';
 import { GraduationCap } from 'lucide-react';
 
@@ -209,7 +210,9 @@ export default function App() {
       <AuthProvider>
         <MaintenanceProvider>
           <BrowserRouter>
-            <AppGate />
+            <ChatNotifyProvider>
+              <AppGate />
+            </ChatNotifyProvider>
             <Toaster
               position="top-right"
               toastOptions={{

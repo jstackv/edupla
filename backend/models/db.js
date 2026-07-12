@@ -290,11 +290,16 @@ const groupMessageSchema = new mongoose.Schema({
   author_name:     { type: String, required: true },
   // 'student' for any member; 'teacher' for any teacher assigned to the class.
   author_role:     { type: String, enum: ['teacher', 'student'], default: 'student' },
-  // 'text' = normal text message; 'voice' = voice note audio
-  message_type:    { type: String, enum: ['text', 'voice'], default: 'text' },
+  // 'text' = normal text message; 'voice' = voice note audio;
+  // 'image' = shared photo; 'file' = shared document/attachment
+  message_type:    { type: String, enum: ['text', 'voice', 'image', 'file'], default: 'text' },
   content:         { type: String, default: '' },   // text body (required when message_type='text')
   voice_url:       { type: String, default: null }, // Cloudinary URL for voice note
   voice_duration:  { type: Number, default: null }, // duration in seconds (client-reported)
+  file_url:        { type: String, default: null }, // Cloudinary URL for shared image/file
+  file_name:       { type: String, default: null }, // original filename
+  file_size:       { type: Number, default: null }, // bytes
+  mime_type:       { type: String, default: null }, // e.g. image/png, application/pdf
 }, { timestamps: { createdAt: 'created_at', updatedAt: false } });
 
 // Private DM thread between the team leader and the group's owning teacher.
@@ -341,11 +346,16 @@ const directMessageSchema = new mongoose.Schema({
   class_id:       { type: mongoose.Schema.Types.ObjectId, ref: 'Class', required: true },
   sender_id:      { type: mongoose.Schema.Types.ObjectId, ref: 'User',  required: true },
   receiver_id:    { type: mongoose.Schema.Types.ObjectId, ref: 'User',  required: true },
-  // 'text' = normal text message; 'voice' = voice note audio
-  message_type:   { type: String, enum: ['text', 'voice'], default: 'text' },
+  // 'text' = normal text message; 'voice' = voice note audio;
+  // 'image' = shared photo; 'file' = shared document/attachment
+  message_type:   { type: String, enum: ['text', 'voice', 'image', 'file'], default: 'text' },
   content:        { type: String, default: '' },    // text body (required when message_type='text')
   voice_url:      { type: String, default: null },  // Cloudinary URL for voice note
   voice_duration: { type: Number, default: null },  // duration in seconds (client-reported)
+  file_url:       { type: String, default: null },  // Cloudinary URL for shared image/file
+  file_name:      { type: String, default: null },  // original filename
+  file_size:      { type: Number, default: null },  // bytes
+  mime_type:      { type: String, default: null },  // e.g. image/png, application/pdf
   read:           { type: Boolean, default: false },
 }, { timestamps: { createdAt: 'created_at', updatedAt: false } });
 directMessageSchema.index({ class_id: 1, sender_id: 1, receiver_id: 1, created_at: 1 });

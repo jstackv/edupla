@@ -93,4 +93,42 @@ const logoUpload = multer({
   },
 });
 
-module.exports = { documentUpload, assignmentUpload, voiceNoteUpload, logoUpload, cloudinary, getResourceType };
+// Marks Excel upload: parsed in-memory and discarded (never stored on
+// Cloudinary) — we only need the buffer long enough to read marks out of it.
+const excelUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB max
+  fileFilter: (req, file, cb) => {
+    const allowed = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+      'application/vnd.ms-excel', // .xls
+    ];
+    const ext = (file.originalname || '').split('.').pop().toLowerCase();
+    if (allowed.includes(file.mimetype) || ['xlsx', 'xls'].includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only Excel files (.xlsx, .xls) are allowed.'));
+    }
+  },
+});
+
+// Chat photos & files: shared in group discussions and student-to-student
+// direct messages. Images go through Cloudinary's 'image' pipeline (so they
+// get thumbnails/optimisation); any other file type reuses the same
+// raw/pdf-safe logic as document uploads.
+const chatMediaStorage = new CloudinaryStorage({
+  cloudinary,
+  params: async (req, file) => ({
+    folder: 'edupla/chat_media',
+    resource_type: file.mimetype.startsWith('image/') ? 'image' : getResourceType(file.originalname, file.mimetype),
+    public_id: `chat-${Date.now()}-${Math.round(Math.random() * 1e9)}`,
+    use_filename: false,
+  }),
+});
+
+const chatMediaUpload = multer({
+  storage: chatMediaStorage,
+  limits: { fileSize: 25 * 1024 * 1024 }, // 25 MB max per shared photo/file
+});
+
+module.exports = { documentUpload, assignmentUpload, voiceNoteUpload, logoUpload, excelUpload, chatMediaUpload, cloudinary, getResourceType };

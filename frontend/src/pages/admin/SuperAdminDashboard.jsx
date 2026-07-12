@@ -71,6 +71,65 @@ const GLOBAL_CSS = `
   .sa-bar-fill { animation: bar-fill 1s cubic-bezier(0.4,0,0.2,1) both; }
   .sa-hover { transition: transform 0.2s ease, box-shadow 0.2s ease; }
   .sa-hover:hover { transform: translateY(-3px); box-shadow: 0 12px 40px rgba(0,0,0,0.12) !important; }
+
+  /* ── Responsive layout ─────────────────────────────────────────────── */
+  .sa-page { padding: 0 clamp(12px, 3vw, 0px); }
+
+  .sa-hero { padding: clamp(1.25rem, 4vw, 2rem) clamp(1.25rem, 5vw, 2.5rem); }
+  .sa-hero-inner {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 20px; position: relative; z-index: 1; flex-wrap: wrap;
+  }
+  .sa-hero-title { font-size: clamp(22px, 4vw, 30px); }
+  .sa-hero-clock-wrap {
+    text-align: right; flex-shrink: 0;
+    display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+  }
+  .sa-quick-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+  .sa-hero-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 16px; margin-bottom: 24px;
+  }
+
+  .sa-main-grid {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 20px;
+  }
+
+  .sa-admin-row {
+    padding: 1rem 1.25rem;
+    display: flex; align-items: center; gap: 14px;
+    cursor: pointer;
+  }
+  .sa-admin-row-stats { display: flex; gap: 8px; flex-shrink: 0; }
+  .sa-admin-row-main { flex: 1; min-width: 0; }
+
+  .sa-profile-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  }
+
+  @media (max-width: 900px) {
+    .sa-main-grid { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 640px) {
+    .sa-hero-inner { flex-direction: column; align-items: stretch; }
+    .sa-hero-clock-wrap { align-items: stretch; width: 100%; }
+    .sa-hero-clock-wrap > div:first-child { text-align: center; }
+    .sa-quick-actions button { flex: 1; justify-content: center; }
+    .sa-admin-row { flex-wrap: wrap; }
+    .sa-admin-row-main { width: 100%; order: 1; }
+    .sa-admin-row-stats { order: 3; width: 100%; justify-content: flex-start; overflow-x: auto; padding-top: 8px; }
+    .sa-admin-row-chevron { display: none; }
+  }
+
+  @media (max-width: 420px) {
+    .sa-hero-stats { grid-template-columns: repeat(2, 1fr); }
+    .sa-profile-grid { grid-template-columns: 1fr 1fr; }
+  }
 `;
 
 // ── Helpers ────────────────────────────────────────────────────────────
@@ -128,6 +187,7 @@ function HeroStat({ label, value, sub, icon: Icon, color, colorGlass, index, tre
       position: 'relative',
       overflow: 'hidden',
       boxShadow: `0 4px 20px ${color}10`,
+      minWidth: 0,
     }}>
       {/* BG glow */}
       <div style={{
@@ -152,6 +212,7 @@ function HeroStat({ label, value, sub, icon: Icon, color, colorGlass, index, tre
             fontSize: 11, fontWeight: 700, color: T.emerald,
             background: T.emeraldGlass, padding: '3px 8px', borderRadius: 8,
             border: `1px solid ${T.emerald}25`,
+            whiteSpace: 'nowrap',
           }}>
             <ArrowUpRight size={11} /> {trend}
           </div>
@@ -159,7 +220,7 @@ function HeroStat({ label, value, sub, icon: Icon, color, colorGlass, index, tre
       </div>
 
       <div style={{
-        fontFamily: "'Sora',sans-serif", fontSize: 36, fontWeight: 800,
+        fontFamily: "'Sora',sans-serif", fontSize: 'clamp(26px, 4vw, 36px)', fontWeight: 800,
         color, lineHeight: 1, marginBottom: 4,
         fontVariantNumeric: 'tabular-nums',
       }}>
@@ -179,22 +240,24 @@ function AdminRow({ admin, stats, index, onView, dark }) {
   const sc = stats?.student_count ?? 0;
 
   return (
-    <div className="sa-card sa-hover" style={{
-      animationDelay: `${index * 60}ms`,
-      padding: '1rem 1.25rem',
-      background: 'var(--card-bg)',
-      border: `1px solid ${isActive ? T.indigo + '20' : T.rose + '20'}`,
-      borderRadius: 16,
-      display: 'flex', alignItems: 'center', gap: 14,
-      cursor: 'pointer',
-    }} onClick={() => onView(admin)}>
+    <div
+      className="sa-card sa-hover sa-admin-row"
+      style={{
+        animationDelay: `${index * 60}ms`,
+        background: 'var(--card-bg)',
+        border: `1px solid ${isActive ? T.indigo + '20' : T.rose + '20'}`,
+        borderRadius: 16,
+      }}
+      onClick={() => onView(admin)}
+    >
       <AdminAvatar name={admin.name} isActive={isActive} size={44} />
 
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+      <div className="sa-admin-row-main">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3, flexWrap: 'wrap' }}>
           <span style={{
             fontFamily: "'Sora',sans-serif", fontSize: 14, fontWeight: 700,
             color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            maxWidth: '100%',
           }}>{admin.name}</span>
           {admin.is_super_admin && (
             <span style={{
@@ -215,12 +278,15 @@ function AdminRow({ admin, stats, index, onView, dark }) {
             {isActive ? 'Active' : 'Inactive'}
           </span>
         </div>
-        <div style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 4 }}>
-          <Mail size={10} /> {admin.email}
+        <div style={{
+          fontSize: 11, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 4,
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>
+          <Mail size={10} style={{ flexShrink: 0 }} /> <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{admin.email}</span>
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+      <div className="sa-admin-row-stats">
         {[
           { icon: GraduationCap, val: tc, color: T.violet },
           { icon: BookOpen, val: cc, color: T.sky },
@@ -229,7 +295,7 @@ function AdminRow({ admin, stats, index, onView, dark }) {
           <div key={i} style={{
             display: 'flex', flexDirection: 'column', alignItems: 'center',
             background: `${color}0d`, border: `1px solid ${color}20`,
-            borderRadius: 10, padding: '5px 10px', minWidth: 44,
+            borderRadius: 10, padding: '5px 10px', minWidth: 44, flexShrink: 0,
           }}>
             <I size={11} color={color} />
             <span style={{ fontSize: 13, fontWeight: 800, color, fontFamily: "'Sora',sans-serif", lineHeight: 1.3 }}>{val}</span>
@@ -237,7 +303,7 @@ function AdminRow({ admin, stats, index, onView, dark }) {
         ))}
       </div>
 
-      <ChevronRight size={16} color="var(--text-secondary)" style={{ flexShrink: 0 }} />
+      <ChevronRight size={16} color="var(--text-secondary)" className="sa-admin-row-chevron" style={{ flexShrink: 0 }} />
     </div>
   );
 }
@@ -247,9 +313,9 @@ function ActivityBar({ label, value, max, color, delay }) {
   const pct = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0;
   return (
     <div style={{ marginBottom: 12 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5, gap: 8 }}>
         <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{label}</span>
-        <span style={{ fontSize: 12, fontWeight: 700, color, fontFamily: "'Space Mono',monospace" }}>{value}</span>
+        <span style={{ fontSize: 12, fontWeight: 700, color, fontFamily: "'Space Mono',monospace", flexShrink: 0 }}>{value}</span>
       </div>
       <div style={{ height: 7, borderRadius: 99, background: 'var(--card-border)', overflow: 'hidden' }}>
         <div className="sa-bar-fill" style={{
@@ -316,13 +382,12 @@ export default function SuperAdminDashboard() {
     <>
       <style>{GLOBAL_CSS}</style>
 
-      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+      <div className="sa-page" style={{ maxWidth: 1200, margin: '0 auto' }}>
 
         {/* ── Hero Header ──────────────────────────────────────────────── */}
-        <div className="sa-card" style={{
+        <div className="sa-card sa-hero" style={{
           animationDelay: '0ms',
           marginBottom: 24,
-          padding: '2rem 2.5rem',
           background: dark
             ? 'linear-gradient(135deg, #0f0c1a 0%, #1a1035 40%, #0d1a2e 100%)'
             : 'linear-gradient(135deg, #1e1b4b 0%, #312e81 40%, #1e3a5f 100%)',
@@ -345,8 +410,8 @@ export default function SuperAdminDashboard() {
             animation: 'orb-drift 11s ease-in-out infinite reverse',
           }} />
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20, position: 'relative', zIndex: 1 }}>
-            <div style={{ flex: 1 }}>
+          <div className="sa-hero-inner">
+            <div style={{ flex: '1 1 260px', minWidth: 0 }}>
               {/* Crown badge */}
               <div style={{
                 display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -362,8 +427,8 @@ export default function SuperAdminDashboard() {
                 }}>Super Admin Control Center</span>
               </div>
 
-              <h1 style={{
-                fontFamily: "'Sora',sans-serif", fontSize: 30, fontWeight: 800,
+              <h1 className="sa-hero-title" style={{
+                fontFamily: "'Sora',sans-serif", fontWeight: 800,
                 color: '#fff', lineHeight: 1.1, marginBottom: 8,
                 letterSpacing: '-0.02em',
               }}>
@@ -375,9 +440,9 @@ export default function SuperAdminDashboard() {
               </p>
 
               {/* Quick actions */}
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <div className="sa-quick-actions">
                 <button onClick={() => navigate('/admin/admins')} style={{
-                  display: 'flex', alignItems: 'center', gap: 7,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
                   background: T.gold, color: '#0f0c1a',
                   border: 'none', borderRadius: 11, padding: '9px 20px',
                   fontSize: 12.5, fontWeight: 800, cursor: 'pointer',
@@ -389,7 +454,7 @@ export default function SuperAdminDashboard() {
                   <Users size={14} /> Manage Admins
                 </button>
                 <button onClick={() => load(true)} disabled={refreshing} style={{
-                  display: 'flex', alignItems: 'center', gap: 7,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
                   background: 'rgba(255,255,255,0.08)', color: '#fff',
                   border: '1px solid rgba(255,255,255,0.15)', borderRadius: 11, padding: '9px 20px',
                   fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
@@ -403,10 +468,7 @@ export default function SuperAdminDashboard() {
             </div>
 
             {/* Live clock */}
-            <div style={{
-              textAlign: 'right', flexShrink: 0,
-              display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8,
-            }}>
+            <div className="sa-hero-clock-wrap">
               <div style={{
                 padding: '16px 22px',
                 background: 'rgba(0,0,0,0.25)',
@@ -415,7 +477,7 @@ export default function SuperAdminDashboard() {
                 backdropFilter: 'blur(10px)',
               }}>
                 <div style={{
-                  fontFamily: "'Space Mono',monospace", fontSize: 26, fontWeight: 700,
+                  fontFamily: "'Space Mono',monospace", fontSize: 'clamp(20px, 3vw, 26px)', fontWeight: 700,
                   color: T.gold, letterSpacing: '0.06em', lineHeight: 1,
                   marginBottom: 6,
                 }}>{timeStr}</div>
@@ -438,6 +500,7 @@ export default function SuperAdminDashboard() {
                       width: 8, height: 8, borderRadius: '50%', background: color,
                       boxShadow: `0 0 6px ${color}`,
                       animation: 'pulseRing 2.5s infinite',
+                      flexShrink: 0,
                     }} />
                   </div>
                 ))}
@@ -448,11 +511,11 @@ export default function SuperAdminDashboard() {
 
         {/* ── Hero Stats Row ───────────────────────────────────────────── */}
         {loading ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 16, marginBottom: 24 }}>
+          <div className="sa-hero-stats">
             {[1,2,3,4,5].map(i => <Skeleton key={i} h={130} style={{ borderRadius: 20 }} />)}
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 16, marginBottom: 24 }}>
+          <div className="sa-hero-stats">
             <HeroStat index={0} label="Total Admins" value={regularAdmins.length} sub={`${activeCount} active · ${inactiveCount} inactive`}
               icon={Shield} color={T.indigo} colorGlass={T.indigoGlass} trend="+2 this week" />
             <HeroStat index={1} label="Active Admins" value={activeCount} sub="currently operational"
@@ -467,13 +530,13 @@ export default function SuperAdminDashboard() {
         )}
 
         {/* ── Main content grid ────────────────────────────────────────── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 20 }}>
+        <div className="sa-main-grid">
 
           {/* Left: Admin list */}
-          <div>
+          <div style={{ minWidth: 0 }}>
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              marginBottom: 16,
+              marginBottom: 16, gap: 10, flexWrap: 'wrap',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div style={{
@@ -498,6 +561,7 @@ export default function SuperAdminDashboard() {
                 background: T.indigoGlass, color: T.indigo,
                 border: `1px solid ${T.indigo}25`, borderRadius: 10,
                 padding: '6px 14px', cursor: 'pointer',
+                flexShrink: 0,
               }}>
                 View All <ArrowUpRight size={12} />
               </button>
@@ -510,7 +574,7 @@ export default function SuperAdminDashboard() {
             ) : regularAdmins.length === 0 ? (
               <div style={{
                 background: 'var(--card-bg)', border: '1px solid var(--card-border)',
-                borderRadius: 20, padding: '3rem', textAlign: 'center',
+                borderRadius: 20, padding: '3rem 1.5rem', textAlign: 'center',
               }}>
                 <div style={{
                   width: 56, height: 56, borderRadius: 18,
@@ -560,7 +624,7 @@ export default function SuperAdminDashboard() {
           </div>
 
           {/* Right: Analytics panel */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
 
             {/* Platform Health */}
             <div className="sa-card" style={{
@@ -596,7 +660,7 @@ export default function SuperAdminDashboard() {
                 background: T.emeraldGlass, border: `1px solid ${T.emerald}25`,
                 borderRadius: 12, display: 'flex', alignItems: 'center', gap: 8,
               }}>
-                <CheckCircle size={14} color={T.emerald} />
+                <CheckCircle size={14} color={T.emerald} style={{ flexShrink: 0 }} />
                 <span style={{ fontSize: 11.5, fontWeight: 600, color: T.emerald }}>
                   All systems operational
                 </span>
@@ -637,7 +701,7 @@ export default function SuperAdminDashboard() {
                       <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {admin.name}
                       </span>
-                      <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 11, fontWeight: 700, color: T.sky }}>
+                      <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 11, fontWeight: 700, color: T.sky, flexShrink: 0 }}>
                         {sc}
                       </span>
                     </div>
@@ -679,8 +743,8 @@ export default function SuperAdminDashboard() {
                 }}>
                   <Crown size={18} color={T.gold} />
                 </div>
-                <div>
-                  <div style={{ fontFamily: "'Sora',sans-serif", fontSize: 13, fontWeight: 800, color: T.gold }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontFamily: "'Sora',sans-serif", fontSize: 13, fontWeight: 800, color: T.gold, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {user?.name || 'Super Admin'}
                   </div>
                   <div style={{ fontSize: 10.5, color: 'var(--text-secondary)', fontFamily: "'Space Mono',monospace" }}>
@@ -689,13 +753,14 @@ export default function SuperAdminDashboard() {
                 </div>
               </div>
 
-              <div style={{ fontSize: 11.5, color: 'var(--text-secondary)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 5 }}>
-                <Mail size={10} /> {user?.email}
+              <div style={{
+                fontSize: 11.5, color: 'var(--text-secondary)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 5,
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}>
+                <Mail size={10} style={{ flexShrink: 0 }} /> <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.email}</span>
               </div>
 
-              <div style={{
-                display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8,
-              }}>
+              <div className="sa-profile-grid">
                 {[
                   { label: 'Role', val: 'Super Admin', color: T.gold },
                   { label: 'Admins', val: regularAdmins.length, color: T.indigo },

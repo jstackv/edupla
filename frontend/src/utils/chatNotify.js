@@ -1,5 +1,5 @@
 import toast from 'react-hot-toast';
-import { MessageCircle, Mic } from 'lucide-react';
+import { MessageCircle, Mic, Image as ImageIcon, Paperclip } from 'lucide-react';
 import { createElement } from 'react';
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -42,12 +42,48 @@ export function hasSeenMessage(id) {
 }
 
 /* ══════════════════════════════════════════════════════════════════════
+   Deep-link target — set right before navigating away from a toast click,
+   so whichever page mounts next (Student/Teacher Groups) knows exactly
+   which group or DM conversation to open, instead of just landing on the
+   generic list. A window CustomEvent covers the case where the target
+   page is already mounted (no route change happens); the module-level
+   value covers the case where it mounts fresh after navigation.
+   Shapes:
+     { type: 'group',     groupId }
+     { type: 'leaderdm',  groupId }
+     { type: 'dm', classId, peerId, peerName }
+══════════════════════════════════════════════════════════════════════ */
+const CHAT_TARGET_EVENT = 'edupla:chat-target';
+let pendingChatTarget = null;
+
+export function setPendingChatTarget(target) {
+  pendingChatTarget = target;
+  window.dispatchEvent(new CustomEvent(CHAT_TARGET_EVENT, { detail: target }));
+}
+
+export function consumePendingChatTarget() {
+  const t = pendingChatTarget;
+  pendingChatTarget = null;
+  return t;
+}
+
+/** Subscribe to future targets (already-mounted pages). Returns an unsubscribe fn. */
+export function onPendingChatTarget(callback) {
+  const handler = (e) => callback(e.detail);
+  window.addEventListener(CHAT_TARGET_EVENT, handler);
+  return () => window.removeEventListener(CHAT_TARGET_EVENT, handler);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
    The toast itself — a nicer, on-brand replacement for the plain
    `toast.success('X sent you a message!')` calls scattered around the
    messaging screens. Works from ANY page since it only needs the
    react-hot-toast <Toaster/> mounted once in App.jsx.
 ══════════════════════════════════════════════════════════════════════ */
-export function showChatToast({ name = 'Someone', preview = '', isVoice = false, accent = '#6366f1', accent2 = '#4f46e5', onClick }) {
+export function showChatToast({ name = 'Someone', preview = '', isVoice = false, kind = null, accent = '#6366f1', accent2 = '#4f46e5', onClick }) {
+  // `kind` supersedes the legacy `isVoice` boolean once callers pass it —
+  // 'voice' | 'image' | 'file' | null (plain text).
+  const effectiveKind = kind || (isVoice ? 'voice' : null);
   const initial = (name || '?').trim().charAt(0).toUpperCase() || '?';
 
   toast.custom((t) => createElement('div', {
@@ -113,8 +149,12 @@ export function showChatToast({ name = 'Someone', preview = '', isVoice = false,
           overflow: 'hidden', textOverflow: 'ellipsis',
           whiteSpace: 'nowrap', lineHeight: 1.4,
         },
-      }, isVoice
+      }, effectiveKind === 'voice'
         ? [createElement(Mic, { key: 'mic', size: 11 }), 'Sent a voice note']
+        : effectiveKind === 'image'
+        ? [createElement(ImageIcon, { key: 'img', size: 11 }), 'Sent a photo']
+        : effectiveKind === 'file'
+        ? [createElement(Paperclip, { key: 'file', size: 11 }), 'Sent a file']
         : (preview || 'Sent you a new message')),
     ]),
   ]), { duration: 4200, position: 'top-right' });

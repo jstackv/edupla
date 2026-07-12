@@ -259,6 +259,67 @@ const sendVoiceNoteDM = async (req, res) => {
 };
 
 /* ─────────────────────────────────────────────────────────────────────────
+   STUDENT: Send a photo or file to a classmate
+   POST /api/collaborations/class/:classId/media
+   Body (multipart): receiverId, file
+   ───────────────────────────────────────────────────────────────────────── */
+const sendMediaDM = async (req, res) => {
+  try {
+    const senderId = String(req.user.id);
+    const { classId } = req.params;
+    const { receiverId } = req.body;
+
+    if (!req.file) return res.status(400).json({ message: 'No file uploaded.' });
+    if (!receiverId) return res.status(400).json({ message: 'receiverId is required.' });
+    if (senderId === String(receiverId)) {
+      return res.status(400).json({ message: 'You cannot message yourself.' });
+    }
+
+    const cls = await Class.findOne({ _id: classId, students: senderId }, '_id students').lean();
+    if (!cls) return res.status(403).json({ message: 'You are not enrolled in this class.' });
+
+    const receiverEnrolled = (cls.students || []).some(s => String(s) === String(receiverId));
+    if (!receiverEnrolled) return res.status(403).json({ message: 'Recipient is not enrolled in this class.' });
+
+    const activeCollab = await ClassCollaboration.findOne({ class_id: classId, is_active: true }).lean();
+    if (!activeCollab) return res.status(403).json({ message: 'Collaboration is not active for this class.' });
+
+    const sender = await User.findById(senderId, 'name').lean();
+    const isImage = (req.file.mimetype || '').startsWith('image/');
+
+    const msg = await DirectMessage.create({
+      class_id: classId,
+      sender_id: senderId,
+      receiver_id: receiverId,
+      message_type: isImage ? 'image' : 'file',
+      content: '',
+      file_url: req.file.path,
+      file_name: req.file.originalname,
+      file_size: req.file.size,
+      mime_type: req.file.mimetype,
+    });
+
+    res.status(201).json({
+      message: isImage ? 'Photo sent.' : 'File sent.',
+      msg: {
+        id: msg._id,
+        sender_id: msg.sender_id,
+        sender_name: sender?.name || 'Unknown',
+        receiver_id: msg.receiver_id,
+        message_type: msg.message_type,
+        content: msg.content,
+        file_url: msg.file_url,
+        file_name: msg.file_name,
+        file_size: msg.file_size,
+        mime_type: msg.mime_type,
+        read: msg.read,
+        created_at: msg.created_at,
+      },
+    });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+/* ─────────────────────────────────────────────────────────────────────────
    STUDENT (sender only): delete a single message of their own
    DELETE /api/collaborations/class/:classId/messages/:messageId
    ───────────────────────────────────────────────────────────────────────── */
@@ -353,6 +414,10 @@ const getConversation = async (req, res) => {
         content: m.content,
         voice_url: m.voice_url || null,
         voice_duration: m.voice_duration || null,
+        file_url: m.file_url || null,
+        file_name: m.file_name || null,
+        file_size: m.file_size || null,
+        mime_type: m.mime_type || null,
         read: m.read,
         created_at: m.created_at,
       })),
@@ -419,7 +484,10 @@ const getConversationList = async (req, res) => {
       conversations: convos.map(c => ({
         peer_id: c._id,
         peer_name: peerMap[String(c._id)] || 'Unknown',
-        last_message: c.last_message_type === 'voice' ? '🎤 Voice note' : c.last_message,
+        last_message: c.last_message_type === 'voice' ? '🎤 Voice note'
+          : c.last_message_type === 'image' ? '📷 Photo'
+          : c.last_message_type === 'file' ? '📎 File'
+          : c.last_message,
         last_at: c.last_at,
         unread_count: c.unread_count,
       })),
@@ -474,6 +542,7 @@ module.exports = {
   getClassmates,
   sendDirectMessage,
   sendVoiceNoteDM,
+  sendMediaDM,
   deleteMessage,
   clearMyMessagesWithPeer,
   getConversation,

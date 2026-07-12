@@ -1,7 +1,7 @@
 const express = require('express');
 const router  = express.Router();
 const { isAuthenticated, isTeacher, isStudent } = require('../middleware/auth');
-const { voiceNoteUpload } = require('../middleware/upload');
+const { voiceNoteUpload, chatMediaUpload } = require('../middleware/upload');
 const {
   openCollaboration,
   closeCollaboration,
@@ -10,6 +10,7 @@ const {
   getClassmates,
   sendDirectMessage,
   sendVoiceNoteDM,
+  sendMediaDM,
   deleteMessage,
   clearMyMessagesWithPeer,
   getConversation,
@@ -39,6 +40,8 @@ router.get('/class/:classId/messages/:peerId', isAuthenticated, isStudent, getCo
 router.post('/class/:classId/messages', isAuthenticated, isStudent, sendDirectMessage);
 // Send a voice note (multipart upload via Cloudinary)
 router.post('/class/:classId/voice-notes', isAuthenticated, isStudent, voiceNoteUpload.single('audio'), sendVoiceNoteDM);
+// Send a photo or file (multipart upload via Cloudinary)
+router.post('/class/:classId/media', isAuthenticated, isStudent, chatMediaUpload.single('file'), sendMediaDM);
 // Clear (delete) all of my own messages with one peer — MUST be before the generic :messageId delete
 router.delete('/class/:classId/messages/peer/:peerId', isAuthenticated, isStudent, clearMyMessagesWithPeer);
 // Delete a single message of my own

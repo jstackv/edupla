@@ -434,7 +434,9 @@ export default function Layout({ children }) {
   const SuperAdminSidebarContent = ({ onNav }) => (
     <div style={{
       display: 'flex', flexDirection: 'column', height: '100%',
-      background: 'linear-gradient(180deg, #0f0c1a 0%, #140e24 50%, #0d1520 100%)',
+      background: dark
+        ? 'linear-gradient(180deg, #0f0c1a 0%, #140e24 50%, #0d1520 100%)'
+        : 'linear-gradient(180deg, #fffdf7 0%, #fffaf0 50%, #fff8ec 100%)',
       overflow: 'hidden', position: 'relative',
     }}>
       <style>{`
@@ -446,13 +448,13 @@ export default function Layout({ children }) {
       <div style={{
         position: 'absolute', top: 60, left: -40, width: 160, height: 160,
         borderRadius: '50%', pointerEvents: 'none',
-        background: 'radial-gradient(circle, rgba(245,158,11,0.06) 0%, transparent 70%)',
+        background: `radial-gradient(circle, rgba(245,158,11,${dark ? 0.06 : 0.10}) 0%, transparent 70%)`,
         animation: 'sa-glow 4s ease-in-out infinite',
       }} />
       <div style={{
         position: 'absolute', bottom: 120, right: -30, width: 120, height: 120,
         borderRadius: '50%', pointerEvents: 'none',
-        background: 'radial-gradient(circle, rgba(139,92,246,0.08) 0%, transparent 70%)',
+        background: `radial-gradient(circle, rgba(139,92,246,${dark ? 0.08 : 0.06}) 0%, transparent 70%)`,
         animation: 'sa-glow 6s ease-in-out infinite reverse',
       }} />
 
@@ -460,7 +462,7 @@ export default function Layout({ children }) {
       <div style={{
         display: 'flex', alignItems: 'center', gap: 10,
         padding: '0 14px', height: 52, flexShrink: 0,
-        borderBottom: '1px solid rgba(245,158,11,0.12)',
+        borderBottom: `1px solid ${dark ? 'rgba(245,158,11,0.12)' : 'rgba(217,119,6,0.18)'}`,
       }}>
         <div style={{
           width: 34, height: 34, flexShrink: 0, borderRadius: 10,
@@ -468,7 +470,7 @@ export default function Layout({ children }) {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           boxShadow: '0 0 14px rgba(245,158,11,0.4)',
         }}>
-          <GraduationCap size={17} color="#0f0c1a" />
+          <GraduationCap size={17} color={dark ? '#0f0c1a' : '#fffbeb'} />
         </div>
         <div style={{
           overflow: 'hidden', whiteSpace: 'nowrap',
@@ -476,8 +478,8 @@ export default function Layout({ children }) {
           opacity: collapsed ? 0 : 1, width: collapsed ? 0 : 160,
           pointerEvents: collapsed ? 'none' : 'auto',
         }}>
-          <p style={{ fontFamily: "'Sora',sans-serif", fontSize: 13, fontWeight: 800, color: '#f59e0b', letterSpacing: '0.06em' }}>EDUPLA</p>
-          <span style={{ fontSize: 9, color: 'rgba(245,158,11,0.5)', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+          <p style={{ fontFamily: "'Sora',sans-serif", fontSize: 13, fontWeight: 800, color: dark ? '#f59e0b' : '#b45309', letterSpacing: '0.06em' }}>EDUPLA</p>
+          <span style={{ fontSize: 9, color: dark ? 'rgba(245,158,11,0.5)' : 'rgba(180,83,9,0.65)', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
             Super Admin
           </span>
         </div>
@@ -486,13 +488,13 @@ export default function Layout({ children }) {
       {/* Crown user chip */}
       <Link to="/profile" onClick={onNav} style={{
         margin: '10px 10px 0', padding: '9px 10px',
-        background: 'rgba(245,158,11,0.07)',
-        border: '1px solid rgba(245,158,11,0.18)',
+        background: dark ? 'rgba(245,158,11,0.07)' : '#fff3da',
+        border: `1px solid ${dark ? 'rgba(245,158,11,0.18)' : 'rgba(217,119,6,0.25)'}`,
         borderRadius: 12, display: 'flex', alignItems: 'center', gap: 9,
         textDecoration: 'none', overflow: 'hidden', transition: 'background 0.15s',
       }}
-        onMouseEnter={e => e.currentTarget.style.background = 'rgba(245,158,11,0.12)'}
-        onMouseLeave={e => e.currentTarget.style.background = 'rgba(245,158,11,0.07)'}
+        onMouseEnter={e => e.currentTarget.style.background = dark ? 'rgba(245,158,11,0.12)' : '#ffe9bd'}
+        onMouseLeave={e => e.currentTarget.style.background = dark ? 'rgba(245,158,11,0.07)' : '#fff3da'}
       >
         <div style={{
           width: 32, height: 32, flexShrink: 0, borderRadius: 9,
@@ -500,7 +502,7 @@ export default function Layout({ children }) {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           boxShadow: '0 0 10px rgba(245,158,11,0.35)',
         }}>
-          <Crown size={14} color="#0f0c1a" style={{ animation: 'sa-float 3s ease-in-out infinite' }} />
+          <Crown size={14} color={dark ? '#0f0c1a' : '#fffbeb'} style={{ animation: 'sa-float 3s ease-in-out infinite' }} />
         </div>
         <div style={{
           flex: 1, minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap',
@@ -508,8 +510,8 @@ export default function Layout({ children }) {
           opacity: collapsed ? 0 : 1, width: collapsed ? 0 : 999,
           pointerEvents: collapsed ? 'none' : 'auto',
         }}>
-          <p style={{ fontSize: 12, fontWeight: 700, color: '#f59e0b' }}>{user?.name}</p>
-          <span style={{ fontSize: 9, color: 'rgba(245,158,11,0.5)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+          <p style={{ fontSize: 12, fontWeight: 700, color: dark ? '#f59e0b' : '#b45309' }}>{user?.name}</p>
+          <span style={{ fontSize: 9, color: dark ? 'rgba(245,158,11,0.5)' : 'rgba(180,83,9,0.65)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
             Super Administrator
           </span>
         </div>
@@ -523,7 +525,7 @@ export default function Layout({ children }) {
         <div style={{
           padding: collapsed ? '10px 14px 0' : '12px 14px 4px',
           fontSize: 9, fontWeight: 800, letterSpacing: '0.14em',
-          color: 'rgba(245,158,11,0.4)', textTransform: 'uppercase',
+          color: dark ? 'rgba(245,158,11,0.4)' : 'rgba(180,83,9,0.55)', textTransform: 'uppercase',
           whiteSpace: 'nowrap', overflow: 'hidden',
           transition: 'opacity 0.26s ease, height 0.26s ease',
           opacity: collapsed ? 0 : 1, height: collapsed ? 0 : 'auto',
@@ -533,14 +535,14 @@ export default function Layout({ children }) {
           Control
         </div>
         {SuperAdminLinks.map(link => (
-          <SuperAdminNavItem key={link.to} link={link} location={location} collapsed={collapsed} onNav={onNav} />
+          <SuperAdminNavItem key={link.to} link={link} location={location} collapsed={collapsed} dark={dark} onNav={onNav} />
         ))}
       </nav>
 
       {/* Bottom */}
-      <div style={{ padding: 8, borderTop: '1px solid rgba(245,158,11,0.10)', flexShrink: 0 }}>
-        <SuperAdminNavItem link={{ to: '/profile', icon: UserCircle, label: 'Profile' }} location={location} collapsed={collapsed} onNav={onNav} />
-        <SuperAdminNavItem link={{ to: '/settings', icon: Settings, label: 'Settings' }} location={location} collapsed={collapsed} onNav={onNav} />
+      <div style={{ padding: 8, borderTop: `1px solid ${dark ? 'rgba(245,158,11,0.10)' : 'rgba(217,119,6,0.15)'}`, flexShrink: 0 }}>
+        <SuperAdminNavItem link={{ to: '/profile', icon: UserCircle, label: 'Profile' }} location={location} collapsed={collapsed} dark={dark} onNav={onNav} />
+        <SuperAdminNavItem link={{ to: '/settings', icon: Settings, label: 'Settings' }} location={location} collapsed={collapsed} dark={dark} onNav={onNav} />
         <button
           onClick={() => setShowLogoutModal(true)}
           title={collapsed ? 'Sign Out' : undefined}
@@ -691,7 +693,7 @@ export default function Layout({ children }) {
         .edupla-layout { display: flex; height: 100vh; overflow: hidden; background: ${dark ? '#0f1117' : '#f4f5f7'}; }
         .edupla-sidebar {
           flex-shrink: 0; height: 100%;
-          border-right: 1px solid ${isSuperAdmin ? 'rgba(245,158,11,0.15)' : (dark ? '#1e2130' : '#e5e7eb')};
+          border-right: 1px solid ${isSuperAdmin ? (dark ? 'rgba(245,158,11,0.15)' : 'rgba(217,119,6,0.2)') : (dark ? '#1e2130' : '#e5e7eb')};
           position: relative; z-index: 10;
           transition: width 0.26s cubic-bezier(.4,0,.2,1);
           overflow: visible;
@@ -950,10 +952,21 @@ function NavItem({ link, location, collapsed, dark, onNav }) {
   );
 }
 
-function SuperAdminNavItem({ link, location, collapsed, onNav }) {
+function SuperAdminNavItem({ link, location, collapsed, dark, onNav }) {
   const Icon = link.icon;
   const active = location.pathname === link.to;
   const [hovered, setHovered] = useState(false);
+
+  // Amber reads fine on the near-black dark background, but needs to be a
+  // darker shade (amber-700) to stay readable on the light cream background.
+  const accentStrong = dark ? '#f59e0b' : '#b45309';
+  const accentDim     = dark ? 'rgba(245,158,11,0.5)' : 'rgba(180,83,9,0.65)';
+  const activeBg = dark
+    ? 'linear-gradient(135deg,rgba(245,158,11,0.18),rgba(217,119,6,0.10))'
+    : 'linear-gradient(135deg,rgba(245,158,11,0.20),rgba(217,119,6,0.12))';
+  const hoverBg = dark ? 'rgba(245,158,11,0.07)' : 'rgba(217,119,6,0.10)';
+  const activeBorder = dark ? '1px solid rgba(245,158,11,0.2)' : '1px solid rgba(217,119,6,0.3)';
+
   return (
     <div className="nav-item-wrap" style={{ position: 'relative' }}>
       <Link to={link.to} onClick={onNav}
@@ -963,13 +976,11 @@ function SuperAdminNavItem({ link, location, collapsed, onNav }) {
           display: 'flex', alignItems: 'center', gap: 10,
           padding: '9px 10px', borderRadius: 10, textDecoration: 'none',
           whiteSpace: 'nowrap', overflow: 'hidden', position: 'relative',
-          background: active
-            ? 'linear-gradient(135deg,rgba(245,158,11,0.18),rgba(217,119,6,0.10))'
-            : hovered ? 'rgba(245,158,11,0.07)' : 'transparent',
-          color: active ? '#f59e0b' : hovered ? '#f59e0b' : 'rgba(245,158,11,0.5)',
+          background: active ? activeBg : hovered ? hoverBg : 'transparent',
+          color: active ? accentStrong : hovered ? accentStrong : accentDim,
           fontSize: 12.5, fontWeight: active ? 700 : 500,
           marginBottom: 1, transition: 'background 0.15s, color 0.15s',
-          border: active ? '1px solid rgba(245,158,11,0.2)' : '1px solid transparent',
+          border: active ? activeBorder : '1px solid transparent',
         }}>
         {active && (
           <div style={{
@@ -991,9 +1002,11 @@ function SuperAdminNavItem({ link, location, collapsed, onNav }) {
       {collapsed && (
         <span className="nav-tooltip" style={{
           position: 'absolute', left: 58, top: '50%', transform: 'translateY(-50%)',
-          background: '#0f0c1a', border: '1px solid rgba(245,158,11,0.3)',
-          color: '#f59e0b', fontSize: 12, fontWeight: 600, padding: '5px 10px', borderRadius: 8,
-          whiteSpace: 'nowrap', pointerEvents: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.4)', zIndex: 100,
+          background: dark ? '#0f0c1a' : '#ffffff',
+          border: `1px solid ${dark ? 'rgba(245,158,11,0.3)' : 'rgba(217,119,6,0.3)'}`,
+          color: accentStrong, fontSize: 12, fontWeight: 600, padding: '5px 10px', borderRadius: 8,
+          whiteSpace: 'nowrap', pointerEvents: 'none',
+          boxShadow: dark ? '0 4px 20px rgba(0,0,0,0.4)' : '0 4px 20px rgba(0,0,0,0.12)', zIndex: 100,
         }}>
           {link.label}
         </span>

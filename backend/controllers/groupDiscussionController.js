@@ -341,6 +341,10 @@ const getGroup = async (req, res) => {
           content: msg.content,
           voice_url: msg.voice_url || null,
           voice_duration: msg.voice_duration || null,
+          file_url: msg.file_url || null,
+          file_name: msg.file_name || null,
+          file_size: msg.file_size || null,
+          mime_type: msg.mime_type || null,
           created_at: msg.created_at,
         })),
         created_at: group.created_at,
@@ -495,6 +499,68 @@ const postVoiceNote = async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
+/* ── Student, or the owning teacher: share a photo or file ───────────────── */
+const postMedia = async (req, res) => {
+  try {
+    const userId = String(req.user.id);
+    const role   = req.user.role;
+
+    if (!req.file) {
+      return res.status(400).json({ message: 'No file uploaded.' });
+    }
+
+    const group = await DiscussionGroup.findById(req.params.id);
+    if (!group) return res.status(404).json({ message: 'Group not found.' });
+
+    if (group.is_ended) {
+      return res.status(403).json({ message: 'This conversation has ended. No one can post anymore.' });
+    }
+
+    if (role === 'teacher') {
+      if (!isGroupOwner(group, userId)) return res.status(403).json({ message: 'Only the teacher who created this group can access it.' });
+    } else {
+      const isMember = group.members.some(m => String(m) === userId);
+      if (!isMember) return res.status(403).json({ message: 'You are not a member of this group.' });
+    }
+
+    const author = await User.findById(userId, 'name').lean();
+    const isImage = (req.file.mimetype || '').startsWith('image/');
+
+    const msg = {
+      author_id:    userId,
+      author_name:  author?.name || 'Unknown',
+      author_role:  role === 'teacher' ? 'teacher' : 'student',
+      message_type: isImage ? 'image' : 'file',
+      content:      '',
+      file_url:     req.file.path, // Cloudinary URL returned by multer-storage-cloudinary
+      file_name:    req.file.originalname,
+      file_size:    req.file.size,
+      mime_type:    req.file.mimetype,
+    };
+
+    group.messages.push(msg);
+    await group.save();
+
+    const saved = group.messages[group.messages.length - 1];
+    res.status(201).json({
+      message: isImage ? 'Photo sent' : 'File sent',
+      msg: {
+        id:           saved._id,
+        author_id:    saved.author_id,
+        author_name:  saved.author_name,
+        author_role:  saved.author_role,
+        message_type: saved.message_type,
+        content:      saved.content,
+        file_url:     saved.file_url,
+        file_name:    saved.file_name,
+        file_size:    saved.file_size,
+        mime_type:    saved.mime_type,
+        created_at:   saved.created_at,
+      },
+    });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
 /* ── Author: delete a single message of their own (group conversation) ──── */
 const deleteMessage = async (req, res) => {
   try {
@@ -601,6 +667,10 @@ const getGroupMessages = async (req, res) => {
         content: m.content,
         voice_url: m.voice_url || null,
         voice_duration: m.voice_duration || null,
+        file_url: m.file_url || null,
+        file_name: m.file_name || null,
+        file_size: m.file_size || null,
+        mime_type: m.mime_type || null,
         created_at: m.created_at,
       })),
       is_ended: group.is_ended || false,
@@ -762,7 +832,7 @@ const clearMyLeaderDmMessages = async (req, res) => {
 module.exports = {
   getGroups, createGroup, deleteGroup, getGroup, getMyGroups,
   addGroupMembers, removeGroupMember, moveGroupMember,
-  postMessage, postVoiceNote, deleteMessage, clearMyMessages,
+  postMessage, postVoiceNote, postMedia, deleteMessage, clearMyMessages,
   endConversation, getGroupMessages,
   getLeaderDm, postLeaderDm, deleteLeaderDmMessage, clearMyLeaderDmMessages,
 };

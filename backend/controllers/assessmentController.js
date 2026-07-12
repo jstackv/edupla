@@ -1,5 +1,6 @@
 const { Course, Assessment, Mark, Class, User, AssessmentSubmission } = require('../models/db');
 const mongoose = require('mongoose');
+const XLSX = require('xlsx');
 
 /* ─────────────────────────────────────────────────────────
    Assessment title is derived from the assessment type.
@@ -708,13 +709,22 @@ exports.teacherGetMarks = async (req, res) => {
     const submission = await AssessmentSubmission.findOne({ assessment_id: req.params.id }).lean();
     const status = submission?.status || 'draft';
 
-    const result = students.map(s => ({
-      student_id: s._id,
-      name: s.name,
-      email: s.email,
-      marks: markMap[s._id.toString()]?.marks ?? null,
-      mark_id: markMap[s._id.toString()]?._id ?? null,
-    }));
+    /*
+     * Default marking order: ascending by student name (A→Z). This is the
+     * order teachers see both in the on-screen marks table and in the
+     * downloadable Excel template, before any marks have been entered.
+     * Once marks are uploaded via Excel, the frontend re-sorts the table by
+     * performance (marks obtained) — see teacherUploadMarks below.
+     */
+    const result = students
+      .map(s => ({
+        student_id: s._id,
+        name: s.name,
+        email: s.email,
+        marks: markMap[s._id.toString()]?.marks ?? null,
+        mark_id: markMap[s._id.toString()]?._id ?? null,
+      }))
+      .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
     res.json({
       assessment: { ...assessment, id: assessment._id },
@@ -768,6 +778,247 @@ exports.teacherSaveMarks = async (req, res) => {
     );
 
     res.json({ message: 'Marks saved as draft', status: 'draft' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+/* ═══════════════════════════════════════════════════
+   TEACHER — EXCEL TEMPLATE DOWNLOAD / MARKS UPLOAD
+═══════════════════════════════════════════════════ */
+
+/*
+ * Loads the assessment (scoped to this teacher), its class roster
+ * (ascending by name), and any existing marks. Shared by the template
+ * download and the upload handler so both always agree on which students
+ * belong to this assessment and what the current marks are.
+ */
+async function loadAssessmentForExcel(req) {
+  const assessment = await Assessment.findOne({ _id: req.params.id, teacher_id: req.user.id })
+    .populate('course_id', 'name code total_marks')
+    .populate('class_id', 'name')
+    .lean();
+  if (!assessment) return null;
+
+  let students = [];
+  const classId = assessment.class_id?._id || assessment.class_id;
+  if (classId) {
+    const cls = await Class.findById(classId).populate('students', 'name email').lean();
+    students = cls?.students || [];
+  }
+  students = [...students].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+  const marks = await Mark.find({ assessment_id: req.params.id }).lean();
+  const markMap = {};
+  marks.forEach(m => { markMap[m.student_id.toString()] = m; });
+
+  return { assessment, students, markMap };
+}
+
+/*
+ * GET /teacher/assessments/:id/marks/template
+ * Streams an .xlsx workbook back to the teacher: one row per student
+ * (ascending by name), pre-filled with any marks already recorded, plus a
+ * hidden Student ID column used to match rows back up on upload — even if
+ * the teacher reorders or resorts the sheet in Excel.
+ */
+exports.teacherDownloadMarksTemplate = async (req, res) => {
+  try {
+    const submission = await AssessmentSubmission.findOne({ assessment_id: req.params.id }).lean();
+    if (submission && (submission.status === 'submitted' || submission.status === 'approved')) {
+      return res.status(403).json({ message: 'Marks are locked. This assessment has already been submitted for review.' });
+    }
+
+    const data = await loadAssessmentForExcel(req);
+    if (!data) return res.status(404).json({ message: 'Assessment not found' });
+    const { assessment, students, markMap } = data;
+
+    if (students.length === 0) {
+      return res.status(400).json({ message: 'This assessment has no students to build a template for.' });
+    }
+
+    const maxMarks = assessment.course_id?.total_marks || assessment.max_marks || 100;
+
+    const header = ['Student ID', 'No.', 'Student Name', 'Email', `Marks (out of ${maxMarks})`];
+    const rows = students.map((s, i) => [
+      String(s._id),
+      i + 1,
+      s.name || '',
+      s.email || '',
+      markMap[s._id.toString()]?.marks ?? '',
+    ]);
+
+    const title = `${assessment.title} — ${assessment.course_id?.name || ''} — ${assessment.class_id?.name || ''} — ${assessment.term} ${assessment.academic_year}`;
+    const instructions = `Enter marks in the last column only (0–${maxMarks}). Do not edit the Student ID, No., Name, or Email columns — they are used to match rows back to students on upload. Do not add or remove rows.`;
+
+    const sheetData = [[title], [instructions], [], header, ...rows];
+    const ws = XLSX.utils.aoa_to_sheet(sheetData);
+
+    // Merge the title/instruction rows across all columns for readability.
+    ws['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: header.length - 1 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: header.length - 1 } },
+    ];
+    ws['!cols'] = [
+      { wch: 26 }, // Student ID
+      { wch: 6 },  // No.
+      { wch: 28 }, // Name
+      { wch: 30 }, // Email
+      { wch: 20 }, // Marks
+    ];
+    // Hide the Student ID column — teachers don't need to see/touch it.
+    ws['!cols'][0].hidden = true;
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Marks');
+
+    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    const filename = `marks-template-${assessment.type}-${(assessment.class_id?.name || 'class').replace(/[^a-z0-9]+/gi, '-')}.xlsx`;
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(buffer);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+/*
+ * POST /teacher/assessments/:id/marks/upload
+ * Accepts a multipart 'file' field containing the filled-in Excel
+ * template, parses it, validates marks against the module's max marks,
+ * and upserts Mark records exactly like teacherSaveMarks (draft status,
+ * same locking rules). Rows are matched to students by the hidden
+ * Student ID column; unrecognised or malformed rows are reported back
+ * instead of silently applied.
+ */
+exports.teacherUploadMarks = async (req, res) => {
+  try {
+    const assessment = await Assessment.findOne({ _id: req.params.id, teacher_id: req.user.id })
+      .populate('course_id', 'total_marks');
+    if (!assessment) return res.status(403).json({ message: 'Access denied' });
+
+    const submission = await AssessmentSubmission.findOne({ assessment_id: req.params.id });
+    if (submission && (submission.status === 'submitted' || submission.status === 'approved')) {
+      return res.status(403).json({ message: 'Marks are locked. This assessment has already been submitted for review.' });
+    }
+
+    if (!req.file || !req.file.buffer) {
+      return res.status(400).json({ message: 'No file uploaded. Please select an Excel (.xlsx) file.' });
+    }
+
+    let workbook;
+    try {
+      workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+    } catch {
+      return res.status(400).json({ message: 'Could not read this file. Please upload a valid .xlsx file.' });
+    }
+
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    if (!sheet) return res.status(400).json({ message: 'The uploaded workbook has no sheets.' });
+
+    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+
+    // Find the header row (contains 'Student ID') instead of assuming a
+    // fixed row number, so minor edits (extra blank rows, etc.) still work.
+    const headerRowIdx = rows.findIndex(r => r.some(cell => String(cell).trim() === 'Student ID'));
+    if (headerRowIdx === -1) {
+      return res.status(400).json({ message: 'This does not look like the marks template — the "Student ID" column header was not found. Please use the downloaded template.' });
+    }
+    const headerRow = rows[headerRowIdx].map(c => String(c).trim());
+    const idCol    = headerRow.indexOf('Student ID');
+    const marksCol = headerRow.findIndex(c => c.startsWith('Marks'));
+    if (idCol === -1 || marksCol === -1) {
+      return res.status(400).json({ message: 'The template is missing required columns. Please use the downloaded template.' });
+    }
+
+    const dataRows = rows.slice(headerRowIdx + 1).filter(r => r.some(c => String(c).trim() !== ''));
+
+    // Roster for this assessment's class, so we only accept marks for
+    // students who actually belong to it.
+    let students = [];
+    const classId = assessment.class_id?._id || assessment.class_id;
+    if (classId) {
+      const cls = await Class.findById(classId).populate('students', 'name email').lean();
+      students = cls?.students || [];
+    }
+    const validStudentIds = new Set(students.map(s => String(s._id)));
+
+    const maxAllowed = assessment.course_id?.total_marks || assessment.max_marks || 100;
+
+    const ops = [];
+    const errors = [];
+    dataRows.forEach((row, i) => {
+      const rowNum = headerRowIdx + 2 + i; // 1-indexed, +1 for header row itself
+      const studentId = String(row[idCol] ?? '').trim();
+      const rawMarks  = row[marksCol];
+
+      if (!studentId) return; // blank ID cell on an otherwise blank-ish row; skip quietly
+      if (!validStudentIds.has(studentId)) {
+        errors.push(`Row ${rowNum}: unrecognised student — this row was not modified.`);
+        return;
+      }
+
+      if (rawMarks === '' || rawMarks == null) {
+        ops.push({ student_id: studentId, marks: null });
+        return;
+      }
+
+      const num = Number(rawMarks);
+      if (Number.isNaN(num)) {
+        errors.push(`Row ${rowNum}: "${rawMarks}" is not a valid number — this row was skipped.`);
+        return;
+      }
+      if (num < 0 || num > maxAllowed) {
+        errors.push(`Row ${rowNum}: ${num} is outside the allowed range (0–${maxAllowed}) — this row was skipped.`);
+        return;
+      }
+
+      ops.push({ student_id: studentId, marks: num });
+    });
+
+    if (ops.length > 0) {
+      await Mark.bulkWrite(ops.map(m => ({
+        updateOne: {
+          filter: { assessment_id: req.params.id, student_id: m.student_id },
+          update: { $set: { marks: m.marks, entered_by: req.user.id } },
+          upsert: true,
+        },
+      })));
+    }
+
+    await AssessmentSubmission.findOneAndUpdate(
+      { assessment_id: req.params.id },
+      { $setOnInsert: { assessment_id: req.params.id, status: 'draft' } },
+      { upsert: true }
+    );
+
+    /* ── Return the refreshed roster, sorted by performance (marks
+       obtained, highest first) so the frontend can immediately show
+       students ranked by how they did on this upload. Students with no
+       mark are pushed to the end. ── */
+    const freshMarks = await Mark.find({ assessment_id: req.params.id }).lean();
+    const freshMarkMap = {};
+    freshMarks.forEach(m => { freshMarkMap[m.student_id.toString()] = m; });
+
+    const resultStudents = students
+      .map(s => ({
+        student_id: s._id,
+        name: s.name,
+        email: s.email,
+        marks: freshMarkMap[s._id.toString()]?.marks ?? null,
+      }))
+      .sort((a, b) => {
+        if (a.marks == null && b.marks == null) return (a.name || '').localeCompare(b.name || '');
+        if (a.marks == null) return 1;
+        if (b.marks == null) return -1;
+        return b.marks - a.marks;
+      });
+
+    res.json({
+      message: errors.length > 0
+        ? `Uploaded with ${errors.length} issue${errors.length === 1 ? '' : 's'} — see details.`
+        : 'Marks uploaded successfully',
+      updated: ops.length,
+      errors,
+      students: resultStudents,
+    });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
