@@ -1,5 +1,26 @@
 const mongoose = require('mongoose');
 const { Class, User, ClassCollaboration, DirectMessage } = require('../models/db');
+const { cloudinary, getResourceType } = require('../middleware/upload');
+
+// Best-effort Cloudinary delete — never throws, since a missing/already-gone
+// asset shouldn't block the DB-side deletion the user actually asked for.
+async function destroyMedia(publicId, resourceType = 'raw') {
+  if (!publicId) return;
+  try { await cloudinary.uploader.destroy(publicId, { resource_type: resourceType }); }
+  catch (err) { console.error('Cloudinary delete error:', err.message); }
+}
+
+// A direct message stores only ONE of voice_url/file_url depending on
+// message_type; figure out which, and what resource_type it was uploaded as.
+function destroyMessageMedia(msg) {
+  if (!msg || !msg.media_public_id) return Promise.resolve();
+  if (msg.message_type === 'voice') return destroyMedia(msg.media_public_id, 'raw');
+  if (msg.message_type === 'image') return destroyMedia(msg.media_public_id, 'image');
+  if (msg.message_type === 'file') {
+    return destroyMedia(msg.media_public_id, getResourceType(msg.file_name, msg.mime_type));
+  }
+  return Promise.resolve();
+}
 
 /* ─────────────────────────────────────────────────────────────────────────
    TEACHER: Open collaboration for a class
@@ -238,6 +259,7 @@ const sendVoiceNoteDM = async (req, res) => {
       content: '',
       voice_url: req.file.path,
       voice_duration: duration,
+      media_public_id: req.file.filename, // Cloudinary public_id, needed to delete this asset later
     });
 
     res.status(201).json({
@@ -297,6 +319,7 @@ const sendMediaDM = async (req, res) => {
       file_name: req.file.originalname,
       file_size: req.file.size,
       mime_type: req.file.mimetype,
+      media_public_id: req.file.filename, // Cloudinary public_id, needed to delete this asset later
     });
 
     res.status(201).json({
@@ -334,6 +357,7 @@ const deleteMessage = async (req, res) => {
       return res.status(403).json({ message: 'You can only delete your own messages.' });
     }
 
+    await destroyMessageMedia(msg);
     await DirectMessage.deleteOne({ _id: messageId });
     res.json({ message: 'Message deleted.', message_id: messageId });
   } catch (err) { res.status(500).json({ message: err.message }); }
@@ -347,6 +371,13 @@ const clearMyMessagesWithPeer = async (req, res) => {
   try {
     const senderId = String(req.user.id);
     const { classId, peerId } = req.params;
+
+    const toDelete = await DirectMessage.find({
+      class_id: classId,
+      sender_id: senderId,
+      receiver_id: peerId,
+    }, 'message_type media_public_id file_name mime_type').lean();
+    await Promise.all(toDelete.map(destroyMessageMedia));
 
     const result = await DirectMessage.deleteMany({
       class_id: classId,

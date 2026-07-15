@@ -1,6 +1,61 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
-const { User, Class, Assignment, Document, Announcement, Level, Trade, Submission, ProgramConfig, ReportConfig } = require('../models/db');
+const {
+  User, Class, Assignment, Document, Announcement, Level, Trade, Submission, ProgramConfig, ReportConfig,
+  DiscussionGroup, ClassCollaboration, DirectMessage,
+} = require('../models/db');
+const { cloudinary, getResourceType } = require('../middleware/upload');
+
+// Best-effort Cloudinary delete — never throws, so a missing/already-gone
+// asset never blocks the DB-side deletion the admin actually asked for.
+async function destroyFile(publicId, resourceType = 'raw') {
+  if (!publicId) return;
+  try { await cloudinary.uploader.destroy(publicId, { resource_type: resourceType }); }
+  catch (err) { console.error('Cloudinary delete error:', err.message); }
+}
+
+function destroyGroupMessageMedia(msg) {
+  if (!msg || !msg.media_public_id) return Promise.resolve();
+  if (msg.message_type === 'voice') return destroyFile(msg.media_public_id, 'raw');
+  if (msg.message_type === 'image') return destroyFile(msg.media_public_id, 'image');
+  if (msg.message_type === 'file') return destroyFile(msg.media_public_id, getResourceType(msg.file_name, msg.mime_type));
+  return Promise.resolve();
+}
+
+// Deletes every Document, Assignment (+ its Submissions), and DiscussionGroup
+// (+ its chat media) belonging to a class, cleaning up Cloudinary as it goes.
+// Used whenever a class itself is deleted, so nothing is left orphaned.
+async function cascadeDeleteClassContent(classId) {
+  const [documents, assignments, groups] = await Promise.all([
+    Document.find({ class_id: classId }, 'filename original_name mime_type').lean(),
+    Assignment.find({ class_id: classId }, 'filename original_name mime_type').lean(),
+    DiscussionGroup.find({ class_id: classId }, 'messages').lean(),
+  ]);
+
+  await Promise.all(documents.map(d => d.filename
+    ? destroyFile(d.filename, getResourceType(d.original_name, d.mime_type)) : Promise.resolve()));
+  await Document.deleteMany({ class_id: classId });
+
+  const assignmentIds = assignments.map(a => a._id);
+  await Promise.all(assignments.map(a => a.filename
+    ? destroyFile(a.filename, getResourceType(a.original_name, a.mime_type)) : Promise.resolve()));
+
+  const submissions = await Submission.find({ assignment_id: { $in: assignmentIds } }, 'filename original_name').lean();
+  await Promise.all(submissions.map(s => s.filename
+    ? destroyFile(s.filename, getResourceType(s.original_name)) : Promise.resolve()));
+  await Submission.deleteMany({ assignment_id: { $in: assignmentIds } });
+  await Assignment.deleteMany({ class_id: classId });
+
+  await Promise.all(groups.flatMap(g => (g.messages || []).map(destroyGroupMessageMedia)));
+  await DiscussionGroup.deleteMany({ class_id: classId });
+
+  // Chat/collaboration side-effects: DM voice notes & files exchanged for
+  // this class, plus the (file-less) collaboration toggle record itself.
+  const directMessages = await DirectMessage.find({ class_id: classId }, 'message_type media_public_id file_name mime_type').lean();
+  await Promise.all(directMessages.map(destroyGroupMessageMedia));
+  await DirectMessage.deleteMany({ class_id: classId });
+  await ClassCollaboration.deleteMany({ class_id: classId });
+}
 
 // Resolves a programConfigId (scoped to this admin) into the snapshot fields
 // stored directly on the Class document. Returns nulls if no id given or not found.
@@ -223,6 +278,9 @@ const adminDeleteClass = async (req, res) => {
   try {
     const result = await Class.findByIdAndDelete(req.params.id);
     if (!result) return res.status(404).json({ message: 'Class not found' });
+    // Clean up every Document, Assignment, Submission, and chat/DM file tied
+    // to this class — otherwise they become permanently orphaned in Cloudinary.
+    await cascadeDeleteClassContent(result._id);
     res.json({ message: 'Class deleted' });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
@@ -365,6 +423,25 @@ const adminDeleteStudent = async (req, res) => {
     const result = await User.findOneAndDelete({ _id: req.params.id, role: 'student' });
     if (!result) return res.status(404).json({ message: 'Student not found' });
     await Class.updateMany({}, { $pull: { students: new mongoose.Types.ObjectId(req.params.id) } });
+
+    // Clean up this student's uploaded submission files — otherwise they
+    // become permanently orphaned in Cloudinary once the student is gone.
+    const submissions = await Submission.find({ student_id: result._id }, 'filename original_name').lean();
+    await Promise.all(submissions.map(s => s.filename
+      ? destroyFile(s.filename, getResourceType(s.original_name)) : Promise.resolve()));
+    await Submission.deleteMany({ student_id: result._id });
+
+    // Remove them from any discussion groups (as member and/or team leader)
+    // and from group chats they participated in, and drop their direct
+    // messages (cleaning up any voice notes/files those contained).
+    await DiscussionGroup.updateMany({}, { $pull: { members: result._id } });
+    const dms = await DirectMessage.find(
+      { $or: [{ sender_id: result._id }, { receiver_id: result._id }] },
+      'message_type media_public_id file_name mime_type'
+    ).lean();
+    await Promise.all(dms.map(destroyGroupMessageMedia));
+    await DirectMessage.deleteMany({ $or: [{ sender_id: result._id }, { receiver_id: result._id }] });
+
     res.json({ message: 'Student deleted' });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
@@ -683,9 +760,16 @@ const uploadReportLogo = async (req, res) => {
     if (!req.file) return res.status(400).json({ message: 'No logo file uploaded' });
     const adminId = req.user.id;
     const logoUrl = req.file.path; // Cloudinary secure URL
+    const logoPublicId = req.file.filename; // Cloudinary public_id
+
+    // Destroy the previous logo (if any) so replacing it doesn't leave the
+    // old image behind in Cloudinary forever.
+    const previous = await ReportConfig.findOne({ created_by: adminId }, 'schoolLogoPublicId').lean();
+    if (previous?.schoolLogoPublicId) await destroyFile(previous.schoolLogoPublicId, 'image');
+
     const cfg = await ReportConfig.findOneAndUpdate(
       { created_by: adminId },
-      { $set: { schoolLogoUrl: logoUrl }, $setOnInsert: { created_by: adminId } },
+      { $set: { schoolLogoUrl: logoUrl, schoolLogoPublicId: logoPublicId }, $setOnInsert: { created_by: adminId } },
       { new: true, upsert: true }
     ).lean();
     res.json({ reportConfig: { ...REPORT_CONFIG_DEFAULTS, ...cfg }, logoUrl, message: 'Logo uploaded' });

@@ -1,6 +1,27 @@
 const mongoose = require('mongoose');
 const { DiscussionGroup, Class, User } = require('../models/db');
 const { createDirectNotification } = require('../services/notificationHelpers');
+const { cloudinary, getResourceType } = require('../middleware/upload');
+
+// Best-effort Cloudinary delete — never throws, since a missing/already-gone
+// asset shouldn't block the DB-side deletion the user actually asked for.
+async function destroyMedia(publicId, resourceType = 'raw') {
+  if (!publicId) return;
+  try { await cloudinary.uploader.destroy(publicId, { resource_type: resourceType }); }
+  catch (err) { console.error('Cloudinary delete error:', err.message); }
+}
+
+// A group message stores only ONE of voice_url/file_url depending on
+// message_type; figure out which, and what resource_type it was uploaded as.
+function destroyMessageMedia(msg) {
+  if (!msg || !msg.media_public_id) return Promise.resolve();
+  if (msg.message_type === 'voice') return destroyMedia(msg.media_public_id, 'raw');
+  if (msg.message_type === 'image') return destroyMedia(msg.media_public_id, 'image');
+  if (msg.message_type === 'file') {
+    return destroyMedia(msg.media_public_id, getResourceType(msg.file_name, msg.mime_type));
+  }
+  return Promise.resolve();
+}
 
 /* ── helpers ──────────────────────────────────────────────────────────── */
 
@@ -122,6 +143,9 @@ const deleteGroup = async (req, res) => {
       teacher_id: req.user.id,
     });
     if (!result) return res.status(404).json({ message: 'Group not found or you are not the owner.' });
+    // Clean up every voice note / photo / file shared in this group's chat
+    // (leader_messages are text-only, so nothing to clean up there).
+    await Promise.all((result.messages || []).map(destroyMessageMedia));
     res.json({ message: 'Group deleted.' });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
@@ -474,8 +498,9 @@ const postVoiceNote = async (req, res) => {
       author_role:    role === 'teacher' ? 'teacher' : 'student',
       message_type:   'voice',
       content:        '',          // no text for voice notes
-      voice_url:      req.file.path, // Cloudinary URL returned by multer-storage-cloudinary
-      voice_duration: duration,
+      voice_url:       req.file.path, // Cloudinary URL returned by multer-storage-cloudinary
+      voice_duration:  duration,
+      media_public_id: req.file.filename, // Cloudinary public_id, needed to delete this asset later
     };
 
     group.messages.push(msg);
@@ -532,10 +557,11 @@ const postMedia = async (req, res) => {
       author_role:  role === 'teacher' ? 'teacher' : 'student',
       message_type: isImage ? 'image' : 'file',
       content:      '',
-      file_url:     req.file.path, // Cloudinary URL returned by multer-storage-cloudinary
-      file_name:    req.file.originalname,
-      file_size:    req.file.size,
-      mime_type:    req.file.mimetype,
+      file_url:        req.file.path, // Cloudinary URL returned by multer-storage-cloudinary
+      file_name:       req.file.originalname,
+      file_size:       req.file.size,
+      mime_type:       req.file.mimetype,
+      media_public_id: req.file.filename, // Cloudinary public_id, needed to delete this asset later
     };
 
     group.messages.push(msg);
@@ -584,6 +610,7 @@ const deleteMessage = async (req, res) => {
       return res.status(403).json({ message: 'You can only delete your own messages.' });
     }
 
+    await destroyMessageMedia(msg);
     group.messages.pull({ _id: req.params.messageId });
     await group.save();
 
@@ -606,6 +633,9 @@ const clearMyMessages = async (req, res) => {
       const isMember = group.members.some(m => String(m) === userId);
       if (!isMember) return res.status(403).json({ message: 'You are not a member of this group.' });
     }
+
+    const mine = group.messages.filter(m => String(m.author_id) === userId);
+    await Promise.all(mine.map(destroyMessageMedia));
 
     const before = group.messages.length;
     group.messages = group.messages.filter(m => String(m.author_id) !== userId);

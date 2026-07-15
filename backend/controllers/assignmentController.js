@@ -215,6 +215,17 @@ const deleteAssignment = async (req, res) => {
     if (a.filename) {
       try { await cloudinary.uploader.destroy(a.filename, { resource_type: getResourceType(a.original_name, a.mime_type) }); } catch (_) {}
     }
+
+    // Cascade: every student submission for this assignment also has an
+    // uploaded file in Cloudinary — clean those up too, then remove the
+    // now-orphaned Submission records themselves.
+    const submissions = await Submission.find({ assignment_id: a._id }, 'filename original_name').lean();
+    await Promise.all(submissions.map(s => {
+      if (!s.filename) return Promise.resolve();
+      return cloudinary.uploader.destroy(s.filename, { resource_type: getResourceType(s.original_name) }).catch(() => {});
+    }));
+    await Submission.deleteMany({ assignment_id: a._id });
+
     res.json({ message: 'Assignment deleted' });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };

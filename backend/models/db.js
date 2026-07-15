@@ -156,6 +156,7 @@ const reportConfigSchema = new mongoose.Schema({
   schoolName:    { type: String, default: 'EDUPLA Academy' },
   schoolMotto:   { type: String, default: 'Excellence Through Knowledge' },
   schoolLogoUrl: { type: String, default: '' },
+  schoolLogoPublicId: { type: String, default: '' }, // Cloudinary public_id, so the old logo can be deleted when replaced
 
   // Contact information
   schoolAddress: { type: String, default: '' },
@@ -300,6 +301,10 @@ const groupMessageSchema = new mongoose.Schema({
   file_name:       { type: String, default: null }, // original filename
   file_size:       { type: Number, default: null }, // bytes
   mime_type:       { type: String, default: null }, // e.g. image/png, application/pdf
+  // Cloudinary public_id for whichever of voice_url/file_url is set on this
+  // message (only one applies per message_type) — required to delete the
+  // asset from Cloudinary storage when the message is removed.
+  media_public_id: { type: String, default: null },
 }, { timestamps: { createdAt: 'created_at', updatedAt: false } });
 
 // Private DM thread between the team leader and the group's owning teacher.
@@ -356,6 +361,9 @@ const directMessageSchema = new mongoose.Schema({
   file_name:      { type: String, default: null },  // original filename
   file_size:      { type: Number, default: null },  // bytes
   mime_type:      { type: String, default: null },  // e.g. image/png, application/pdf
+  // Cloudinary public_id for whichever of voice_url/file_url is set —
+  // required to delete the asset from Cloudinary when the message is removed.
+  media_public_id: { type: String, default: null },
   read:           { type: Boolean, default: false },
 }, { timestamps: { createdAt: 'created_at', updatedAt: false } });
 directMessageSchema.index({ class_id: 1, sender_id: 1, receiver_id: 1, created_at: 1 });
