@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, createContext, useContext } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, createContext, useContext } from 'react';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import { showChatToast, markMessageSeen, setActiveConversation, clearActiveConversation, onPendingChatTarget, consumePendingChatTarget } from '../../utils/chatNotify';
@@ -6,251 +6,1104 @@ import { useAuth } from '../../context/AuthContext';
 import ConfirmModal from '../../components/common/ConfirmModal';
 import { ChatImageBubble, ChatFileBubble, fmtFileSize, AttachmentTypeIcon, AttachMenu, EmojiPicker } from '../../components/common/ChatMediaBubble';
 import {
-  Users, MessageSquare, Send, CheckCheck, X, Crown,
-  Check, StopCircle, WifiOff,
-  Mic, Play, Pause, Trash2,
-  Radio, Search, MessageCircle, ArrowLeft, ChevronRight, Eye,
-  Plus, Smile,
+  Users, MessageSquare, Send, CheckCheck, Check, X, Crown,
+  StopCircle, WifiOff, Mic, Play, Pause, Trash2, Radio, Search,
+  MessageCircle, ArrowLeft, ChevronRight, Eye, Plus, Smile, Pin,
+  PinOff, Reply, SmilePlus, AtSign, ChevronDown, Menu, Inbox,
 } from 'lucide-react';
 
-/* Max size for a shared photo/file (matches backend chatMediaUpload limit) */
+/* ════════════════════════════════════════════════════════════════════
+   OVERVIEW OF THIS REWRITE
+   ------------------------------------------------------------------
+   The old version of this page was three separate stacked modals
+   (group chat / leader-teacher DM / peer DM), each re-implementing its
+   own message list, composer, voice recorder and file picker. This
+   version:
+
+   1. Merges groups, peer DMs and leader<->teacher DMs into ONE inbox
+      list sorted by last activity ("unified inbox"), instead of three
+      separate surfaces behind three separate entry points.
+   2. Replaces the modal stack with a real two-pane layout (list +
+      thread), the way a native messaging app works — no dialog ever
+      sits "on top of" another one.
+   3. Adds reactions, reply-to/threading, a per-thread search + pinned
+      message rail, @mentions with autocomplete, and typing indicators
+      / read receipts, implemented so they degrade gracefully if the
+      backend doesn't yet expose the corresponding endpoints (each
+      "advanced" call is wrapped so a 404 just falls back to local
+      state instead of breaking the thread).
+
+   Endpoints assumed to exist already (unchanged from the old file):
+     GET    /group-discussions/my/groups
+     GET    /group-discussions/:id
+     GET    /group-discussions/:id/messages
+     POST   /group-discussions/:id/messages
+     DELETE /group-discussions/:id/messages/:msgId
+     DELETE /group-discussions/:id/messages
+     POST   /group-discussions/:id/voice-notes
+     POST   /group-discussions/:id/media
+     GET    /group-discussions/:id/leader-dm
+     POST   /group-discussions/:id/leader-dm
+     DELETE /group-discussions/:id/leader-dm/:msgId
+     DELETE /group-discussions/:id/leader-dm
+     GET    /collaborations/my-class-status
+     GET    /collaborations/class/:id/students
+     GET    /collaborations/class/:id/conversations
+     GET    /collaborations/class/:id/messages/:peerId
+     POST   /collaborations/class/:id/messages
+     DELETE /collaborations/class/:id/messages/:msgId
+     DELETE /collaborations/class/:id/messages/peer/:peerId
+     POST   /collaborations/class/:id/voice-notes
+     POST   /collaborations/class/:id/media
+
+   New, optional endpoints this file will *try* (best-effort, silent
+   fallback to local-only state if they don't exist yet):
+     POST   /messages/:id/reactions          { emoji }
+     DELETE /messages/:id/reactions          { emoji }
+     POST   /messages/:id/pin  | DELETE /messages/:id/pin
+     POST   /threads/:key/typing             { typing: true|false }
+   Wiring these up server-side will make reactions/pins/typing sync
+   across users instead of being local to the current browser.
+═════════════════════════════════════════════════════════════════════ */
+
 const MAX_CHAT_FILE_MB = 25;
 
-/* ── Animated modal wrapper ───────────────────────────────────────────
-   Fast by design: a single CSS keyframe animation on mount, no
-   JS-driven double-requestAnimationFrame visibility toggle, no animated
-   backdrop-filter transition (that combo is what made modals feel like
-   they lag on open). See .fast-modal-backdrop / .fast-modal-sheet in
-   index.css — the same pattern used by every modal in this file now. */
-function ChatModal({ onClose, children, accentFrom = '#6366f1', accentTo = '#4f46e5' }) {
-  useEffect(() => {
-    document.body.style.overflow = 'hidden';
-    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => { document.body.style.overflow = ''; window.removeEventListener('keydown', onKey); };
-  }, [onClose]);
+/* ── best-effort "optional feature" API wrapper ─────────────────────
+   Advanced features (reactions, pins, typing) call these. If the
+   route isn't implemented server-side yet, we swallow the error and
+   let the caller keep its optimistic local state — nothing breaks. */
+async function tryApi(fn) {
+  try { return await fn(); } catch { return null; }
+}
 
+/* ── tiny local persistence for client-only state (reactions/pins
+   fall back to this if the server doesn't support them yet — so a
+   student doesn't lose their pins/reactions on refresh even before
+   the backend catches up) ─────────────────────────────────────── */
+const localStore = {
+  get(key, fallback) {
+    try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch { return fallback; }
+  },
+  set(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* storage unavailable, ignore */ }
+  },
+};
+
+/* ── helpers ─────────────────────────────────────────────────────── */
+function timeAgo(ts) {
+  if (!ts) return '';
+  const diff = Date.now() - new Date(ts).getTime();
+  if (diff < 60000) return 'now';
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}m`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h`;
+  if (diff < 604800000) return `${Math.floor(diff / 86400000)}d`;
+  return new Date(ts).toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+}
+
+function fmtDateSep(ts) {
+  const d = new Date(ts || Date.now()); const today = new Date(); const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  if (d.toDateString() === today.toDateString()) return 'Today';
+  if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+  return d.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
+const GROUP_COLORS = [
+  ['#6366f1', '#4f46e5'], ['#0891b2', '#0e7490'], ['#d97706', '#b45309'],
+  ['#dc2626', '#b91c1c'], ['#7c3aed', '#6d28d9'], ['#0284c7', '#0369a1'],
+];
+function groupColor(id) {
+  const idx = id ? parseInt(String(id).slice(-2), 16) % GROUP_COLORS.length : 0;
+  return GROUP_COLORS[idx];
+}
+const DM_COLORS = ['#128C7E', '#075E54'];
+const LEADER_COLORS = ['#7c3aed', '#6d28d9'];
+
+const SENDER_COLORS = ['#0ea5e9', '#d97706', '#db2777', '#0891b2', '#7c3aed', '#dc2626', '#0284c7', '#475569'];
+function senderColor(seed) {
+  const s = String(seed || '');
+  let hash = 0;
+  for (let i = 0; i < s.length; i++) hash = (hash * 31 + s.charCodeAt(i)) >>> 0;
+  return SENDER_COLORS[hash % SENDER_COLORS.length];
+}
+
+const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
+
+function extractMentions(text, memberNames) {
+  if (!text) return [];
+  const found = [];
+  memberNames.forEach(name => {
+    const first = name.split(' ')[0];
+    const re = new RegExp(`@${first}\\b`, 'i');
+    if (re.test(text)) found.push(name);
+  });
+  return found;
+}
+
+/* Renders text with @mentions highlighted */
+function MentionText({ text, accent }) {
+  const parts = String(text || '').split(/(@[A-Za-z][\w'-]*)/g);
   return (
-    <div
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
-      className="fast-modal-backdrop"
-    >
-      {/* Modal sheet — top-aligned with guaranteed breathing room on every side,
-          so it never gets clipped when the content is taller than the viewport
-          (a plain "align-items:center" + overflow container clips its own top). */}
-      <div
-        onClick={e => e.stopPropagation()}
-        className="fast-modal-sheet"
-        style={{ maxWidth: 680, maxHeight: 'min(90vh, calc(100vh - 64px))' }}
-      >
-        {/* Accent top bar */}
-        <div style={{ height: 4, background: `linear-gradient(90deg, ${accentFrom}, ${accentTo})`, flexShrink: 0 }} />
-        {children}
-      </div>
-    </div>
+    <>
+      {parts.map((p, i) => p.startsWith('@') ? (
+        <span key={i} style={{ color: accent, fontWeight: 700, background: `${accent}18`, borderRadius: 4, padding: '0 3px' }}>{p}</span>
+      ) : <span key={i}>{p}</span>)}
+    </>
   );
 }
 
-/* ── Peer Chat modal (student-to-student) ──────────────────────────
-   Built for speed: unlike the older ChatModal, this uses a single CSS
-   keyframe animation (no JS-driven double requestAnimationFrame, no
-   animated backdrop-filter, no setTimeout delay on close). This is the
-   same lightweight pattern used by ConfirmModal elsewhere in the app,
-   which is why that modal always felt instant while this one used to lag.
-──────────────────────────────────────────────────────────────────── */
-function PeerChatModal({ onClose, children }) {
+/* ════════════════════════════════════════════════════════════════════
+   Exclusive audio playback (only one voice note plays at a time)
+═════════════════════════════════════════════════════════════════════ */
+const AudioPlaybackContext = createContext(null);
+function AudioPlaybackProvider({ children }) {
+  const registry = useRef(new Set());
+  const register = (el) => { registry.current.add(el); };
+  const unregister = (el) => { registry.current.delete(el); };
+  const stopOthers = (exceptEl) => {
+    registry.current.forEach(el => { if (el !== exceptEl && !el.paused) { el.pause(); el.dispatchEvent(new Event('externalpause')); } });
+  };
+  return <AudioPlaybackContext.Provider value={{ register, unregister, stopOthers }}>{children}</AudioPlaybackContext.Provider>;
+}
+
+function VoiceBubble({ url, duration, isMine, accent }) {
+  const [playing, setPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const audioRef = useRef(null);
+  const ctx = useContext(AudioPlaybackContext);
+  const totalDuration = duration || 0;
+
   useEffect(() => {
-    document.body.style.overflow = 'hidden';
-    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => { document.body.style.overflow = ''; window.removeEventListener('keydown', onKey); };
-  }, [onClose]);
+    const el = audioRef.current;
+    if (!el) return;
+    ctx?.register(el);
+    const onExternalPause = () => setPlaying(false);
+    el.addEventListener('externalpause', onExternalPause);
+    return () => { ctx?.unregister(el); el.removeEventListener('externalpause', onExternalPause); };
+  }, []);
+
+  const toggle = () => {
+    const el = audioRef.current;
+    if (!el) return;
+    if (playing) { el.pause(); setPlaying(false); }
+    else { ctx?.stopOthers(el); el.play(); setPlaying(true); }
+  };
+  const fmtDur = (s) => { const t = Math.round(s || 0); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; };
+  const progress = totalDuration > 0 ? Math.min((currentTime / totalDuration) * 100, 100) : 0;
 
   return (
-    <div
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
-      className="fixed inset-0 flex justify-center items-start overflow-y-auto"
-      style={{
-        zIndex: 300,
-        background: 'rgba(0,0,0,0.55)',
-        backdropFilter: 'blur(10px)',
-        WebkitBackdropFilter: 'blur(10px)',
-        padding: '32px 20px',
-        boxSizing: 'border-box',
-        animation: 'pcFadeIn 0.15s ease',
-      }}
-    >
-      <style>{`
-        @keyframes pcFadeIn  { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes pcSlideUp { from { opacity: 0; transform: translateY(16px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
-      `}</style>
-      {/* Always keeps side + top/bottom breathing room and rounded corners,
-          on mobile and desktop alike — never goes edge-to-edge full-bleed. */}
-      <div
-        onClick={e => e.stopPropagation()}
-        className="w-full flex flex-col overflow-hidden flex-shrink-0"
-        style={{
-          maxWidth: 760,
-          maxHeight: 'min(88vh, calc(100vh - 64px))',
-          borderRadius: 24,
-          background: 'var(--card-bg)',
-          border: '1px solid var(--card-border)',
-          boxShadow: '0 32px 80px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.04)',
-          animation: 'pcSlideUp 0.2s cubic-bezier(0.34,1.56,0.64,1)',
-        }}
-      >
-        <div style={{ height: 4, background: 'linear-gradient(90deg, #6366f1, #4f46e5)', flexShrink: 0 }} />
-        <div className="flex-1 flex flex-col min-h-0">
-          {children}
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 180 }}>
+      <audio ref={audioRef} src={url} onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)}
+        onEnded={() => { setPlaying(false); setCurrentTime(0); }} style={{ display: 'none' }} />
+      <button onClick={toggle} style={{ width: 32, height: 32, borderRadius: '50%', border: 'none', cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', background: isMine ? 'rgba(255,255,255,0.3)' : `${accent}b0` }}>
+        {playing ? <Pause style={{ width: 14, height: 14 }} /> : <Play style={{ width: 14, height: 14 }} />}
+      </button>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 3 }}>
+        <div style={{ height: 3, borderRadius: 2, background: isMine ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.12)', position: 'relative', overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: `${progress}%`, background: isMine ? 'rgba(255,255,255,0.7)' : accent, borderRadius: 2, transition: 'width 0.1s linear' }} />
         </div>
+        <span style={{ fontSize: 10, opacity: 0.7 }}>{playing ? fmtDur(currentTime) : fmtDur(totalDuration)}</span>
       </div>
+      <Mic style={{ width: 13, height: 13, opacity: 0.5, flexShrink: 0 }} />
     </div>
   );
 }
 
-/* ── Group members modal ─────────────────────────────────────────── */
-function MembersModal({ group, onClose }) {
-  const [a, b] = groupColor(group.id);
+/* ════════════════════════════════════════════════════════════════════
+   Reaction bar + picker (shared by every message bubble, any thread type)
+═════════════════════════════════════════════════════════════════════ */
+function ReactionBar({ reactions, myId, onToggle, accent }) {
+  const entries = Object.entries(reactions || {}).filter(([, uids]) => uids.length > 0);
+  if (entries.length === 0) return null;
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+      {entries.map(([emoji, uids]) => {
+        const mine = uids.map(String).includes(String(myId));
+        return (
+          <button key={emoji} onClick={() => onToggle(emoji)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 3, fontSize: 11.5, padding: '1px 7px', borderRadius: 20, cursor: 'pointer',
+              border: mine ? `1.5px solid ${accent}` : '1.5px solid var(--card-border)',
+              background: mine ? `${accent}18` : 'var(--card-bg)', color: mine ? accent : 'var(--text-secondary)', fontWeight: 700,
+            }}>
+            <span>{emoji}</span><span>{uids.length}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
-  useEffect(() => {
-    document.body.style.overflow = 'hidden';
-    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => { document.body.style.overflow = ''; window.removeEventListener('keydown', onKey); };
-  }, [onClose]);
+function ReactionPicker({ onPick, onClose }) {
+  return (
+    <div onClick={e => e.stopPropagation()} style={{
+      position: 'absolute', bottom: '100%', marginBottom: 4, display: 'flex', gap: 2, padding: '5px 6px',
+      borderRadius: 20, background: 'var(--card-bg)', border: '1px solid var(--card-border)', boxShadow: '0 8px 24px rgba(0,0,0,0.18)', zIndex: 20,
+    }}>
+      {QUICK_REACTIONS.map(e => (
+        <button key={e} onClick={() => { onPick(e); onClose(); }}
+          style={{ fontSize: 17, background: 'none', border: 'none', cursor: 'pointer', padding: 3, borderRadius: 8, lineHeight: 1 }}
+          onMouseEnter={ev => ev.currentTarget.style.background = 'var(--surface-100)'}
+          onMouseLeave={ev => ev.currentTarget.style.background = 'none'}>
+          {e}
+        </button>
+      ))}
+    </div>
+  );
+}
 
-  const members = group.members || [];
+/* ════════════════════════════════════════════════════════════════════
+   Unified message bubble — used for group / dm / leader-dm alike.
+   Adds: reactions, reply-to preview + jump, pin/unpin, read ticks,
+   mention highlighting.
+═════════════════════════════════════════════════════════════════════ */
+function MessageBubble({
+  item, accent, onDelete, deletingId, onReply, onReact, onTogglePin, isPinned,
+  onJumpTo, highlighted, teacherBadge,
+}) {
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const isMine = item.isMine;
+  const isTeacherMsg = teacherBadge && item.author_role === 'teacher';
+  const bubbleBg = isMine ? `linear-gradient(135deg, ${accent[0]}, ${accent[1]})`
+    : isTeacherMsg ? 'linear-gradient(135deg, #7c3aed, #6d28d9)' : 'var(--surface-100)';
+  const bubbleColor = isMine || isTeacherMsg ? '#fff' : 'var(--text-primary)';
+  const isMedia = item.message_type === 'image' || item.message_type === 'file';
 
   return (
-    <div
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
-      className="fast-modal-backdrop"
-    >
-      <div
-        onClick={e => e.stopPropagation()}
-        className="fast-modal-sheet"
-        style={{ maxWidth: 400 }}
-      >
-        {/* Header */}
-        <div style={{ background: `linear-gradient(135deg, ${a}, ${b})`, padding: '18px 20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: '#fff', fontSize: 13 }}>
-                {(group.name || 'G').slice(0, 2).toUpperCase()}
-              </div>
-              <div>
-                <div style={{ color: '#fff', fontWeight: 700, fontSize: 15 }}>{group.name}</div>
-                <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 11 }}>{members.length} member{members.length !== 1 ? 's' : ''}</div>
-              </div>
-            </div>
-            <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <X style={{ width: 14, height: 14 }} />
+    <div id={`msg-${item.id}`} className="group" style={{
+      display: 'flex', marginBottom: 4, alignItems: 'flex-end', gap: 6, justifyContent: isMine ? 'flex-end' : 'flex-start',
+      transition: 'background 0.6s ease', background: highlighted ? `${accent[0]}22` : 'transparent', borderRadius: 12,
+    }}>
+      {isMine && (
+        <div className="opacity-0 group-hover:opacity-100 transition-opacity" style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+          <button onClick={() => onDelete(item.id)} disabled={deletingId === item.id} title="Delete"
+            style={{ color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer' }}>
+            <Trash2 style={{ width: 12, height: 12 }} />
+          </button>
+        </div>
+      )}
+      <div style={{ maxWidth: '72%', position: 'relative' }}>
+        {item.isFirst && !item.isMine && item.author_name && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, marginLeft: 4 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: isTeacherMsg ? '#7c3aed' : senderColor(item.author_id || item.author_name) }}>{item.author_name}</span>
+            {isTeacherMsg && <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 10, fontWeight: 700, background: 'rgba(124,58,237,0.12)', color: '#7c3aed' }}>Teacher</span>}
+          </div>
+        )}
+
+        {/* reply-to quoted preview */}
+        {item.reply_to && (
+          <button onClick={() => onJumpTo(item.reply_to.id)} style={{
+            display: 'block', width: '100%', textAlign: 'left', marginBottom: 3, padding: '5px 9px', borderRadius: 10,
+            background: isMine ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.05)', border: `2px solid ${accent[0]}`, borderWidth: '0 0 0 3px',
+            cursor: 'pointer', fontSize: 11.5,
+          }}>
+            <div style={{ fontWeight: 700, color: isMine ? 'rgba(255,255,255,0.85)' : accent[0] }}>{item.reply_to.author_name}</div>
+            <div style={{ opacity: 0.8, color: isMine ? '#fff' : 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.reply_to.preview}</div>
+          </button>
+        )}
+
+        <div style={{ position: 'relative' }}
+          onMouseEnter={e => e.currentTarget.querySelector('.hover-actions')?.style.setProperty('opacity', '1')}
+          onMouseLeave={e => e.currentTarget.querySelector('.hover-actions')?.style.setProperty('opacity', '0')}>
+          <div style={{
+            background: isMedia ? 'transparent' : bubbleBg, color: bubbleColor, padding: isMedia ? 0 : '9px 13px',
+            borderRadius: isMine ? '18px 18px 4px 18px' : '18px 18px 18px 4px', fontSize: 13.5, lineHeight: 1.5, wordBreak: 'break-word',
+            boxShadow: isMedia ? 'none' : '0 1px 3px rgba(0,0,0,0.08)',
+          }}>
+            {item.message_type === 'voice' ? <VoiceBubble url={item.voice_url} duration={item.voice_duration} isMine={isMine} accent={accent[0]} />
+              : item.message_type === 'image' ? <ChatImageBubble url={item.file_url} name={item.file_name} mimeType={item.mime_type} />
+              : item.message_type === 'file' ? <ChatFileBubble url={item.file_url} name={item.file_name} size={item.file_size} mimeType={item.mime_type} />
+              : <MentionText text={item.content} accent={isMine ? '#fff' : accent[0]} />}
+          </div>
+
+          {/* Hover toolbar: react / reply / pin */}
+          <div className="hover-actions" style={{
+            position: 'absolute', top: -14, [isMine ? 'left' : 'right']: 4, display: 'flex', gap: 2, opacity: 0,
+            transition: 'opacity 0.12s ease', background: 'var(--card-bg)', border: '1px solid var(--card-border)',
+            borderRadius: 20, padding: 2, boxShadow: '0 2px 10px rgba(0,0,0,0.12)',
+          }}>
+            <button onClick={() => setPickerOpen(o => !o)} title="React" style={{ width: 22, height: 22, borderRadius: '50%', border: 'none', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
+              <SmilePlus style={{ width: 13, height: 13 }} />
+            </button>
+            <button onClick={() => onReply(item)} title="Reply" style={{ width: 22, height: 22, borderRadius: '50%', border: 'none', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
+              <Reply style={{ width: 13, height: 13 }} />
+            </button>
+            <button onClick={() => onTogglePin(item)} title={isPinned ? 'Unpin' : 'Pin'} style={{ width: 22, height: 22, borderRadius: '50%', border: 'none', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isPinned ? accent[0] : 'var(--text-secondary)' }}>
+              {isPinned ? <PinOff style={{ width: 12, height: 12 }} /> : <Pin style={{ width: 12, height: 12 }} />}
             </button>
           </div>
+          {pickerOpen && <ReactionPicker onPick={(emoji) => onReact(item.id, emoji)} onClose={() => setPickerOpen(false)} />}
         </div>
 
-        {/* Members list */}
-        <div style={{ padding: '14px 16px', maxHeight: '60vh', overflowY: 'auto' }}>
-          {members.map((m, i) => {
-            const isLeader = group.team_leader?.id === m.id;
-            return (
-              <div
-                key={m.id}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 12,
-                  padding: '10px 12px', borderRadius: 14, marginBottom: 6,
-                  background: 'var(--surface-100)',
-                  border: isLeader ? `1.5px solid ${a}40` : '1.5px solid transparent',
-                  animation: `memberSlideIn 260ms ease both`,
-                  animationDelay: `${i * 40}ms`,
-                }}
-              >
-                <div style={{
-                  width: 42, height: 42, borderRadius: '50%', flexShrink: 0,
-                  background: isLeader ? `linear-gradient(135deg, ${a}, ${b})` : 'linear-gradient(135deg, #0891b2, #0369a1)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: '#fff', fontWeight: 800, fontSize: 15,
-                  boxShadow: isLeader ? `0 4px 14px ${a}50` : 'none',
-                }}>
-                  {m.name[0].toUpperCase()}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</div>
-                  {isLeader && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
-                      <Crown style={{ width: 11, height: 11, color: '#d97706' }} />
-                      <span style={{ fontSize: 11, fontWeight: 600, color: '#b45309' }}>Team Leader</span>
-                    </div>
-                  )}
-                </div>
-                {isLeader && (
-                  <div style={{ width: 28, height: 28, borderRadius: '50%', background: `${a}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Crown style={{ width: 13, height: 13, color: a }} />
-                  </div>
-                )}
-              </div>
-            );
-          })}
+        <ReactionBar reactions={item.reactions} myId={item._myId} onToggle={(emoji) => onReact(item.id, emoji)} accent={accent[0]} />
 
-          {/* Teacher */}
-          {group.teacher_name && (
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 12,
-              padding: '10px 12px', borderRadius: 14, marginBottom: 6,
-              background: 'rgba(99,102,241,0.06)',
-              border: '1.5px solid rgba(99,102,241,0.2)',
-              animation: `memberSlideIn 260ms ease both`,
-              animationDelay: `${members.length * 40}ms`,
-            }}>
-              <div style={{ width: 42, height: 42, borderRadius: '50%', flexShrink: 0, background: 'linear-gradient(135deg, #6366f1, #4f46e5)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 15, boxShadow: '0 4px 14px rgba(99,102,241,0.4)' }}>
-                {group.teacher_name[0].toUpperCase()}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--text-primary)' }}>{group.teacher_name}</div>
-                <div style={{ fontSize: 11, fontWeight: 600, color: '#6366f1', marginTop: 2 }}>Teacher</div>
-              </div>
-              <div style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20, background: 'rgba(99,102,241,0.12)', color: '#6366f1' }}>T</div>
+        {item.isLast && (
+          <div style={{ fontSize: 10, marginTop: 3, display: 'flex', alignItems: 'center', gap: 3, justifyContent: isMine ? 'flex-end' : 'flex-start', paddingLeft: isMine ? 0 : 4, paddingRight: isMine ? 4 : 0, color: 'var(--text-secondary)', opacity: 0.6 }}>
+            {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            {isMine && item.read !== undefined && (item.read
+              ? <CheckCheck style={{ width: 12, height: 12, color: accent[0] }} />
+              : <Check style={{ width: 12, height: 12 }} />)}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   Pinned messages rail — collapses into a single strip under the header
+═════════════════════════════════════════════════════════════════════ */
+function PinnedRail({ pinned, onJump, onUnpin, accent }) {
+  const [open, setOpen] = useState(false);
+  if (!pinned || pinned.length === 0) return null;
+  return (
+    <div style={{ borderBottom: '1px solid var(--card-border)', background: `${accent[0]}08`, flexShrink: 0 }}>
+      <button onClick={() => setOpen(o => !o)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', background: 'none', border: 'none', cursor: 'pointer' }}>
+        <Pin style={{ width: 12, height: 12, color: accent[0] }} />
+        <span style={{ fontSize: 11.5, fontWeight: 700, color: accent[0] }}>{pinned.length} pinned message{pinned.length !== 1 ? 's' : ''}</span>
+        <ChevronDown style={{ width: 12, height: 12, color: accent[0], marginLeft: 'auto', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
+      </button>
+      {open && (
+        <div style={{ maxHeight: 160, overflowY: 'auto', padding: '0 10px 8px' }}>
+          {pinned.map(p => (
+            <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 10, background: 'var(--card-bg)', marginBottom: 4 }}>
+              <button onClick={() => onJump(p.id)} style={{ flex: 1, minWidth: 0, textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)' }}>{p.author_name}</div>
+                <div style={{ fontSize: 11.5, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.content || (p.message_type === 'voice' ? '🎤 Voice note' : p.message_type === 'image' ? '📷 Photo' : p.message_type === 'file' ? '📎 File' : '')}</div>
+              </button>
+              <button onClick={() => onUnpin(p)} title="Unpin" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', flexShrink: 0 }}>
+                <PinOff style={{ width: 13, height: 13 }} />
+              </button>
             </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   In-thread search overlay
+═════════════════════════════════════════════════════════════════════ */
+function ThreadSearch({ messages, onJump, onClose, accent }) {
+  const [q, setQ] = useState('');
+  const results = useMemo(() => {
+    if (!q.trim()) return [];
+    const needle = q.toLowerCase();
+    return messages.filter(m => (m.content || '').toLowerCase().includes(needle)).slice(-40).reverse();
+  }, [q, messages]);
+
+  return (
+    <div style={{ position: 'absolute', inset: 0, background: 'var(--card-bg)', zIndex: 30, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderBottom: '1px solid var(--card-border)', flexShrink: 0 }}>
+        <Search style={{ width: 15, height: 15, color: 'var(--text-secondary)', flexShrink: 0 }} />
+        <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="Search this conversation…"
+          style={{ flex: 1, border: 'none', outline: 'none', background: 'none', fontSize: 13.5, color: 'var(--text-primary)' }} />
+        <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}><X style={{ width: 16, height: 16 }} /></button>
+      </div>
+      <div style={{ flex: 1, overflowY: 'auto' }}>
+        {q.trim() && results.length === 0 && (
+          <p style={{ textAlign: 'center', fontSize: 12.5, color: 'var(--text-secondary)', marginTop: 30 }}>No messages match "{q}"</p>
+        )}
+        {results.map(m => (
+          <button key={m.id} onClick={() => { onJump(m.id); onClose(); }}
+            style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 14px', background: 'none', border: 'none', borderBottom: '1px solid var(--card-border)', cursor: 'pointer' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
+              <span style={{ fontSize: 11.5, fontWeight: 700, color: accent[0] }}>{m.author_name}</span>
+              <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>{timeAgo(m.created_at)}</span>
+            </div>
+            <div style={{ fontSize: 12.5, color: 'var(--text-primary)' }}>{m.content}</div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   Mention autocomplete popover
+═════════════════════════════════════════════════════════════════════ */
+function MentionAutocomplete({ candidates, onPick, accent }) {
+  if (!candidates.length) return null;
+  return (
+    <div style={{ position: 'absolute', bottom: '100%', left: 0, marginBottom: 6, width: 220, maxHeight: 180, overflowY: 'auto', background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 12, boxShadow: '0 8px 24px rgba(0,0,0,0.15)', zIndex: 25 }}>
+      {candidates.map(name => (
+        <button key={name} onClick={() => onPick(name)} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+          onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-100)'}
+          onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+          <div style={{ width: 22, height: 22, borderRadius: '50%', background: accent[0], color: '#fff', fontSize: 10, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{name[0].toUpperCase()}</div>
+          <span style={{ fontSize: 12.5, color: 'var(--text-primary)' }}>{name}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   Members panel (slide-over instead of a stacked modal)
+═════════════════════════════════════════════════════════════════════ */
+function MembersPanel({ group, onClose }) {
+  const [a, b] = groupColor(group.id);
+  const members = group.members || [];
+  return (
+    <div style={{ position: 'absolute', inset: 0, background: 'var(--card-bg)', zIndex: 40, display: 'flex', flexDirection: 'column', animation: 'slideInFromRight 0.18s ease both' }}>
+      <div style={{ background: `linear-gradient(135deg, ${a}, ${b})`, padding: '14px 16px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
+        <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><ArrowLeft style={{ width: 14, height: 14 }} /></button>
+        <div>
+          <div style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>{group.name}</div>
+          <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 11 }}>{members.length} member{members.length !== 1 ? 's' : ''}</div>
+        </div>
+      </div>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '14px 16px' }}>
+        {members.map((m, i) => {
+          const isLeader = group.team_leader?.id === m.id;
+          return (
+            <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 14, marginBottom: 6, background: 'var(--surface-100)', border: isLeader ? `1.5px solid ${a}40` : '1.5px solid transparent', animation: 'memberSlideIn 260ms ease both', animationDelay: `${i * 40}ms` }}>
+              <div style={{ width: 42, height: 42, borderRadius: '50%', flexShrink: 0, background: isLeader ? `linear-gradient(135deg, ${a}, ${b})` : 'linear-gradient(135deg, #0891b2, #0369a1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 15 }}>{m.name[0].toUpperCase()}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</div>
+                {isLeader && <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}><Crown style={{ width: 11, height: 11, color: '#d97706' }} /><span style={{ fontSize: 11, fontWeight: 600, color: '#b45309' }}>Team Leader</span></div>}
+              </div>
+            </div>
+          );
+        })}
+        {group.teacher_name && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 14, background: 'rgba(99,102,241,0.06)', border: '1.5px solid rgba(99,102,241,0.2)' }}>
+            <div style={{ width: 42, height: 42, borderRadius: '50%', flexShrink: 0, background: 'linear-gradient(135deg, #6366f1, #4f46e5)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 15 }}>{group.teacher_name[0].toUpperCase()}</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--text-primary)' }}>{group.teacher_name}</div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: '#6366f1', marginTop: 2 }}>Teacher</div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   Unified composer — text / @mention / emoji / voice / file, shared
+   by every thread type.
+═════════════════════════════════════════════════════════════════════ */
+function Composer({
+  accent, disabled, disabledLabel, onSendText, onSendVoice, onSendFile, onTypingChange,
+  replyTo, onCancelReply, mentionCandidates,
+}) {
+  const [text, setText] = useState('');
+  const [recording, setRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [audioBlob, setAudioBlob] = useState(null);
+  const [audioDuration, setAudioDuration] = useState(0);
+  const [audioPlaying, setAudioPlaying] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [filePreviewUrl, setFilePreviewUrl] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [posting, setPosting] = useState(false);
+  const [attachOpen, setAttachOpen] = useState(false);
+  const [emojiOpen, setEmojiOpen] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState(null);
+
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const recordTimerRef = useRef(null);
+  const audioPreviewRef = useRef(null);
+  const inputRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const imageInputRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
+
+  const handleTyping = (e) => {
+    const val = e.target.value;
+    setText(val);
+    e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+
+    // @mention detection: look backwards from caret for "@word"
+    const caret = e.target.selectionStart;
+    const upToCaret = val.slice(0, caret);
+    const match = upToCaret.match(/@([A-Za-z]*)$/);
+    setMentionQuery(match ? match[1].toLowerCase() : null);
+
+    onTypingChange && onTypingChange(true);
+    clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => onTypingChange && onTypingChange(false), 2000);
+  };
+
+  const pickMention = (name) => {
+    const first = name.split(' ')[0];
+    setText(t => t.replace(/@([A-Za-z]*)$/, `@${first} `));
+    setMentionQuery(null);
+    inputRef.current?.focus();
+  };
+
+  const filteredMentionCandidates = (mentionCandidates || []).filter(n => !mentionQuery || n.toLowerCase().startsWith(mentionQuery));
+
+  const doSendText = async () => {
+    if (!text.trim() || posting || disabled) return;
+    const content = text.trim();
+    setText(''); setMentionQuery(null);
+    if (inputRef.current) inputRef.current.style.height = 'auto';
+    setPosting(true);
+    onTypingChange && onTypingChange(false);
+    try { await onSendText(content); }
+    finally { setPosting(false); }
+  };
+
+  const handleKey = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey && mentionQuery === null) {
+      e.preventDefault();
+      if (recording) stopAndSendVoice();
+      else if (audioBlob) sendVoicePreview();
+      else if (selectedFile) sendFilePreview();
+      else doSendText();
+    }
+    if (e.key === 'Escape') onCancelReply && onCancelReply();
+  };
+
+  const startRecording = async () => {
+    if (disabled) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg';
+      const recorder = new MediaRecorder(stream, { mimeType });
+      audioChunksRef.current = [];
+      recorder.ondataavailable = e => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
+      recorder.onstop = () => { setAudioBlob(new Blob(audioChunksRef.current, { type: mimeType })); setAudioDuration(recordingTime); stream.getTracks().forEach(t => t.stop()); };
+      recorder.start(); mediaRecorderRef.current = recorder; setRecording(true); setRecordingTime(0);
+      recordTimerRef.current = setInterval(() => setRecordingTime(t => t + 1), 1000);
+    } catch { toast.error('Microphone access denied. Please allow mic permission.'); }
+  };
+  const stopRecording = () => { if (mediaRecorderRef.current && recording) { mediaRecorderRef.current.stop(); clearInterval(recordTimerRef.current); setRecording(false); } };
+  const stopAndSendVoice = () => {
+    if (!mediaRecorderRef.current || !recording) return;
+    mediaRecorderRef.current.onstop = () => {
+      const mimeType = mediaRecorderRef.current.mimeType || 'audio/webm';
+      const blob = new Blob(audioChunksRef.current, { type: mimeType });
+      const duration = recordingTime;
+      clearInterval(recordTimerRef.current); setRecording(false); setAudioBlob(null);
+      (async () => { setPosting(true); try { await onSendVoice(blob, duration); } finally { setPosting(false); } })();
+    };
+    mediaRecorderRef.current.stop();
+  };
+  const cancelVoice = () => { if (recording) stopRecording(); setAudioBlob(null); setRecordingTime(0); setAudioPlaying(false); };
+  const toggleAudioPreview = () => {
+    if (!audioPreviewRef.current) return;
+    if (audioPlaying) { audioPreviewRef.current.pause(); setAudioPlaying(false); }
+    else { audioPreviewRef.current.play(); setAudioPlaying(true); audioPreviewRef.current.onended = () => setAudioPlaying(false); }
+  };
+  const sendVoicePreview = async () => {
+    if (!audioBlob || posting) return;
+    const blob = audioBlob, duration = audioDuration;
+    setAudioBlob(null); setRecordingTime(0); setAudioPlaying(false);
+    setPosting(true); try { await onSendVoice(blob, duration); } finally { setPosting(false); }
+  };
+  const fmtDuration = (s) => { const t = Math.round(s || 0); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; };
+
+  const handleFilePick = (e) => {
+    const file = e.target.files?.[0]; e.target.value = '';
+    if (!file || disabled) return;
+    if (file.size > MAX_CHAT_FILE_MB * 1024 * 1024) { toast.error(`File is too large — max ${MAX_CHAT_FILE_MB}MB.`); return; }
+    setSelectedFile(file);
+    setFilePreviewUrl(file.type.startsWith('image/') ? URL.createObjectURL(file) : null);
+  };
+  const cancelFile = () => { if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl); setSelectedFile(null); setFilePreviewUrl(null); };
+  const sendFilePreview = async () => {
+    if (!selectedFile || uploading) return;
+    setUploading(true);
+    try { await onSendFile(selectedFile); cancelFile(); } finally { setUploading(false); }
+  };
+
+  useEffect(() => () => clearTimeout(typingTimeoutRef.current), []);
+
+  if (disabled) {
+    return (
+      <div style={{ borderTop: '1px solid var(--card-border)', background: 'var(--surface-100)', padding: '10px 16px', flexShrink: 0 }}>
+        <p style={{ fontSize: 12, textAlign: 'center', fontWeight: 600, color: 'var(--text-secondary)' }}>🔒 {disabledLabel || 'This conversation has ended'}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ borderTop: '1px solid var(--card-border)', background: 'var(--card-bg)', flexShrink: 0 }}>
+      <input ref={fileInputRef} type="file" onChange={handleFilePick} style={{ display: 'none' }} />
+      <input ref={imageInputRef} type="file" accept="image/*" onChange={handleFilePick} style={{ display: 'none' }} />
+
+      {replyTo && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderBottom: '1px solid var(--card-border)', background: `${accent[0]}08` }}>
+          <Reply style={{ width: 13, height: 13, color: accent[0], flexShrink: 0 }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: accent[0] }}>Replying to {replyTo.author_name}</div>
+            <div style={{ fontSize: 11.5, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{replyTo.content || 'Attachment'}</div>
+          </div>
+          <button onClick={onCancelReply} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', flexShrink: 0 }}><X style={{ width: 14, height: 14 }} /></button>
+        </div>
+      )}
+
+      <div style={{ padding: '10px 14px' }}>
+        {selectedFile ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <button onClick={cancelFile} style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: 'rgba(220,38,38,0.1)', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}><X style={{ width: 16, height: 16 }} /></button>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface-100)', borderRadius: 14, padding: '6px 10px', border: `1.5px solid ${accent[0]}40`, minWidth: 0 }}>
+              {filePreviewUrl ? <img src={filePreviewUrl} alt="" style={{ width: 30, height: 30, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
+                : <div style={{ width: 30, height: 30, borderRadius: 8, background: `${accent[0]}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><AttachmentTypeIcon mimeType={selectedFile.type} style={{ width: 15, height: 15, color: accent[0] }} /></div>}
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedFile.name}</div>
+                <div style={{ fontSize: 10.5, color: 'var(--text-secondary)' }}>{fmtFileSize(selectedFile.size)}</div>
+              </div>
+            </div>
+            <button onClick={sendFilePreview} disabled={uploading} style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: `linear-gradient(135deg, ${accent[0]}, ${accent[1]})`, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, opacity: uploading ? 0.6 : 1 }}>
+              {uploading ? <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> : <Send style={{ width: 16, height: 16 }} />}
+            </button>
+          </div>
+        ) : recording ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <button onClick={cancelVoice} style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: 'rgba(220,38,38,0.1)', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}><X style={{ width: 16, height: 16 }} /></button>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface-100)', borderRadius: 20, padding: '8px 14px', border: '1.5px solid #dc262630' }}>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#dc2626', animation: 'pulse 1s infinite' }} />
+              <span style={{ fontSize: 13, color: '#dc2626', fontWeight: 600 }}>Recording… {fmtDuration(recordingTime)}</span>
+            </div>
+            <button onClick={stopAndSendVoice} style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: `linear-gradient(135deg, ${accent[0]}, ${accent[1]})`, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}><Send style={{ width: 16, height: 16 }} /></button>
+          </div>
+        ) : audioBlob ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <button onClick={cancelVoice} style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: 'rgba(220,38,38,0.1)', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}><Trash2 style={{ width: 16, height: 16 }} /></button>
+            <audio ref={audioPreviewRef} src={URL.createObjectURL(audioBlob)} style={{ display: 'none' }} />
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface-100)', borderRadius: 20, padding: '8px 14px', border: `1.5px solid ${accent[0]}40` }}>
+              <button onClick={toggleAudioPreview} style={{ width: 28, height: 28, borderRadius: '50%', border: 'none', background: `${accent[0]}20`, color: accent[0], display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>{audioPlaying ? <Pause style={{ width: 12, height: 12 }} /> : <Play style={{ width: 12, height: 12 }} />}</button>
+              <Mic style={{ width: 13, height: 13, color: accent[0], opacity: 0.7 }} />
+              <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500 }}>Voice note · {fmtDuration(audioDuration)}</span>
+            </div>
+            <button onClick={sendVoicePreview} disabled={posting} style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: `linear-gradient(135deg, ${accent[0]}, ${accent[1]})`, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, opacity: posting ? 0.6 : 1 }}>
+              {posting ? <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> : <Send style={{ width: 16, height: 16 }} />}
+            </button>
+          </div>
+        ) : (
+          <div className="wa-input-pill" style={{ position: 'relative', '--wa-accent': accent[0], '--wa-accent-2': accent[1], '--wa-accent-soft': `${accent[0]}22` }}>
+            {mentionQuery !== null && <MentionAutocomplete candidates={filteredMentionCandidates} onPick={pickMention} accent={accent} />}
+            <div style={{ position: 'relative', flexShrink: 0 }}>
+              <button className="wa-icon-btn" onClick={() => { setAttachOpen(o => !o); setEmojiOpen(false); }} title="Attach"><Plus style={{ width: 20, height: 20 }} /></button>
+              <AttachMenu open={attachOpen} onClose={() => setAttachOpen(false)} onPickImage={() => imageInputRef.current?.click()} onPickFile={() => fileInputRef.current?.click()} />
+            </div>
+            <div style={{ position: 'relative', flexShrink: 0 }}>
+              <button className="wa-icon-btn" onClick={() => { setEmojiOpen(o => !o); setAttachOpen(false); }} title="Emoji"><Smile style={{ width: 20, height: 20 }} /></button>
+              <EmojiPicker open={emojiOpen} onClose={() => setEmojiOpen(false)} onPick={(e) => { setText(t => t + e); inputRef.current?.focus(); }} />
+            </div>
+            <textarea ref={inputRef} value={text} onChange={handleTyping} onKeyDown={handleKey} rows={1} placeholder="Type a message" className="wa-input-textarea" />
+            {text.trim() ? (
+              <button onClick={doSendText} disabled={posting} className="wa-icon-btn wa-icon-send wa-icon-swap">
+                {posting ? <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> : <Send style={{ width: 17, height: 17 }} />}
+              </button>
+            ) : (
+              <button onClick={startRecording} className="wa-icon-btn wa-icon-swap" title="Record a voice note"><Mic style={{ width: 20, height: 20 }} /></button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   useThread — data + actions for a single open conversation, unified
+   across group / dm / leaderdm. Handles fetch, polling, send, delete,
+   clear, reactions, pins, replies, typing, read state.
+═════════════════════════════════════════════════════════════════════ */
+function useThread(entry, myId) {
+  const [messages, setMessages] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [isEnded, setIsEnded] = useState(false);
+  const [peerTyping, setPeerTyping] = useState(false);
+  const [groupMeta, setGroupMeta] = useState(null); // full group object once loaded (members, leader, etc.)
+  const [reactions, setReactions] = useState(() => localStore.get(`reactions:${entry.key}`, {}));
+  const [pinnedIds, setPinnedIds] = useState(() => localStore.get(`pinned:${entry.key}`, []));
+  const lastMsgTimeRef = useRef(null);
+  const pollRef = useRef(null);
+
+  useEffect(() => { localStore.set(`reactions:${entry.key}`, reactions); }, [reactions, entry.key]);
+  useEffect(() => { localStore.set(`pinned:${entry.key}`, pinnedIds); }, [pinnedIds, entry.key]);
+
+  const basePath = entry.type === 'group' ? `/group-discussions/${entry.id}/messages`
+    : entry.type === 'leaderdm' ? `/group-discussions/${entry.id}/leader-dm`
+    : `/collaborations/class/${entry.classId}/messages/${entry.peerId}`;
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      if (entry.type === 'group') {
+        const res = await api.get(`/group-discussions/${entry.id}`);
+        setGroupMeta(res.data.group);
+        const msgs = res.data.group.messages || [];
+        setMessages(msgs);
+        setIsEnded(!!res.data.group.is_ended);
+        lastMsgTimeRef.current = msgs.length ? msgs[msgs.length - 1].created_at : null;
+      } else if (entry.type === 'leaderdm') {
+        const res = await api.get(basePath);
+        setGroupMeta({ peer: res.data.peer });
+        const msgs = res.data.messages || [];
+        setMessages(msgs);
+        lastMsgTimeRef.current = msgs.length ? msgs[msgs.length - 1].created_at : null;
+      } else {
+        const res = await api.get(basePath);
+        const msgs = res.data.messages || [];
+        setMessages(msgs);
+        lastMsgTimeRef.current = msgs.length ? msgs[msgs.length - 1].created_at : null;
+      }
+    } catch (err) { toast.error(err.response?.data?.message || 'Failed to load conversation'); }
+    finally { setLoading(false); }
+  }, [entry.key]);
+
+  const poll = useCallback(async (silent) => {
+    try {
+      const params = silent && lastMsgTimeRef.current ? { since: lastMsgTimeRef.current } : {};
+      const res = await api.get(basePath, { params });
+      const fresh = (entry.type === 'leaderdm' ? res.data.messages : res.data.messages) || [];
+      if (fresh.length > 0) {
+        setMessages(prev => {
+          const existingIds = new Set(prev.map(m => String(m.id || m._id)));
+          const toAdd = fresh.filter(m => !existingIds.has(String(m.id || m._id)));
+          if (toAdd.length === 0) return prev;
+          toAdd.forEach(m => markMessageSeen(m.id || m._id));
+          const senderField = entry.type === 'dm' ? 'sender_id' : entry.type === 'leaderdm' ? 'sender_id' : 'author_id';
+          const fromOthers = toAdd.filter(m => String(m[senderField]) !== String(myId));
+          if (fromOthers.length) {
+            const last = fromOthers[fromOthers.length - 1];
+            const nameField = last.author_name || last.sender_name || entry.name;
+            showChatToast({ name: entry.type === 'group' ? `${nameField} · ${entry.name}` : nameField, preview: last.content, kind: last.message_type !== 'text' ? last.message_type : null });
+          }
+          lastMsgTimeRef.current = fresh[fresh.length - 1].created_at;
+          return [...prev, ...toAdd];
+        });
+        setPeerTyping(false); // a real message arriving supersedes a stale typing flag
+      }
+      if (res.data.is_ended) setIsEnded(true);
+      // Best-effort: if the API ever starts returning peer typing state, pick it up.
+      if (typeof res.data.peer_typing === 'boolean') setPeerTyping(res.data.peer_typing);
+    } catch { /* keep last known state on transient poll errors */ }
+  }, [basePath, entry, myId]);
+
+  useEffect(() => {
+    setMessages([]); setLoading(true); setIsEnded(false); lastMsgTimeRef.current = null;
+    setReactions(localStore.get(`reactions:${entry.key}`, {}));
+    setPinnedIds(localStore.get(`pinned:${entry.key}`, []));
+    load();
+    pollRef.current = setInterval(() => poll(true), 3000);
+    return () => clearInterval(pollRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entry.key]);
+
+  const sendText = async (content, replyTo) => {
+    const payload = { content };
+    if (replyTo) payload.reply_to_id = replyTo.id; // best-effort: ignored server-side if unsupported
+    const path = entry.type === 'group' ? `/group-discussions/${entry.id}/messages`
+      : entry.type === 'leaderdm' ? `/group-discussions/${entry.id}/leader-dm`
+      : `/collaborations/class/${entry.classId}/messages`;
+    const body = entry.type === 'dm' ? { receiverId: entry.peerId, content, ...(replyTo ? { reply_to_id: replyTo.id } : {}) } : payload;
+    const res = await api.post(path, body);
+    const newMsg = res.data.msg;
+    if (replyTo) newMsg.reply_to = { id: replyTo.id, author_name: replyTo.author_name || replyTo.sender_name, preview: replyTo.content || 'Attachment' };
+    setMessages(prev => [...prev, { ...newMsg, sender_name: entry.type === 'dm' ? 'You' : newMsg.sender_name }]);
+    lastMsgTimeRef.current = newMsg.created_at;
+    return newMsg;
+  };
+
+  const sendVoice = async (blob, duration) => {
+    const formData = new FormData();
+    const ext = blob.type.includes('ogg') ? 'ogg' : 'webm';
+    formData.append('audio', blob, `voice-note-${Date.now()}.${ext}`);
+    formData.append('duration', String(duration));
+    if (entry.type === 'dm') formData.append('receiverId', entry.peerId);
+    const path = entry.type === 'group' ? `/group-discussions/${entry.id}/voice-notes`
+      : entry.type === 'leaderdm' ? `/group-discussions/${entry.id}/voice-notes` // falls back gracefully if not implemented for leader-dm
+      : `/collaborations/class/${entry.classId}/voice-notes`;
+    const res = await api.post(path, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+    const newMsg = res.data.msg;
+    setMessages(prev => [...prev, { ...newMsg, sender_name: entry.type === 'dm' ? 'You' : newMsg.sender_name }]);
+    lastMsgTimeRef.current = newMsg.created_at;
+  };
+
+  const sendFile = async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (entry.type === 'dm') formData.append('receiverId', entry.peerId);
+    const path = entry.type === 'group' ? `/group-discussions/${entry.id}/media`
+      : entry.type === 'leaderdm' ? `/group-discussions/${entry.id}/media`
+      : `/collaborations/class/${entry.classId}/media`;
+    const res = await api.post(path, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+    const newMsg = res.data.msg;
+    setMessages(prev => [...prev, { ...newMsg, sender_name: entry.type === 'dm' ? 'You' : newMsg.sender_name }]);
+    lastMsgTimeRef.current = newMsg.created_at;
+  };
+
+  const deleteMessage = async (messageId) => {
+    if (!window.confirm('Delete this message?')) return;
+    const path = entry.type === 'group' ? `/group-discussions/${entry.id}/messages/${messageId}`
+      : entry.type === 'leaderdm' ? `/group-discussions/${entry.id}/leader-dm/${messageId}`
+      : `/collaborations/class/${entry.classId}/messages/${messageId}`;
+    try { await api.delete(path); setMessages(prev => prev.filter(m => String(m.id || m._id) !== String(messageId))); }
+    catch (err) { toast.error(err.response?.data?.message || 'Failed to delete message'); }
+  };
+
+  const clearMine = async () => {
+    const path = entry.type === 'group' ? `/group-discussions/${entry.id}/messages`
+      : entry.type === 'leaderdm' ? `/group-discussions/${entry.id}/leader-dm`
+      : `/collaborations/class/${entry.classId}/messages/peer/${entry.peerId}`;
+    await api.delete(path);
+    setMessages(prev => prev.filter(m => String(m.author_id || m.sender_id) !== String(myId)));
+  };
+
+  const toggleReaction = (messageId, emoji) => {
+    setReactions(prev => {
+      const forMsg = { ...(prev[messageId] || {}) };
+      const uids = new Set((forMsg[emoji] || []).map(String));
+      if (uids.has(String(myId))) uids.delete(String(myId)); else uids.add(String(myId));
+      forMsg[emoji] = Array.from(uids);
+      return { ...prev, [messageId]: forMsg };
+    });
+    tryApi(() => api.post(`/messages/${messageId}/reactions`, { emoji }));
+  };
+
+  const togglePin = (message) => {
+    setPinnedIds(prev => prev.includes(message.id) ? prev.filter(id => id !== message.id) : [...prev, message.id]);
+    tryApi(() => api.post(`/messages/${message.id}/pin`));
+  };
+
+  const setTyping = (isTyping) => {
+    tryApi(() => api.post(`/threads/${encodeURIComponent(entry.key)}/typing`, { typing: isTyping }));
+  };
+
+  const pinnedMessages = messages.filter(m => pinnedIds.includes(m.id || m._id));
+
+  return {
+    messages, setMessages, loading, isEnded, groupMeta, peerTyping,
+    reactions, pinnedIds, pinnedMessages,
+    sendText, sendVoice, sendFile, deleteMessage, clearMine, toggleReaction, togglePin, setTyping,
+  };
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   Thread pane — renders whichever entry is selected in the inbox
+═════════════════════════════════════════════════════════════════════ */
+function ThreadPane({ entry, myId, myName, onBack, onOpenTeacherDm, onEntryActivity }) {
+  const thread = useThread(entry, myId);
+  const [deletingId, setDeletingId] = useState(null);
+  const [clearConfirm, setClearConfirm] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const [membersOpen, setMembersOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [replyTo, setReplyTo] = useState(null);
+  const [highlightId, setHighlightId] = useState(null);
+  const messagesEndRef = useRef(null);
+  const scrollRef = useRef(null);
+
+  const accent = entry.type === 'group' ? groupColor(entry.id) : entry.type === 'leaderdm' ? LEADER_COLORS : DM_COLORS;
+
+  useEffect(() => {
+    setActiveConversation(entry.key);
+    return () => clearActiveConversation(entry.key);
+  }, [entry.key]);
+
+  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [thread.messages.length]);
+
+  useEffect(() => {
+    if (thread.messages.length > 0) onEntryActivity && onEntryActivity(entry.key, thread.messages[thread.messages.length - 1]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [thread.messages.length]);
+
+  const jumpTo = (messageId) => {
+    const el = document.getElementById(`msg-${messageId}`);
+    if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); setHighlightId(messageId); setTimeout(() => setHighlightId(null), 1500); }
+  };
+
+  const memberNames = (thread.groupMeta?.members || []).map(m => m.name).concat(entry.type === 'group' && thread.groupMeta?.teacher_name ? [thread.groupMeta.teacher_name] : []);
+
+  const enriched = useMemo(() => {
+    const out = [];
+    let lastDate = null;
+    thread.messages.forEach((m, i) => {
+      const dateLabel = fmtDateSep(m.created_at || Date.now());
+      if (dateLabel !== lastDate) { out.push({ type: 'date', label: dateLabel, key: `d${i}` }); lastDate = dateLabel; }
+      const prev = thread.messages[i - 1]; const next = thread.messages[i + 1];
+      const senderField = entry.type === 'group' ? 'author_id' : 'sender_id';
+      const nameField = entry.type === 'group' ? 'author_name' : 'sender_name';
+      const isMine = String(m[senderField]) === String(myId);
+      out.push({
+        type: 'msg', ...m, isMine, _myId: myId,
+        author_name: m[nameField] || (isMine ? 'You' : entry.name),
+        author_id: m[senderField],
+        reactions: thread.reactions[m.id || m._id],
+        isFirst: entry.type !== 'group' ? false : (!prev || prev.author_name !== m.author_name),
+        isLast: entry.type !== 'group' ? true : (!next || next.author_name !== m.author_name),
+        key: m.id || m._id || `m${i}`,
+      });
+    });
+    return out;
+  }, [thread.messages, thread.reactions, myId, entry]);
+
+  const handleDelete = async (id) => { setDeletingId(id); await thread.deleteMessage(id); setDeletingId(null); };
+  const handleClear = async () => {
+    setClearing(true);
+    try { await thread.clearMine(); toast.success('Your messages were cleared'); setClearConfirm(false); }
+    catch (err) { toast.error(err.response?.data?.message || 'Failed to clear messages'); }
+    finally { setClearing(false); }
+  };
+
+  const isEndedGroup = entry.type === 'group' && thread.isEnded;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative', minWidth: 0 }}>
+      {/* Header */}
+      <div style={{ background: `linear-gradient(135deg, ${accent[0]}, ${accent[1]})`, padding: '12px 14px', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button onClick={onBack} className="lg:hidden" style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><ArrowLeft style={{ width: 14, height: 14 }} /></button>
+          <div style={{ width: 38, height: 38, borderRadius: entry.type === 'group' ? 10 : '50%', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: '#fff', fontSize: 14, flexShrink: 0 }}>
+            {entry.type === 'group' ? (entry.name || 'G').slice(0, 2).toUpperCase() : entry.name[0]?.toUpperCase()}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ color: '#fff', fontWeight: 700, fontSize: 14.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.name}</div>
+            <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 10.5, display: 'flex', alignItems: 'center', gap: 4 }}>
+              {thread.peerTyping ? <span style={{ fontStyle: 'italic' }}>typing…</span>
+                : entry.type === 'group' ? entry.subtitle
+                : entry.type === 'leaderdm' ? 'Private · only you and your teacher'
+                : 'Private · only you two can see this'}
+            </div>
+          </div>
+          <button onClick={() => setSearchOpen(true)} title="Search in conversation" style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Search style={{ width: 14, height: 14 }} /></button>
+          {entry.type === 'group' && (
+            <button onClick={() => setMembersOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.28)', color: '#fff', borderRadius: 20, padding: '5px 11px', cursor: 'pointer', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
+              <Users style={{ width: 13, height: 13 }} />{(thread.groupMeta?.members || []).length}<Eye style={{ width: 11, height: 11, opacity: 0.8 }} />
+            </button>
+          )}
+          {entry.type === 'group' && thread.groupMeta?.is_team_leader && (
+            <button onClick={() => onOpenTeacherDm(entry.id)} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.3)', color: 'white', borderRadius: 20, padding: '5px 10px', cursor: 'pointer', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
+              <MessageCircle style={{ width: 13, height: 13 }} /> Teacher
+            </button>
           )}
         </div>
       </div>
 
-      <style>{`
-        @keyframes memberSlideIn {
-          from { opacity: 0; transform: translateX(-12px); }
-          to   { opacity: 1; transform: translateX(0); }
-        }
-      `}</style>
+      {/* status bar */}
+      {isEndedGroup ? (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '6px 16px', background: 'rgba(220,38,38,0.08)', borderBottom: '1px solid var(--card-border)', flexShrink: 0 }}>
+          <StopCircle style={{ width: 13, height: 13, color: '#dc2626' }} /><span style={{ fontSize: 11, fontWeight: 700, color: '#dc2626' }}>The teacher ended this conversation</span>
+        </div>
+      ) : entry.type === 'group' && thread.groupMeta?.team_leader ? (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '6px 14px', background: 'rgba(245,158,11,0.06)', borderBottom: '1px solid var(--card-border)', flexShrink: 0 }}>
+          <span style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 5, fontWeight: 600, color: '#b45309' }}><Crown style={{ width: 13, height: 13, color: '#d97706' }} /> Team leader: <strong>{thread.groupMeta.team_leader.name}</strong></span>
+          <button onClick={() => setClearConfirm(true)} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 600, color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer' }}><Trash2 style={{ width: 10, height: 10 }} /> Clear mine</button>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '4px 14px', borderBottom: '1px solid var(--card-border)', flexShrink: 0 }}>
+          <button onClick={() => setClearConfirm(true)} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 600, color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer' }}><Trash2 style={{ width: 10, height: 10 }} /> Clear mine</button>
+        </div>
+      )}
+
+      <PinnedRail pinned={thread.pinnedMessages} onJump={jumpTo} onUnpin={thread.togglePin} accent={accent} />
+
+      {/* messages */}
+      <AudioPlaybackProvider>
+        <div ref={scrollRef} className="chat-wallpaper flex-1 overflow-y-auto" style={{ padding: '14px 14px 6px' }}>
+          {thread.loading ? (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 0' }}><div style={{ width: 28, height: 28, border: `3px solid ${accent[0]}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} /></div>
+          ) : enriched.filter(x => x.type === 'msg').length === 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', textAlign: 'center', padding: '40px 0' }}>
+              <div style={{ fontSize: 40, marginBottom: 10 }}>{entry.type === 'group' ? '👋' : '💬'}</div>
+              <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>{entry.type === 'group' ? 'No messages yet' : `Start talking to ${entry.name}`}</p>
+              <p style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{entry.type === 'group' ? 'Be the first to say something!' : 'Your messages are private'}</p>
+            </div>
+          ) : enriched.map(item => item.type === 'date' ? (
+            <div key={item.key} style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '12px 0' }}>
+              <div style={{ flex: 1, height: 1, background: 'var(--card-border)' }} /><span style={{ fontSize: 10, fontWeight: 600, padding: '0 8px', color: 'var(--text-secondary)' }}>{item.label}</span><div style={{ flex: 1, height: 1, background: 'var(--card-border)' }} />
+            </div>
+          ) : (
+            <MessageBubble
+              key={item.key} item={item} accent={accent} onDelete={handleDelete} deletingId={deletingId}
+              onReply={setReplyTo} onReact={thread.toggleReaction} onTogglePin={thread.togglePin}
+              isPinned={thread.pinnedIds.includes(item.id || item._id)} onJumpTo={jumpTo}
+              highlighted={highlightId === (item.id || item._id)} teacherBadge={entry.type === 'group'}
+            />
+          ))}
+          <div ref={messagesEndRef} />
+        </div>
+      </AudioPlaybackProvider>
+
+      <Composer
+        accent={accent}
+        disabled={isEndedGroup}
+        onSendText={(content) => thread.sendText(content, replyTo).then(() => setReplyTo(null))}
+        onSendVoice={thread.sendVoice}
+        onSendFile={thread.sendFile}
+        onTypingChange={thread.setTyping}
+        replyTo={replyTo}
+        onCancelReply={() => setReplyTo(null)}
+        mentionCandidates={entry.type === 'group' ? memberNames.filter(n => n !== myName) : []}
+      />
+
+      {searchOpen && <ThreadSearch messages={thread.messages.map(m => ({ ...m, author_name: m.author_name || m.sender_name }))} onJump={jumpTo} onClose={() => setSearchOpen(false)} accent={accent} />}
+      {membersOpen && thread.groupMeta && <MembersPanel group={thread.groupMeta} onClose={() => setMembersOpen(false)} />}
+
+      <ConfirmModal
+        open={clearConfirm} onClose={() => setClearConfirm(false)} onConfirm={handleClear} loading={clearing} variant="danger"
+        title="Clear My Messages"
+        message={entry.type === 'group' ? "This deletes every message you've sent in this group. Other members' messages stay." : `This deletes every message you've sent to ${entry.name}. Their messages stay.`}
+        confirmText="Clear" cancelText="Cancel"
+      />
     </div>
   );
 }
 
-/* ── Exclusive audio playback context ───────────────────────────────────── */
-const AudioPlaybackContext = createContext(null);
-
-function AudioPlaybackProvider({ children }) {
-  const registry = useRef(new Set());
-  const register   = (el) => { registry.current.add(el); };
-  const unregister = (el) => { registry.current.delete(el); };
-  const stopOthers = (exceptEl) => {
-    registry.current.forEach(el => {
-      if (el !== exceptEl && !el.paused) {
-        el.pause();
-        el.dispatchEvent(new Event('externalpause'));
-      }
-    });
-  };
+/* ════════════════════════════════════════════════════════════════════
+   Inbox row
+═════════════════════════════════════════════════════════════════════ */
+function InboxRow({ entry, active, onClick }) {
+  const accent = entry.type === 'group' ? groupColor(entry.id) : entry.type === 'leaderdm' ? LEADER_COLORS : DM_COLORS;
+  const [a, b] = accent;
   return (
-    <AudioPlaybackContext.Provider value={{ register, unregister, stopOthers }}>
-      {children}
-    </AudioPlaybackContext.Provider>
+    <div onClick={onClick} className="discussion-list-item flex items-center gap-3 px-3.5 py-3 cursor-pointer transition-all"
+      style={{ borderBottom: '1px solid var(--card-border)', background: active ? `linear-gradient(135deg, ${a}12, ${b}08)` : 'transparent', borderLeft: active ? `3px solid ${a}` : '3px solid transparent' }}>
+      <div className="relative flex-shrink-0">
+        <div style={{ width: 44, height: 44, borderRadius: entry.type === 'group' ? 14 : '50%', background: `linear-gradient(135deg, ${a}, ${b})`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 15 }}>
+          {entry.type === 'group' ? (entry.name || 'G').slice(0, 2).toUpperCase() : entry.name[0]?.toUpperCase()}
+        </div>
+        {entry.type === 'leaderdm' && (
+          <div style={{ position: 'absolute', bottom: -2, right: -2, width: 16, height: 16, borderRadius: '50%', background: '#7c3aed', border: '2px solid var(--card-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <MessageCircle style={{ width: 8, height: 8, color: '#fff' }} />
+          </div>
+        )}
+        {entry.type === 'group' && (
+          <div style={{ position: 'absolute', bottom: -2, right: -2, width: 16, height: 16, borderRadius: '50%', background: '#0891b2', border: '2px solid var(--card-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Users style={{ width: 8, height: 8, color: '#fff' }} />
+          </div>
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between gap-2 mb-0.5">
+          <span className="font-bold text-sm truncate" style={{ color: 'var(--text-primary)' }}>{entry.name}</span>
+          <span className="text-[10px] flex-shrink-0" style={{ color: 'var(--text-secondary)', opacity: 0.6 }}>{timeAgo(entry.lastAt)}</span>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs truncate" style={{ color: 'var(--text-secondary)' }}>
+            {entry.lastMessage
+              ? <>{entry.lastAuthor && <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{entry.lastAuthor}: </span>}{entry.lastMessage}</>
+              : <span className="italic">{entry.type === 'leaderdm' ? 'Private line to your teacher' : 'No messages yet — say hello!'}</span>}
+          </p>
+          {entry.unreadCount > 0 && (
+            <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full text-[10px] font-bold flex items-center justify-center px-1.5 text-white" style={{ background: `linear-gradient(135deg, ${a}, ${b})` }}>{entry.unreadCount > 9 ? '9+' : entry.unreadCount}</span>
+          )}
+        </div>
+        {entry.type === 'group' && (
+          <div className="flex items-center gap-1.5 flex-wrap mt-1">
+            <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ background: `${a}18`, color: a }}>{entry.className}</span>
+            {entry.isLeader && <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold flex items-center gap-1" style={{ background: 'rgba(245,158,11,0.12)', color: '#b45309' }}><Crown className="w-2.5 h-2.5" /> Leader</span>}
+            {entry.mentionCount > 0 && <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold flex items-center gap-1" style={{ background: 'rgba(220,38,38,0.1)', color: '#dc2626' }}><AtSign className="w-2.5 h-2.5" /> {entry.mentionCount}</span>}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
-/* ── Skeleton placeholder row (shown while the group list is loading) ─── */
-function GroupCardSkeleton({ delay = 0 }) {
+function InboxRowSkeleton({ delay = 0 }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', animation: `fastModalBackdropIn 0.3s ease both`, animationDelay: `${delay}ms` }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', animation: 'fastModalBackdropIn 0.3s ease both', animationDelay: `${delay}ms` }}>
       <div className="skeleton" style={{ width: 44, height: 44, borderRadius: 14, flexShrink: 0 }} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div className="skeleton" style={{ width: '55%', height: 12, marginBottom: 8 }} />
@@ -260,1765 +1113,201 @@ function GroupCardSkeleton({ delay = 0 }) {
   );
 }
 
-/* ── helpers ─────────────────────────────────────────────────────────── */
-function timeAgo(ts) {
-  const diff = Date.now() - new Date(ts).getTime();
-  if (diff < 60000)    return 'just now';
-  if (diff < 3600000)  return `${Math.floor(diff / 60000)}m ago`;
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-  return new Date(ts).toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
-}
-
-const GROUP_COLORS = [
-  ['#6366f1','#4f46e5'], ['#0891b2','#0e7490'], ['#d97706','#b45309'],
-  ['#dc2626','#b91c1c'], ['#7c3aed','#6d28d9'], ['#0284c7','#0369a1'],
-];
-function groupColor(id) {
-  const idx = id ? parseInt(String(id).slice(-2), 16) % GROUP_COLORS.length : 0;
-  return GROUP_COLORS[idx];
-}
-
-function fmtDateSep(ts) {
-  const d = new Date(ts); const today = new Date(); const yesterday = new Date(today);
-  yesterday.setDate(today.getDate() - 1);
-  if (d.toDateString() === today.toDateString()) return 'Today';
-  if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
-  return d.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' });
-}
-
-/* WhatsApp-style: every participant in a group chat gets a consistent,
-   distinct name color (hashed from their id/name), so you can tell who's
-   who at a glance without re-reading names. */
-const SENDER_COLORS = ['#0ea5e9', '#d97706', '#db2777', '#0891b2', '#7c3aed', '#dc2626', '#0284c7', '#475569'];
-function senderColor(seed) {
-  const s = String(seed || '');
-  let hash = 0;
-  for (let i = 0; i < s.length; i++) hash = (hash * 31 + s.charCodeAt(i)) >>> 0;
-  return SENDER_COLORS[hash % SENDER_COLORS.length];
-}
-
-/* ── Group card ──────────────────────────────────────────────────────── */
-function GroupCard({ g, onClick, active }) {
-  const [a, b] = groupColor(g.id);
-  const initials = (g.name || 'G').slice(0, 2).toUpperCase();
-  const lastMsg = g.last_message;
-
-  return (
-    <div onClick={onClick} className="discussion-list-item flex items-center gap-3 px-4 py-3.5 cursor-pointer transition-all"
-      style={{
-        borderBottom: '1px solid var(--card-border)',
-        background: active ? `linear-gradient(135deg, ${a}12, ${b}08)` : 'transparent',
-        borderLeft: active ? `3px solid ${a}` : '3px solid transparent',
-      }}>
-      <div className="relative flex-shrink-0">
-        <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-white font-bold text-sm shadow-sm"
-          style={{ background: `linear-gradient(135deg, ${a}, ${b})` }}>
-          {initials}
-        </div>
-        <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full flex items-center justify-center border-2"
-          style={{ background: '#6366f1', borderColor: 'var(--card-bg)' }} title={`Teacher: ${g.teacher_name || ''}`}>
-          <span style={{ fontSize: 7, color: 'white', fontWeight: 800 }}>T</span>
-        </div>
-      </div>
-
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between gap-2 mb-0.5">
-          <span className="font-bold text-sm truncate" style={{ color: 'var(--text-primary)' }}>{g.name}</span>
-          <span className="text-[10px] flex-shrink-0" style={{ color: 'var(--text-secondary)', opacity: 0.6 }}>
-            {timeAgo(g.updated_at || g.created_at)}
-          </span>
-        </div>
-        <p className="text-xs truncate mb-1.5" style={{ color: 'var(--text-secondary)' }}>
-          {lastMsg
-            ? <><span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{lastMsg.author_name}:</span> {
-                lastMsg.message_type === 'voice' ? '🎤 Voice note'
-                : lastMsg.message_type === 'image' ? '📷 Photo'
-                : lastMsg.message_type === 'file' ? '📎 File'
-                : lastMsg.content
-              }</>
-            : <span className="italic">No messages yet — say hello!</span>
-          }
-        </p>
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ background: `${a}18`, color: a }}>{g.class_name}</span>
-          <span className="text-[10px] flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>
-            <Users className="w-2.5 h-2.5" /> {g.member_count}
-          </span>
-          {g.is_team_leader && (
-            <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold flex items-center gap-1"
-              style={{ background: 'rgba(245,158,11,0.12)', color: '#b45309' }}>
-              <Crown className="w-2.5 h-2.5" /> Leader
-            </span>
-          )}
-          {g.teacher_name && (
-            <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold flex items-center gap-1"
-              style={{ background: 'rgba(99,102,241,0.1)', color: '#6366f1' }}>
-              <Check className="w-2.5 h-2.5" /> {g.teacher_name}
-            </span>
-          )}
-        </div>
-      </div>
-
-      {g.message_count > 0 && (
-        <div className="flex-shrink-0 min-w-[20px] h-5 rounded-full text-[10px] font-bold flex items-center justify-center px-1.5"
-          style={{ background: `linear-gradient(135deg, ${a}, ${b})`, color: 'white' }}>
-          {g.message_count}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ── Team leader <-> teacher private DM modal ──────────────────────────── */
-function LeaderTeacherDmModal({ groupId, myId, teacherName, onClose }) {
-  const [messages, setMessages] = useState([]);
-  const [peer, setPeer] = useState(null);
-  const [text, setText] = useState('');
-  const [posting, setPosting] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [deletingId, setDeletingId] = useState(null);
-  const [clearConfirm, setClearConfirm] = useState(false);
-  const [clearing, setClearing] = useState(false);
-  const messagesEndRef = useRef(null);
-  const pollRef = useRef(null);
-  const lastMsgTimeRef = useRef(null);
-
-  useEffect(() => {
-    const key = `leaderdm:${groupId}`;
-    setActiveConversation(key);
-    return () => clearActiveConversation(key);
-  }, [groupId]);
-
-  const fetchThread = useCallback(async (silent) => {
-    try {
-      const params = silent && lastMsgTimeRef.current ? { since: lastMsgTimeRef.current } : {};
-      const res = await api.get(`/group-discussions/${groupId}/leader-dm`, { params });
-      if (res.data.peer) setPeer(res.data.peer);
-      const fresh = res.data.messages || [];
-      if (fresh.length > 0) {
-        setMessages(prev => {
-          if (!silent) return fresh;
-          const existingIds = new Set(prev.map(m => String(m.id)));
-          const toAdd = fresh.filter(m => !existingIds.has(String(m.id)));
-          if (toAdd.length) {
-            toAdd.forEach(m => markMessageSeen(m.id));
-            const fromPeer = toAdd.filter(m => String(m.sender_id) !== String(myId));
-            if (fromPeer.length) {
-              const senderName = fromPeer[fromPeer.length - 1].sender_name || 'Someone';
-              showChatToast({ name: senderName, preview: fromPeer[fromPeer.length - 1].content, accent: '#f59e0b', accent2: '#d97706' });
-            }
-          }
-          return toAdd.length ? [...prev, ...toAdd] : prev;
-        });
-        lastMsgTimeRef.current = fresh[fresh.length - 1].created_at;
-      }
-    } catch (err) { if (!silent) toast.error(err.response?.data?.message || 'Failed to load DM'); }
-    finally { setLoading(false); }
-  }, [groupId, myId]);
-
-  useEffect(() => {
-    fetchThread(false);
-    pollRef.current = setInterval(() => fetchThread(true), 3000);
-    return () => clearInterval(pollRef.current);
-  }, [fetchThread]);
-
-  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages.length]);
-
-  const handleSend = async () => {
-    if (!text.trim() || posting) return;
-    const content = text.trim(); setText('');
-    setPosting(true);
-    try {
-      const res = await api.post(`/group-discussions/${groupId}/leader-dm`, { content });
-      setMessages(prev => [...prev, res.data.msg]);
-      lastMsgTimeRef.current = res.data.msg.created_at;
-    } catch (err) { toast.error(err.response?.data?.message || 'Failed to send'); setText(content); }
-    finally { setPosting(false); }
-  };
-
-  const handleDelete = async (messageId) => {
-    if (!window.confirm('Delete this message?')) return;
-    setDeletingId(messageId);
-    try {
-      await api.delete(`/group-discussions/${groupId}/leader-dm/${messageId}`);
-      setMessages(prev => prev.filter(m => String(m.id) !== String(messageId)));
-    } catch (err) { toast.error(err.response?.data?.message || 'Failed to delete'); }
-    finally { setDeletingId(null); }
-  };
-
-  const handleClear = async () => {
-    setClearing(true);
-    try {
-      await api.delete(`/group-discussions/${groupId}/leader-dm`);
-      setMessages(prev => prev.filter(m => String(m.sender_id) !== String(myId)));
-      setClearConfirm(false);
-      toast.success('Your messages were cleared');
-    } catch (err) { toast.error(err.response?.data?.message || 'Failed to clear'); }
-    finally { setClearing(false); }
-  };
-
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
-  const displayName = peer?.name || teacherName || 'Teacher';
-
-  return (
-    <div
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
-      className="fixed inset-0 z-[400] flex items-start justify-center p-4 overflow-y-auto"
-      style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)', paddingTop: '5vh', boxSizing: 'border-box', animation: 'fastModalBackdropIn 0.12s ease both' }}>
-      <div className="w-full flex flex-col rounded-2xl overflow-hidden shadow-2xl" style={{ maxWidth: 440, maxHeight: 'calc(100vh - 32px)', background: 'var(--card-bg)', animation: 'fastModalSheetIn 0.18s cubic-bezier(0.34,1.56,0.64,1) both' }}>
-        <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0" style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}>
-          <div className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0" style={{ background: 'rgba(255,255,255,0.2)' }}>
-            {displayName[0]?.toUpperCase() || '?'}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-white font-bold text-sm truncate">{displayName}</div>
-            <div className="text-white/60 text-[10px]">Private DM · only you and your teacher can see this</div>
-          </div>
-          <button onClick={onClose} className="p-1.5 rounded-full hover:bg-white/10 text-white/80 transition-colors flex-shrink-0">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        <div className="flex items-center justify-end px-3 py-1.5 flex-shrink-0" style={{ borderBottom: '1px solid var(--card-border)' }}>
-          <button onClick={() => setClearConfirm(true)}
-            className="flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-full transition-all hover:opacity-80"
-            style={{ color: '#dc2626' }}>
-            <Trash2 className="w-2.5 h-2.5" /> Clear my messages
-          </button>
-        </div>
-
-        <div className="chat-wallpaper flex-1 overflow-y-auto" style={{ padding: '14px 12px' }}>
-          {loading ? (
-            <div className="flex justify-center py-10"><div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" /></div>
-          ) : messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center">
-              <MessageCircle className="w-8 h-8 mb-2" style={{ color: 'var(--text-secondary)', opacity: 0.4 }} />
-              <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Reach out to {displayName} privately — no one else in the group sees this.</p>
-            </div>
-          ) : messages.map(m => {
-            const isMine = String(m.sender_id) === String(myId);
-            return (
-              <div key={m.id} className={`group flex mb-1.5 items-center gap-1.5 ${isMine ? 'justify-end' : 'justify-start'}`}>
-                {isMine && (
-                  <button onClick={() => handleDelete(m.id)} disabled={deletingId === m.id}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
-                    style={{ color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer' }}>
-                    <Trash2 className="w-3 h-3" />
-                  </button>
-                )}
-                <div style={{ maxWidth: '78%' }}>
-                  <div style={{
-                    background: isMine ? 'linear-gradient(135deg, #6366f1, #4f46e5)' : 'var(--surface-100)',
-                    color: isMine ? '#fff' : 'var(--text-primary)', padding: '8px 12px',
-                    borderRadius: isMine ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-                    fontSize: 13.5, lineHeight: 1.45, wordBreak: 'break-word',
-                  }}>
-                    {m.content}
-                  </div>
-                  <div className={`text-[10px] mt-0.5 ${isMine ? 'text-right mr-1' : 'ml-1'}`} style={{ color: 'var(--text-secondary)', opacity: 0.6 }}>
-                    {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-          <div ref={messagesEndRef} />
-        </div>
-
-        <div className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0" style={{ borderTop: '1px solid var(--card-border)' }}>
-          <input value={text} onChange={e => setText(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-            placeholder={`Message ${displayName}…`}
-            className="flex-1 px-3.5 py-2 rounded-full text-sm outline-none"
-            style={{ background: 'var(--surface-100)', border: '1.5px solid var(--card-border)', color: 'var(--text-primary)' }} />
-          <button onClick={handleSend} disabled={!text.trim() || posting}
-            className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-all active:scale-95 disabled:opacity-40"
-            style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}>
-            <Send className="w-4 h-4 text-white" />
-          </button>
-        </div>
-      </div>
-
-      {clearConfirm && (
-        <div className="fixed inset-0 z-[500] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)' }} onClick={() => setClearConfirm(false)}>
-          <div onClick={e => e.stopPropagation()} className="w-full max-w-xs rounded-2xl p-5" style={{ background: 'var(--card-bg)' }}>
-            <h4 className="font-bold text-sm mb-1.5" style={{ color: 'var(--text-primary)' }}>Clear My Messages</h4>
-            <p className="text-xs mb-4" style={{ color: 'var(--text-secondary)' }}>This deletes every message you've sent in this private DM.</p>
-            <div className="flex gap-2">
-              <button onClick={() => setClearConfirm(false)} className="flex-1 text-xs font-bold py-2 rounded-lg" style={{ background: 'var(--surface-100)', color: 'var(--text-primary)' }}>Cancel</button>
-              <button onClick={handleClear} disabled={clearing} className="flex-1 text-xs font-bold py-2 rounded-lg text-white disabled:opacity-50" style={{ background: '#dc2626' }}>
-                {clearing ? 'Clearing…' : 'Clear'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ── Voice note playback bubble ─────────────────────────────────────── */
-function VoiceBubble({ url, duration, isMine }) {
-  const [playing, setPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const audioRef = useRef(null);
-  const totalDuration = duration || 0;
-  const ctx = useContext(AudioPlaybackContext);
-
-  useEffect(() => {
-    const el = audioRef.current;
-    if (!el) return;
-    ctx?.register(el);
-    const handleExternalPause = () => { setPlaying(false); };
-    el.addEventListener('externalpause', handleExternalPause);
-    return () => {
-      ctx?.unregister(el);
-      el.removeEventListener('externalpause', handleExternalPause);
-    };
-  }, []);
-
-  const toggle = () => {
-    const el = audioRef.current;
-    if (!el) return;
-    if (playing) { el.pause(); setPlaying(false); }
-    else { ctx?.stopOthers(el); el.play(); setPlaying(true); }
-  };
-
-  const fmtDur = (s) => {
-    const t = Math.round(s || 0);
-    return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
-  };
-  const progress = totalDuration > 0 ? Math.min((currentTime / totalDuration) * 100, 100) : 0;
-
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 180 }}>
-      <audio ref={audioRef} src={url}
-        onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)}
-        onEnded={() => { setPlaying(false); setCurrentTime(0); }}
-        style={{ display: 'none' }} />
-      <button onClick={toggle} style={{
-        width: 32, height: 32, borderRadius: '50%', border: 'none', cursor: 'pointer', flexShrink: 0,
-        display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff',
-        background: isMine ? 'rgba(255,255,255,0.3)' : 'rgba(99,102,241,0.7)',
-      }}>
-        {playing ? <Pause style={{ width: 14, height: 14 }} /> : <Play style={{ width: 14, height: 14 }} />}
-      </button>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 3 }}>
-        <div style={{ height: 3, borderRadius: 2, background: isMine ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.12)', position: 'relative', overflow: 'hidden' }}>
-          <div style={{ height: '100%', width: `${progress}%`, background: isMine ? 'rgba(255,255,255,0.7)' : '#6366f1', borderRadius: 2, transition: 'width 0.1s linear' }} />
-        </div>
-        <span style={{ fontSize: 10, opacity: 0.7 }}>{playing ? fmtDur(currentTime) : fmtDur(totalDuration)}</span>
-      </div>
-      <Mic style={{ width: 13, height: 13, opacity: 0.5, flexShrink: 0 }} />
-    </div>
-  );
-}
-
-/* ── Group chat content (inside modal) ───────────────────────────────── */
-function GroupChatContent({ group, myId, myName, onClose, onMessageSent, autoOpenDm, onAutoOpenHandled }) {
-  const [text, setText]         = useState('');
-  const [posting, setPosting]   = useState(false);
-  const [messages, setMessages] = useState(group.messages || []);
-  const [isEnded, setIsEnded]   = useState(group.is_ended || false);
-  const [dmOpen, setDmOpen]     = useState(false);
-
-  // Deep-link support: a toast for a leader-DM message can ask this chat to
-  // auto-open the teacher DM panel — on first mount, or again later if
-  // another such toast is clicked while this same group is already open.
-  useEffect(() => {
-    if (autoOpenDm) {
-      setDmOpen(true);
-      onAutoOpenHandled && onAutoOpenHandled();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoOpenDm]);
-
-  const [membersOpen, setMembersOpen] = useState(false);
-  const [deletingId, setDeletingId] = useState(null);
-  const [clearConfirm, setClearConfirm] = useState(false);
-  const [clearing, setClearing] = useState(false);
-  const [liveStatus, setLiveStatus] = useState('idle');
-  const [recording, setRecording]     = useState(false);
-  const [recordingTime, setRecordingTime] = useState(0);
-  const [audioBlob, setAudioBlob]     = useState(null);
-  const [audioDuration, setAudioDuration] = useState(0);
-  const [audioPlaying, setAudioPlaying]   = useState(false);
-  const [selectedFile, setSelectedFile]   = useState(null); // File staged for sending
-  const [filePreviewUrl, setFilePreviewUrl] = useState(null); // object URL if image
-  const [uploadingFile, setUploadingFile] = useState(false);
-  const [attachMenuOpen, setAttachMenuOpen] = useState(false);
-  const [emojiOpen, setEmojiOpen] = useState(false);
-  const mediaRecorderRef = useRef(null);
-  const audioChunksRef   = useRef([]);
-  const recordTimerRef   = useRef(null);
-  const audioPreviewRef  = useRef(null);
-  const inputRef       = useRef(null);
-  const fileInputRef   = useRef(null);
-  const imageInputRef  = useRef(null);
-  const messagesEndRef = useRef(null);
-  const pollRef        = useRef(null);
-  const lastMsgTimeRef = useRef(null);
-  const [a, b] = groupColor(group.id);
-
-  useEffect(() => { setMessages(group.messages || []); setIsEnded(group.is_ended || false); }, [group.id]);
-
-  useEffect(() => {
-    const msgs = group.messages || [];
-    lastMsgTimeRef.current = msgs.length > 0 ? msgs[msgs.length - 1].created_at : null;
-  }, [group.id]);
-
-  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages.length]);
-
-  useEffect(() => {
-    if (!audioBlob && !recording) return;
-    const onKey = (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        if (recording) { stopAndSend(); }
-        else if (audioBlob) { sendVoiceNote(); }
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [audioBlob, recording, posting]);
-
-  useEffect(() => {
-    const key = `group:${group.id}`;
-    setActiveConversation(key);
-    return () => clearActiveConversation(key);
-  }, [group.id]);
-
-  useEffect(() => {
-    if (isEnded) return;
-    const poll = async () => {
-      try {
-        setLiveStatus('polling');
-        const params = lastMsgTimeRef.current ? { since: lastMsgTimeRef.current } : {};
-        const res = await api.get(`/group-discussions/${group.id}/messages`, { params });
-        const newMsgs = res.data.messages || [];
-        if (newMsgs.length > 0) {
-          setMessages(prev => {
-            const existingIds = new Set(prev.map(m => String(m.id || m._id)));
-            const fresh = newMsgs.filter(m => !existingIds.has(String(m.id || m._id)));
-            if (fresh.length === 0) return prev;
-            fresh.forEach(m => markMessageSeen(m.id || m._id));
-            const fromOthers = fresh.filter(m => String(m.author_id) !== String(myId));
-            if (fromOthers.length) {
-              const last = fromOthers[fromOthers.length - 1];
-              showChatToast({ name: `${last.author_name} · ${group.name}`, preview: last.content, kind: last.message_type !== 'text' ? last.message_type : null });
-            }
-            lastMsgTimeRef.current = fresh[fresh.length - 1].created_at;
-            return [...prev, ...fresh];
-          });
-        }
-        if (res.data.is_ended) {
-          setIsEnded(true);
-          clearInterval(pollRef.current);
-          toast('The teacher ended this conversation.', { icon: '🔒' });
-        }
-        setLiveStatus('idle');
-      } catch { setLiveStatus('error'); }
-    };
-    poll();
-    pollRef.current = setInterval(poll, 3000);
-    return () => clearInterval(pollRef.current);
-  }, [group.id, isEnded]);
-
-  const enriched = [];
-  let lastDate = null;
-  messages.forEach((m, i) => {
-    const dateLabel = fmtDateSep(m.created_at || Date.now());
-    if (dateLabel !== lastDate) { enriched.push({ type: 'date', label: dateLabel, key: `d${i}` }); lastDate = dateLabel; }
-    const prev = messages[i - 1]; const next = messages[i + 1];
-    const isMine = String(m.author_id) === String(myId);
-    enriched.push({
-      type: 'msg', ...m, isMine,
-      isFirst: !prev || prev.author_name !== m.author_name,
-      isLast:  !next || next.author_name !== m.author_name,
-      key: m.id || `m${i}`,
-    });
-  });
-
-  const handleTyping = (e) => { setText(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'; };
-
-  const handleSend = async () => {
-    if (!text.trim() || posting || isEnded) return;
-    const content = text.trim(); setText('');
-    if (inputRef.current) inputRef.current.style.height = 'auto';
-    setPosting(true);
-    try {
-      const res = await api.post(`/group-discussions/${group.id}/messages`, { content });
-      const newMsg = res.data.msg;
-      setMessages(prev => [...prev, newMsg]);
-      lastMsgTimeRef.current = newMsg.created_at;
-      onMessageSent && onMessageSent(newMsg);
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to send message');
-      setText(content);
-    } finally { setPosting(false); }
-  };
-
-  const handleKey = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      if (recording) { stopAndSend(); }
-      else if (audioBlob) { sendVoiceNote(); }
-      else if (selectedFile) { sendFile(); }
-      else { handleSend(); }
-    }
-  };
-
-  const handleDeleteMessage = async (messageId) => {
-    if (!window.confirm('Delete this message?')) return;
-    setDeletingId(messageId);
-    try {
-      await api.delete(`/group-discussions/${group.id}/messages/${messageId}`);
-      setMessages(prev => prev.filter(m => String(m.id || m._id) !== String(messageId)));
-    } catch (err) { toast.error(err.response?.data?.message || 'Failed to delete message'); }
-    finally { setDeletingId(null); }
-  };
-
-  const handleClearMyMessages = async () => {
-    setClearing(true);
-    try {
-      await api.delete(`/group-discussions/${group.id}/messages`);
-      setMessages(prev => prev.filter(m => String(m.author_id) !== String(myId)));
-      toast.success('Your messages were cleared');
-      setClearConfirm(false);
-    } catch (err) { toast.error(err.response?.data?.message || 'Failed to clear messages'); }
-    finally { setClearing(false); }
-  };
-
-  const startRecording = async () => {
-    if (isEnded) return;
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg';
-      const recorder = new MediaRecorder(stream, { mimeType });
-      audioChunksRef.current = [];
-      recorder.ondataavailable = e => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
-      recorder.onstop = () => {
-        const blob = new Blob(audioChunksRef.current, { type: mimeType });
-        setAudioBlob(blob); setAudioDuration(recordingTime);
-        stream.getTracks().forEach(t => t.stop());
-      };
-      recorder.start();
-      mediaRecorderRef.current = recorder;
-      setRecording(true); setRecordingTime(0);
-      recordTimerRef.current = setInterval(() => setRecordingTime(t => t + 1), 1000);
-    } catch { toast.error('Microphone access denied. Please allow mic permission.'); }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && recording) {
-      mediaRecorderRef.current.stop();
-      clearInterval(recordTimerRef.current);
-      setRecording(false);
-    }
-  };
-
-  const stopAndSend = () => {
-    if (!mediaRecorderRef.current || !recording) return;
-    mediaRecorderRef.current.onstop = () => {
-      const mimeType = mediaRecorderRef.current.mimeType || 'audio/webm';
-      const blob = new Blob(audioChunksRef.current, { type: mimeType });
-      const duration = recordingTime;
-      clearInterval(recordTimerRef.current);
-      setRecording(false); setAudioBlob(null);
-      (async () => {
-        setPosting(true);
-        try {
-          const formData = new FormData();
-          const ext = blob.type.includes('ogg') ? 'ogg' : 'webm';
-          formData.append('audio', blob, `voice-note-${Date.now()}.${ext}`);
-          formData.append('duration', String(duration));
-          const res = await api.post(`/group-discussions/${group.id}/voice-notes`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
-          const newMsg = res.data.msg;
-          setMessages(prev => [...prev, newMsg]);
-          lastMsgTimeRef.current = newMsg.created_at;
-          onMessageSent && onMessageSent(newMsg);
-        } catch (err) { toast.error(err.response?.data?.message || 'Failed to send voice note'); }
-        finally { setPosting(false); }
-      })();
-    };
-    mediaRecorderRef.current.stop();
-  };
-
-  const cancelVoiceNote = () => {
-    if (recording) stopRecording();
-    setAudioBlob(null); setRecordingTime(0); setAudioPlaying(false);
-  };
-
-  const toggleAudioPreview = () => {
-    if (!audioPreviewRef.current) return;
-    if (audioPlaying) { audioPreviewRef.current.pause(); setAudioPlaying(false); }
-    else { audioPreviewRef.current.play(); setAudioPlaying(true); audioPreviewRef.current.onended = () => setAudioPlaying(false); }
-  };
-
-  const sendVoiceNote = async () => {
-    if (!audioBlob || posting || isEnded) return;
-    setPosting(true);
-    try {
-      const formData = new FormData();
-      const ext = audioBlob.type.includes('ogg') ? 'ogg' : 'webm';
-      formData.append('audio', audioBlob, `voice-note-${Date.now()}.${ext}`);
-      formData.append('duration', String(audioDuration));
-      const res = await api.post(`/group-discussions/${group.id}/voice-notes`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
-      const newMsg = res.data.msg;
-      setMessages(prev => [...prev, newMsg]);
-      lastMsgTimeRef.current = newMsg.created_at;
-      onMessageSent && onMessageSent(newMsg);
-      setAudioBlob(null); setRecordingTime(0); setAudioPlaying(false);
-    } catch (err) { toast.error(err.response?.data?.message || 'Failed to send voice note'); }
-    finally { setPosting(false); }
-  };
-
-  const fmtDuration = (secs) => {
-    const s = Math.round(secs || 0);
-    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-  };
-
-  const handleFilePick = (e) => {
-    const file = e.target.files?.[0];
-    e.target.value = ''; // allow picking the same file again later
-    if (!file || isEnded) return;
-    if (file.size > MAX_CHAT_FILE_MB * 1024 * 1024) {
-      toast.error(`File is too large — max ${MAX_CHAT_FILE_MB}MB.`);
-      return;
-    }
-    setSelectedFile(file);
-    setFilePreviewUrl(file.type.startsWith('image/') ? URL.createObjectURL(file) : null);
-  };
-
-  const cancelFile = () => {
-    if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl);
-    setSelectedFile(null);
-    setFilePreviewUrl(null);
-  };
-
-  const sendFile = async () => {
-    if (!selectedFile || uploadingFile || isEnded) return;
-    setUploadingFile(true);
-    try {
-      const formData = new FormData();
-      formData.append('file', selectedFile);
-      const res = await api.post(`/group-discussions/${group.id}/media`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
-      const newMsg = res.data.msg;
-      setMessages(prev => [...prev, newMsg]);
-      lastMsgTimeRef.current = newMsg.created_at;
-      onMessageSent && onMessageSent(newMsg);
-      cancelFile();
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to send file');
-    } finally { setUploadingFile(false); }
-  };
-
-  return (
-    <AudioPlaybackProvider>
-      <div className="flex flex-col" style={{ flex: 1, minHeight: 0 }}>
-        {/* Hidden file pickers for shared photos/files */}
-        <input ref={fileInputRef} type="file" onChange={handleFilePick} style={{ display: 'none' }} />
-        <input ref={imageInputRef} type="file" accept="image/*" onChange={handleFilePick} style={{ display: 'none' }} />
-        {/* Header */}
-        <div style={{ background: `linear-gradient(135deg, ${a}, ${b})`, padding: '14px 16px', flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: '#fff', fontSize: 14, flexShrink: 0 }}>
-              {(group.name || 'G').slice(0, 2).toUpperCase()}
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ color: '#fff', fontWeight: 700, fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{group.name}</div>
-              <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 11, marginTop: 1 }}>{group.class_name}</div>
-            </div>
-            {/* Members pill button */}
-            <button
-              onClick={() => setMembersOpen(true)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 5,
-                background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.28)',
-                color: '#fff', borderRadius: 20, padding: '5px 11px',
-                cursor: 'pointer', fontSize: 11, fontWeight: 700, flexShrink: 0,
-              }}
-            >
-              <Users style={{ width: 13, height: 13 }} />
-              {(group.members || []).length}
-              <Eye style={{ width: 11, height: 11, opacity: 0.8 }} />
-            </button>
-            {liveStatus === 'error'
-              ? <WifiOff style={{ width: 14, height: 14, color: 'rgba(255,255,255,0.5)', flexShrink: 0 }} />
-              : !isEnded && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'rgba(255,255,255,0.9)', animation: 'pulse 1.5s infinite' }} />
-                  <span style={{ color: 'rgba(255,255,255,0.75)', fontSize: 10 }}>Live</span>
-                </div>
-              )
-            }
-            {group.is_team_leader && (
-              <button onClick={() => setDmOpen(true)}
-                style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.3)', color: 'white', borderRadius: 20, padding: '5px 10px', cursor: 'pointer', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
-                <MessageCircle style={{ width: 13, height: 13 }} /> Teacher
-              </button>
-            )}
-            <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: '50%', width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
-              <X style={{ width: 14, height: 14 }} />
-            </button>
-          </div>
-        </div>
-
-        {/* Status bar */}
-        {isEnded ? (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '6px 16px', background: 'rgba(220,38,38,0.08)', borderBottom: '1px solid var(--card-border)', flexShrink: 0 }}>
-            <StopCircle style={{ width: 13, height: 13, color: '#dc2626' }} />
-            <span style={{ fontSize: 11, fontWeight: 700, color: '#dc2626' }}>The teacher ended this conversation</span>
-          </div>
-        ) : group.team_leader ? (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '6px 14px', background: 'rgba(245,158,11,0.06)', borderBottom: '1px solid var(--card-border)', flexShrink: 0 }}>
-            <span style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 5, fontWeight: 600, color: '#b45309' }}>
-              <Crown style={{ width: 13, height: 13, color: '#d97706' }} /> Team leader: <strong>{group.team_leader.name}</strong>
-            </span>
-            {!isEnded && (
-              <button onClick={() => setClearConfirm(true)} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 600, color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px', borderRadius: 20 }}>
-                <Trash2 style={{ width: 10, height: 10 }} /> Clear mine
-              </button>
-            )}
-          </div>
-        ) : !isEnded ? (
-          <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '4px 14px', borderBottom: '1px solid var(--card-border)', flexShrink: 0 }}>
-            <button onClick={() => setClearConfirm(true)} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 600, color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer' }}>
-              <Trash2 style={{ width: 10, height: 10 }} /> Clear mine
-            </button>
-          </div>
-        ) : null}
-
-        {/* Messages */}
-        <div className="chat-wallpaper flex-1 overflow-y-auto" style={{ padding: '16px 14px 8px' }}>
-          {messages.length === 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', textAlign: 'center', padding: '40px 0' }}>
-              <div style={{ fontSize: 40, marginBottom: 10 }}>👋</div>
-              <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>No messages yet</p>
-              <p style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Be the first to say something!</p>
-            </div>
-          ) : enriched.map(item => {
-            if (item.type === 'date') return (
-              <div key={item.key} style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '12px 0' }}>
-                <div style={{ flex: 1, height: 1, background: 'var(--card-border)' }} />
-                <span style={{ fontSize: 10, fontWeight: 600, padding: '0 8px', color: 'var(--text-secondary)' }}>{item.label}</span>
-                <div style={{ flex: 1, height: 1, background: 'var(--card-border)' }} />
-              </div>
-            );
-            const isTeacherMsg = item.author_role === 'teacher';
-            const bubbleBg = item.isMine
-              ? `linear-gradient(135deg, ${a}, ${b})`
-              : isTeacherMsg ? 'linear-gradient(135deg, #7c3aed, #6d28d9)'
-              : 'var(--surface-100)';
-            const bubbleColor = item.isMine || isTeacherMsg ? '#fff' : 'var(--text-primary)';
-            return (
-              <div key={item.key} className="group" style={{ display: 'flex', marginBottom: 4, alignItems: 'center', gap: 6, justifyContent: item.isMine ? 'flex-end' : 'flex-start' }}>
-                {item.isMine && (
-                  <button onClick={() => handleDeleteMessage(item.id || item._id)} disabled={deletingId === (item.id || item._id)}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity"
-                    style={{ color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0 }}>
-                    <Trash2 style={{ width: 12, height: 12 }} />
-                  </button>
-                )}
-                <div style={{ maxWidth: '72%' }}>
-                  {item.isFirst && !item.isMine && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, marginLeft: 4 }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: isTeacherMsg ? '#7c3aed' : senderColor(item.author_id || item.author_name) }}>{item.author_name}</span>
-                      {isTeacherMsg && <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 10, fontWeight: 700, background: 'rgba(124,58,237,0.12)', color: '#7c3aed' }}>Teacher</span>}
-                    </div>
-                  )}
-                  <div style={{
-                    background: item.message_type === 'image' || item.message_type === 'file' ? 'transparent' : bubbleBg,
-                    color: bubbleColor, padding: item.message_type === 'image' || item.message_type === 'file' ? 0 : '9px 13px',
-                    borderRadius: item.isMine ? '18px 18px 4px 18px' : '18px 18px 18px 4px', fontSize: 13.5, lineHeight: 1.5, wordBreak: 'break-word',
-                    boxShadow: item.message_type === 'image' || item.message_type === 'file' ? 'none' : '0 1px 3px rgba(0,0,0,0.08)',
-                  }}>
-                    {item.message_type === 'voice'
-                      ? <VoiceBubble url={item.voice_url} duration={item.voice_duration} isMine={item.isMine} />
-                      : item.message_type === 'image'
-                      ? <ChatImageBubble url={item.file_url} name={item.file_name} mimeType={item.mime_type} />
-                      : item.message_type === 'file'
-                      ? <ChatFileBubble url={item.file_url} name={item.file_name} size={item.file_size} mimeType={item.mime_type} />
-                      : item.content}
-                  </div>
-                  {item.isLast && (
-                    <div style={{ fontSize: 10, marginTop: 3, textAlign: item.isMine ? 'right' : 'left', paddingLeft: item.isMine ? 0 : 4, paddingRight: item.isMine ? 4 : 0, color: 'var(--text-secondary)', opacity: 0.6 }}>
-                      {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-          <div ref={messagesEndRef} />
-        </div>
-
-        {/* Input area */}
-        {!isEnded ? (
-          selectedFile ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderTop: '1px solid var(--card-border)', padding: '10px 14px', background: 'var(--card-bg)', flexShrink: 0 }}>
-              <button onClick={cancelFile} style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: 'rgba(220,38,38,0.1)', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}><X style={{ width: 16, height: 16 }} /></button>
-              <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface-100)', borderRadius: 14, padding: '6px 10px', border: `1.5px solid ${a}40`, minWidth: 0 }}>
-                {filePreviewUrl ? (
-                  <img src={filePreviewUrl} alt="" style={{ width: 30, height: 30, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
-                ) : (
-                  <div style={{ width: 30, height: 30, borderRadius: 8, background: `${a}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <AttachmentTypeIcon mimeType={selectedFile.type} style={{ width: 15, height: 15, color: a }} />
-                  </div>
-                )}
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedFile.name}</div>
-                  <div style={{ fontSize: 10.5, color: 'var(--text-secondary)' }}>{fmtFileSize(selectedFile.size)}</div>
-                </div>
-              </div>
-              <button onClick={sendFile} disabled={uploadingFile} style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: `linear-gradient(135deg, ${a}, ${b})`, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, opacity: uploadingFile ? 0.6 : 1 }}>
-                {uploadingFile ? <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> : <Send style={{ width: 16, height: 16 }} />}
-              </button>
-            </div>
-          ) :
-          recording ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderTop: '1px solid var(--card-border)', padding: '10px 14px', background: 'var(--card-bg)', flexShrink: 0 }}>
-              <button onClick={cancelVoiceNote} style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: 'rgba(220,38,38,0.1)', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}><X style={{ width: 16, height: 16 }} /></button>
-              <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface-100)', borderRadius: 20, padding: '8px 14px', border: '1.5px solid #dc262630' }}>
-                <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#dc2626', animation: 'pulse 1s infinite' }} />
-                <span style={{ fontSize: 13, color: '#dc2626', fontWeight: 600 }}>Recording… {fmtDuration(recordingTime)}</span>
-              </div>
-              <button onClick={stopAndSend} style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: `linear-gradient(135deg, ${a}, ${b})`, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}><Send style={{ width: 16, height: 16 }} /></button>
-            </div>
-          ) : audioBlob ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderTop: '1px solid var(--card-border)', padding: '10px 14px', background: 'var(--card-bg)', flexShrink: 0 }}>
-              <button onClick={cancelVoiceNote} style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: 'rgba(220,38,38,0.1)', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}><Trash2 style={{ width: 16, height: 16 }} /></button>
-              {audioBlob && <audio ref={audioPreviewRef} src={URL.createObjectURL(audioBlob)} style={{ display: 'none' }} />}
-              <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface-100)', borderRadius: 20, padding: '8px 14px', border: `1.5px solid ${a}40` }}>
-                <button onClick={toggleAudioPreview} style={{ width: 28, height: 28, borderRadius: '50%', border: 'none', background: `${a}20`, color: a, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
-                  {audioPlaying ? <Pause style={{ width: 12, height: 12 }} /> : <Play style={{ width: 12, height: 12 }} />}
-                </button>
-                <Mic style={{ width: 13, height: 13, color: a, opacity: 0.7 }} />
-                <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500 }}>Voice note · {fmtDuration(audioDuration)}</span>
-              </div>
-              <button onClick={sendVoiceNote} disabled={posting} style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: `linear-gradient(135deg, ${a}, ${b})`, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, opacity: posting ? 0.6 : 1 }}>
-                {posting ? <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> : <Send style={{ width: 16, height: 16 }} />}
-              </button>
-            </div>
-          ) : (
-            <div style={{ borderTop: '1px solid var(--card-border)', padding: '10px 14px', background: 'var(--card-bg)', flexShrink: 0 }}>
-              <div className="wa-input-pill" style={{ '--wa-accent': a, '--wa-accent-2': b, '--wa-accent-soft': `${a}22` }}>
-                <div style={{ position: 'relative', flexShrink: 0 }}>
-                  <button className="wa-icon-btn" onClick={() => { setAttachMenuOpen(o => !o); setEmojiOpen(false); }} title="Attach">
-                    <Plus style={{ width: 20, height: 20 }} />
-                  </button>
-                  <AttachMenu
-                    open={attachMenuOpen}
-                    onClose={() => setAttachMenuOpen(false)}
-                    onPickImage={() => imageInputRef.current?.click()}
-                    onPickFile={() => fileInputRef.current?.click()}
-                  />
-                </div>
-                <div style={{ position: 'relative', flexShrink: 0 }}>
-                  <button className="wa-icon-btn" onClick={() => { setEmojiOpen(o => !o); setAttachMenuOpen(false); }} title="Emoji">
-                    <Smile style={{ width: 20, height: 20 }} />
-                  </button>
-                  <EmojiPicker
-                    open={emojiOpen}
-                    onClose={() => setEmojiOpen(false)}
-                    onPick={(e) => { setText(t => t + e); inputRef.current?.focus(); }}
-                  />
-                </div>
-                <textarea ref={inputRef} value={text} onChange={handleTyping} onKeyDown={handleKey} rows={1}
-                  placeholder="Type a message"
-                  className="wa-input-textarea"
-                />
-                {text.trim() ? (
-                  <button key="send" onClick={handleSend} disabled={posting} className="wa-icon-btn wa-icon-send wa-icon-swap">
-                    {posting ? <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> : <Send style={{ width: 17, height: 17 }} />}
-                  </button>
-                ) : (
-                  <button key="mic" onClick={startRecording} className="wa-icon-btn wa-icon-swap" title="Record a voice note">
-                    <Mic style={{ width: 20, height: 20 }} />
-                  </button>
-                )}
-              </div>
-            </div>
-          )
-        ) : (
-          <div style={{ borderTop: '1px solid var(--card-border)', background: 'var(--surface-100)', padding: '10px 16px', flexShrink: 0 }}>
-            <p style={{ fontSize: 12, textAlign: 'center', fontWeight: 600, color: 'var(--text-secondary)' }}>🔒 This conversation has ended</p>
-          </div>
-        )}
-
-        {dmOpen && <LeaderTeacherDmModal groupId={group.id} myId={myId} teacherName={group.teacher_name} onClose={() => setDmOpen(false)} />}
-        {membersOpen && <MembersModal group={group} onClose={() => setMembersOpen(false)} />}
-
-        {clearConfirm && (
-          <div className="fixed inset-0 z-[500] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)' }} onClick={() => setClearConfirm(false)}>
-            <div onClick={e => e.stopPropagation()} className="w-full max-w-xs rounded-2xl p-5" style={{ background: 'var(--card-bg)' }}>
-              <h4 className="font-bold text-sm mb-1.5" style={{ color: 'var(--text-primary)' }}>Clear My Messages</h4>
-              <p className="text-xs mb-4" style={{ color: 'var(--text-secondary)' }}>This deletes every message you've sent in this group. Other members' messages stay.</p>
-              <div className="flex gap-2">
-                <button onClick={() => setClearConfirm(false)} className="flex-1 text-xs font-bold py-2 rounded-lg" style={{ background: 'var(--surface-100)', color: 'var(--text-primary)' }}>Cancel</button>
-                <button onClick={handleClearMyMessages} disabled={clearing} className="flex-1 text-xs font-bold py-2 rounded-lg text-white disabled:opacity-50" style={{ background: '#dc2626' }}>
-                  {clearing ? 'Clearing…' : 'Clear'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </AudioPlaybackProvider>
-  );
-}
-
-/* ══════════════════════════════════════════════════════════════════════════
-   OPEN COLLABORATION — Peer DM feature (IMPROVED)
-══════════════════════════════════════════════════════════════════════════ */
-
-function PeerList({ classId, onSelectPeer, activePeerId }) {
+/* ════════════════════════════════════════════════════════════════════
+   New message picker — start a DM with a classmate not yet in the inbox
+═════════════════════════════════════════════════════════════════════ */
+function NewMessagePicker({ classes, onPick, onClose }) {
+  const [classId, setClassId] = useState(classes[0]?.id || null);
   const [classmates, setClassmates] = useState([]);
-  const [conversations, setConversations] = useState([]);
-  const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState('all'); // 'all' | 'unread'
   const [loading, setLoading] = useState(true);
-  const pollRef = useRef(null);
-  const lastSeenAtRef = useRef({}); // peer_id -> last_at we've already toasted for
-  const firstLoadRef = useRef(true);
-  const nameByIdRef = useRef({});   // peer_id -> name, kept fresh for toast copy
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
-    const key = `dmlist:${classId}`;
-    setActiveConversation(key);
-    return () => clearActiveConversation(key);
+    if (!classId) return;
+    setLoading(true);
+    api.get(`/collaborations/class/${classId}/students`).then(res => setClassmates(res.data.classmates || [])).catch(() => setClassmates([])).finally(() => setLoading(false));
   }, [classId]);
 
-  const fetchData = useCallback(async () => {
-    try {
-      const [cm, cv] = await Promise.all([
-        api.get(`/collaborations/class/${classId}/students`),
-        api.get(`/collaborations/class/${classId}/conversations`),
-      ]);
-      const nextClassmates = cm.data.classmates || [];
-      const nextConversations = cv.data.conversations || [];
-      nextClassmates.forEach(c => { nameByIdRef.current[String(c.id)] = c.name; });
-
-      // Toast for any conversation with a newer last message than we've seen,
-      // as long as it isn't the peer whose thread is already open on screen
-      // (that thread already toasts for its own incoming messages).
-      if (!firstLoadRef.current) {
-        nextConversations.forEach(conv => {
-          const peerId = String(conv.peer_id);
-          if (peerId === String(activePeerId)) return;
-          const seenAt = lastSeenAtRef.current[peerId];
-          const lastAt = conv.last_at ? new Date(conv.last_at).getTime() : 0;
-          if (lastAt && (!seenAt || lastAt > seenAt) && conv.unread_count > 0) {
-            const senderName = nameByIdRef.current[peerId] || 'Someone';
-            showChatToast({ name: senderName, preview: conv.last_message, isVoice: conv.last_message === '🎤 Voice note' });
-          }
-        });
-      }
-      nextConversations.forEach(conv => {
-        lastSeenAtRef.current[String(conv.peer_id)] = conv.last_at ? new Date(conv.last_at).getTime() : 0;
-      });
-      firstLoadRef.current = false;
-
-      setClassmates(nextClassmates);
-      setConversations(nextConversations);
-    } catch { } finally { setLoading(false); }
-  }, [classId, activePeerId]);
-
-  useEffect(() => {
-    fetchData();
-    pollRef.current = setInterval(fetchData, 5000);
-    return () => clearInterval(pollRef.current);
-  }, [fetchData]);
-
-  const convMap = {};
-  conversations.forEach(c => { convMap[String(c.peer_id)] = c; });
-
-  const filtered = classmates
-    .filter(c => c.name.toLowerCase().includes(search.toLowerCase()))
-    .filter(c => (filter === 'unread' ? (convMap[String(c.id)]?.unread_count || 0) > 0 : true));
-
-  // Sort: unread conversations first, then most-recently-active conversations,
-  // then classmates with no conversation yet (alphabetically).
-  const sorted = [...filtered].sort((a, b) => {
-    const aConv = convMap[String(a.id)];
-    const bConv = convMap[String(b.id)];
-    const aUnread = aConv?.unread_count || 0;
-    const bUnread = bConv?.unread_count || 0;
-    if (bUnread !== aUnread) return bUnread - aUnread;
-    const aTime = aConv?.last_at ? new Date(aConv.last_at).getTime() : 0;
-    const bTime = bConv?.last_at ? new Date(bConv.last_at).getTime() : 0;
-    if (bTime !== aTime) return bTime - aTime;
-    return a.name.localeCompare(b.name);
-  });
-
-  // Calculate total unread messages
-  const totalUnread = Object.values(convMap).reduce((sum, conv) => sum + (conv.unread_count || 0), 0);
+  const filtered = classmates.filter(c => c.name.toLowerCase().includes(search.toLowerCase()));
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="px-4 py-3 flex-shrink-0" style={{ borderBottom: '1px solid var(--card-border)' }}>
-        <div className="relative mb-2.5">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: 'var(--text-secondary)' }} />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search classmates…"
-            className="w-full pl-8 pr-3 py-2 rounded-xl text-sm outline-none"
-            style={{ background: 'var(--surface-100)', border: '1px solid var(--card-border)', color: 'var(--text-primary)' }} />
+    <div onClick={e => { if (e.target === e.currentTarget) onClose(); }} className="fast-modal-backdrop">
+      <div onClick={e => e.stopPropagation()} className="fast-modal-sheet" style={{ maxWidth: 420 }}>
+        <div style={{ padding: '16px 18px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <h3 style={{ fontWeight: 800, fontSize: 15, color: 'var(--text-primary)' }}>New message</h3>
+          <button onClick={onClose} style={{ background: 'var(--surface-100)', border: 'none', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><X style={{ width: 14, height: 14 }} /></button>
         </div>
-        <div className="flex gap-2">
-          <button onClick={() => setFilter('all')}
-            className="text-xs font-bold px-3 py-1.5 rounded-full transition-colors"
-            style={filter === 'all'
-              ? { background: 'rgba(99,102,241,0.14)', color: '#6366f1' }
-              : { background: 'var(--surface-100)', color: 'var(--text-secondary)' }}>
-            All
-          </button>
-          <button onClick={() => setFilter('unread')}
-            className="text-xs font-bold px-3 py-1.5 rounded-full transition-colors flex items-center gap-1.5"
-            style={filter === 'unread'
-              ? { background: 'rgba(99,102,241,0.14)', color: '#6366f1' }
-              : { background: 'var(--surface-100)', color: 'var(--text-secondary)' }}>
-            Unread
-            {totalUnread > 0 && (
-              <span className="text-[10px] font-bold px-1.5 rounded-full text-white" style={{ background: '#6366f1' }}>{totalUnread}</span>
-            )}
-          </button>
-        </div>
-      </div>
-      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
-        {loading ? (
-          <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" /></div>
-        ) : sorted.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-            <Users className="w-10 h-10 mb-3" style={{ color: '#6366f1', opacity: 0.4 }} />
-            <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{filter === 'unread' ? 'No unread chats' : 'No classmates found'}</p>
-          </div>
-        ) : sorted.map(peer => {
-          const conv = convMap[String(peer.id)];
-          const isActive = String(peer.id) === String(activePeerId);
-          const unreadCount = conv?.unread_count || 0;
-          return (
-            <div key={peer.id} onClick={() => onSelectPeer(peer)}
-              className="discussion-list-item flex items-center gap-3 px-4 py-3 sm:py-3.5 cursor-pointer transition-colors active:bg-black/5"
-              style={{ borderBottom: '1px solid var(--card-border)', background: isActive ? 'rgba(18,140,126,0.08)' : 'transparent', borderLeft: isActive ? '3px solid #128C7E' : '3px solid transparent' }}>
-              <div className="relative w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
-                style={{ background: 'linear-gradient(135deg, #128C7E, #075E54)' }}>
-                {peer.name[0].toUpperCase()}
-                {unreadCount > 0 && (
-                  <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-white font-bold text-xs" style={{ background: '#dc2626' }}>
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </div>
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-bold text-sm truncate" style={{ color: 'var(--text-primary)' }}>{peer.name}</div>
-                {conv && <div className="text-xs truncate mt-0.5" style={{ color: 'var(--text-secondary)' }}>{conv.last_message}</div>}
-              </div>
-              <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                {conv && <span className="text-[10px]" style={{ color: 'var(--text-secondary)', opacity: 0.6 }}>{timeAgo(conv.last_at)}</span>}
-                {unreadCount > 0 && (
-                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white"
-                    style={{ background: 'linear-gradient(135deg, #128C7E, #075E54)' }}>
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-/* DM Chat content (inside modal) */
-function DMChatContent({ classId, peer, myId, onBack, onClose }) {
-  const [messages, setMessages] = useState([]);
-  const [text, setText] = useState('');
-  const [posting, setPosting] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [deletingId, setDeletingId] = useState(null);
-  const [clearConfirm, setClearConfirm] = useState(false);
-  const [clearing, setClearing] = useState(false);
-  const [recording, setRecording]         = useState(false);
-  const [recordingTime, setRecordingTime] = useState(0);
-  const [audioBlob, setAudioBlob]         = useState(null);
-  const [audioDuration, setAudioDuration] = useState(0);
-  const [audioPlaying, setAudioPlaying]   = useState(false);
-  const [selectedFile, setSelectedFile]   = useState(null);
-  const [filePreviewUrl, setFilePreviewUrl] = useState(null);
-  const [uploadingFile, setUploadingFile] = useState(false);
-  const [attachMenuOpen, setAttachMenuOpen] = useState(false);
-  const [emojiOpen, setEmojiOpen] = useState(false);
-  const mediaRecorderRef = useRef(null);
-  const audioChunksRef   = useRef([]);
-  const recordTimerRef   = useRef(null);
-  const audioPreviewRef  = useRef(null);
-  const messagesEndRef = useRef(null);
-  const inputRef = useRef(null);
-  const fileInputRef = useRef(null);
-  const imageInputRef = useRef(null);
-  const pollRef = useRef(null);
-  const lastMsgTimeRef = useRef(null);
-
-  useEffect(() => {
-    const key = `dm:${classId}:${peer.id}`;
-    setActiveConversation(key);
-    return () => clearActiveConversation(key);
-  }, [classId, peer.id]);
-
-  const fetchMessages = useCallback(async (since = null) => {
-    try {
-      const params = since ? { since } : {};
-      const res = await api.get(`/collaborations/class/${classId}/messages/${peer.id}`, { params });
-      const newMsgs = res.data.messages || [];
-      if (since) {
-        if (newMsgs.length > 0) {
-          setMessages(prev => {
-            const existingIds = new Set(prev.map(m => String(m.id)));
-            const fresh = newMsgs.filter(m => !existingIds.has(String(m.id)));
-            if (fresh.length === 0) return prev;
-            const fromPeer = fresh.filter(m => String(m.sender_id) !== String(myId));
-            if (fromPeer.length) {
-              const last = fromPeer[fromPeer.length - 1];
-              const senderName = last.sender_name || peer.name || 'Someone';
-              showChatToast({ name: senderName, preview: last.content, kind: last.message_type !== 'text' ? last.message_type : null });
-            }
-            lastMsgTimeRef.current = fresh[fresh.length - 1].created_at;
-            return [...prev, ...fresh];
-          });
-        }
-      } else {
-        setMessages(newMsgs);
-        if (newMsgs.length > 0) lastMsgTimeRef.current = newMsgs[newMsgs.length - 1].created_at;
-      }
-    } catch (err) { if (!since) toast.error('Failed to load messages'); }
-    finally { setLoading(false); }
-  }, [classId, peer.id, myId]);
-
-  useEffect(() => {
-    setMessages([]); setLoading(true); lastMsgTimeRef.current = null;
-    fetchMessages();
-  }, [peer.id]);
-
-  useEffect(() => {
-    pollRef.current = setInterval(() => fetchMessages(lastMsgTimeRef.current), 3000);
-    return () => clearInterval(pollRef.current);
-  }, [fetchMessages]);
-
-  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages.length]);
-
-  useEffect(() => {
-    if (!audioBlob && !recording) return;
-    const onKey = (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (recording) stopAndSend(); else if (audioBlob) sendVoiceNote(); }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [audioBlob, recording, posting]);
-
-  const handleSend = async () => {
-    if (!text.trim() || posting) return;
-    const content = text.trim(); setText('');
-    if (inputRef.current) inputRef.current.style.height = 'auto';
-    setPosting(true);
-    try {
-      const res = await api.post(`/collaborations/class/${classId}/messages`, { receiverId: peer.id, content });
-      const newMsg = res.data.msg;
-      setMessages(prev => [...prev, { ...newMsg, sender_name: 'You' }]);
-      lastMsgTimeRef.current = newMsg.created_at;
-    } catch (err) { toast.error(err.response?.data?.message || 'Failed to send'); setText(content); }
-    finally { setPosting(false); }
-  };
-
-  const handleKey = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (recording) stopAndSend(); else if (audioBlob) sendVoiceNote(); else if (selectedFile) sendFile(); else handleSend(); }
-  };
-
-  const handleDeleteMessage = async (messageId) => {
-    if (!window.confirm('Delete this message?')) return;
-    setDeletingId(messageId);
-    try {
-      await api.delete(`/collaborations/class/${classId}/messages/${messageId}`);
-      setMessages(prev => prev.filter(m => String(m.id) !== String(messageId)));
-    } catch (err) { toast.error(err.response?.data?.message || 'Failed to delete message'); }
-    finally { setDeletingId(null); }
-  };
-
-  const handleClearChat = async () => {
-    setClearing(true);
-    try {
-      await api.delete(`/collaborations/class/${classId}/messages/peer/${peer.id}`);
-      setMessages(prev => prev.filter(m => String(m.sender_id) !== String(myId)));
-      toast.success('Your messages were cleared'); setClearConfirm(false);
-    } catch (err) { toast.error(err.response?.data?.message || 'Failed to clear messages'); }
-    finally { setClearing(false); }
-  };
-
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg';
-      const recorder = new MediaRecorder(stream, { mimeType });
-      audioChunksRef.current = [];
-      recorder.ondataavailable = e => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
-      recorder.onstop = () => { const blob = new Blob(audioChunksRef.current, { type: mimeType }); setAudioBlob(blob); setAudioDuration(recordingTime); stream.getTracks().forEach(t => t.stop()); };
-      recorder.start(); mediaRecorderRef.current = recorder; setRecording(true); setRecordingTime(0);
-      recordTimerRef.current = setInterval(() => setRecordingTime(t => t + 1), 1000);
-    } catch { toast.error('Microphone access denied.'); }
-  };
-
-  const stopRecording = () => { if (mediaRecorderRef.current && recording) { mediaRecorderRef.current.stop(); clearInterval(recordTimerRef.current); setRecording(false); } };
-
-  const postVoiceBlob = async (blob, duration) => {
-    setPosting(true);
-    try {
-      const formData = new FormData();
-      const ext = blob.type.includes('ogg') ? 'ogg' : 'webm';
-      formData.append('audio', blob, `voice-note-${Date.now()}.${ext}`);
-      formData.append('duration', String(duration));
-      formData.append('receiverId', peer.id);
-      const res = await api.post(`/collaborations/class/${classId}/voice-notes`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
-      const newMsg = res.data.msg;
-      setMessages(prev => [...prev, { ...newMsg, sender_name: 'You' }]);
-      lastMsgTimeRef.current = newMsg.created_at;
-    } catch (err) { toast.error(err.response?.data?.message || 'Failed to send voice note'); }
-    finally { setPosting(false); }
-  };
-
-  const stopAndSend = () => {
-    if (!mediaRecorderRef.current || !recording) return;
-    mediaRecorderRef.current.onstop = () => {
-      const mimeType = mediaRecorderRef.current.mimeType || 'audio/webm';
-      const blob = new Blob(audioChunksRef.current, { type: mimeType });
-      const duration = recordingTime;
-      clearInterval(recordTimerRef.current); setRecording(false); setAudioBlob(null);
-      postVoiceBlob(blob, duration);
-    };
-    mediaRecorderRef.current.stop();
-  };
-
-  const cancelVoiceNote = () => { if (recording) stopRecording(); setAudioBlob(null); setRecordingTime(0); setAudioPlaying(false); };
-  const toggleAudioPreview = () => {
-    if (!audioPreviewRef.current) return;
-    if (audioPlaying) { audioPreviewRef.current.pause(); setAudioPlaying(false); }
-    else { audioPreviewRef.current.play(); setAudioPlaying(true); audioPreviewRef.current.onended = () => setAudioPlaying(false); }
-  };
-  const sendVoiceNote = async () => {
-    if (!audioBlob || posting) return;
-    const blob = audioBlob; const duration = audioDuration;
-    setAudioBlob(null); setRecordingTime(0); setAudioPlaying(false);
-    await postVoiceBlob(blob, duration);
-  };
-  const fmtDuration = (secs) => { const s = Math.round(secs || 0); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
-
-  const handleFilePick = (e) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file) return;
-    if (file.size > MAX_CHAT_FILE_MB * 1024 * 1024) {
-      toast.error(`File is too large — max ${MAX_CHAT_FILE_MB}MB.`);
-      return;
-    }
-    setSelectedFile(file);
-    setFilePreviewUrl(file.type.startsWith('image/') ? URL.createObjectURL(file) : null);
-  };
-
-  const cancelFile = () => {
-    if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl);
-    setSelectedFile(null);
-    setFilePreviewUrl(null);
-  };
-
-  const sendFile = async () => {
-    if (!selectedFile || uploadingFile) return;
-    setUploadingFile(true);
-    try {
-      const formData = new FormData();
-      formData.append('file', selectedFile);
-      formData.append('receiverId', peer.id);
-      const res = await api.post(`/collaborations/class/${classId}/media`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
-      const newMsg = res.data.msg;
-      setMessages(prev => [...prev, { ...newMsg, sender_name: 'You' }]);
-      lastMsgTimeRef.current = newMsg.created_at;
-      cancelFile();
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to send file');
-    } finally { setUploadingFile(false); }
-  };
-
-  const enriched = [];
-  let lastDate = null;
-  messages.forEach((m, i) => {
-    const dateLabel = fmtDateSep(m.created_at);
-    if (dateLabel !== lastDate) { enriched.push({ type: 'date', label: dateLabel, key: `d${i}` }); lastDate = dateLabel; }
-    const isMine = String(m.sender_id) === String(myId);
-    enriched.push({ type: 'msg', ...m, isMine, key: m.id || `m${i}` });
-  });
-
-  return (
-    <AudioPlaybackProvider>
-      <div className="flex flex-col" style={{ flex: 1, minHeight: 0 }}>
-        {/* Hidden file pickers for shared photos/files */}
-        <input ref={fileInputRef} type="file" onChange={handleFilePick} style={{ display: 'none' }} />
-        <input ref={imageInputRef} type="file" accept="image/*" onChange={handleFilePick} style={{ display: 'none' }} />
-        {/* Header */}
-        <div style={{ background: 'linear-gradient(135deg, #128C7E, #075E54)', padding: '14px 16px', flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <button onClick={onBack} style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <ArrowLeft style={{ width: 14, height: 14 }} />
-            </button>
-            <div style={{ width: 38, height: 38, borderRadius: '50%', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 15, flexShrink: 0 }}>
-              {peer.name[0].toUpperCase()}
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ color: '#fff', fontWeight: 700, fontSize: 15 }}>{peer.name}</div>
-              <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 10 }}>Private · only you two can see this</div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#7fd9c4', animation: 'pulse 1.5s infinite' }} />
-                <span style={{ color: 'rgba(255,255,255,0.75)', fontSize: 10 }} className="hidden sm:inline">Live</span>
-              </div>
-              {onClose && (
-                <button onClick={onClose} title="Close" style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <X style={{ width: 14, height: 14 }} />
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Privacy + clear */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 14px', background: 'rgba(18,140,126,0.06)', borderBottom: '1px solid var(--card-border)', flexShrink: 0 }}>
-          {/* <span style={{ fontSize: 10.5, fontWeight: 600, color: '#128C7E' }}>Private chat with {peer.name}</span> */}
-          <button onClick={() => setClearConfirm(true)} className="hover:opacity-70 transition-opacity" style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 600, color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 2px' }}>
-            <Trash2 style={{ width: 11, height: 11 }} /> Clear my messages
-          </button>
-        </div>
-
-        {/* Messages */}
-        <div className="chat-wallpaper flex-1 min-h-0 overflow-y-auto overscroll-contain" style={{ padding: '16px 14px 8px' }}>
-          {loading ? (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 0' }}>
-              <div style={{ width: 28, height: 28, border: '3px solid #128C7E', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-            </div>
-          ) : enriched.length === 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', textAlign: 'center', padding: '40px 0' }}>
-              <div style={{ fontSize: 40, marginBottom: 10 }}>💬</div>
-              <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>Start talking to {peer.name}</p>
-              <p style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Your messages are private</p>
-            </div>
-          ) : enriched.map(item => {
-            if (item.type === 'date') return (
-              <div key={item.key} style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '12px 0' }}>
-                <div style={{ flex: 1, height: 1, background: 'var(--card-border)' }} />
-                <span style={{ fontSize: 10, fontWeight: 600, padding: '0 8px', color: 'var(--text-secondary)' }}>{item.label}</span>
-                <div style={{ flex: 1, height: 1, background: 'var(--card-border)' }} />
-              </div>
-            );
-            return (
-              <div key={item.key} className="group" style={{ display: 'flex', marginBottom: 6, alignItems: 'center', gap: 6, justifyContent: item.isMine ? 'flex-end' : 'flex-start' }}>
-                {item.isMine && (
-                  <button onClick={() => handleDeleteMessage(item.id)} disabled={deletingId === item.id}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity"
-                    style={{ color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0 }}>
-                    <Trash2 style={{ width: 12, height: 12 }} />
-                  </button>
-                )}
-                <div style={{ maxWidth: '72%' }}>
-                  <div style={{
-                    background: item.message_type === 'image' || item.message_type === 'file' ? 'transparent' : (item.isMine ? 'linear-gradient(135deg, #128C7E, #075E54)' : 'var(--surface-100)'),
-                    color: item.isMine ? '#fff' : 'var(--text-primary)',
-                    padding: item.message_type === 'image' || item.message_type === 'file' ? 0 : '9px 13px',
-                    borderRadius: item.isMine ? '18px 18px 4px 18px' : '18px 18px 18px 4px', fontSize: 13.5, lineHeight: 1.5, wordBreak: 'break-word',
-                    boxShadow: item.message_type === 'image' || item.message_type === 'file' ? 'none' : '0 1px 3px rgba(0,0,0,0.08)',
-                  }}>
-                    {item.message_type === 'voice'
-                      ? <VoiceBubble url={item.voice_url} duration={item.voice_duration} isMine={item.isMine} />
-                      : item.message_type === 'image'
-                      ? <ChatImageBubble url={item.file_url} name={item.file_name} mimeType={item.mime_type} />
-                      : item.message_type === 'file'
-                      ? <ChatFileBubble url={item.file_url} name={item.file_name} size={item.file_size} mimeType={item.mime_type} />
-                      : item.content}
-                  </div>
-                  <div style={{ fontSize: 10, marginTop: 3, textAlign: item.isMine ? 'right' : 'left', paddingLeft: item.isMine ? 0 : 4, paddingRight: item.isMine ? 4 : 0, color: 'var(--text-secondary)', opacity: 0.6 }}>
-                    {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    {item.isMine && item.read && <CheckCheck style={{ display: 'inline', width: 12, height: 12, marginLeft: 4, color: '#128C7E' }} />}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-          <div ref={messagesEndRef} />
-        </div>
-
-        {/* Input */}
-        {selectedFile ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderTop: '1px solid var(--card-border)', padding: '10px 14px', background: 'var(--card-bg)', flexShrink: 0 }}>
-            <button onClick={cancelFile} style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: 'rgba(220,38,38,0.1)', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}><X style={{ width: 16, height: 16 }} /></button>
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface-100)', borderRadius: 14, padding: '6px 10px', border: '1.5px solid #128C7E40', minWidth: 0 }}>
-              {filePreviewUrl ? (
-                <img src={filePreviewUrl} alt="" style={{ width: 30, height: 30, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
-              ) : (
-                <div style={{ width: 30, height: 30, borderRadius: 8, background: '#128C7E20', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <AttachmentTypeIcon mimeType={selectedFile.type} style={{ width: 15, height: 15, color: '#128C7E' }} />
-                </div>
-              )}
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedFile.name}</div>
-                <div style={{ fontSize: 10.5, color: 'var(--text-secondary)' }}>{fmtFileSize(selectedFile.size)}</div>
-              </div>
-            </div>
-            <button onClick={sendFile} disabled={uploadingFile} style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'linear-gradient(135deg, #128C7E, #075E54)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, opacity: uploadingFile ? 0.6 : 1 }}>
-              {uploadingFile ? <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> : <Send style={{ width: 16, height: 16 }} />}
-            </button>
-          </div>
-        ) : recording ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderTop: '1px solid var(--card-border)', padding: '10px 14px', background: 'var(--card-bg)', flexShrink: 0 }}>
-            <button onClick={cancelVoiceNote} style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: 'rgba(220,38,38,0.1)', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}><X style={{ width: 16, height: 16 }} /></button>
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface-100)', borderRadius: 20, padding: '8px 14px', border: '1.5px solid #dc262630' }}>
-              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#dc2626', animation: 'pulse 1s infinite' }} />
-              <span style={{ fontSize: 13, color: '#dc2626', fontWeight: 600 }}>Recording… {fmtDuration(recordingTime)}</span>
-            </div>
-            <button onClick={stopAndSend} style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'linear-gradient(135deg, #128C7E, #075E54)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}><Send style={{ width: 16, height: 16 }} /></button>
-          </div>
-        ) : audioBlob ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderTop: '1px solid var(--card-border)', padding: '10px 14px', background: 'var(--card-bg)', flexShrink: 0 }}>
-            <button onClick={cancelVoiceNote} style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: 'rgba(220,38,38,0.1)', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}><Trash2 style={{ width: 16, height: 16 }} /></button>
-            <audio ref={audioPreviewRef} src={URL.createObjectURL(audioBlob)} style={{ display: 'none' }} />
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface-100)', borderRadius: 20, padding: '8px 14px', border: '1.5px solid #128C7E40' }}>
-              <button onClick={toggleAudioPreview} style={{ width: 28, height: 28, borderRadius: '50%', border: 'none', background: '#128C7E20', color: '#128C7E', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
-                {audioPlaying ? <Pause style={{ width: 12, height: 12 }} /> : <Play style={{ width: 12, height: 12 }} />}
-              </button>
-              <Mic style={{ width: 13, height: 13, color: '#128C7E', opacity: 0.7 }} />
-              <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500 }}>Voice note · {fmtDuration(audioDuration)}</span>
-            </div>
-            <button onClick={sendVoiceNote} disabled={posting} style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'linear-gradient(135deg, #128C7E, #075E54)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, opacity: posting ? 0.6 : 1 }}>
-              {posting ? <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> : <Send style={{ width: 16, height: 16 }} />}
-            </button>
-          </div>
-        ) : (
-          <div style={{ borderTop: '1px solid var(--card-border)', padding: '10px 14px', background: 'var(--card-bg)', flexShrink: 0 }}>
-            <div className="wa-input-pill" style={{ '--wa-accent': '#128C7E', '--wa-accent-2': '#075E54', '--wa-accent-soft': 'rgba(18,140,126,0.14)' }}>
-              <div style={{ position: 'relative', flexShrink: 0 }}>
-                <button className="wa-icon-btn" onClick={() => { setAttachMenuOpen(o => !o); setEmojiOpen(false); }} title="Attach">
-                  <Plus style={{ width: 20, height: 20 }} />
-                </button>
-                <AttachMenu
-                  open={attachMenuOpen}
-                  onClose={() => setAttachMenuOpen(false)}
-                  onPickImage={() => imageInputRef.current?.click()}
-                  onPickFile={() => fileInputRef.current?.click()}
-                />
-              </div>
-              <div style={{ position: 'relative', flexShrink: 0 }}>
-                <button className="wa-icon-btn" onClick={() => { setEmojiOpen(o => !o); setAttachMenuOpen(false); }} title="Emoji">
-                  <Smile style={{ width: 20, height: 20 }} />
-                </button>
-                <EmojiPicker
-                  open={emojiOpen}
-                  onClose={() => setEmojiOpen(false)}
-                  onPick={(e) => { setText(t => t + e); inputRef.current?.focus(); }}
-                />
-              </div>
-              <textarea ref={inputRef} value={text} onChange={e => { setText(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'; }}
-                onKeyDown={handleKey} rows={1}
-                placeholder={`Message ${peer.name}`}
-                className="wa-input-textarea"
-              />
-              {text.trim() ? (
-                <button key="send" onClick={handleSend} disabled={posting} className="wa-icon-btn wa-icon-send wa-icon-swap">
-                  {posting ? <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> : <Send style={{ width: 17, height: 17 }} />}
-                </button>
-              ) : (
-                <button key="mic" onClick={startRecording} className="wa-icon-btn wa-icon-swap" title="Record a voice note">
-                  <Mic style={{ width: 20, height: 20 }} />
-                </button>
-              )}
-            </div>
+        {classes.length > 1 && (
+          <div style={{ padding: '0 18px 10px', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {classes.map(c => (
+              <button key={c.id} onClick={() => setClassId(c.id)} style={{ fontSize: 11.5, fontWeight: 700, padding: '5px 10px', borderRadius: 20, border: 'none', cursor: 'pointer', background: classId === c.id ? 'rgba(99,102,241,0.14)' : 'var(--surface-100)', color: classId === c.id ? '#6366f1' : 'var(--text-secondary)' }}>{c.name}</button>
+            ))}
           </div>
         )}
-
-        <ConfirmModal
-          open={clearConfirm}
-          onClose={() => setClearConfirm(false)}
-          onConfirm={handleClearChat}
-          loading={clearing}
-          variant="danger"
-          title="Clear my messages"
-          message={`This deletes every message you've sent to ${peer.name}. Their messages stay.`}
-          confirmText="Clear"
-          cancelText="Cancel"
-        />
-      </div>
-    </AudioPlaybackProvider>
-  );
-}
-
-/* Collaboration panel (IMPROVED) */
-function CollaborationPanel({ myId, onClose, initialTarget, onInitialTargetHandled }) {
-  const [myClasses, setMyClasses] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedClass, setSelectedClass] = useState(null);
-  const [activePeer, setActivePeer] = useState(null);
-  const [totalUnread, setTotalUnread] = useState(0);
-
-  useEffect(() => {
-    api.get('/collaborations/my-class-status')
-      .then(res => {
-        const active = (res.data.classes || []).filter(c => c.collaboration_active);
-        setMyClasses(active);
-        if (!initialTarget && active.length === 1) setSelectedClass(active[0]);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Deep-link: jump straight to a specific classmate's conversation. Runs on
-  // mount and again any time a fresh target arrives (e.g. another toast
-  // clicked while this panel is already open), as soon as the class list
-  // is available to resolve it against.
-  useEffect(() => {
-    if (!initialTarget || myClasses.length === 0) return;
-    const cls = myClasses.find(c => String(c.id) === String(initialTarget.classId));
-    if (cls) {
-      setSelectedClass(cls);
-      setActivePeer({ id: initialTarget.peerId, name: initialTarget.peerName });
-    }
-    onInitialTargetHandled && onInitialTargetHandled();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialTarget, myClasses]);
-
-  const CloseBtn = ({ light }) => (
-    <button onClick={onClose} title="Close" className="flex items-center justify-center flex-shrink-0 transition-opacity hover:opacity-80"
-      style={{
-        width: 30, height: 30, borderRadius: '50%', border: 'none', cursor: 'pointer',
-        background: light ? 'rgba(255,255,255,0.15)' : 'var(--surface-100)',
-        color: light ? '#fff' : 'var(--text-secondary)',
-      }}>
-      <X style={{ width: 14, height: 14 }} />
-    </button>
-  );
-
-  if (loading) return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center justify-end px-4 py-3 flex-shrink-0">
-        <CloseBtn />
-      </div>
-      <div className="flex-1 flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 rounded-full" style={{ border: '3px solid var(--card-border)', borderTopColor: '#6366f1' }} />
-      </div>
-    </div>
-  );
-
-  if (myClasses.length === 0) return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center justify-end px-4 py-3 flex-shrink-0">
-        <CloseBtn />
-      </div>
-      <div className="flex-1 flex flex-col items-center justify-center px-6 sm:px-8 text-center">
-        <div className="w-20 h-20 rounded-2xl mb-5 flex items-center justify-center" style={{ background: 'rgba(99,102,241,0.08)' }}>
-          <Radio className="w-10 h-10" style={{ color: '#6366f1', opacity: 0.5 }} />
-        </div>
-        <h3 className="font-bold text-lg mb-2" style={{ color: 'var(--text-primary)' }}>No active collaboration</h3>
-        <p className="text-sm max-w-xs" style={{ color: 'var(--text-secondary)' }}>Your teacher will open collaboration when you can privately message classmates.</p>
-      </div>
-    </div>
-  );
-
-  if (!selectedClass) return (
-    <div className="flex flex-col h-full">
-      <div className="px-4 sm:px-5 py-4 sm:py-5 flex-shrink-0" style={{ borderBottom: '1px solid var(--card-border)' }}>
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}>
-            <Radio className="w-5 h-5 text-white" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <h3 className="font-bold text-base" style={{ color: 'var(--text-primary)' }}>Peer Chat</h3>
-            <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Choose a class to start chatting</p>
-          </div>
-          <CloseBtn />
-        </div>
-      </div>
-      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 sm:p-4 space-y-2">
-        {myClasses.map(cls => (
-          <button key={cls.id} onClick={() => setSelectedClass(cls)}
-            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left transition-colors active:bg-black/5"
-            style={{ background: 'var(--surface-100)', border: '1.5px solid var(--card-border)' }}>
-            <div className="w-11 h-11 rounded-xl flex items-center justify-center text-white font-bold flex-shrink-0"
-              style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}>
-              {(cls.name || 'C').slice(0, 2).toUpperCase()}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="font-bold text-sm truncate" style={{ color: 'var(--text-primary)' }}>{cls.name}</div>
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold" style={{ color: '#6366f1' }}>
-                <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse inline-block" /> Collaboration is live
-              </span>
-            </div>
-            <ChevronRight className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--text-secondary)' }} />
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-
-  return (
-    <div className="flex h-full flex-col lg:flex-row min-h-0">
-      {/* Peer list - hidden on mobile when chat is open */}
-      <div className={`flex flex-col flex-shrink-0 w-full lg:w-80 min-h-0 ${activePeer ? 'hidden lg:flex' : 'flex'}`}
-        style={{ borderRight: activePeer ? '1px solid var(--card-border)' : 'none' }}>
-        <div className="flex items-center gap-2 px-3 sm:px-4 py-3 flex-shrink-0"
-          style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}>
-          {myClasses.length > 1 && (
-            <button onClick={() => { setSelectedClass(null); setActivePeer(null); }}
-              className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
-              style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', cursor: 'pointer' }}>
-              <ArrowLeft style={{ width: 13, height: 13 }} />
-            </button>
-          )}
-          <Radio className="w-4 h-4 text-white flex-shrink-0" />
-          <div className="flex-1 min-w-0">
-            <div style={{ color: '#fff', fontWeight: 700, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedClass.name}</div>
-            <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 10, display: 'flex', alignItems: 'center', gap: 4 }}>
-              <span className="w-1.5 h-1.5 rounded-full bg-indigo-300 animate-pulse inline-block" /> Collaboration is live
-            </div>
-          </div>
-          {totalUnread > 0 && (
-            <div style={{ fontSize: 10, fontWeight: 800, padding: '2px 7px', borderRadius: 20, background: '#dc2626', color: 'white', flexShrink: 0 }}>
-              {totalUnread}
-            </div>
-          )}
-          <CloseBtn light />
-        </div>
-        <PeerList classId={selectedClass.id} onSelectPeer={setActivePeer} activePeerId={activePeer?.id} />
-      </div>
-
-      {/* Chat view - shows on mobile when peer is selected */}
-      {activePeer ? (
-        <div className="flex-1 flex flex-col min-w-0 min-h-0 w-full lg:w-auto">
-          <DMChatContent classId={selectedClass.id} peer={activePeer} myId={myId} onBack={() => setActivePeer(null)} onClose={onClose} />
-        </div>
-      ) : (
-        <div className="hidden lg:flex flex-1 flex-col min-h-0" style={{ background: 'var(--card-bg)' }}>
-          <div className="flex items-center justify-end px-4 py-3 flex-shrink-0">
-            <CloseBtn />
-          </div>
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center px-8">
-              <div className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center" style={{ background: 'rgba(99,102,241,0.08)' }}>
-                <MessageCircle className="w-8 h-8" style={{ color: '#6366f1', opacity: 0.6 }} />
-              </div>
-              <p className="font-bold mb-1" style={{ color: 'var(--text-primary)' }}>Select a classmate</p>
-              <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Pick someone from the list to start a private chat</p>
-            </div>
+        <div style={{ padding: '0 18px 10px' }}>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: 'var(--text-secondary)' }} />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search classmates…" className="w-full pl-8 pr-3 py-2 rounded-xl text-sm outline-none" style={{ background: 'var(--surface-100)', border: '1px solid var(--card-border)', color: 'var(--text-primary)' }} />
           </div>
         </div>
-      )}
+        <div style={{ maxHeight: '50vh', overflowY: 'auto', padding: '0 10px 12px' }}>
+          {loading ? <div className="flex justify-center py-8"><div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" /></div>
+            : filtered.length === 0 ? <p style={{ textAlign: 'center', fontSize: 12.5, color: 'var(--text-secondary)', padding: '20px 0' }}>No classmates found</p>
+            : filtered.map(c => (
+              <button key={c.id} onClick={() => onPick(classId, c)} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '9px 10px', borderRadius: 12, background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+                onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-100)'} onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+                <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg, #128C7E, #075E54)', color: '#fff', fontWeight: 800, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{c.name[0].toUpperCase()}</div>
+                <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-primary)' }}>{c.name}</span>
+              </button>
+            ))}
+        </div>
+      </div>
     </div>
   );
 }
 
-/* ══════════════════════════════════════════════
-   Main page (IMPROVED: space efficiency)
-══════════════════════════════════════════════ */
+/* ════════════════════════════════════════════════════════════════════
+   MAIN PAGE — unified inbox + split-pane thread
+═════════════════════════════════════════════════════════════════════ */
 export default function StudentGroups() {
   const { user } = useAuth();
   const myName = user?.name || '';
-  const myId   = user?.id;
+  const myId = user?.id;
 
-  const [tab, setTab] = useState('groups');
-  const [groups, setGroups]           = useState([]);
-  const [groupSearch, setGroupSearch] = useState('');
-  const [groupFilter, setGroupFilter] = useState('all'); // 'all' | 'leading'
-  const [loading, setLoading]         = useState(true);
-  const [activeGroup, setActiveGroup] = useState(null);
-  const [groupDetail, setGroupDetail] = useState(null);
-  const [detailLoading, setDetailLoading] = useState(false);
-
-  // Collaboration modal state
-  const [collabModalOpen, setCollabModalOpen] = useState(false);
-
-  // Active collab badge
-  const [activeCollabCount, setActiveCollabCount] = useState(0);
-
-  // Group chat modal
-  const [groupChatOpen, setGroupChatOpen] = useState(false);
-
-  // Deep-link targets consumed from toast clicks (see ChatNotifyContext) —
-  // "open this exact group" / "auto-open the leader DM inside it" / "open
-  // this exact classmate conversation" instead of just landing on the list.
-  const [pendingLeaderDmGroupId, setPendingLeaderDmGroupId] = useState(null);
-  const [pendingDmTarget, setPendingDmTarget] = useState(null);
+  const [groups, setGroups] = useState([]);
+  const [collabClasses, setCollabClasses] = useState([]);
+  const [dmEntries, setDmEntries] = useState({}); // key -> entry, built from conversations per class
+  const [activityOverrides, setActivityOverrides] = useState({}); // key -> { lastMessage, lastAt } from live thread updates
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState('all'); // all | groups | dms | unread
+  const [selectedKey, setSelectedKey] = useState(null);
+  const [newMsgOpen, setNewMsgOpen] = useState(false);
+  const [mobileShowThread, setMobileShowThread] = useState(false);
 
   const fetchGroups = useCallback(async () => {
-    setLoading(true);
     try { const res = await api.get('/group-discussions/my/groups'); setGroups(res.data.groups || []); }
     catch { toast.error('Failed to load groups'); }
-    finally { setLoading(false); }
   }, []);
 
-  const fetchCollabStatus = useCallback(async () => {
+  const fetchCollab = useCallback(async () => {
     try {
       const res = await api.get('/collaborations/my-class-status');
       const active = (res.data.classes || []).filter(c => c.collaboration_active);
-      setActiveCollabCount(active.length);
-    } catch { }
+      setCollabClasses(active);
+      const perClass = await Promise.all(active.map(cls => api.get(`/collaborations/class/${cls.id}/conversations`).then(r => ({ cls, conversations: r.data.conversations || [] })).catch(() => ({ cls, conversations: [] }))));
+      // IMPORTANT: merge into the existing map rather than replacing it wholesale.
+      // A chat the student just started (picked from "New message" but hasn't sent
+      // a first message yet) has no server-side conversation row, so it would never
+      // appear in this response — overwriting state here would silently delete it
+      // out from under an open thread. Merging keeps any locally-known entry alive
+      // until the server actually has something to say about it.
+      setDmEntries(prev => {
+        const next = { ...prev };
+        perClass.forEach(({ cls, conversations }) => {
+          conversations.forEach(conv => {
+            const key = `dm:${cls.id}:${conv.peer_id}`;
+            next[key] = {
+              key, type: 'dm', id: conv.peer_id, classId: cls.id, peerId: conv.peer_id,
+              name: conv.peer_name || next[key]?.name || 'Classmate',
+              lastMessage: conv.last_message, lastAuthor: null, lastAt: conv.last_at, unreadCount: conv.unread_count || 0,
+            };
+          });
+        });
+        return next;
+      });
+    } catch { /* collaboration may simply be inactive for this student */ }
   }, []);
 
-  useEffect(() => { fetchGroups(); }, [fetchGroups]);
-  useEffect(() => { fetchCollabStatus(); const t = setInterval(fetchCollabStatus, 15000); return () => clearInterval(t); }, [fetchCollabStatus]);
+  useEffect(() => { Promise.all([fetchGroups(), fetchCollab()]).finally(() => setLoading(false)); }, [fetchGroups, fetchCollab]);
+  useEffect(() => { const t = setInterval(fetchCollab, 8000); return () => clearInterval(t); }, [fetchCollab]);
+  useEffect(() => { const t = setInterval(fetchGroups, 8000); return () => clearInterval(t); }, [fetchGroups]);
 
-  const openGroup = async (g) => {
-    setActiveGroup(g);
-    setDetailLoading(true);
-    try {
-      const res = await api.get(`/group-discussions/${g.id}`);
-      setGroupDetail(res.data.group);
-      setGroupChatOpen(true);
+  /* ── build the unified, recency-sorted inbox ─────────────────── */
+  const inbox = useMemo(() => {
+    const rows = [];
+
+    groups.forEach(g => {
+      const key = `group:${g.id}`;
+      const override = activityOverrides[key];
+      rows.push({
+        key, type: 'group', id: g.id, name: g.name, className: g.class_name, subtitle: g.class_name,
+        isLeader: g.is_team_leader,
+        lastMessage: override?.lastMessage ?? (g.last_message
+          ? (g.last_message.message_type === 'voice' ? '🎤 Voice note' : g.last_message.message_type === 'image' ? '📷 Photo' : g.last_message.message_type === 'file' ? '📎 File' : g.last_message.content)
+          : null),
+        lastAuthor: override?.lastAuthor ?? g.last_message?.author_name,
+        lastAt: override?.lastAt ?? (g.updated_at || g.created_at),
+        unreadCount: 0, // group unread counts aren't tracked server-side yet in this API surface
+        mentionCount: (activityOverrides[`${key}:mentions`]) || 0,
+      });
+
+      // Team leaders also get a private line to the teacher, surfaced as its
+      // own inbox row instead of being buried behind a button inside the group.
+      if (g.is_team_leader) {
+        const ldKey = `leaderdm:${g.id}`;
+        const ov = activityOverrides[ldKey];
+        rows.push({
+          key: ldKey, type: 'leaderdm', id: g.id, name: g.teacher_name ? `${g.teacher_name} (${g.name})` : `Teacher (${g.name})`,
+          lastMessage: ov?.lastMessage ?? null, lastAuthor: null, lastAt: ov?.lastAt ?? null, unreadCount: 0,
+        });
+      }
+    });
+
+    Object.values(dmEntries).forEach(d => {
+      const ov = activityOverrides[d.key];
+      rows.push({ ...d, lastMessage: ov?.lastMessage ?? d.lastMessage, lastAt: ov?.lastAt ?? d.lastAt, unreadCount: ov ? 0 : d.unreadCount });
+    });
+
+    rows.sort((a, b) => new Date(b.lastAt || 0).getTime() - new Date(a.lastAt || 0).getTime());
+    return rows;
+  }, [groups, dmEntries, activityOverrides]);
+
+  const filtered = inbox
+    .filter(e => e.name.toLowerCase().includes(search.toLowerCase()))
+    .filter(e => filter === 'all' ? true : filter === 'unread' ? e.unreadCount > 0 : filter === 'groups' ? e.type === 'group' : e.type === 'dm' || e.type === 'leaderdm');
+
+  const totalUnread = inbox.reduce((s, e) => s + (e.unreadCount || 0), 0);
+
+  const selectedEntry = inbox.find(e => e.key === selectedKey) || null;
+
+  const openEntry = (entry) => { setSelectedKey(entry.key); setMobileShowThread(true); };
+  const openTeacherDm = (groupId) => { const key = `leaderdm:${groupId}`; setSelectedKey(key); setMobileShowThread(true); };
+
+  const handleEntryActivity = useCallback((key, lastMsg) => {
+    const nameField = key.startsWith('group:') ? lastMsg.author_name : (lastMsg.sender_name || lastMsg.author_name);
+    const preview = lastMsg.message_type === 'voice' ? '🎤 Voice note' : lastMsg.message_type === 'image' ? '📷 Photo' : lastMsg.message_type === 'file' ? '📎 File' : lastMsg.content;
+    setActivityOverrides(prev => ({ ...prev, [key]: { lastMessage: preview, lastAuthor: nameField, lastAt: lastMsg.created_at } }));
+    // crude client-side mention tracking for groups: bump a badge when a message mentions me
+    if (key.startsWith('group:') && myName && String(lastMsg.author_id) !== String(myId)) {
+      const mentioned = extractMentions(lastMsg.content || '', [myName]).length > 0;
+      if (mentioned) setActivityOverrides(prev => ({ ...prev, [`${key}:mentions`]: (prev[`${key}:mentions`] || 0) + 1 }));
     }
-    catch { toast.error('Failed to load group'); setGroupDetail(null); }
-    finally { setDetailLoading(false); }
+  }, [myName, myId]);
+
+  // clear mention badge when opening that thread
+  useEffect(() => {
+    if (selectedKey) setActivityOverrides(prev => ({ ...prev, [`${selectedKey}:mentions`]: 0 }));
+  }, [selectedKey]);
+
+  const startNewDm = (classId, classmate) => {
+    const key = `dm:${classId}:${classmate.id}`;
+    setDmEntries(prev => ({ ...prev, [key]: { key, type: 'dm', id: classmate.id, classId, peerId: classmate.id, name: classmate.name, lastMessage: null, lastAt: new Date().toISOString(), unreadCount: 0 } }));
+    setNewMsgOpen(false);
+    setSelectedKey(key);
+    setMobileShowThread(true);
   };
 
-  const closeGroupChat = () => {
-    setGroupChatOpen(false);
-    setActiveGroup(null);
-    setGroupDetail(null);
-  };
-
-  const handleMessageSent = (newMsg) => {
-    setGroups(prev => prev.map(g =>
-      g.id === activeGroup?.id
-        ? { ...g, last_message: newMsg, message_count: g.message_count + 1, updated_at: new Date().toISOString() }
-        : g
-    ));
-  };
-
-  // Deep-link handling: react to a toast click (see ChatNotifyContext),
-  // whether it arrives while this page is already mounted (event) or right
-  // after navigating here fresh (consumePendingChatTarget on mount).
+  /* ── deep links from toast clicks (unchanged contract with chatNotify) ── */
   useEffect(() => {
     const applyTarget = (t) => {
       if (!t) return;
-      if (t.type === 'group') {
-        setTab('groups');
-        setCollabModalOpen(false);
-        openGroup({ id: t.groupId });
-      } else if (t.type === 'leaderdm') {
-        setTab('groups');
-        setCollabModalOpen(false);
-        setPendingLeaderDmGroupId(t.groupId);
-        openGroup({ id: t.groupId });
-      } else if (t.type === 'dm') {
-        setGroupChatOpen(false);
-        setPendingDmTarget({ classId: t.classId, peerId: t.peerId, peerName: t.peerName });
-        setTab('collab');
-        setCollabModalOpen(true);
+      if (t.type === 'group') { setSelectedKey(`group:${t.groupId}`); setMobileShowThread(true); }
+      else if (t.type === 'leaderdm') { setSelectedKey(`leaderdm:${t.groupId}`); setMobileShowThread(true); }
+      else if (t.type === 'dm') {
+        const key = `dm:${t.classId}:${t.peerId}`;
+        setDmEntries(prev => prev[key] ? prev : { ...prev, [key]: { key, type: 'dm', id: t.peerId, classId: t.classId, peerId: t.peerId, name: t.peerName || 'Classmate', lastMessage: null, lastAt: new Date().toISOString(), unreadCount: 0 } });
+        setSelectedKey(key); setMobileShowThread(true);
       }
     };
     applyTarget(consumePendingChatTarget());
@@ -2026,148 +1315,80 @@ export default function StudentGroups() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const switchTab = (t) => { setTab(t); };
-
-  const filteredGroups = groups
-    .filter(g => (groupFilter === 'leading' ? g.is_team_leader : true))
-    .filter(g => g.name.toLowerCase().includes(groupSearch.toLowerCase()))
-    .sort((a, b) => {
-      // Groups with unread activity (or any recent activity) float to the top.
-      const aTime = new Date(a.updated_at || a.last_message?.created_at || 0).getTime();
-      const bTime = new Date(b.updated_at || b.last_message?.created_at || 0).getTime();
-      return bTime - aTime;
-    });
-
   return (
     <div style={{ minHeight: 'calc(100vh - 120px)', padding: '16px' }}>
-      {/* ── Main card (IMPROVED: responsive width, better space usage) ── */}
-      <div style={{ background: 'var(--card-bg)', borderRadius: 20, overflow: 'hidden', border: '1px solid var(--card-border)', maxWidth: '100%', margin: '0 auto', width: '100%' }}>
+      <div style={{ background: 'var(--card-bg)', borderRadius: 20, overflow: 'hidden', border: '1px solid var(--card-border)', width: '100%', height: 'calc(100vh - 152px)', minHeight: 520, display: 'flex' }}>
 
-        {/* Header */}
-        <div style={{ background: 'linear-gradient(135deg, #0891b2 0%, #0369a1 100%)', padding: '18px 16px 0' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-            <h2 style={{ color: '#fff', fontWeight: 800, fontSize: 18, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{ width: 32, height: 32, borderRadius: 10, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Users style={{ width: 16, height: 16, color: '#fff' }} />
+        {/* ── Inbox pane ─────────────────────────────────────────── */}
+        <div className={`flex flex-col flex-shrink-0 w-full lg:w-[340px] min-h-0 ${mobileShowThread ? 'hidden lg:flex' : 'flex'}`} style={{ borderRight: '1px solid var(--card-border)' }}>
+          <div style={{ background: 'linear-gradient(135deg, #0891b2 0%, #0369a1 100%)', padding: '16px 16px 12px', flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+              <h2 style={{ color: '#fff', fontWeight: 800, fontSize: 17, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ width: 30, height: 30, borderRadius: 10, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Inbox style={{ width: 15, height: 15, color: '#fff' }} /></div>
+                Inbox
+              </h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                {totalUnread > 0 && <span style={{ fontWeight: 800, fontSize: 11, padding: '3px 9px', borderRadius: 20, background: '#dc2626', color: '#fff' }}>{totalUnread}</span>}
+                {collabClasses.length > 0 && (
+                  <button onClick={() => setNewMsgOpen(true)} title="New message" style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Plus style={{ width: 15, height: 15 }} /></button>
+                )}
               </div>
-              Discussions
-            </h2>
-            <span style={{ fontWeight: 700, fontSize: 11, padding: '4px 10px', borderRadius: 20, background: 'rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.9)' }}>
-              {groups.length} group{groups.length !== 1 ? 's' : ''}
-            </span>
+            </div>
+            <div className="relative mb-2">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: 'rgba(255,255,255,0.6)' }} />
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search everything…"
+                className="w-full pl-8 pr-3 py-2 rounded-xl text-sm outline-none" style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff' }} />
+            </div>
+            <div style={{ display: 'flex', gap: 4 }}>
+              {[['all', 'All'], ['groups', 'Groups'], ['dms', 'Direct'], ['unread', 'Unread']].map(([val, label]) => (
+                <button key={val} onClick={() => setFilter(val)} style={{ fontSize: 11, fontWeight: 700, padding: '5px 10px', borderRadius: 20, border: 'none', cursor: 'pointer', background: filter === val ? '#fff' : 'rgba(255,255,255,0.15)', color: filter === val ? '#0891b2' : 'rgba(255,255,255,0.85)' }}>{label}</button>
+              ))}
+            </div>
           </div>
-          <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, marginBottom: 14 }}>Collaborate with your classmates</p>
 
-          {/* Tabs */}
-          <div style={{ display: 'flex', gap: 4, padding: 4, borderRadius: 12, background: 'rgba(0,0,0,0.15)', marginBottom: 0 }}>
-            <button onClick={() => switchTab('groups')}
-              style={{ flex: 1, fontSize: 12, fontWeight: 700, padding: '6px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', transition: 'all 0.15s', ...(tab === 'groups' ? { background: '#fff', color: '#0891b2', boxShadow: '0 1px 4px rgba(0,0,0,0.1)' } : { background: 'transparent', color: 'rgba(255,255,255,0.75)' }) }}>
-              My Groups
-            </button>
-            <button onClick={() => { switchTab('collab'); setCollabModalOpen(true); }}
-              style={{ flex: 1, fontSize: 12, fontWeight: 700, padding: '6px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', transition: 'all 0.15s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, ...(tab === 'collab' ? { background: '#fff', color: '#6366f1', boxShadow: '0 1px 4px rgba(0,0,0,0.1)' } : { background: 'transparent', color: 'rgba(255,255,255,0.75)' }) }}>
-              <Radio style={{ width: 12, height: 12 }} /> Peer Chat
-              {activeCollabCount > 0 && (
-                <span style={{ fontSize: 9, fontWeight: 800, padding: '1px 5px', borderRadius: 20, background: '#6366f1', color: 'white' }}>
-                  {activeCollabCount}
-                </span>
-              )}
-            </button>
+          <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+            {loading ? [0, 1, 2, 3, 4].map(i => <InboxRowSkeleton key={i} delay={i * 60} />)
+              : filtered.length === 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '70px 24px', textAlign: 'center' }}>
+                  <div style={{ width: 60, height: 60, borderRadius: 16, marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(8,145,178,0.08)' }}><MessageSquare style={{ width: 28, height: 28, color: '#0891b2', opacity: 0.5 }} /></div>
+                  <p style={{ fontWeight: 700, marginBottom: 6, color: 'var(--text-primary)' }}>{inbox.length === 0 ? 'Nothing here yet' : 'No matches'}</p>
+                  <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{inbox.length === 0 ? 'Groups and chats will show up here once your teacher sets them up.' : 'Try a different search or filter.'}</p>
+                </div>
+              ) : filtered.map(entry => <InboxRow key={entry.key} entry={entry} active={entry.key === selectedKey} onClick={() => openEntry(entry)} />)}
           </div>
         </div>
 
-        {/* Search + filter pills (WhatsApp-style) */}
-        {tab === 'groups' && (
-          <div className="px-3 sm:px-4 py-3" style={{ borderBottom: '1px solid var(--card-border)' }}>
-            <div className="relative mb-2.5">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: 'var(--text-secondary)' }} />
-              <input value={groupSearch} onChange={e => setGroupSearch(e.target.value)} placeholder="Search groups…"
-                className="w-full pl-8 pr-3 py-2 rounded-xl text-sm outline-none"
-                style={{ background: 'var(--surface-100)', border: '1px solid var(--card-border)', color: 'var(--text-primary)' }} />
-            </div>
-            <div className="flex gap-2">
-              <button onClick={() => setGroupFilter('all')}
-                className="text-xs font-bold px-3 py-1.5 rounded-full transition-colors"
-                style={groupFilter === 'all'
-                  ? { background: 'rgba(8,145,178,0.14)', color: '#0891b2' }
-                  : { background: 'var(--surface-100)', color: 'var(--text-secondary)' }}>
-                All
-              </button>
-              <button onClick={() => setGroupFilter('leading')}
-                className="text-xs font-bold px-3 py-1.5 rounded-full transition-colors flex items-center gap-1"
-                style={groupFilter === 'leading'
-                  ? { background: 'rgba(8,145,178,0.14)', color: '#0891b2' }
-                  : { background: 'var(--surface-100)', color: 'var(--text-secondary)' }}>
-                <Crown className="w-2.5 h-2.5" /> Leading
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Groups list */}
-        <div style={{ minHeight: 300, maxHeight: 'calc(100vh - 300px)', overflowY: 'auto' }}>
-          {loading ? (
-            <div>
-              {[0, 1, 2, 3].map(i => <GroupCardSkeleton key={i} delay={i * 60} />)}
-            </div>
-          ) : groups.length === 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 24px', textAlign: 'center' }}>
-              <div style={{ width: 64, height: 64, borderRadius: 16, marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(8,145,178,0.08)' }}>
-                <Users style={{ width: 32, height: 32, color: '#0891b2', opacity: 0.5 }} />
+        {/* ── Thread pane ────────────────────────────────────────── */}
+        <div className={`flex-1 min-w-0 min-h-0 ${mobileShowThread ? 'flex' : 'hidden lg:flex'}`} style={{ flexDirection: 'column' }}>
+          {selectedEntry ? (
+            <ThreadPane
+              key={selectedEntry.key}
+              entry={selectedEntry}
+              myId={myId}
+              myName={myName}
+              onBack={() => setMobileShowThread(false)}
+              onOpenTeacherDm={openTeacherDm}
+              onEntryActivity={handleEntryActivity}
+            />
+          ) : (
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ textAlign: 'center', padding: '0 32px' }}>
+                <div style={{ width: 68, height: 68, borderRadius: 20, margin: '0 auto 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(99,102,241,0.08)' }}><MessageCircle style={{ width: 32, height: 32, color: '#6366f1', opacity: 0.6 }} /></div>
+                <p style={{ fontWeight: 800, marginBottom: 4, color: 'var(--text-primary)' }}>Pick a conversation</p>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Groups, classmates, and your private teacher line all live in one place now.</p>
               </div>
-              <p style={{ fontWeight: 700, marginBottom: 6, color: 'var(--text-primary)' }}>No groups yet</p>
-              <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Your teacher will add you to a group when collaboration begins.</p>
             </div>
-          ) : filteredGroups.length === 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 24px', textAlign: 'center' }}>
-              <Search style={{ width: 28, height: 28, color: 'var(--text-secondary)', opacity: 0.4, marginBottom: 10 }} />
-              <p style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)' }}>No groups match</p>
-            </div>
-          ) : filteredGroups.map(g => (
-            <GroupCard key={g.id} g={g} onClick={() => openGroup(g)} active={activeGroup?.id === g.id} />
-          ))}
+          )}
         </div>
       </div>
 
-      {/* ── Group chat modal ── */}
-      {groupChatOpen && (
-        <ChatModal onClose={closeGroupChat} accentFrom={groupDetail ? groupColor(groupDetail.id)[0] : '#6366f1'} accentTo={groupDetail ? groupColor(groupDetail.id)[1] : '#4f46e5'}>
-          {detailLoading || !groupDetail ? (
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
-              <div style={{ width: 40, height: 40, border: '4px solid rgba(99,102,241,0.2)', borderTopColor: '#6366f1', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-              <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Loading group…</p>
-            </div>
-          ) : (
-            <GroupChatContent
-              key={groupDetail.id}
-              group={groupDetail}
-              myId={myId}
-              myName={myName}
-              onClose={closeGroupChat}
-              onMessageSent={handleMessageSent}
-              autoOpenDm={pendingLeaderDmGroupId != null && String(pendingLeaderDmGroupId) === String(groupDetail.id)}
-              onAutoOpenHandled={() => setPendingLeaderDmGroupId(null)}
-            />
-          )}
-        </ChatModal>
-      )}
+      {newMsgOpen && <NewMessagePicker classes={collabClasses} onPick={startNewDm} onClose={() => setNewMsgOpen(false)} />}
 
-      {/* ── Peer Chat (collaboration) modal — student-to-student ── */}
-      {collabModalOpen && (
-        <PeerChatModal onClose={() => { setCollabModalOpen(false); setTab('groups'); }}>
-          <CollaborationPanel
-            myId={myId}
-            onClose={() => { setCollabModalOpen(false); setTab('groups'); }}
-            initialTarget={pendingDmTarget}
-            onInitialTargetHandled={() => setPendingDmTarget(null)}
-          />
-        </PeerChatModal>
-      )}
-
-      {/* Global keyframe styles */}
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        @keyframes memberSlideIn { from { opacity: 0; transform: translateX(-12px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes slideInFromRight { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: translateX(0); } }
       `}</style>
     </div>
   );
