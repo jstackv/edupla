@@ -364,11 +364,15 @@ const adminCreateStudent = async (req, res) => {
     const existing = await User.findOne({ email: email.toLowerCase() });
     if (existing) return res.status(400).json({ message: 'Email already exists' });
 
-    // Derive level & trade from the primary (first) enrolled class
+    // A student can only ever be enrolled in a single class at a time —
+    // ignore anything beyond the first class id supplied.
+    const classId = classIds[0] || null;
+
+    // Derive level & trade from the enrolled class
     let derivedLevel = null;
     let derivedTrade = null;
-    if (classIds.length > 0) {
-      const primaryClass = await Class.findById(classIds[0], 'level trade').lean();
+    if (classId) {
+      const primaryClass = await Class.findById(classId, 'level trade').lean();
       derivedLevel = primaryClass?.level || null;
       derivedTrade = primaryClass?.trade || null;
     }
@@ -381,8 +385,8 @@ const adminCreateStudent = async (req, res) => {
       created_by: req.user.id,
     });
 
-    if (classIds.length > 0) {
-      await Class.updateMany({ _id: { $in: classIds } }, { $addToSet: { students: s._id } });
+    if (classId) {
+      await Class.updateOne({ _id: classId }, { $addToSet: { students: s._id } });
     }
     res.status(201).json({ message: 'Student created successfully', id: s._id, defaultPassword });
     // Welcome email
@@ -397,11 +401,15 @@ const adminUpdateStudent = async (req, res) => {
   try {
     const { name, email, classIds = [], class_year } = req.body;
 
-    // Derive level & trade from the primary (first) enrolled class
+    // A student can only ever be enrolled in a single class at a time —
+    // ignore anything beyond the first class id supplied.
+    const classId = classIds[0] || null;
+
+    // Derive level & trade from the enrolled class
     let derivedLevel = null;
     let derivedTrade = null;
-    if (classIds.length > 0) {
-      const primaryClass = await Class.findById(classIds[0], 'level trade').lean();
+    if (classId) {
+      const primaryClass = await Class.findById(classId, 'level trade').lean();
       derivedLevel = primaryClass?.level || null;
       derivedTrade = primaryClass?.trade || null;
     }
@@ -411,8 +419,8 @@ const adminUpdateStudent = async (req, res) => {
       { name, email: email?.toLowerCase(), level: derivedLevel, trade: derivedTrade, class_year: class_year || null }
     );
     await Class.updateMany({}, { $pull: { students: new mongoose.Types.ObjectId(req.params.id) } });
-    if (classIds.length > 0) {
-      await Class.updateMany({ _id: { $in: classIds } }, { $addToSet: { students: req.params.id } });
+    if (classId) {
+      await Class.updateOne({ _id: classId }, { $addToSet: { students: req.params.id } });
     }
     res.json({ message: 'Student updated' });
   } catch (err) { res.status(500).json({ message: err.message }); }
@@ -449,6 +457,9 @@ const adminDeleteStudent = async (req, res) => {
 const adminAssignStudentToClass = async (req, res) => {
   try {
     const { classId } = req.body;
+    // A student can only ever be enrolled in a single class — remove them
+    // from any other class before assigning the new one.
+    await Class.updateMany({}, { $pull: { students: new mongoose.Types.ObjectId(req.params.id) } });
     await Class.updateOne({ _id: classId }, { $addToSet: { students: req.params.id } });
     res.json({ message: 'Student assigned to class' });
   } catch (err) { res.status(500).json({ message: err.message }); }

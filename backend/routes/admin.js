@@ -230,6 +230,7 @@ router.get('/classes/:id/students', adminGetClassStudents);
 router.post('/classes/:id/enroll-student', async (req, res) => {
   try {
     const { Class } = require('../models/db');
+    const mongoose = require('mongoose');
     const cls = await Class.findById(req.params.id);
     if (!cls) return res.status(404).json({ message: 'Class not found' });
     if (!cls.is_active) return res.status(400).json({ message: 'Cannot enroll students in an inactive class' });
@@ -237,6 +238,9 @@ router.post('/classes/:id/enroll-student', async (req, res) => {
     // Guard: reject if student already enrolled
     const alreadyEnrolled = cls.students.map(s => s.toString()).includes(String(student_id));
     if (alreadyEnrolled) return res.status(400).json({ message: 'Student is already enrolled in this class' });
+    // A student can only ever be enrolled in a single class — remove them
+    // from any other class before adding them to this one.
+    await Class.updateMany({}, { $pull: { students: new mongoose.Types.ObjectId(student_id) } });
     await Class.updateOne({ _id: req.params.id }, { $addToSet: { students: student_id } });
     res.json({ message: 'Student enrolled' });
   } catch (err) { res.status(500).json({ message: err.message }); }

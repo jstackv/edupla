@@ -7,8 +7,8 @@ import Pagination from '../../components/common/Pagination';
 import {
   Plus, Search, BookOpen, Users, Edit2, Trash2, UserPlus,
   GraduationCap, ChevronRight, Filter, LayoutGrid, List,
-  ArrowUpRight, X, Award, TrendingUp, Layers, UserCheck,
-  BarChart2, CheckCircle2, Clock, Star,
+  ArrowUpRight, X, Award, TrendingUp, Layers,
+  BarChart2, CheckCircle2, Clock, Star, Copy, Eye, EyeOff,
   ToggleLeft, ToggleRight,
 } from 'lucide-react';
 
@@ -437,11 +437,14 @@ export default function AdminClasses() {
   const [saving, setSaving] = useState(false);
   const [toggleTarget, setToggleTarget] = useState(null);
   const [toggling, setToggling] = useState(false);
-  const [enrollStudentId, setEnrollStudentId] = useState('');
   const [enrolling, setEnrolling] = useState(false);
-  const [enrollSearch, setEnrollSearch] = useState('');
-  const [enrollSearchResults, setEnrollSearchResults] = useState([]);
-  const [loadingEnrollSearch, setLoadingEnrollSearch] = useState(false);
+  // Registering + enrolling a brand-new student directly into the selected
+  // class — no other class is offered here since a student can only ever
+  // belong to one class, and this one is already decided by which class
+  // the admin clicked "enroll" from.
+  const [enrollForm, setEnrollForm] = useState({ name: '', email: '', class_year: '' });
+  const [enrollDefaultPassword, setEnrollDefaultPassword] = useState('');
+  const [enrollShowPassword, setEnrollShowPassword] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [form, setForm] = useState({
     name: '', description: '', level: '', trade: '', teacher_id: '', extra_teacher_ids: [], programConfigId: '',
@@ -503,31 +506,12 @@ export default function AdminClasses() {
     finally { setLoadingStudents(false); }
   };
 
-  const openEnrollModal = async (cls) => {
+  const openEnrollModal = (cls) => {
     setEnrollTarget(cls);
-    setEnrollStudentId('');
-    setEnrollSearch('');
-    setEnrollSearchResults([]);
+    setEnrollForm({ name: '', email: '', class_year: '' });
+    setEnrollDefaultPassword('');
+    setEnrollShowPassword(false);
     setEnrollModal(true);
-    // Load initial unenrolled students
-    setLoadingEnrollSearch(true);
-    try {
-      const res = await api.get(`/admin/classes/${cls.id}/unenrolled-students`, { params: { search: '' } });
-      setEnrollSearchResults(res.data.students || []);
-    } catch { setEnrollSearchResults([]); }
-    finally { setLoadingEnrollSearch(false); }
-  };
-  
-  const handleEnrollSearch = async (value) => {
-    setEnrollSearch(value);
-    setEnrollStudentId('');
-    if (!enrollTarget) return;
-    setLoadingEnrollSearch(true);
-    try {
-      const res = await api.get(`/admin/classes/${enrollTarget.id}/unenrolled-students`, { params: { search: value } });
-      setEnrollSearchResults(res.data.students || []);
-    } catch { setEnrollSearchResults([]); }
-    finally { setLoadingEnrollSearch(false); }
   };
 
   const handleSubmit = async (e) => {
@@ -575,17 +559,18 @@ export default function AdminClasses() {
     finally { setDeleting(false); }
   };
 
-  const handleEnrollStudent = async () => {
-    if (!enrollStudentId) return toast.error('Please select a student');
+  const handleEnrollSubmit = async (e) => {
+    e.preventDefault();
+    if (!enrollTarget) return;
     setEnrolling(true);
     try {
-      await api.post(`/admin/classes/${enrollTarget.id}/enroll-student`, { student_id: parseInt(enrollStudentId) });
+      const res = await api.post('/admin/students', { ...enrollForm, classIds: [enrollTarget.id] });
+      setEnrollDefaultPassword(res.data.defaultPassword);
       toast.success('Student enrolled successfully');
-      setEnrollModal(false);
       fetchClasses();
       if (studentsModal && studentsTarget?.id === enrollTarget.id) {
-        const res = await api.get(`/admin/classes/${enrollTarget.id}/students`);
-        setClassStudents(res.data.students);
+        const res2 = await api.get(`/admin/classes/${enrollTarget.id}/students`);
+        setClassStudents(res2.data.students);
       }
     } catch (err) { toast.error(err.response?.data?.message || 'Failed to enroll student'); }
     finally { setEnrolling(false); }
@@ -1073,78 +1058,100 @@ export default function AdminClasses() {
         )}
       </Modal>
 
-      {/* ── Enroll Modal ── */}
-      <Modal isOpen={enrollModal} onClose={() => setEnrollModal(false)} title={`Enroll Student — ${enrollTarget?.name}`}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ padding: '12px 14px', borderRadius: 12, background: '#f0f9ff', border: '1px solid #bae6fd', display: 'flex', gap: 10 }}>
-            <UserCheck size={18} style={{ color: '#0ea5e9', flexShrink: 0, marginTop: 1 }} />
-            <p style={{ fontSize: 12, color: '#0369a1', lineHeight: 1.6 }}>
-              Search and select an unenrolled student to add to <strong>{enrollTarget?.name}</strong>.
-            </p>
-          </div>
-          {/* Search input */}
-          <div style={{ position: 'relative' }}>
-            <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
-            <input
-              className="input-field"
-              style={{ paddingLeft: 32 }}
-              placeholder="Search by name or email…"
-              value={enrollSearch}
-              onChange={e => handleEnrollSearch(e.target.value)}
-            />
-          </div>
-          {/* Results list */}
-          <div style={{ maxHeight: 220, overflowY: 'auto', border: '1px solid var(--card-border)', borderRadius: 10 }}>
-            {loadingEnrollSearch ? (
-              <div style={{ padding: '20px', textAlign: 'center', fontSize: 13, color: 'var(--text-secondary)' }}>Searching…</div>
-            ) : enrollSearchResults.length === 0 ? (
-              <div style={{ padding: '20px', textAlign: 'center', fontSize: 13, color: 'var(--text-secondary)' }}>
-                {enrollSearch ? 'No unenrolled students found for this search.' : 'All students are already enrolled in this class.'}
+      {/* ── Enroll Modal: register + enroll a brand-new student directly into this class ── */}
+      <Modal isOpen={enrollModal} onClose={() => { setEnrollModal(false); setEnrollDefaultPassword(''); }} title={`Enroll Student — ${enrollTarget?.name}`}>
+        {enrollDefaultPassword ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '12px 0 4px' }}>
+              <div style={{ width: 56, height: 56, borderRadius: 18, background: '#ecfdf5', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+                <CheckCircle2 size={28} style={{ color: '#10b981' }} />
               </div>
-            ) : (
-              enrollSearchResults.map(s => (
-                <button
-                  key={s.id}
-                  onClick={() => setEnrollStudentId(String(s.id))}
-                  style={{
-                    width: '100%', textAlign: 'left', padding: '10px 14px',
-                    display: 'flex', alignItems: 'center', gap: 10,
-                    background: String(enrollStudentId) === String(s.id) ? 'rgba(99,102,241,0.08)' : 'transparent',
-                    borderBottom: '1px solid var(--card-border)',
-                    borderLeft: String(enrollStudentId) === String(s.id) ? '3px solid #6366f1' : '3px solid transparent',
-                    cursor: 'pointer',
-                  }}
-                >
-                  <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg,#10b981,#059669)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 12, fontWeight: 700, color: '#fff' }}>
-                    {s.name?.charAt(0).toUpperCase()}
+              <p style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 4 }}>Student Enrolled!</p>
+              <p style={{ fontSize: 12, color: 'var(--text-secondary)', textAlign: 'center' }}>
+                Share these login credentials with the student. They've been enrolled in <strong>{enrollTarget?.name}</strong>.
+              </p>
+            </div>
+
+            <div style={{ borderRadius: 14, border: '1px solid var(--surface-100)', background: 'transparent', overflow: 'hidden' }}>
+              {[
+                { label: 'Email', value: enrollForm.email, mono: true },
+                { label: 'Default Password', value: enrollDefaultPassword, mono: true, secret: true },
+              ].map(({ label, value, mono, secret }) => (
+                <div key={label} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '12px 16px', borderBottom: label === 'Email' ? '1px solid var(--surface-100)' : 'none',
+                }}>
+                  <div>
+                    <p style={{ fontSize: 10, fontWeight: 600, color: '#6b7280', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</p>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', fontFamily: mono ? 'monospace' : 'inherit' }}>
+                      {secret && !enrollShowPassword ? '••••••••••' : value}
+                    </p>
                   </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</p>
-                    <p style={{ margin: 0, fontSize: 11, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.email}</p>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    {secret && (
+                      <button onClick={() => setEnrollShowPassword(p => !p)}
+                        style={{ padding: 6, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#d1fae5', display: 'flex' }}>
+                        {enrollShowPassword ? <EyeOff size={14} style={{ color: '#059669' }} /> : <Eye size={14} style={{ color: '#059669' }} />}
+                      </button>
+                    )}
+                    <button onClick={() => navigator.clipboard.writeText(value).then(() => toast.success('Copied!'))}
+                      style={{ padding: 6, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#d1fae5', display: 'flex' }}>
+                      <Copy size={14} style={{ color: '#059669' }} />
+                    </button>
                   </div>
-                  {(s.level || s.trade) && (
-                    <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: 'rgba(99,102,241,0.1)', color: '#6366f1', flexShrink: 0 }}>{s.level || s.trade}</span>
-                  )}
-                  {String(enrollStudentId) === String(s.id) && (
-                    <UserCheck size={14} style={{ color: '#6366f1', flexShrink: 0 }} />
-                  )}
-                </button>
-              ))
-            )}
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button onClick={() => { setEnrollModal(false); setEnrollDefaultPassword(''); }} className="btn-secondary">Close</button>
+              <button onClick={() => { setEnrollDefaultPassword(''); setEnrollForm({ name: '', email: '', class_year: '' }); }} className="btn-primary">
+                <UserPlus size={14} /> Enroll Another
+              </button>
+            </div>
           </div>
-          {enrollStudentId && (
-            <p style={{ fontSize: 12, color: '#059669', display: 'flex', alignItems: 'center', gap: 5 }}>
-              <UserCheck size={13} /> {enrollSearchResults.find(s => String(s.id) === String(enrollStudentId))?.name} selected
-            </p>
-          )}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-            <button type="button" onClick={() => setEnrollModal(false)} className="btn-secondary">Cancel</button>
-            <button onClick={handleEnrollStudent} disabled={enrolling || !enrollStudentId} className="btn-primary">
-              {enrolling && <div style={{ width: 14, height: 14, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />}
-              Enroll Student
-            </button>
-          </div>
-        </div>
+        ) : (
+          <form onSubmit={handleEnrollSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ padding: '12px 14px', borderRadius: 12, background: '#f0f9ff', border: '1px solid #bae6fd', display: 'flex', gap: 10 }}>
+              <UserPlus size={18} style={{ color: '#0ea5e9', flexShrink: 0, marginTop: 1 }} />
+              <p style={{ fontSize: 12, color: '#0369a1', lineHeight: 1.6 }}>
+                This student will be registered and enrolled directly into <strong>{enrollTarget?.name}</strong>. Since a student can only belong to one class, there's no class list here — it's already decided.
+              </p>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <label className="label">Full Name *</label>
+                <input value={enrollForm.name} onChange={e => setEnrollForm(f => ({ ...f, name: e.target.value }))}
+                  className="input-field" placeholder="Student name" required />
+              </div>
+              <div>
+                <label className="label">Email *</label>
+                <input type="email" value={enrollForm.email} onChange={e => setEnrollForm(f => ({ ...f, email: e.target.value }))}
+                  className="input-field" placeholder="student@school.edu" required />
+              </div>
+            </div>
+
+            <div>
+              <label className="label">Intake Year</label>
+              <select value={enrollForm.class_year} onChange={e => setEnrollForm(f => ({ ...f, class_year: e.target.value }))}
+                className="input-field">
+                <option value="">Select year…</option>
+                {Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - 2 + i).map(y => (
+                  <option key={y} value={String(y)}>{y}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button type="button" onClick={() => setEnrollModal(false)} className="btn-secondary">Cancel</button>
+              <button type="submit" disabled={enrolling} className="btn-primary">
+                {enrolling && <div style={{ width: 14, height: 14, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />}
+                Enroll Student
+              </button>
+            </div>
+          </form>
+        )}
       </Modal>
 
       <ConfirmDialog

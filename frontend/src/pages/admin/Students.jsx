@@ -274,6 +274,11 @@ export default function AdminStudents() {
   const [showPassword, setShowPassword] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [form, setForm] = useState({ name: '', email: '', classIds: [], class_year: '' });
+  // The class a student was already enrolled in when the edit modal was opened.
+  // Students can only ever belong to one class, so this lets us show the
+  // current class as fixed while any other class remains pickable, and once
+  // a new one is picked, all others (including the old one) become disabled.
+  const [originalClassId, setOriginalClassId] = useState(null);
 
   const fetchStudents = useCallback(async () => {
     setLoading(true);
@@ -300,23 +305,47 @@ export default function AdminStudents() {
       try {
         const res = await api.get(`/admin/students/${student.id}`);
         const s = res.data.student;
-        setForm({ name: s.name, email: s.email, classIds: s.classes.map(c => String(c.id)), class_year: s.class_year || '' });
+        // A student only ever belongs to one class — use the first as "current"
+        const currentClassId = s.classes?.[0]?.id ? String(s.classes[0].id) : null;
+        setOriginalClassId(currentClassId);
+        setForm({ name: s.name, email: s.email, classIds: currentClassId ? [currentClassId] : [], class_year: s.class_year || '' });
       } catch {
+        setOriginalClassId(null);
         setForm({ name: student.name, email: student.email, classIds: [], class_year: '' });
       }
     } else {
+      setOriginalClassId(null);
       setForm({ name: '', email: '', classIds: [], class_year: '' });
     }
     setModal(true);
   };
 
+  // A student can only ever be enrolled in one class at a time.
+  // - Picking a class always replaces whatever was previously selected.
+  // - Un-picking the currently selected class reverts to the student's
+  //   original class when editing (or clears it entirely when creating).
   const toggleClass = (id) => {
-    setForm(f => ({
-      ...f,
-      classIds: f.classIds.includes(String(id))
-        ? f.classIds.filter(c => c !== String(id))
-        : [...f.classIds, String(id)],
-    }));
+    const idStr = String(id);
+    setForm(f => {
+      if (f.classIds.includes(idStr)) {
+        return { ...f, classIds: originalClassId ? [originalClassId] : [] };
+      }
+      return { ...f, classIds: [idStr] };
+    });
+  };
+
+  // Whether a given class checkbox should be disabled:
+  // - While editing and nothing has changed yet (only the student's original
+  //   class is selected), every OTHER class stays pickable — only the
+  //   current one is locked, so admin can freely switch them out.
+  // - As soon as any class is selected (either a fresh pick, or when
+  //   creating a new student), every other class becomes disabled — a
+  //   student can only ever be ticked into one class.
+  const isClassDisabled = (classId) => {
+    const idStr = String(classId);
+    const isUnchangedOriginal = editing && form.classIds.length === 1 && form.classIds[0] === originalClassId;
+    if (isUnchangedOriginal) return idStr === originalClassId;
+    return form.classIds.length > 0 && !form.classIds.includes(idStr);
   };
 
   const handleSubmit = async (e) => {
@@ -617,6 +646,7 @@ export default function AdminStudents() {
                 setDefaultPassword('');
                 setForm({ name: '', email: '', classIds: [], class_year: '' });
                 setEditing(null);
+                setOriginalClassId(null);
               }} className="btn-primary">
                 <Plus size={14} /> Add Another
               </button>
@@ -651,35 +681,49 @@ export default function AdminStudents() {
               </select>
             </div>
 
-            {/* Enroll in Classes */}
+            {/* Enroll in Class (a student can only ever belong to one) */}
             <div>
               <label className="label">
-                Enroll in Classes
+                {editing ? 'Class' : 'Enroll in Class'}
                 {form.classIds.length > 0 && (
                   <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 600, color: '#10b981' }}>
-                    {form.classIds.length} selected
+                    selected
                   </span>
                 )}
               </label>
+              {editing && (
+                <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: '2px 0 6px' }}>
+                  A student can only be enrolled in one class. Tick a different class to move them out of their current one.
+                </p>
+              )}
               <div style={{
                 display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6,
                 marginTop: 6, maxHeight: 180, overflowY: 'auto', paddingRight: 2,
               }}>
                 {classes.map(c => {
                   const selected = form.classIds.includes(String(c.id));
+                  const isCurrent = editing && String(c.id) === originalClassId;
+                  const disabled = isClassDisabled(c.id);
                   const [from] = getAvatarColors(c.name);
                   return (
                     <label key={c.id} style={{
                       display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px',
-                      borderRadius: 10, cursor: 'pointer',
+                      borderRadius: 10, cursor: disabled ? 'not-allowed' : 'pointer',
                       border: `1.5px solid ${selected ? from + '66' : 'var(--card-border)'}`,
                       background: selected ? `${from}0d` : 'var(--surface-50)',
+                      opacity: disabled && !selected ? 0.45 : 1,
                       transition: 'all 0.15s',
                     }}>
-                      <input type="checkbox" checked={selected} onChange={() => toggleClass(c.id)}
+                      <input type="checkbox" checked={selected} disabled={disabled}
+                        onChange={() => { if (!disabled) toggleClass(c.id); }}
                         style={{ accentColor: from, width: 14, height: 14, flexShrink: 0 }} />
                       <div style={{ minWidth: 0 }}>
-                        <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</p>
+                        <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {c.name}
+                          {isCurrent && (
+                            <span style={{ marginLeft: 5, fontSize: 9, fontWeight: 700, color: '#6b7280' }}>(current)</span>
+                          )}
+                        </p>
                         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 2 }}>
                           {c.teacher_name && (
                             <span style={{ fontSize: 10, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.teacher_name}</span>
