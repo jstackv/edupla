@@ -5,7 +5,7 @@ const { logoUpload } = require('../middleware/upload');
 const {
   getDashboardStats, getTeachers, createTeacher, updateTeacher, deleteTeacher,
   getAllClasses, adminCreateClass, adminUpdateClass, adminDeleteClass, adminAssignClassToTeacher,
-  adminGetClassTeachers, adminGetClassStudents,
+  adminGetClassTeachers, adminGetClassStudents, adminMoveClassStudents, adminEraseClassStudents,
   getAllStudents, adminCreateStudent, adminUpdateStudent, adminDeleteStudent,
   adminAssignStudentToClass, adminGetStudentDetail,
   getAdminAssignments,
@@ -227,6 +227,8 @@ router.delete('/classes/:id', adminDeleteClass);
 router.put('/classes/:id/assign-teacher', adminAssignClassToTeacher);
 router.get('/classes/:id/teachers', adminGetClassTeachers);
 router.get('/classes/:id/students', adminGetClassStudents);
+router.post('/classes/:id/move-students', adminMoveClassStudents);
+router.post('/classes/:id/erase-students', adminEraseClassStudents);
 router.post('/classes/:id/enroll-student', async (req, res) => {
   try {
     const { Class } = require('../models/db');

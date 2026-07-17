@@ -320,6 +320,92 @@ const adminGetClassStudents = async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
+// Move some (or all) students from one class into another — e.g. promoting
+// an entire cohort from L4 to L5 at year-end. Keeps each student's derived
+// level/trade in sync with their new class, exactly like assigning a single
+// student to a class elsewhere in this file.
+const adminMoveClassStudents = async (req, res) => {
+  try {
+    const { targetClassId, studentIds } = req.body;
+    if (!targetClassId) return res.status(400).json({ message: 'Target class is required' });
+    if (String(targetClassId) === String(req.params.id)) {
+      return res.status(400).json({ message: 'Target class must be different from the source class' });
+    }
+
+    const [sourceClass, targetClass] = await Promise.all([
+      Class.findById(req.params.id, 'students'),
+      Class.findById(targetClassId, 'level trade students'),
+    ]);
+    if (!sourceClass) return res.status(404).json({ message: 'Source class not found' });
+    if (!targetClass) return res.status(404).json({ message: 'Target class not found' });
+
+    const sourceIds = sourceClass.students.map(id => id.toString());
+    // No studentIds supplied (or empty array) means "move everyone".
+    const idsToMove = Array.isArray(studentIds) && studentIds.length > 0
+      ? sourceIds.filter(id => studentIds.map(String).includes(id))
+      : sourceIds;
+
+    if (idsToMove.length === 0) {
+      return res.status(400).json({ message: 'No students to move' });
+    }
+
+    const objectIds = idsToMove.map(id => new mongoose.Types.ObjectId(id));
+
+    await Promise.all([
+      Class.updateOne({ _id: req.params.id }, { $pullAll: { students: objectIds } }),
+      Class.updateOne({ _id: targetClassId }, { $addToSet: { students: { $each: objectIds } } }),
+      User.updateMany(
+        { _id: { $in: objectIds } },
+        { level: targetClass.level || null, trade: targetClass.trade || null }
+      ),
+    ]);
+
+    res.json({ message: `${idsToMove.length} student${idsToMove.length !== 1 ? 's' : ''} moved successfully`, moved: idsToMove.length });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+// Permanently erase some (or all) students enrolled in a class — deletes
+// their accounts entirely (not just an unenroll), cleaning up submissions,
+// discussion-group membership, and direct messages exactly like the single
+// -student delete above. Irreversible — the frontend gates this hard.
+const adminEraseClassStudents = async (req, res) => {
+  try {
+    const { studentIds } = req.body;
+    const cls = await Class.findById(req.params.id, 'students');
+    if (!cls) return res.status(404).json({ message: 'Class not found' });
+
+    const sourceIds = cls.students.map(id => id.toString());
+    const idsToErase = Array.isArray(studentIds) && studentIds.length > 0
+      ? sourceIds.filter(id => studentIds.map(String).includes(id))
+      : sourceIds;
+
+    if (idsToErase.length === 0) {
+      return res.status(400).json({ message: 'No students to erase' });
+    }
+
+    const objectIds = idsToErase.map(id => new mongoose.Types.ObjectId(id));
+
+    const submissions = await Submission.find({ student_id: { $in: objectIds } }, 'filename original_name').lean();
+    await Promise.all(submissions.map(s => s.filename
+      ? destroyFile(s.filename, getResourceType(s.original_name)) : Promise.resolve()));
+    await Submission.deleteMany({ student_id: { $in: objectIds } });
+
+    await DiscussionGroup.updateMany({}, { $pull: { members: { $in: objectIds } } });
+
+    const dms = await DirectMessage.find(
+      { $or: [{ sender_id: { $in: objectIds } }, { receiver_id: { $in: objectIds } }] },
+      'message_type media_public_id file_name mime_type'
+    ).lean();
+    await Promise.all(dms.map(destroyGroupMessageMedia));
+    await DirectMessage.deleteMany({ $or: [{ sender_id: { $in: objectIds } }, { receiver_id: { $in: objectIds } }] });
+
+    await Class.updateMany({}, { $pullAll: { students: objectIds } });
+    await User.deleteMany({ _id: { $in: objectIds }, role: 'student' });
+
+    res.json({ message: `${idsToErase.length} student${idsToErase.length !== 1 ? 's' : ''} erased permanently`, erased: idsToErase.length });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
 // ── Admin Students ─────────────────────────────────────────────────────
 const getAllStudents = async (req, res) => {
   try {
@@ -790,7 +876,7 @@ const uploadReportLogo = async (req, res) => {
 module.exports = {
   getDashboardStats, getTeachers, createTeacher, updateTeacher, deleteTeacher,
   getAllClasses, adminCreateClass, adminUpdateClass, adminDeleteClass, adminAssignClassToTeacher,
-  adminGetClassTeachers, adminGetClassStudents,
+  adminGetClassTeachers, adminGetClassStudents, adminMoveClassStudents, adminEraseClassStudents,
   getAllStudents, adminCreateStudent, adminUpdateStudent, adminDeleteStudent,
   adminAssignStudentToClass, adminGetStudentDetail,
   getAdminAssignments,
