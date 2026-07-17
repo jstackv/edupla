@@ -1,0 +1,28 @@
+# ══════════════════════════════════════════════════════════════════════
+# EDUPLA — backend environment variables
+
+# ── MongoDB ──────────────────────────────────────────────────────────
+MONGODB_URI=mongodb+srv://jstack_db_user:Jstack_db_pass@cluster0.ien6dvw.mongodb.net/edupla?retryWrites=true&w=majority
+DB_NAME=edupla
+
+# ── Cloudinary (file/image/voice-note storage) ──────────────────────
+CLOUDINARY_CLOUD_NAME=dc2frsld7
+CLOUDINARY_API_KEY=586535253716421
+CLOUDINARY_API_SECRET=o2xamygJUEA0G2qgZU4r10Xifio
+
+# ── Email (nodemailer — password resets, notifications, etc.) ──────
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_SECURE=false
+EMAIL_USER=jstackvm@gmail.com
+EMAIL_PASS=qartebiuyjxemvys
+EMAIL_FROM="EDUPLA" <no-reply@edupla.app>
+APP_URL=https://edupla.vercel.app
+
+# ── Auth ─────────────────────────────────────────────────────────────
+JWT_SECRET=uugdfuigdiqwdgqwyd98ey239t432r2et237ru23rqe6t2
+
+# ── Server ───────────────────────────────────────────────────────────
+PORT=5000
+NODE_ENV=development
+ALLOWED_ORIGINS=http://localhost:3000

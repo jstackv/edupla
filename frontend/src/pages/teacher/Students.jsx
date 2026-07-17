@@ -2,9 +2,10 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import Pagination from '../../components/common/Pagination';
+import TeacherStudentDmModal from '../../components/common/TeacherStudentDmModal';
 import {
   Search, Users, Grid, List, Mail, BookOpen,
-  ArrowUpDown, Download, CheckSquare, Square, X, Sparkles,
+  ArrowUpDown, Download, CheckSquare, Square, X, Sparkles, MessageCircle,
 } from 'lucide-react';
 
 /* ── Shared deterministic palette helpers (mirrors Classes.jsx) ── */
@@ -61,6 +62,7 @@ export default function Students() {
   const [loading, setLoading] = useState(true);
   const [classes, setClasses] = useState([]);
   const [selected, setSelected] = useState(new Set());
+  const [dmStudent, setDmStudent] = useState(null); // { id, name } — opens the private message modal
 
   const fetchStudents = useCallback(async () => {
     setLoading(true);
@@ -316,6 +318,12 @@ export default function Students() {
                     <BookOpen className="w-3 h-3" /> {s.classes}
                   </p>
                 )}
+                <button
+                  onClick={() => setDmStudent({ id: s.id, name: s.name })}
+                  className="mt-3 w-full flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+                  style={{ background: 'rgba(147,51,234,0.1)', color: '#9333ea', border: '1px solid rgba(147,51,234,0.2)' }}>
+                  <MessageCircle className="w-3.5 h-3.5" /> Message
+                </button>
               </div>
             );
           })}
@@ -335,6 +343,7 @@ export default function Students() {
                   <th className="table-header hidden sm:table-cell">Level / Trade</th>
                   <th className="table-header hidden md:table-cell">Classes</th>
                   <th className="table-header hidden lg:table-cell">Joined</th>
+                  <th className="table-header text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -370,6 +379,14 @@ export default function Students() {
                       <td className="table-cell hidden lg:table-cell text-xs text-muted">
                         {s.created_at ? new Date(s.created_at).toLocaleDateString() : '—'}
                       </td>
+                      <td className="table-cell text-right">
+                        <button
+                          onClick={() => setDmStudent({ id: s.id, name: s.name })}
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+                          style={{ background: 'rgba(147,51,234,0.1)', color: '#9333ea', border: '1px solid rgba(147,51,234,0.2)' }}>
+                          <MessageCircle className="w-3.5 h-3.5" /> Message
+                        </button>
+                      </td>
                     </tr>
                   );
                 })}
@@ -380,6 +397,14 @@ export default function Students() {
       )}
 
       {total > 12 && <Pagination page={page} totalPages={Math.ceil(total / 12)} onPageChange={setPage} />}
+
+      {dmStudent && (
+        <TeacherStudentDmModal
+          studentId={dmStudent.id}
+          studentName={dmStudent.name}
+          onClose={() => setDmStudent(null)}
+        />
+      )}
     </div>
   );
 }
