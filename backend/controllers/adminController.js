@@ -316,7 +316,12 @@ const adminGetClassStudents = async (req, res) => {
       .populate('program_config_id', 'sector trade qualificationTitle rtqfLevel')
       .lean();
     if (!cls) return res.status(404).json({ message: 'Class not found' });
-    res.json({ students: cls.students, class: { id: cls._id, name: cls.name, program: cls.program_config_id || null } });
+    // Populated sub-docs come back with `_id`, not `id` — every consumer of this
+    // endpoint (student selection in Manage > Move Students, the enrolled-students
+    // list, etc.) keys off `.id`, so without this mapping every student in the
+    // response shares the same `undefined` id and selecting one selects them all.
+    const students = (cls.students || []).map(s => ({ ...s, id: s._id }));
+    res.json({ students, class: { id: cls._id, name: cls.name, program: cls.program_config_id || null } });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 

@@ -17,6 +17,7 @@
   --table-header:   #f8fafc;
   --text-primary:   #0f172a;
   --text-secondary: #475569;
+  --surface-50:     #f8fafc;
   --surface-100:    #f1f5f9;
 }
 
@@ -31,6 +32,7 @@
   --table-header:   #1a2233;
   --text-primary:   #f1f5f9;
   --text-secondary: #94a3b8;
+  --surface-50:     #161d2b;
   --surface-100:    #1f2937;
 }
 

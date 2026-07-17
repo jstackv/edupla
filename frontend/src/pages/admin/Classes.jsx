@@ -123,33 +123,6 @@ function ClassCard({ cls, onEdit, onDelete, onToggle, onViewStudents, onEnroll, 
           }}>
             <BookOpen size={20} style={{ color: from }} />
           </div>
-
-          {/* Action buttons */}
-          <div style={{
-            display: 'flex', gap: 3,
-            opacity: hovered ? 1 : 0,
-            transition: 'opacity 0.18s ease',
-          }}>
-            <button onClick={() => onEnroll(cls)}
-              style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#ecfdf5', display: 'flex', alignItems: 'center', gap: 3, transition: 'background 0.15s' }}
-              title="Enroll student">
-              <UserPlus size={13} style={{ color: '#10b981' }} />
-            </button>
-            <button onClick={() => onEdit(cls)}
-              style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: 'var(--surface-100)', display: 'flex', alignItems: 'center', transition: 'background 0.15s' }}
-              title="Edit class">
-              <Edit2 size={13} style={{ color: 'var(--text-secondary)' }} />
-            </button>
-            <button onClick={() => onDelete(cls)}
-              style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: 'var(--surface-100)', display: 'flex', alignItems: 'center', transition: 'background 0.15s' }}
-              title="Delete class">
-              <Trash2 size={13} style={{ color: '#ef4444' }} />
-            </button>
-            <button onClick={() => onToggle(cls)} title={cls.is_active !== false ? 'Deactivate' : 'Activate'}
-              style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: cls.is_active !== false ? '#fef3c7' : '#ecfdf5', display: 'flex' }}>
-              {cls.is_active !== false ? <ToggleRight size={13} style={{ color: '#d97706' }} /> : <ToggleLeft size={13} style={{ color: '#10b981' }} />}
-            </button>
-          </div>
         </div>
 
         {/* Name */}
@@ -1147,7 +1120,7 @@ export default function AdminClasses() {
         levels={levels}
         trades={trades}
         onEdit={(cls) => { setManageModal(false); openModal(cls); }}
-        onEnroll={(cls) => { setManageModal(false); openEnrollModal(cls); }}
+        onViewStudents={(cls) => { setManageModal(false); openStudentsModal(cls); }}
         onToggle={(cls) => { setManageModal(false); handleToggle(cls); }}
         onDelete={(cls) => { setManageModal(false); setDeleteTarget(cls); }}
         onChanged={fetchClasses}
