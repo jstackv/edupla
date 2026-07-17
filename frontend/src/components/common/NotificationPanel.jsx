@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell, X, CheckCheck, Trash2, ClipboardList, FileText, Megaphone, Info, CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
 import api from '../../utils/api';
+import { setPendingChatTarget } from '../../utils/chatNotify';
 import { useAuth } from '../../context/AuthContext';
 
 /* ── helpers ─────────────────────────────────────────────────────── */
@@ -50,6 +51,12 @@ function resolveNotificationPath(n, role) {
     case 'assignment':    return `${base}/assignments${qs()}`;
     case 'announcement':  return `${base}/announcements${qs()}`;
     case 'group':          return `${base}/groups`;
+    // A teacher's private DM only ever goes to a student — deep-link straight
+    // into that conversation instead of just the generic inbox.
+    case 'teacher_dm': {
+      if (n.link_id) setPendingChatTarget({ type: 'teacherdm', teacherId: n.link_id });
+      return `${base}/groups`;
+    }
     // A submission is only ever visible to the teacher who owns the class;
     // route straight to that assignment with its submissions panel open.
     case 'submission':    return `/teacher/assignments${qs({ openSubmissions: '1' })}`;

@@ -663,6 +663,25 @@ const endConversation = async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
+/* ── Teacher (owner): restore a previously-ended conversation ───────────
+   Re-opens posting access for every member (and the owning teacher) —
+   the reverse of endConversation. Messages sent before ending are kept. */
+const restoreConversation = async (req, res) => {
+  try {
+    const group = await DiscussionGroup.findOne({
+      _id: req.params.id,
+      teacher_id: req.user.id,
+    });
+    if (!group) return res.status(404).json({ message: 'Group not found or you are not the owner.' });
+    if (!group.is_ended) return res.status(400).json({ message: 'Conversation is not ended.' });
+
+    group.is_ended = false;
+    group.ended_at = null;
+    await group.save();
+    res.json({ message: 'Conversation restored. Everyone can post again.' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
 /* ── Poll for new messages (real-time simulation) ────────────────────────── */
 const getGroupMessages = async (req, res) => {
   try {
@@ -863,6 +882,6 @@ module.exports = {
   getGroups, createGroup, deleteGroup, getGroup, getMyGroups,
   addGroupMembers, removeGroupMember, moveGroupMember,
   postMessage, postVoiceNote, postMedia, deleteMessage, clearMyMessages,
-  endConversation, getGroupMessages,
+  endConversation, restoreConversation, getGroupMessages,
   getLeaderDm, postLeaderDm, deleteLeaderDmMessage, clearMyLeaderDmMessages,
 };

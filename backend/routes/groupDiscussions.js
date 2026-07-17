@@ -5,7 +5,7 @@ const { voiceNoteUpload, chatMediaUpload } = require('../middleware/upload');
 const {
   getGroups, createGroup, deleteGroup,
   getGroup,  getMyGroups, postMessage, postVoiceNote, postMedia, deleteMessage, clearMyMessages,
-  endConversation, getGroupMessages,
+  endConversation, restoreConversation, getGroupMessages,
   getLeaderDm, postLeaderDm, deleteLeaderDmMessage, clearMyLeaderDmMessages,
   addGroupMembers, removeGroupMember, moveGroupMember,
 } = require('../controllers/groupDiscussionController');
@@ -18,8 +18,9 @@ router.get('/',          isAuthenticated, isTeacher, getGroups);
 router.post('/',         isAuthenticated, isTeacher, createGroup);
 router.delete('/:id',    isAuthenticated, isTeacher, deleteGroup);
 
-// Teacher (owner): end conversation
-router.post('/:id/end',   isAuthenticated, isTeacher, endConversation);
+// Teacher (owner): end / restore conversation
+router.post('/:id/end',     isAuthenticated, isTeacher, endConversation);
+router.post('/:id/restore', isAuthenticated, isTeacher, restoreConversation);
 
 // Teacher (any assigned to the class): add or remove group members
 router.post('/:id/members',              isAuthenticated, isTeacher, addGroupMembers);

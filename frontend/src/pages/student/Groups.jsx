@@ -118,6 +118,7 @@ function groupColor(id) {
 }
 const DM_COLORS = ['#128C7E', '#075E54'];
 const LEADER_COLORS = ['#7c3aed', '#6d28d9'];
+const TEACHER_DM_COLORS = ['#9333ea', '#7e22ce'];
 
 const SENDER_COLORS = ['#0ea5e9', '#d97706', '#db2777', '#0891b2', '#7c3aed', '#dc2626', '#0284c7', '#475569'];
 function senderColor(seed) {
@@ -487,7 +488,7 @@ function MembersPanel({ group, onClose }) {
 ═════════════════════════════════════════════════════════════════════ */
 function Composer({
   accent, disabled, disabledLabel, onSendText, onSendVoice, onSendFile, onTypingChange,
-  replyTo, onCancelReply, mentionCandidates,
+  replyTo, onCancelReply, mentionCandidates, textOnly,
 }) {
   const [text, setText] = useState('');
   const [recording, setRecording] = useState(false);
@@ -679,10 +680,12 @@ function Composer({
         ) : (
           <div className="wa-input-pill" style={{ position: 'relative', '--wa-accent': accent[0], '--wa-accent-2': accent[1], '--wa-accent-soft': `${accent[0]}22` }}>
             {mentionQuery !== null && <MentionAutocomplete candidates={filteredMentionCandidates} onPick={pickMention} accent={accent} />}
-            <div style={{ position: 'relative', flexShrink: 0 }}>
-              <button className="wa-icon-btn" onClick={() => { setAttachOpen(o => !o); setEmojiOpen(false); }} title="Attach"><Plus style={{ width: 20, height: 20 }} /></button>
-              <AttachMenu open={attachOpen} onClose={() => setAttachOpen(false)} onPickImage={() => imageInputRef.current?.click()} onPickFile={() => fileInputRef.current?.click()} />
-            </div>
+            {!textOnly && (
+              <div style={{ position: 'relative', flexShrink: 0 }}>
+                <button className="wa-icon-btn" onClick={() => { setAttachOpen(o => !o); setEmojiOpen(false); }} title="Attach"><Plus style={{ width: 20, height: 20 }} /></button>
+                <AttachMenu open={attachOpen} onClose={() => setAttachOpen(false)} onPickImage={() => imageInputRef.current?.click()} onPickFile={() => fileInputRef.current?.click()} />
+              </div>
+            )}
             <div style={{ position: 'relative', flexShrink: 0 }}>
               <button className="wa-icon-btn" onClick={() => { setEmojiOpen(o => !o); setAttachOpen(false); }} title="Emoji"><Smile style={{ width: 20, height: 20 }} /></button>
               <EmojiPicker open={emojiOpen} onClose={() => setEmojiOpen(false)} onPick={(e) => { setText(t => t + e); inputRef.current?.focus(); }} />
@@ -692,6 +695,8 @@ function Composer({
               <button onClick={doSendText} disabled={posting} className="wa-icon-btn wa-icon-send wa-icon-swap">
                 {posting ? <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> : <Send style={{ width: 17, height: 17 }} />}
               </button>
+            ) : textOnly ? (
+              <button disabled className="wa-icon-btn wa-icon-swap" style={{ opacity: 0.3, cursor: 'default' }}><Send style={{ width: 17, height: 17 }} /></button>
             ) : (
               <button onClick={startRecording} className="wa-icon-btn wa-icon-swap" title="Record a voice note"><Mic style={{ width: 20, height: 20 }} /></button>
             )}
@@ -723,6 +728,7 @@ function useThread(entry, myId) {
 
   const basePath = entry.type === 'group' ? `/group-discussions/${entry.id}/messages`
     : entry.type === 'leaderdm' ? `/group-discussions/${entry.id}/leader-dm`
+    : entry.type === 'teacherdm' ? `/teacher-messages/teacher/${entry.id}`
     : `/collaborations/class/${entry.classId}/messages/${entry.peerId}`;
 
   const load = useCallback(async () => {
@@ -735,7 +741,7 @@ function useThread(entry, myId) {
         setMessages(msgs);
         setIsEnded(!!res.data.group.is_ended);
         lastMsgTimeRef.current = msgs.length ? msgs[msgs.length - 1].created_at : null;
-      } else if (entry.type === 'leaderdm') {
+      } else if (entry.type === 'leaderdm' || entry.type === 'teacherdm') {
         const res = await api.get(basePath);
         setGroupMeta({ peer: res.data.peer });
         const msgs = res.data.messages || [];
@@ -762,7 +768,7 @@ function useThread(entry, myId) {
           const toAdd = fresh.filter(m => !existingIds.has(String(m.id || m._id)));
           if (toAdd.length === 0) return prev;
           toAdd.forEach(m => markMessageSeen(m.id || m._id));
-          const senderField = entry.type === 'dm' ? 'sender_id' : entry.type === 'leaderdm' ? 'sender_id' : 'author_id';
+          const senderField = entry.type === 'dm' ? 'sender_id' : (entry.type === 'leaderdm' || entry.type === 'teacherdm') ? 'sender_id' : 'author_id';
           const fromOthers = toAdd.filter(m => String(m[senderField]) !== String(myId));
           if (fromOthers.length) {
             const last = fromOthers[fromOthers.length - 1];
@@ -774,7 +780,7 @@ function useThread(entry, myId) {
         });
         setPeerTyping(false); // a real message arriving supersedes a stale typing flag
       }
-      if (res.data.is_ended) setIsEnded(true);
+      if (typeof res.data.is_ended === 'boolean') setIsEnded(res.data.is_ended);
       // Best-effort: if the API ever starts returning peer typing state, pick it up.
       if (typeof res.data.peer_typing === 'boolean') setPeerTyping(res.data.peer_typing);
     } catch { /* keep last known state on transient poll errors */ }
@@ -795,6 +801,7 @@ function useThread(entry, myId) {
     if (replyTo) payload.reply_to_id = replyTo.id; // best-effort: ignored server-side if unsupported
     const path = entry.type === 'group' ? `/group-discussions/${entry.id}/messages`
       : entry.type === 'leaderdm' ? `/group-discussions/${entry.id}/leader-dm`
+      : entry.type === 'teacherdm' ? `/teacher-messages/teacher/${entry.id}`
       : `/collaborations/class/${entry.classId}/messages`;
     const body = entry.type === 'dm' ? { receiverId: entry.peerId, content, ...(replyTo ? { reply_to_id: replyTo.id } : {}) } : payload;
     const res = await api.post(path, body);
@@ -806,6 +813,7 @@ function useThread(entry, myId) {
   };
 
   const sendVoice = async (blob, duration) => {
+    if (entry.type === 'teacherdm') { toast.error('Voice notes are not supported in this conversation.'); return; }
     const formData = new FormData();
     const ext = blob.type.includes('ogg') ? 'ogg' : 'webm';
     formData.append('audio', blob, `voice-note-${Date.now()}.${ext}`);
@@ -821,6 +829,7 @@ function useThread(entry, myId) {
   };
 
   const sendFile = async (file) => {
+    if (entry.type === 'teacherdm') { toast.error('File sharing is not supported in this conversation.'); return; }
     const formData = new FormData();
     formData.append('file', file);
     if (entry.type === 'dm') formData.append('receiverId', entry.peerId);
@@ -837,6 +846,7 @@ function useThread(entry, myId) {
     if (!window.confirm('Delete this message?')) return;
     const path = entry.type === 'group' ? `/group-discussions/${entry.id}/messages/${messageId}`
       : entry.type === 'leaderdm' ? `/group-discussions/${entry.id}/leader-dm/${messageId}`
+      : entry.type === 'teacherdm' ? `/teacher-messages/teacher/${entry.id}/messages/${messageId}`
       : `/collaborations/class/${entry.classId}/messages/${messageId}`;
     try { await api.delete(path); setMessages(prev => prev.filter(m => String(m.id || m._id) !== String(messageId))); }
     catch (err) { toast.error(err.response?.data?.message || 'Failed to delete message'); }
@@ -845,6 +855,7 @@ function useThread(entry, myId) {
   const clearMine = async () => {
     const path = entry.type === 'group' ? `/group-discussions/${entry.id}/messages`
       : entry.type === 'leaderdm' ? `/group-discussions/${entry.id}/leader-dm`
+      : entry.type === 'teacherdm' ? `/teacher-messages/teacher/${entry.id}/messages`
       : `/collaborations/class/${entry.classId}/messages/peer/${entry.peerId}`;
     await api.delete(path);
     setMessages(prev => prev.filter(m => String(m.author_id || m.sender_id) !== String(myId)));
@@ -894,7 +905,7 @@ function ThreadPane({ entry, myId, myName, onBack, onOpenTeacherDm, onEntryActiv
   const messagesEndRef = useRef(null);
   const scrollRef = useRef(null);
 
-  const accent = entry.type === 'group' ? groupColor(entry.id) : entry.type === 'leaderdm' ? LEADER_COLORS : DM_COLORS;
+  const accent = entry.type === 'group' ? groupColor(entry.id) : entry.type === 'leaderdm' ? LEADER_COLORS : entry.type === 'teacherdm' ? TEACHER_DM_COLORS : DM_COLORS;
 
   useEffect(() => {
     setActiveConversation(entry.key);
@@ -963,6 +974,7 @@ function ThreadPane({ entry, myId, myName, onBack, onOpenTeacherDm, onEntryActiv
               {thread.peerTyping ? <span style={{ fontStyle: 'italic' }}>typing…</span>
                 : entry.type === 'group' ? entry.subtitle
                 : entry.type === 'leaderdm' ? 'Private · only you and your teacher'
+                : entry.type === 'teacherdm' ? 'Private · only you and this teacher'
                 : 'Private · only you two can see this'}
             </div>
           </div>
@@ -1005,8 +1017,8 @@ function ThreadPane({ entry, myId, myName, onBack, onOpenTeacherDm, onEntryActiv
             <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 0' }}><div style={{ width: 28, height: 28, border: `3px solid ${accent[0]}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} /></div>
           ) : enriched.filter(x => x.type === 'msg').length === 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', textAlign: 'center', padding: '40px 0' }}>
-              <div style={{ fontSize: 40, marginBottom: 10 }}>{entry.type === 'group' ? '👋' : '💬'}</div>
-              <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>{entry.type === 'group' ? 'No messages yet' : `Start talking to ${entry.name}`}</p>
+              <div style={{ fontSize: 40, marginBottom: 10 }}>{entry.type === 'group' ? '👋' : entry.type === 'teacherdm' ? '🔒' : '💬'}</div>
+              <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>{entry.type === 'group' ? 'No messages yet' : entry.type === 'teacherdm' ? `Message from ${entry.name}` : `Start talking to ${entry.name}`}</p>
               <p style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{entry.type === 'group' ? 'Be the first to say something!' : 'Your messages are private'}</p>
             </div>
           ) : enriched.map(item => item.type === 'date' ? (
@@ -1035,6 +1047,7 @@ function ThreadPane({ entry, myId, myName, onBack, onOpenTeacherDm, onEntryActiv
         replyTo={replyTo}
         onCancelReply={() => setReplyTo(null)}
         mentionCandidates={entry.type === 'group' ? memberNames.filter(n => n !== myName) : []}
+        textOnly={entry.type === 'teacherdm'}
       />
 
       {searchOpen && <ThreadSearch messages={thread.messages.map(m => ({ ...m, author_name: m.author_name || m.sender_name }))} onJump={jumpTo} onClose={() => setSearchOpen(false)} accent={accent} />}
@@ -1054,7 +1067,7 @@ function ThreadPane({ entry, myId, myName, onBack, onOpenTeacherDm, onEntryActiv
    Inbox row
 ═════════════════════════════════════════════════════════════════════ */
 function InboxRow({ entry, active, onClick }) {
-  const accent = entry.type === 'group' ? groupColor(entry.id) : entry.type === 'leaderdm' ? LEADER_COLORS : DM_COLORS;
+  const accent = entry.type === 'group' ? groupColor(entry.id) : entry.type === 'leaderdm' ? LEADER_COLORS : entry.type === 'teacherdm' ? TEACHER_DM_COLORS : DM_COLORS;
   const [a, b] = accent;
   return (
     <div onClick={onClick} className="discussion-list-item flex items-center gap-3 px-3.5 py-3 cursor-pointer transition-all"
@@ -1065,6 +1078,11 @@ function InboxRow({ entry, active, onClick }) {
         </div>
         {entry.type === 'leaderdm' && (
           <div style={{ position: 'absolute', bottom: -2, right: -2, width: 16, height: 16, borderRadius: '50%', background: '#7c3aed', border: '2px solid var(--card-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <MessageCircle style={{ width: 8, height: 8, color: '#fff' }} />
+          </div>
+        )}
+        {entry.type === 'teacherdm' && (
+          <div style={{ position: 'absolute', bottom: -2, right: -2, width: 16, height: 16, borderRadius: '50%', background: '#9333ea', border: '2px solid var(--card-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <MessageCircle style={{ width: 8, height: 8, color: '#fff' }} />
           </div>
         )}
@@ -1083,7 +1101,7 @@ function InboxRow({ entry, active, onClick }) {
           <p className="text-xs truncate" style={{ color: 'var(--text-secondary)' }}>
             {entry.lastMessage
               ? <>{entry.lastAuthor && <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{entry.lastAuthor}: </span>}{entry.lastMessage}</>
-              : <span className="italic">{entry.type === 'leaderdm' ? 'Private line to your teacher' : 'No messages yet — say hello!'}</span>}
+              : <span className="italic">{entry.type === 'leaderdm' ? 'Private line to your teacher' : entry.type === 'teacherdm' ? 'Private message from your teacher' : 'No messages yet — say hello!'}</span>}
           </p>
           {entry.unreadCount > 0 && (
             <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full text-[10px] font-bold flex items-center justify-center px-1.5 text-white" style={{ background: `linear-gradient(135deg, ${a}, ${b})` }}>{entry.unreadCount > 9 ? '9+' : entry.unreadCount}</span>
@@ -1177,6 +1195,7 @@ export default function StudentGroups() {
   const [groups, setGroups] = useState([]);
   const [collabClasses, setCollabClasses] = useState([]);
   const [dmEntries, setDmEntries] = useState({}); // key -> entry, built from conversations per class
+  const [teacherDmEntries, setTeacherDmEntries] = useState({}); // key -> entry, built from teachers who've DM'd me
   const [activityOverrides, setActivityOverrides] = useState({}); // key -> { lastMessage, lastAt } from live thread updates
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -1219,7 +1238,29 @@ export default function StudentGroups() {
     } catch { /* collaboration may simply be inactive for this student */ }
   }, []);
 
-  useEffect(() => { Promise.all([fetchGroups(), fetchCollab()]).finally(() => setLoading(false)); }, [fetchGroups, fetchCollab]);
+  // Teachers who've started a private DM with me — only a teacher can start
+  // this thread, so this list only ever contains teachers who reached out first.
+  const fetchTeacherDms = useCallback(async () => {
+    try {
+      const res = await api.get('/teacher-messages/my');
+      const convos = res.data.conversations || [];
+      setTeacherDmEntries(prev => {
+        const next = { ...prev };
+        convos.forEach(conv => {
+          const key = `teacherdm:${conv.teacher_id}`;
+          next[key] = {
+            key, type: 'teacherdm', id: conv.teacher_id, peerId: conv.teacher_id,
+            name: conv.teacher_name || next[key]?.name || 'Teacher',
+            lastMessage: conv.last_message, lastAuthor: null, lastAt: conv.last_at, unreadCount: conv.unread_count || 0,
+          };
+        });
+        return next;
+      });
+    } catch { /* no teacher has messaged this student yet */ }
+  }, []);
+
+  useEffect(() => { Promise.all([fetchGroups(), fetchCollab(), fetchTeacherDms()]).finally(() => setLoading(false)); }, [fetchGroups, fetchCollab, fetchTeacherDms]);
+  useEffect(() => { const t = setInterval(fetchTeacherDms, 8000); return () => clearInterval(t); }, [fetchTeacherDms]);
   useEffect(() => { const t = setInterval(fetchCollab, 8000); return () => clearInterval(t); }, [fetchCollab]);
   useEffect(() => { const t = setInterval(fetchGroups, 8000); return () => clearInterval(t); }, [fetchGroups]);
 
@@ -1259,13 +1300,18 @@ export default function StudentGroups() {
       rows.push({ ...d, lastMessage: ov?.lastMessage ?? d.lastMessage, lastAt: ov?.lastAt ?? d.lastAt, unreadCount: ov ? 0 : d.unreadCount });
     });
 
+    Object.values(teacherDmEntries).forEach(d => {
+      const ov = activityOverrides[d.key];
+      rows.push({ ...d, lastMessage: ov?.lastMessage ?? d.lastMessage, lastAt: ov?.lastAt ?? d.lastAt, unreadCount: ov ? 0 : d.unreadCount });
+    });
+
     rows.sort((a, b) => new Date(b.lastAt || 0).getTime() - new Date(a.lastAt || 0).getTime());
     return rows;
-  }, [groups, dmEntries, activityOverrides]);
+  }, [groups, dmEntries, teacherDmEntries, activityOverrides]);
 
   const filtered = inbox
     .filter(e => e.name.toLowerCase().includes(search.toLowerCase()))
-    .filter(e => filter === 'all' ? true : filter === 'unread' ? e.unreadCount > 0 : filter === 'groups' ? e.type === 'group' : e.type === 'dm' || e.type === 'leaderdm');
+    .filter(e => filter === 'all' ? true : filter === 'unread' ? e.unreadCount > 0 : filter === 'groups' ? e.type === 'group' : e.type === 'dm' || e.type === 'leaderdm' || e.type === 'teacherdm');
 
   const totalUnread = inbox.reduce((s, e) => s + (e.unreadCount || 0), 0);
 
@@ -1307,6 +1353,10 @@ export default function StudentGroups() {
       else if (t.type === 'dm') {
         const key = `dm:${t.classId}:${t.peerId}`;
         setDmEntries(prev => prev[key] ? prev : { ...prev, [key]: { key, type: 'dm', id: t.peerId, classId: t.classId, peerId: t.peerId, name: t.peerName || 'Classmate', lastMessage: null, lastAt: new Date().toISOString(), unreadCount: 0 } });
+        setSelectedKey(key); setMobileShowThread(true);
+      } else if (t.type === 'teacherdm') {
+        const key = `teacherdm:${t.teacherId}`;
+        setTeacherDmEntries(prev => prev[key] ? prev : { ...prev, [key]: { key, type: 'teacherdm', id: t.teacherId, peerId: t.teacherId, name: t.teacherName || 'Teacher', lastMessage: null, lastAt: new Date().toISOString(), unreadCount: 0 } });
         setSelectedKey(key); setMobileShowThread(true);
       }
     };

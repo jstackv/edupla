@@ -121,7 +121,7 @@ const notificationSchema = new mongoose.Schema({
   // Deep-link target so clicking the notification can jump straight to where
   // the action lives (the document, assignment, announcement, or submission
   // that triggered it), instead of just opening the notification panel.
-  link_type:  { type: String, enum: ['document', 'assignment', 'announcement', 'submission', 'group', null], default: null },
+  link_type:  { type: String, enum: ['document', 'assignment', 'announcement', 'submission', 'group', 'teacher_dm', null], default: null },
   link_id:    { type: mongoose.Schema.Types.ObjectId, default: null },
   course_id:  { type: mongoose.Schema.Types.ObjectId, ref: 'Course', default: null },
   read_by:    [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
@@ -369,7 +369,27 @@ const directMessageSchema = new mongoose.Schema({
 directMessageSchema.index({ class_id: 1, sender_id: 1, receiver_id: 1, created_at: 1 });
 directMessageSchema.index({ class_id: 1, receiver_id: 1, read: 1 });
 
+// ── TeacherDirectMessage — private one-to-one messaging between a teacher
+// and a student they teach. Only the teacher can start a thread — it only
+// becomes visible to the student, and repliable by them, once the teacher
+// has sent at least one message. This is what makes the teacher "the only
+// one who can allow" the conversation to exist. After the first message,
+// either side may reply freely. Access is strictly limited to the
+// teacher_id and student_id on each message.
+const teacherDirectMessageSchema = new mongoose.Schema({
+  teacher_id:  { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  student_id:  { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  class_id:    { type: mongoose.Schema.Types.ObjectId, ref: 'Class', required: true }, // class that established the relationship at send-time
+  sender_id:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  sender_role: { type: String, enum: ['teacher', 'student'], required: true },
+  content:     { type: String, required: true },
+  read:        { type: Boolean, default: false },
+}, { timestamps: { createdAt: 'created_at', updatedAt: false } });
+teacherDirectMessageSchema.index({ teacher_id: 1, student_id: 1, created_at: 1 });
+teacherDirectMessageSchema.index({ student_id: 1, read: 1 });
+
 // ── Models ─────────────────────────────────────────────────────────────
+
 const User         = mongoose.model('User',         userSchema);
 const Class        = mongoose.model('Class',        classSchema);
 const Document     = mongoose.model('Document',     documentSchema);
@@ -389,6 +409,7 @@ const Maintenance      = mongoose.model('Maintenance',      maintenanceSchema);
 const DiscussionGroup  = mongoose.model('DiscussionGroup',  discussionGroupSchema);
 const ClassCollaboration = mongoose.model('ClassCollaboration', classCollaborationSchema);
 const DirectMessage      = mongoose.model('DirectMessage',      directMessageSchema);
+const TeacherDirectMessage = mongoose.model('TeacherDirectMessage', teacherDirectMessageSchema);
 
 module.exports = {
   connectDB,
@@ -398,4 +419,5 @@ module.exports = {
   Maintenance,
   DiscussionGroup,
   ClassCollaboration, DirectMessage,
+  TeacherDirectMessage,
 };

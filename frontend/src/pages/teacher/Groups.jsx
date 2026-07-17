@@ -8,7 +8,7 @@ import { ChatImageBubble, ChatFileBubble, fmtFileSize, AttachmentTypeIcon, Attac
 import {
   Plus, Search, Users, Trash2, X, Send,
   Crown, Check, Eye,
-  StopCircle, WifiOff,
+  StopCircle, WifiOff, RotateCcw,
   Mic, Square, Play, Pause,
   Zap, ZapOff, Radio, MessageCircle,
   UserPlus, UserMinus, ArrowLeftRight,
@@ -787,6 +787,7 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onEnded, onMembersCh
   const [isEnded, setIsEnded]   = useState(group.is_ended || false);
   const [liveStatus, setLiveStatus] = useState('idle');
   const [endConfirm, setEndConfirm]     = useState(false);
+  const [restoreConfirm, setRestoreConfirm] = useState(false);
   const [clearConfirm, setClearConfirm] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
@@ -855,7 +856,6 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onEnded, onMembersCh
   }, [group.id]);
 
   useEffect(() => {
-    if (isEnded) return;
     const poll = async () => {
       try {
         setLiveStatus('polling');
@@ -877,14 +877,16 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onEnded, onMembersCh
             return [...prev, ...fresh];
           });
         }
-        if (res.data.is_ended) { setIsEnded(true); clearInterval(pollRef.current); }
+        // Keep local ended-state in sync in both directions, so a restore
+        // (by this owner, from another tab/device) is picked up live too.
+        setIsEnded(!!res.data.is_ended);
         setLiveStatus('idle');
       } catch { setLiveStatus('error'); }
     };
     poll();
     pollRef.current = setInterval(poll, 3000);
     return () => clearInterval(pollRef.current);
-  }, [group.id, isEnded]);
+  }, [group.id]);
 
   function fmtDateSep(ts) {
     const d = new Date(ts); const today = new Date(); const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
@@ -1093,9 +1095,20 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onEnded, onMembersCh
       toast.success('Conversation ended. No one can post anymore.');
       setIsEnded(true);
       setEndConfirm(false);
-      clearInterval(pollRef.current);
       onEnded && onEnded();
     } catch (err) { toast.error(err.response?.data?.message || 'Failed to end conversation'); }
+    finally { setActionLoading(false); }
+  };
+
+  const handleRestore = async () => {
+    setActionLoading(true);
+    try {
+      await api.post(`/group-discussions/${group.id}/restore`);
+      toast.success('Conversation restored. Everyone can post again.');
+      setIsEnded(false);
+      setRestoreConfirm(false);
+      onEnded && onEnded();
+    } catch (err) { toast.error(err.response?.data?.message || 'Failed to restore conversation'); }
     finally { setActionLoading(false); }
   };
 
@@ -1153,10 +1166,19 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onEnded, onMembersCh
       </div>
 
       {isEnded ? (
-        <div className="flex items-center justify-center gap-2 px-4 py-2.5 flex-shrink-0"
+        <div className="flex items-center justify-between gap-2 px-4 py-2.5 flex-shrink-0 flex-wrap"
           style={{ background: 'rgba(220,38,38,0.08)', borderBottom: '1px solid var(--card-border)' }}>
-          <StopCircle className="w-3.5 h-3.5 flex-shrink-0" style={{ color: '#dc2626' }} />
-          <span className="text-xs font-semibold" style={{ color: '#dc2626' }}>Conversation ended — no one can post anymore</span>
+          <div className="flex items-center gap-2">
+            <StopCircle className="w-3.5 h-3.5 flex-shrink-0" style={{ color: '#dc2626' }} />
+            <span className="text-xs font-semibold" style={{ color: '#dc2626' }}>Conversation ended — no one can post anymore</span>
+          </div>
+          {group.is_owner && (
+            <button onClick={() => setRestoreConfirm(true)}
+              className="tg-pill-btn flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full flex-shrink-0"
+              style={{ background: 'rgba(5,150,105,0.1)', color: '#059669', border: '1px solid rgba(5,150,105,0.2)' }}>
+              <RotateCcw className="w-3 h-3" /> Restore Conversation
+            </button>
+          )}
         </div>
       ) : (
         <div className="flex items-center justify-between gap-2 px-4 py-2 flex-shrink-0 flex-wrap"
@@ -1345,7 +1367,9 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onEnded, onMembersCh
       <ConfirmDialog isOpen={clearConfirm} onClose={() => setClearConfirm(false)} onConfirm={handleClearMyMessages} loading={actionLoading}
         title="Clear My Messages" message="This deletes every message you've sent in this group. Other members' messages stay." confirmText="Clear My Messages" variant="danger" />
       <ConfirmDialog isOpen={endConfirm} onClose={() => setEndConfirm(false)} onConfirm={handleEnd} loading={actionLoading}
-        title="End Conversation" message="Everyone will lose typing access. This cannot be undone." confirmText="End Conversation" variant="danger" />
+        title="End Conversation" message="Everyone will lose typing access. You can restore it later from this same panel." confirmText="End Conversation" variant="danger" />
+      <ConfirmDialog isOpen={restoreConfirm} onClose={() => setRestoreConfirm(false)} onConfirm={handleRestore} loading={actionLoading}
+        title="Restore Conversation" message="Everyone in this group will regain the ability to post again." confirmText="Restore Conversation" variant="default" />
       {dmOpen && (
         <LeaderDmPanel groupId={group.id} myId={myId} peerName={group.team_leader?.name} onClose={() => setDmOpen(false)} />
       )}
