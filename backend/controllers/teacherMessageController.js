@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { Class, User, TeacherDirectMessage } = require('../models/db');
+const { Class, User, TeacherDirectMessage, TeacherDmConversationState } = require('../models/db');
 const { createDirectNotification } = require('../services/notificationHelpers');
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -31,6 +31,12 @@ async function threadStartedByTeacher(teacherId, studentId) {
     sender_role: 'teacher',
   });
   return !!exists;
+}
+
+// Whether the teacher has paused this thread. Missing state = never paused.
+async function isConversationDisabled(teacherId, studentId) {
+  const state = await TeacherDmConversationState.findOne({ teacher_id: teacherId, student_id: studentId }, 'disabled').lean();
+  return !!state?.disabled;
 }
 
 function fmt(m) {
@@ -67,9 +73,12 @@ const getConversationAsTeacher = async (req, res) => {
       { read: true }
     );
 
+    const disabled = await isConversationDisabled(teacherId, studentId);
+
     res.json({
       peer: { id: student._id, name: student.name },
       class_name: cls.name,
+      disabled,
       messages: messages.map(fmt),
     });
   } catch (err) { res.status(500).json({ message: err.message }); }
@@ -87,6 +96,10 @@ const postMessageAsTeacher = async (req, res) => {
 
     const cls = await findSharedClass(teacherId, studentId);
     if (!cls) return res.status(403).json({ message: 'This student is not in any of your classes.' });
+
+    if (await isConversationDisabled(teacherId, studentId)) {
+      return res.status(403).json({ message: 'You paused this conversation. Restore it to send messages.' });
+    }
 
     const isFirstMessage = !(await threadStartedByTeacher(teacherId, studentId));
 
@@ -127,6 +140,12 @@ const getConversationAsStudent = async (req, res) => {
     const started = await threadStartedByTeacher(teacherId, studentId);
     if (!started) return res.status(403).json({ message: 'This teacher has not started a conversation with you yet.' });
 
+    // A paused thread is invisible to the student — indistinguishable from
+    // one that was never started, until the teacher restores it.
+    if (await isConversationDisabled(teacherId, studentId)) {
+      return res.status(403).json({ message: 'This teacher has not started a conversation with you yet.' });
+    }
+
     const teacher = await User.findOne({ _id: teacherId, role: 'teacher' }, 'name').lean();
     if (!teacher) return res.status(404).json({ message: 'Teacher not found.' });
 
@@ -155,6 +174,12 @@ const postMessageAsStudent = async (req, res) => {
 
     const started = await threadStartedByTeacher(teacherId, studentId);
     if (!started) return res.status(403).json({ message: 'Only your teacher can start this conversation.' });
+
+    // Same invisibility rule applies to sending — a paused thread behaves
+    // as if it never existed from the student's side.
+    if (await isConversationDisabled(teacherId, studentId)) {
+      return res.status(403).json({ message: 'Only your teacher can start this conversation.' });
+    }
 
     const cls = await findSharedClass(teacherId, studentId);
     if (!cls) return res.status(403).json({ message: 'You are no longer sharing a class with this teacher.' });
@@ -199,14 +224,45 @@ const getMyTeacherThreads = async (req, res) => {
     const nameMap = {};
     teachers.forEach(t => { nameMap[String(t._id)] = t.name; });
 
+    // Paused threads are filtered out entirely — the student shouldn't even
+    // know a conversation exists until the teacher restores it.
+    const states = await TeacherDmConversationState.find(
+      { student_id: studentId, teacher_id: { $in: teacherIds }, disabled: true }, 'teacher_id'
+    ).lean();
+    const disabledSet = new Set(states.map(s => String(s.teacher_id)));
+    const visibleConvos = convos.filter(c => !disabledSet.has(String(c._id)));
+
     res.json({
-      conversations: convos.map(c => ({
+      conversations: visibleConvos.map(c => ({
         teacher_id: c._id,
         teacher_name: nameMap[String(c._id)] || 'Teacher',
         last_message: c.last_message,
         last_at: c.last_at,
         unread_count: c.unread_count,
       })),
+    });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+/* ── Teacher: pause or restore a thread — only the teacher may flip this ── */
+const setConversationStatus = async (req, res) => {
+  try {
+    const teacherId = String(req.user.id);
+    const { studentId } = req.params;
+    const disabled = !!req.body.disabled;
+
+    const cls = await findSharedClass(teacherId, studentId);
+    if (!cls) return res.status(403).json({ message: 'This student is not in any of your classes.' });
+
+    await TeacherDmConversationState.findOneAndUpdate(
+      { teacher_id: teacherId, student_id: studentId },
+      { disabled, disabled_at: disabled ? new Date() : null },
+      { upsert: true }
+    );
+
+    res.json({
+      message: disabled ? 'Conversation paused.' : 'Conversation restored.',
+      disabled,
     });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
@@ -242,4 +298,5 @@ module.exports = {
   getConversationAsTeacher, postMessageAsTeacher,
   getConversationAsStudent, postMessageAsStudent,
   getMyTeacherThreads, deleteMessage, clearMyMessages,
+  setConversationStatus,
 };

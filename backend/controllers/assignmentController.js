@@ -3,6 +3,7 @@ const { Assignment, Submission, Class, User, Course } = require('../models/db');
 const { cloudinary, getResourceType } = require('../middleware/upload');
 const { notifyAssignmentPosted, notifyAssignmentSubmitted } = require('../services/emailService');
 const { createInAppNotification, getStudentEmails, getTeacherEmail } = require('../services/notificationHelpers');
+const { buildDownloadFilename, streamWithFilename } = require('../utils/downloadFilename');
 
 // Helper: check if assignment is currently accessible to students
 function isAssignmentAccessible(a) {
@@ -238,7 +239,8 @@ const downloadAssignment = async (req, res) => {
     if (req.session.user.role === 'student' && !isAssignmentAccessible(a)) {
       return res.status(403).json({ message: 'This assignment is not currently active.' });
     }
-    res.redirect(a.file_url);
+    const filename = buildDownloadFilename(a.title, a.original_name);
+    await streamWithFilename(res, a.file_url, filename);
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
@@ -249,7 +251,8 @@ const viewAssignment = async (req, res) => {
     if (req.session.user.role === 'student' && !isAssignmentAccessible(a)) {
       return res.status(403).json({ message: 'This assignment is not currently active.' });
     }
-    res.redirect(a.file_url);
+    const filename = buildDownloadFilename(a.title, a.original_name);
+    await streamWithFilename(res, a.file_url, filename, 'inline');
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
@@ -354,17 +357,35 @@ const getSubmissions = async (req, res) => {
 
 const downloadSubmission = async (req, res) => {
   try {
-    const sub = await Submission.findById(req.params.submissionId).lean();
+    const sub = await Submission.findById(req.params.submissionId)
+      .populate('assignment_id', 'title')
+      .populate('student_id', 'name')
+      .lean();
     if (!sub || !sub.file_url) return res.status(404).json({ message: 'File not found' });
-    res.redirect(sub.file_url);
+    const assignmentTitle = sub.assignment_id?.title;
+    const studentName = sub.student_id?.name;
+    const title = assignmentTitle
+      ? `${assignmentTitle}${studentName ? ` - ${studentName}` : ''}`
+      : null;
+    const filename = buildDownloadFilename(title, sub.original_name);
+    await streamWithFilename(res, sub.file_url, filename);
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
 const viewSubmission = async (req, res) => {
   try {
-    const sub = await Submission.findById(req.params.submissionId).lean();
+    const sub = await Submission.findById(req.params.submissionId)
+      .populate('assignment_id', 'title')
+      .populate('student_id', 'name')
+      .lean();
     if (!sub || !sub.file_url) return res.status(404).json({ message: 'File not found' });
-    res.redirect(sub.file_url);
+    const assignmentTitle = sub.assignment_id?.title;
+    const studentName = sub.student_id?.name;
+    const title = assignmentTitle
+      ? `${assignmentTitle}${studentName ? ` - ${studentName}` : ''}`
+      : null;
+    const filename = buildDownloadFilename(title, sub.original_name);
+    await streamWithFilename(res, sub.file_url, filename, 'inline');
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 

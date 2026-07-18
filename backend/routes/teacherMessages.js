@@ -5,6 +5,7 @@ const {
   getConversationAsTeacher, postMessageAsTeacher,
   getConversationAsStudent, postMessageAsStudent,
   getMyTeacherThreads, deleteMessage, clearMyMessages,
+  setConversationStatus,
 } = require('../controllers/teacherMessageController');
 
 // Student — list every teacher who has started a DM with them (inbox overview)
@@ -13,6 +14,7 @@ router.get('/my', isAuthenticated, isStudent, getMyTeacherThreads);
 // Teacher — start / continue a private DM with a student they teach
 router.get('/student/:studentId',            isAuthenticated, isTeacher, getConversationAsTeacher);
 router.post('/student/:studentId',           isAuthenticated, isTeacher, postMessageAsTeacher);
+router.patch('/student/:studentId/status',   isAuthenticated, isTeacher, setConversationStatus);
 router.delete('/student/:studentId/messages',            isAuthenticated, isTeacher, clearMyMessages);
 router.delete('/student/:studentId/messages/:messageId', isAuthenticated, isTeacher, deleteMessage);
 

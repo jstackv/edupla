@@ -306,7 +306,13 @@ function SubmissionsModal({ assignment, onClose }) {
 
   useEffect(() => { fetchRoster(); }, [fetchRoster]);
 
-  const handleDownload = (row) => downloadFile({ ...row, type: 'submission', submission_id: row.submission_id });
+  const handleDownload = (row) => downloadFile({
+    ...row,
+    type: 'submission',
+    submission_id: row.submission_id,
+    assignment_id: assignment.id,
+    title: `${assignment.title}${row.student_name ? ` - ${row.student_name}` : ''}`,
+  });
 
   const submitGrade = async () => {
     try {
@@ -532,7 +538,14 @@ function SubmissionsModal({ assignment, onClose }) {
 
       {viewingSub && (
         <FileViewer
-          file={{ ...viewingSub, type: 'submission', submission_id: viewingSub.submission_id, original_name: viewingSub.original_name }}
+          file={{
+            ...viewingSub,
+            type: 'submission',
+            submission_id: viewingSub.submission_id,
+            assignment_id: assignment.id,
+            original_name: viewingSub.original_name,
+            title: `${assignment.title}${viewingSub.student_name ? ` - ${viewingSub.student_name}` : ''}`,
+          }}
           onClose={() => setViewingSub(null)}
         />
       )}
@@ -994,7 +1007,7 @@ export default function Assignments() {
                     <div className="flex items-center gap-2 flex-shrink-0">
                       {a.filename && (
                         <button
-                          onClick={() => setViewingFile(a)}
+                          onClick={() => setViewingFile({ ...a, type: 'assignment' })}
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
                           style={{
                             background: 'var(--card-border)',

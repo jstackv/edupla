@@ -64,6 +64,9 @@ export default function ViewerPage() {
   const fileType = params.get('type') || 'other';
   const fileName = params.get('name') || 'Document';
   const fileTitle = params.get('title') || fileName;
+  // The name the file should actually be SAVED as (title-based) — falls back to fileName
+  // for older links that don't include it yet.
+  const downloadName = params.get('download_name') || fileName;
   const fileDesc = params.get('description') || '';
   const className = params.get('class_name') || '';
   const isDirect = params.get('direct') === '1'; // file_url is already an absolute Cloudinary URL
@@ -83,7 +86,7 @@ export default function ViewerPage() {
       const blobUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = blobUrl;
-      a.download = fileName;
+      a.download = downloadName;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -91,7 +94,7 @@ export default function ViewerPage() {
     } catch {
       // fallback
       const a = document.createElement('a');
-      a.href = fullUrl; a.download = fileName; a.target = '_blank';
+      a.href = fullUrl; a.download = downloadName; a.target = '_blank';
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
     }
   };
@@ -205,7 +208,10 @@ export default function ViewerPage() {
               </div>
             )}
             <iframe
-              src={`${fullUrl}#toolbar=1&navpanes=1&scrollbar=1`}
+              // toolbar=0 hides Chrome's built-in PDF viewer toolbar. That toolbar has its own
+              // download button which fetches the raw Cloudinary URL directly and saves it under
+              // Cloudinary's internal filename, bypassing our title-based download naming below.
+              src={`${fullUrl}#toolbar=0&navpanes=0&scrollbar=1`}
               style={{ flex: 1, width: '100%', height: 'calc(100vh - 60px)', border: 'none' }}
               onLoad={() => setLoading(false)}
               onError={() => { setLoading(false); setError('Failed to load PDF'); }}

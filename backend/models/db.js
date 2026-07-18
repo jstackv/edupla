@@ -388,6 +388,18 @@ const teacherDirectMessageSchema = new mongoose.Schema({
 teacherDirectMessageSchema.index({ teacher_id: 1, student_id: 1, created_at: 1 });
 teacherDirectMessageSchema.index({ student_id: 1, read: 1 });
 
+// ── TeacherDmConversationState — tracks whether a teacher has paused
+// (disabled) their private DM thread with a given student. Only the
+// teacher may flip this — while disabled, neither side can send new
+// messages, but history stays visible. Restoring re-enables sending.
+const teacherDmConversationStateSchema = new mongoose.Schema({
+  teacher_id:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  student_id:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  disabled:     { type: Boolean, default: false },
+  disabled_at:  { type: Date, default: null },
+}, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
+teacherDmConversationStateSchema.index({ teacher_id: 1, student_id: 1 }, { unique: true });
+
 // ── Models ─────────────────────────────────────────────────────────────
 
 const User         = mongoose.model('User',         userSchema);
@@ -410,6 +422,7 @@ const DiscussionGroup  = mongoose.model('DiscussionGroup',  discussionGroupSchem
 const ClassCollaboration = mongoose.model('ClassCollaboration', classCollaborationSchema);
 const DirectMessage      = mongoose.model('DirectMessage',      directMessageSchema);
 const TeacherDirectMessage = mongoose.model('TeacherDirectMessage', teacherDirectMessageSchema);
+const TeacherDmConversationState = mongoose.model('TeacherDmConversationState', teacherDmConversationStateSchema);
 
 module.exports = {
   connectDB,
@@ -420,4 +433,5 @@ module.exports = {
   DiscussionGroup,
   ClassCollaboration, DirectMessage,
   TeacherDirectMessage,
+  TeacherDmConversationState,
 };

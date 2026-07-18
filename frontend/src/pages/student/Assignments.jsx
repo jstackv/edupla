@@ -179,7 +179,7 @@ function AssignmentCard({ a, onPreview, onSubmit, onResubmit, cardRef, highlight
             <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap justify-end">
               {a.filename && (
                 <button
-                  onClick={() => onPreview({ ...a, original_name: a.original_name || a.filename })}
+                  onClick={() => onPreview({ ...a, type: 'assignment', original_name: a.original_name || a.filename })}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
                   style={{
                     background: 'var(--card-border)',

@@ -3,6 +3,7 @@ const { Document, Class, User } = require('../models/db');
 const { cloudinary, getResourceType } = require('../middleware/upload');
 const { notifyDocumentPosted } = require('../services/emailService');
 const { createInAppNotification, getStudentEmails, getTeacherEmail } = require('../services/notificationHelpers');
+const { buildDownloadFilename, streamWithFilename } = require('../utils/downloadFilename');
 
 const getDocuments = async (req, res) => {
   try {
@@ -205,7 +206,8 @@ const downloadDocument = async (req, res) => {
     const doc = await resolveDocument(req.params.id, req.session.user.id, req.session.user.role);
     if (!doc || !doc.file_url) return res.status(404).json({ message: 'Document not found' });
     Document.updateOne({ _id: req.params.id }, { $inc: { download_count: 1 } }).catch(() => {});
-    res.redirect(doc.file_url);
+    const filename = buildDownloadFilename(doc.title, doc.original_name);
+    await streamWithFilename(res, doc.file_url, filename);
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
@@ -213,7 +215,8 @@ const viewDocument = async (req, res) => {
   try {
     const doc = await resolveDocument(req.params.id, req.session.user.id, req.session.user.role);
     if (!doc || !doc.file_url) return res.status(404).json({ message: 'Document not found' });
-    res.redirect(doc.file_url);
+    const filename = buildDownloadFilename(doc.title, doc.original_name);
+    await streamWithFilename(res, doc.file_url, filename, 'inline');
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 

@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import { showChatToast, markMessageSeen, setActiveConversation, clearActiveConversation, onPendingChatTarget, consumePendingChatTarget } from '../../utils/chatNotify';
 import { useAuth } from '../../context/AuthContext';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
+import TeacherStudentDmModal from '../../components/common/TeacherStudentDmModal';
 import { ChatImageBubble, ChatFileBubble, fmtFileSize, AttachmentTypeIcon, AttachMenu, EmojiPicker } from '../../components/common/ChatMediaBubble';
 import {
   Plus, Search, Users, Trash2, X, Send,
@@ -412,6 +413,7 @@ function TeacherVoiceBubble({ url, duration, isMine }) {
    toggling — see .fast-modal-backdrop / .fast-modal-sheet in index.css. */
 function MembersModal({ group, onClose }) {
   const [a, b] = groupColor(group.id);
+  const [dmStudent, setDmStudent] = useState(null); // { id, name } — opens the private DM modal on top
 
   useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -482,6 +484,18 @@ function MembersModal({ group, onClose }) {
                     <Crown style={{ width: 13, height: 13, color: a }} />
                   </div>
                 )}
+                <button
+                  onClick={() => setDmStudent({ id: m.id, name: m.name })}
+                  title={`Message ${m.name}`}
+                  className="member-dm-btn"
+                  style={{
+                    width: 30, height: 30, borderRadius: '50%', flexShrink: 0, border: 'none', cursor: 'pointer',
+                    background: 'rgba(147,51,234,0.12)', color: '#9333ea',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    transition: 'transform 160ms ease, background 160ms ease, box-shadow 160ms ease',
+                  }}>
+                  <MessageCircle style={{ width: 14, height: 14 }} />
+                </button>
               </div>
             );
           })}
@@ -514,7 +528,21 @@ function MembersModal({ group, onClose }) {
           from { opacity: 0; transform: translateX(-12px); }
           to   { opacity: 1; transform: translateX(0); }
         }
+        .member-dm-btn:hover {
+          background: rgba(147,51,234,0.22) !important;
+          transform: scale(1.08);
+          box-shadow: 0 3px 10px rgba(147,51,234,0.3);
+        }
+        .member-dm-btn:active { transform: scale(0.94); }
       `}</style>
+
+      {dmStudent && (
+        <TeacherStudentDmModal
+          studentId={dmStudent.id}
+          studentName={dmStudent.name}
+          onClose={() => setDmStudent(null)}
+        />
+      )}
     </div>
   );
 }
