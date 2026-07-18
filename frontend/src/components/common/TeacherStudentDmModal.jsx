@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
-import { MessageCircle, Send, Trash2, X } from 'lucide-react';
+import { MessageCircle, Send, Trash2, X, Lock, Unlock, PauseCircle, PlayCircle } from 'lucide-react';
 import ConfirmDialog from './ConfirmDialog';
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -20,6 +20,9 @@ export default function TeacherStudentDmModal({ studentId, studentName, onClose 
   const [deletingId, setDeletingId] = useState(null);
   const [clearConfirm, setClearConfirm] = useState(false);
   const [clearing, setClearing]   = useState(false);
+  const [disabled, setDisabled]   = useState(false);
+  const [statusConfirm, setStatusConfirm] = useState(false); // confirm before pausing
+  const [statusLoading, setStatusLoading] = useState(false);
 
   const pollRef = useRef(null);
   const lastMsgTimeRef = useRef(null);
@@ -31,6 +34,7 @@ export default function TeacherStudentDmModal({ studentId, studentName, onClose 
       const params = lastMsgTimeRef.current ? { since: lastMsgTimeRef.current } : {};
       const res = await api.get(`/teacher-messages/student/${studentId}`, { params });
       setPeer(res.data.peer);
+      setDisabled(!!res.data.disabled);
       const fresh = res.data.messages || [];
       if (fresh.length) {
         setMessages(prev => {
@@ -61,7 +65,7 @@ export default function TeacherStudentDmModal({ studentId, studentName, onClose 
   }, [onClose]);
 
   const handleSend = async () => {
-    if (!text.trim() || posting) return;
+    if (!text.trim() || posting || disabled) return;
     const content = text.trim(); setText('');
     setPosting(true);
     try {
@@ -79,6 +83,17 @@ export default function TeacherStudentDmModal({ studentId, studentName, onClose 
       setMessages(prev => prev.filter(m => String(m.id) !== String(messageId)));
     } catch (err) { toast.error(err.response?.data?.message || 'Failed to delete'); }
     finally { setDeletingId(null); }
+  };
+
+  const handleToggleStatus = async (nextDisabled) => {
+    setStatusLoading(true);
+    try {
+      const res = await api.patch(`/teacher-messages/student/${studentId}/status`, { disabled: nextDisabled });
+      setDisabled(!!res.data.disabled);
+      setStatusConfirm(false);
+      toast.success(nextDisabled ? 'Conversation paused' : 'Conversation restored');
+    } catch (err) { toast.error(err.response?.data?.message || 'Failed to update conversation'); }
+    finally { setStatusLoading(false); }
   };
 
   const handleClear = async () => {
@@ -106,12 +121,36 @@ export default function TeacherStudentDmModal({ studentId, studentName, onClose 
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-white font-bold text-sm truncate">{displayName}</div>
-            <div className="text-white/60 text-[10px]">Private message · only the two of you can see this</div>
+            <div className="text-white/60 text-[10px] flex items-center gap-1">
+              {disabled ? (<><Lock className="w-2.5 h-2.5" /> Conversation paused</>) : 'Private message · only the two of you can see this'}
+            </div>
           </div>
+          <button
+            onClick={() => (disabled ? handleToggleStatus(false) : setStatusConfirm(true))}
+            disabled={statusLoading}
+            title={disabled ? 'Restore conversation' : 'Pause conversation'}
+            className="p-1.5 rounded-full hover:bg-white/10 text-white/85 transition-all flex-shrink-0 disabled:opacity-50"
+            style={{ transform: statusLoading ? 'scale(0.9)' : 'scale(1)' }}>
+            {disabled ? <PlayCircle className="w-4 h-4" /> : <PauseCircle className="w-4 h-4" />}
+          </button>
           <button onClick={onClose} className="p-1.5 rounded-full hover:bg-white/10 text-white/80 transition-colors flex-shrink-0">
             <X className="w-4 h-4" />
           </button>
         </div>
+
+        {disabled && (
+          <div className="dm-paused-banner flex items-center gap-2 px-3.5 py-2 flex-shrink-0">
+            <Lock className="w-3.5 h-3.5" style={{ color: '#dc2626', flexShrink: 0 }} />
+            <span className="text-[11px] font-medium flex-1" style={{ color: '#b91c1c' }}>
+              You paused this conversation. Neither of you can send messages until you restore it.
+            </span>
+            <button onClick={() => handleToggleStatus(false)} disabled={statusLoading}
+              className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full flex-shrink-0 transition-all hover:opacity-85 active:scale-95 disabled:opacity-50"
+              style={{ background: '#dc2626', color: '#fff' }}>
+              <Unlock className="w-2.5 h-2.5" /> Restore
+            </button>
+          </div>
+        )}
 
         <div className="flex items-center justify-end px-3 py-1.5 flex-shrink-0" style={{ borderBottom: '1px solid var(--card-border)' }}>
           <button onClick={() => setClearConfirm(true)}
@@ -162,10 +201,11 @@ export default function TeacherStudentDmModal({ studentId, studentName, onClose 
         <div className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0" style={{ borderTop: '1px solid var(--card-border)' }}>
           <input value={text} onChange={e => setText(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-            placeholder={`Message ${displayName}…`}
-            className="flex-1 px-3.5 py-2 rounded-full text-sm outline-none"
+            placeholder={disabled ? 'Restore the conversation to send messages…' : `Message ${displayName}…`}
+            disabled={disabled}
+            className="flex-1 px-3.5 py-2 rounded-full text-sm outline-none disabled:opacity-60"
             style={{ background: 'var(--surface-100)', border: '1.5px solid var(--card-border)', color: 'var(--text-primary)' }} />
-          <button onClick={handleSend} disabled={!text.trim() || posting}
+          <button onClick={handleSend} disabled={!text.trim() || posting || disabled}
             className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-all active:scale-95 disabled:opacity-40"
             style={{ background: 'linear-gradient(135deg, #9333ea, #7e22ce)' }}>
             <Send className="w-4 h-4 text-white" />
@@ -175,6 +215,22 @@ export default function TeacherStudentDmModal({ studentId, studentName, onClose 
 
       <ConfirmDialog isOpen={clearConfirm} onClose={() => setClearConfirm(false)} onConfirm={handleClear} loading={clearing}
         title="Clear My Messages" message="This deletes every message you've sent in this private DM. The student's replies stay visible to them." confirmText="Clear My Messages" variant="danger" />
+
+      <ConfirmDialog isOpen={statusConfirm} onClose={() => setStatusConfirm(false)} onConfirm={() => handleToggleStatus(true)} loading={statusLoading}
+        title="Pause This Conversation" message={`${displayName} won't be able to message you, and you won't be able to message them, until you restore this conversation. Your message history stays intact.`}
+        confirmText="Pause Conversation" variant="danger" />
+
+      <style>{`
+        @keyframes dmPausedSlideDown {
+          from { opacity: 0; transform: translateY(-6px); max-height: 0; }
+          to   { opacity: 1; transform: translateY(0); max-height: 60px; }
+        }
+        .dm-paused-banner {
+          background: rgba(220,38,38,0.08);
+          border-bottom: 1px solid rgba(220,38,38,0.18);
+          animation: dmPausedSlideDown 220ms ease both;
+        }
+      `}</style>
     </div>
   );
 }

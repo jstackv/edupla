@@ -12,16 +12,34 @@
 
 export function getViewUrl(file) {
   if (!file) return null;
-  if (file.type === 'submission') return `/api/assignments/${file.submission_id || file.id}/submission/view`;
+  if (file.type === 'submission') return `/api/assignments/${file.assignment_id}/submissions/${file.submission_id || file.id}/view`;
   if (file.type === 'assignment')  return `/api/assignments/${file.id}/view`;
   return `/api/documents/${file.id}/view`;
 }
 
 export function getDownloadUrl(file) {
   if (!file) return null;
-  if (file.type === 'submission') return `/api/assignments/${file.submission_id || file.id}/submission/download`;
+  if (file.type === 'submission') return `/api/assignments/${file.assignment_id}/submissions/${file.submission_id || file.id}/download`;
   if (file.type === 'assignment')  return `/api/assignments/${file.id}/download`;
   return `/api/documents/${file.id}/download`;
+}
+
+/**
+ * Builds the filename a browser should SAVE a file as, preferring the
+ * human-facing title (assignment/document title) over the raw uploaded
+ * filename — while still keeping the real file extension.
+ *
+ * e.g. buildDownloadFilename('VUE DIRECTIVE ASSIGNMENT', 'L3 SOD - SWDVF301 - VUE JS FRAMEWORK.pdf')
+ *      → 'VUE DIRECTIVE ASSIGNMENT.pdf'
+ */
+export function buildDownloadFilename(title, originalName) {
+  const source = originalName || 'download';
+  const dotIndex = source.lastIndexOf('.');
+  const ext = dotIndex > -1 ? source.slice(dotIndex + 1).toLowerCase() : '';
+  const base = (title && title.trim()) || source.replace(/\.[^/.]+$/, '') || 'download';
+  // strip characters that are invalid in filenames on Windows/macOS
+  const safeBase = base.replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ').trim();
+  return ext ? `${safeBase}.${ext}` : safeBase;
 }
 
 export function getFileType(filename, mimeType) {
@@ -97,18 +115,30 @@ export function openFileInNewTab(file) {
   const fileType = getFileType(file.original_name || file.name || file.filename, file.mime_type);
   const fileName = file.original_name || file.name || file.filename || 'Document';
   const fileTitle = file.title || fileName;
+  // What the browser should actually SAVE the file as — title-based, not the raw upload name
+  const downloadName = buildDownloadFilename(file.title, fileName);
 
   if (rawCloudUrl) {
     // Transform raw Cloudinary URL to inline-viewable URL
     const inlineUrl = toInlineUrl(rawCloudUrl, fileType);
 
     if (['pdf', 'image', 'video', 'audio', 'text'].includes(fileType)) {
+      // For PDFs specifically, route through our own backend view endpoint instead of the
+      // raw Cloudinary URL. Chrome's built-in PDF viewer has its own Download button that
+      // re-fetches whatever URL is in the iframe's src and saves it using that response's
+      // Content-Disposition filename — so pointing straight at Cloudinary always saves under
+      // Cloudinary's internal name no matter what we do client-side. Our backend endpoint
+      // streams the same file back with a Content-Disposition header carrying the correct,
+      // title-based filename, so both our own Download button AND Chrome's native one save
+      // it correctly.
+      const useBackendView = fileType === 'pdf' && getViewUrl(file);
       const params = new URLSearchParams({
-        url:    inlineUrl,
+        url:    useBackendView ? getViewUrl(file) : inlineUrl,
         type:   fileType,
         name:   fileName,
         title:  fileTitle,
-        direct: '1',
+        download_name: downloadName,
+        direct: useBackendView ? '0' : '1',
         ...(file.description ? { description: file.description } : {}),
         ...(file.class_name  ? { class_name:  file.class_name  } : {}),
       });
@@ -125,6 +155,7 @@ export function openFileInNewTab(file) {
           type:   fileType,
           name:   fileName,
           title:  fileTitle,
+          download_name: downloadName,
           direct: '1',
           ...(file.description ? { description: file.description } : {}),
           ...(file.class_name  ? { class_name:  file.class_name  } : {}),
@@ -147,6 +178,7 @@ export function openFileInNewTab(file) {
   const dlUrl    = `${origin}${getDownloadUrl(file)}`;
   const params   = new URLSearchParams({
     url: getViewUrl(file), type: fileType, name: fileName, title: fileTitle,
+    download_name: downloadName,
     ...(file.description ? { description: file.description } : {}),
     ...(file.class_name  ? { class_name:  file.class_name  } : {}),
   });
@@ -171,7 +203,10 @@ export function openFileInNewTab(file) {
  */
 export async function downloadFile(file) {
   if (!file) return;
-  const fileName = file.original_name || file.name || file.filename || 'download';
+  const originalName = file.original_name || file.name || file.filename || 'download';
+  // Prefer the title (assignment/document name) over the raw uploaded filename,
+  // so re-used or generically-named source files still download with a meaningful name.
+  const fileName = buildDownloadFilename(file.title, originalName);
   // Always use the raw file_url for downloads (not the fl_inline transformed version)
   const url = file.file_url || `${window.location.origin}${getDownloadUrl(file)}`;
 

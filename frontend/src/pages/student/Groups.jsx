@@ -716,6 +716,7 @@ function useThread(entry, myId) {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isEnded, setIsEnded] = useState(false);
+  const [hidden, setHidden] = useState(false); // teacherdm: teacher paused it — thread must disappear, not just lock
   const [peerTyping, setPeerTyping] = useState(false);
   const [groupMeta, setGroupMeta] = useState(null); // full group object once loaded (members, leader, etc.)
   const [reactions, setReactions] = useState(() => localStore.get(`reactions:${entry.key}`, {}));
@@ -753,7 +754,12 @@ function useThread(entry, myId) {
         setMessages(msgs);
         lastMsgTimeRef.current = msgs.length ? msgs[msgs.length - 1].created_at : null;
       }
-    } catch (err) { toast.error(err.response?.data?.message || 'Failed to load conversation'); }
+    } catch (err) {
+      // A paused teacherdm thread looks exactly like one that never started —
+      // treat it as gone rather than surfacing an error that hints it exists.
+      if (entry.type === 'teacherdm' && err.response?.status === 403) { setHidden(true); }
+      else { toast.error(err.response?.data?.message || 'Failed to load conversation'); }
+    }
     finally { setLoading(false); }
   }, [entry.key]);
 
@@ -783,11 +789,15 @@ function useThread(entry, myId) {
       if (typeof res.data.is_ended === 'boolean') setIsEnded(res.data.is_ended);
       // Best-effort: if the API ever starts returning peer typing state, pick it up.
       if (typeof res.data.peer_typing === 'boolean') setPeerTyping(res.data.peer_typing);
-    } catch { /* keep last known state on transient poll errors */ }
+    } catch (err) {
+      // Teacher paused the thread mid-session — quietly disappear, same as load().
+      if (entry.type === 'teacherdm' && err.response?.status === 403) { setHidden(true); }
+      /* otherwise keep last known state on transient poll errors */
+    }
   }, [basePath, entry, myId]);
 
   useEffect(() => {
-    setMessages([]); setLoading(true); setIsEnded(false); lastMsgTimeRef.current = null;
+    setMessages([]); setLoading(true); setIsEnded(false); setHidden(false); lastMsgTimeRef.current = null;
     setReactions(localStore.get(`reactions:${entry.key}`, {}));
     setPinnedIds(localStore.get(`pinned:${entry.key}`, []));
     load();
@@ -804,12 +814,17 @@ function useThread(entry, myId) {
       : entry.type === 'teacherdm' ? `/teacher-messages/teacher/${entry.id}`
       : `/collaborations/class/${entry.classId}/messages`;
     const body = entry.type === 'dm' ? { receiverId: entry.peerId, content, ...(replyTo ? { reply_to_id: replyTo.id } : {}) } : payload;
-    const res = await api.post(path, body);
-    const newMsg = res.data.msg;
-    if (replyTo) newMsg.reply_to = { id: replyTo.id, author_name: replyTo.author_name || replyTo.sender_name, preview: replyTo.content || 'Attachment' };
-    setMessages(prev => [...prev, { ...newMsg, sender_name: entry.type === 'dm' ? 'You' : newMsg.sender_name }]);
-    lastMsgTimeRef.current = newMsg.created_at;
-    return newMsg;
+    try {
+      const res = await api.post(path, body);
+      const newMsg = res.data.msg;
+      if (replyTo) newMsg.reply_to = { id: replyTo.id, author_name: replyTo.author_name || replyTo.sender_name, preview: replyTo.content || 'Attachment' };
+      setMessages(prev => [...prev, { ...newMsg, sender_name: entry.type === 'dm' ? 'You' : newMsg.sender_name }]);
+      lastMsgTimeRef.current = newMsg.created_at;
+      return newMsg;
+    } catch (err) {
+      if (entry.type === 'teacherdm' && err.response?.status === 403) { setHidden(true); return; }
+      throw err;
+    }
   };
 
   const sendVoice = async (blob, duration) => {
@@ -884,7 +899,7 @@ function useThread(entry, myId) {
   const pinnedMessages = messages.filter(m => pinnedIds.includes(m.id || m._id));
 
   return {
-    messages, setMessages, loading, isEnded, groupMeta, peerTyping,
+    messages, setMessages, loading, isEnded, hidden, groupMeta, peerTyping,
     reactions, pinnedIds, pinnedMessages,
     sendText, sendVoice, sendFile, deleteMessage, clearMine, toggleReaction, togglePin, setTyping,
   };
@@ -893,7 +908,7 @@ function useThread(entry, myId) {
 /* ════════════════════════════════════════════════════════════════════
    Thread pane — renders whichever entry is selected in the inbox
 ═════════════════════════════════════════════════════════════════════ */
-function ThreadPane({ entry, myId, myName, onBack, onOpenTeacherDm, onEntryActivity }) {
+function ThreadPane({ entry, myId, myName, onBack, onOpenTeacherDm, onEntryActivity, onThreadHidden }) {
   const thread = useThread(entry, myId);
   const [deletingId, setDeletingId] = useState(null);
   const [clearConfirm, setClearConfirm] = useState(false);
@@ -913,6 +928,13 @@ function ThreadPane({ entry, myId, myName, onBack, onOpenTeacherDm, onEntryActiv
   }, [entry.key]);
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [thread.messages.length]);
+
+  // Teacher paused this thread — it must vanish, not just lock. Bounce back
+  // to the inbox and let the parent drop it from the list, quietly.
+  useEffect(() => {
+    if (thread.hidden) { onThreadHidden && onThreadHidden(entry.key); onBack(); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [thread.hidden]);
 
   useEffect(() => {
     if (thread.messages.length > 0) onEntryActivity && onEntryActivity(entry.key, thread.messages[thread.messages.length - 1]);
@@ -1240,17 +1262,20 @@ export default function StudentGroups() {
 
   // Teachers who've started a private DM with me — only a teacher can start
   // this thread, so this list only ever contains teachers who reached out first.
+  // Full replace (not merge): the server is the sole source of truth for which
+  // threads are visible, so a thread the teacher pauses disappears on the next
+  // fetch instead of lingering in local state.
   const fetchTeacherDms = useCallback(async () => {
     try {
       const res = await api.get('/teacher-messages/my');
       const convos = res.data.conversations || [];
       setTeacherDmEntries(prev => {
-        const next = { ...prev };
+        const next = {};
         convos.forEach(conv => {
           const key = `teacherdm:${conv.teacher_id}`;
           next[key] = {
             key, type: 'teacherdm', id: conv.teacher_id, peerId: conv.teacher_id,
-            name: conv.teacher_name || next[key]?.name || 'Teacher',
+            name: conv.teacher_name || prev[key]?.name || 'Teacher',
             lastMessage: conv.last_message, lastAuthor: null, lastAt: conv.last_at, unreadCount: conv.unread_count || 0,
           };
         });
@@ -1319,6 +1344,18 @@ export default function StudentGroups() {
 
   const openEntry = (entry) => { setSelectedKey(entry.key); setMobileShowThread(true); };
   const openTeacherDm = (groupId) => { const key = `leaderdm:${groupId}`; setSelectedKey(key); setMobileShowThread(true); };
+
+  // Teacher paused their DM thread while the student had it open — drop it
+  // from the inbox immediately so it truly disappears, not just locks.
+  const handleThreadHidden = useCallback((key) => {
+    setTeacherDmEntries(prev => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+    setSelectedKey(sel => (sel === key ? null : sel));
+  }, []);
 
   const handleEntryActivity = useCallback((key, lastMsg) => {
     const nameField = key.startsWith('group:') ? lastMsg.author_name : (lastMsg.sender_name || lastMsg.author_name);
@@ -1419,6 +1456,7 @@ export default function StudentGroups() {
               onBack={() => setMobileShowThread(false)}
               onOpenTeacherDm={openTeacherDm}
               onEntryActivity={handleEntryActivity}
+              onThreadHidden={handleThreadHidden}
             />
           ) : (
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
