@@ -3,7 +3,11 @@ const jwt = require('jsonwebtoken');
 const JWT_SECRET = process.env.JWT_SECRET || 'edupla_jwt_secret_2024';
 
 const isAuthenticated = async (req, res, next) => {
-  const token = req.cookies?.token || req.headers.authorization?.split(' ')[1];
+  // Browser-native embeds (<iframe src>, <img src>, <video>/<audio> <source src>)
+  // can't attach an Authorization header, and we don't set an auth cookie on
+  // login (token lives in sessionStorage, per-tab, by design — see api.js).
+  // So the file viewer/download endpoints pass the token as a query param instead.
+  const token = req.cookies?.token || req.headers.authorization?.split(' ')[1] || req.query?.token;
   if (!token) return res.status(401).json({ message: 'Unauthorized. Please log in.' });
   try {
     const decoded = jwt.verify(token, JWT_SECRET);

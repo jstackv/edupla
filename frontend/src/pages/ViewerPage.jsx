@@ -12,6 +12,7 @@ import {
   Film, Music, Code2, GraduationCap, BookOpen,
   AlertTriangle, Loader2
 } from 'lucide-react';
+import PdfViewer from '../components/common/PdfViewer';
 
 function getIconForType(type) {
   const icons = {
@@ -64,9 +65,7 @@ export default function ViewerPage() {
   const fileType = params.get('type') || 'other';
   const fileName = params.get('name') || 'Document';
   const fileTitle = params.get('title') || fileName;
-  // The name the file should actually be SAVED as (title-based) — falls back to fileName
-  // for older links that don't include it yet.
-  const downloadName = params.get('download_name') || fileName;
+  const fileDownloadName = params.get('download_name') || fileName;
   const fileDesc = params.get('description') || '';
   const className = params.get('class_name') || '';
   const isDirect = params.get('direct') === '1'; // file_url is already an absolute Cloudinary URL
@@ -86,7 +85,7 @@ export default function ViewerPage() {
       const blobUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = blobUrl;
-      a.download = downloadName;
+      a.download = fileDownloadName;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -94,7 +93,7 @@ export default function ViewerPage() {
     } catch {
       // fallback
       const a = document.createElement('a');
-      a.href = fullUrl; a.download = downloadName; a.target = '_blank';
+      a.href = fullUrl; a.download = fileDownloadName; a.target = '_blank';
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
     }
   };
@@ -198,26 +197,18 @@ export default function ViewerPage() {
 
         {/* PDF viewer */}
         {fileType === 'pdf' && (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 'calc(100vh - 60px)' }}>
-            {loading && (
-              <div style={{ position: 'absolute', inset: 0, top: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', background: bg, zIndex: 10 }}>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ width: 40, height: 40, border: `3px solid ${accent}30`, borderTopColor: accent, borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
-                  <p style={{ fontSize: 14, color: tm }}>Loading PDF…</p>
-                </div>
-              </div>
-            )}
-            <iframe
-              // toolbar=0 hides Chrome's built-in PDF viewer toolbar. That toolbar has its own
-              // download button which fetches the raw Cloudinary URL directly and saves it under
-              // Cloudinary's internal filename, bypassing our title-based download naming below.
-              src={`${fullUrl}#toolbar=0&navpanes=0&scrollbar=1`}
-              style={{ flex: 1, width: '100%', height: 'calc(100vh - 60px)', border: 'none' }}
-              onLoad={() => setLoading(false)}
-              onError={() => { setLoading(false); setError('Failed to load PDF'); }}
-              title={fileTitle}
-            />
-          </div>
+          <PdfViewer
+            url={fullUrl}
+            title={fileTitle}
+            dark={dark}
+            accent={accent}
+            tp={tp}
+            tm={tm}
+            border={border}
+            cardBg={cardBg}
+            bg={bg}
+            onDownload={handleDownload}
+          />
         )}
 
         {/* Image viewer */}
