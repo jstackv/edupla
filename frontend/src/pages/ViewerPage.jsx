@@ -134,7 +134,9 @@ export default function ViewerPage() {
 
       {/* ── TOP HEADER BAR ── */}
       <header style={{
-        background: headerBg,
+        background: dark ? 'rgba(13,17,23,0.85)' : 'rgba(255,255,255,0.85)',
+        backdropFilter: 'blur(14px)',
+        WebkitBackdropFilter: 'blur(14px)',
         borderBottom: `1px solid ${border}`,
         padding: '0 24px',
         height: 60,
