@@ -121,7 +121,7 @@ const notificationSchema = new mongoose.Schema({
   // Deep-link target so clicking the notification can jump straight to where
   // the action lives (the document, assignment, announcement, or submission
   // that triggered it), instead of just opening the notification panel.
-  link_type:  { type: String, enum: ['document', 'assignment', 'announcement', 'submission', 'group', 'teacher_dm', null], default: null },
+  link_type:  { type: String, enum: ['document', 'assignment', 'announcement', 'submission', 'group', 'teacher_dm', 'attendance', null], default: null },
   link_id:    { type: mongoose.Schema.Types.ObjectId, default: null },
   course_id:  { type: mongoose.Schema.Types.ObjectId, ref: 'Course', default: null },
   read_by:    [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
@@ -400,7 +400,29 @@ const teacherDmConversationStateSchema = new mongoose.Schema({
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 teacherDmConversationStateSchema.index({ teacher_id: 1, student_id: 1 }, { unique: true });
 
-// ── Models ─────────────────────────────────────────────────────────────
+// ── Attendance — one session per class per calendar day ─────────────────
+// A teacher takes attendance for a class on a given date; `records` holds
+// one entry per enrolled student at the time the session was taken. Marking
+// attendance again for the same class+date updates the same session
+// (upsert) rather than creating a duplicate — enforced by the unique index
+// below. `date` is normalized to midnight (server-local) so multiple marks
+// on the same calendar day always resolve to one session.
+const attendanceRecordSchema = new mongoose.Schema({
+  student_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  status:     { type: String, enum: ['present', 'absent', 'late', 'excused'], default: 'present' },
+  remarks:    { type: String, default: null },
+}, { _id: false });
+
+const attendanceSchema = new mongoose.Schema({
+  class_id:   { type: mongoose.Schema.Types.ObjectId, ref: 'Class', required: true },
+  date:       { type: Date, required: true },
+  teacher_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // who owns/took this session
+  records:    [attendanceRecordSchema],
+  created_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+}, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
+attendanceSchema.index({ class_id: 1, date: 1 }, { unique: true });
+
+// ── Models ────────────────────────────────────────────────────────────
 
 const User         = mongoose.model('User',         userSchema);
 const Class        = mongoose.model('Class',        classSchema);
@@ -423,6 +445,7 @@ const ClassCollaboration = mongoose.model('ClassCollaboration', classCollaborati
 const DirectMessage      = mongoose.model('DirectMessage',      directMessageSchema);
 const TeacherDirectMessage = mongoose.model('TeacherDirectMessage', teacherDirectMessageSchema);
 const TeacherDmConversationState = mongoose.model('TeacherDmConversationState', teacherDmConversationStateSchema);
+const Attendance = mongoose.model('Attendance', attendanceSchema);
 
 module.exports = {
   connectDB,
@@ -434,4 +457,5 @@ module.exports = {
   ClassCollaboration, DirectMessage,
   TeacherDirectMessage,
   TeacherDmConversationState,
+  Attendance,
 };

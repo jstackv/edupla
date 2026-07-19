@@ -20,6 +20,7 @@ import Classes from './pages/teacher/Classes';
 import Students from './pages/teacher/Students';
 import Documents from './pages/teacher/Documents';
 import Assignments from './pages/teacher/Assignments';
+import TeacherAttendance from './pages/teacher/Attendance';
 import TeacherAnnouncements from './pages/teacher/Announcements';
 import TeacherAssessmentPage from './pages/teacher/AssessmentsTeacher';
 import TeacherGroups from './pages/teacher/Groups';
@@ -28,6 +29,7 @@ import StudentDashboard from './pages/student/Dashboard';
 import StudentClasses from './pages/student/Classes';
 import StudentDocuments from './pages/student/Documents';
 import StudentAssignments from './pages/student/Assignments';
+import StudentAttendance from './pages/student/Attendance';
 import StudentAnnouncements from './pages/student/Announcements';
 import StudentGroups from './pages/student/Groups';
 
@@ -141,6 +143,7 @@ function AppRoutes() {
       <Route path="/teacher/students"      element={<TeacherRoute><Students /></TeacherRoute>} />
       <Route path="/teacher/documents"     element={<TeacherRoute><Documents /></TeacherRoute>} />
       <Route path="/teacher/assignments"   element={<TeacherRoute><Assignments /></TeacherRoute>} />
+      <Route path="/teacher/attendance"    element={<TeacherRoute><TeacherAttendance /></TeacherRoute>} />
       <Route path="/teacher/announcements" element={<TeacherRoute><TeacherAnnouncements /></TeacherRoute>} />
       <Route path="/teacher/assessments-grade" element={<TeacherRoute><TeacherAssessmentPage /></TeacherRoute>} />
       <Route path="/teacher/groups"            element={<TeacherRoute><TeacherGroups /></TeacherRoute>} />
@@ -150,6 +153,7 @@ function AppRoutes() {
       <Route path="/student/classes"       element={<StudentRoute><StudentClasses /></StudentRoute>} />
       <Route path="/student/documents"     element={<StudentRoute><StudentDocuments /></StudentRoute>} />
       <Route path="/student/assignments"   element={<StudentRoute><StudentAssignments /></StudentRoute>} />
+      <Route path="/student/attendance"    element={<StudentRoute><StudentAttendance /></StudentRoute>} />
       <Route path="/student/announcements" element={<StudentRoute><StudentAnnouncements /></StudentRoute>} />
       <Route path="/student/groups"        element={<StudentRoute><StudentGroups /></StudentRoute>} />
 

@@ -43,6 +43,7 @@ app.use('/api/classes',       require('./routes/classes'));
 app.use('/api/students',      require('./routes/students'));
 app.use('/api/documents',     require('./routes/documents'));
 app.use('/api/assignments',   require('./routes/assignments'));
+app.use('/api/attendance',    require('./routes/attendance'));
 app.use('/api/assessment',   require('./routes/assessments_new'));
 app.use('/api/announcements', require('./routes/announcements'));
 app.use('/api/group-discussions', require('./routes/groupDiscussions'));

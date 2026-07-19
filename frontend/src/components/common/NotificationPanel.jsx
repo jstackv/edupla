@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, X, CheckCheck, Trash2, ClipboardList, FileText, Megaphone, Info, CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
+import { Bell, X, CheckCheck, Trash2, ClipboardList, FileText, Megaphone, Info, CheckCircle, AlertTriangle, XCircle, UserCheck } from 'lucide-react';
 import api from '../../utils/api';
 import { setPendingChatTarget } from '../../utils/chatNotify';
 import { useAuth } from '../../context/AuthContext';
@@ -27,6 +27,7 @@ function guessIcon(n) {
   if (t.includes('assignment') || t.includes('submission')) return ClipboardList;
   if (t.includes('document') || t.includes('notes'))        return FileText;
   if (t.includes('announcement'))                            return Megaphone;
+  if (t.includes('attendance'))                               return UserCheck;
   return (TYPE_META[n.type] || TYPE_META.info).icon;
 }
 
@@ -51,6 +52,7 @@ function resolveNotificationPath(n, role) {
     case 'assignment':    return `${base}/assignments${qs()}`;
     case 'announcement':  return `${base}/announcements${qs()}`;
     case 'group':          return `${base}/groups`;
+    case 'attendance':     return `${base}/attendance${qs()}`;
     // A teacher's private DM only ever goes to a student — deep-link straight
     // into that conversation instead of just the generic inbox.
     case 'teacher_dm': {
