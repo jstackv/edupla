@@ -6,7 +6,7 @@ import ConfirmDialog from '../../components/common/ConfirmDialog';
 import {
   UserCheck, Calendar, CheckCircle2, XCircle, Clock, ShieldCheck,
   Users, History, BarChart3, Trash2, Save, FileBarChart2, Download,
-  Printer, AlertTriangle, Trophy, Frown,
+  Printer, AlertTriangle, Trophy, Frown, Info, User,
 } from 'lucide-react';
 
 const STATUS_META = {
@@ -62,6 +62,7 @@ function RateRing({ rate, size = 84 }) {
   const color = rateColor(rate);
   return (
     <div
+      className="transition-transform duration-300 ease-out"
       style={{
         width: size, height: size, borderRadius: '50%',
         background: `conic-gradient(${color} ${pct * 3.6}deg, rgba(148,163,184,0.18) 0deg)`,
@@ -80,6 +81,22 @@ function RateRing({ rate, size = 84 }) {
   );
 }
 
+function ScopeToggle({ value, onChange }) {
+  return (
+    <div className="flex rounded-xl p-1 gap-1" style={{ background: 'var(--surface-100)' }}>
+      {[{ key: 'all', label: 'All Teachers' }, { key: 'mine', label: 'My Sessions' }].map(o => (
+        <button key={o.key} onClick={() => onChange(o.key)}
+          className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200"
+          style={value === o.key
+            ? { background: 'var(--card-bg)', color: 'var(--text-primary)', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }
+            : { color: 'var(--text-secondary)' }}>
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export default function TeacherAttendance() {
   const [searchParams] = useSearchParams();
   const [classes, setClasses] = useState([]);
@@ -87,17 +104,20 @@ export default function TeacherAttendance() {
   const [date, setDate] = useState(todayStr());
   const [records, setRecords] = useState([]);
   const [alreadyTaken, setAlreadyTaken] = useState(false);
+  const [otherSessions, setOtherSessions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const [tab, setTab] = useState('take'); // 'take' | 'history' | 'summary' | 'report'
   const [history, setHistory] = useState([]);
+  const [historyScope, setHistoryScope] = useState('all');
   const [summary, setSummary] = useState([]);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
   const [reportPeriod, setReportPeriod] = useState('weekly');
   const [reportDate, setReportDate] = useState(todayStr());
+  const [reportScope, setReportScope] = useState('all');
   const [report, setReport] = useState(null);
   const [reportLoading, setReportLoading] = useState(false);
 
@@ -116,6 +136,7 @@ export default function TeacherAttendance() {
       const res = await api.get('/attendance/session', { params: { classId, date } });
       setRecords(res.data.records || []);
       setAlreadyTaken(res.data.already_taken);
+      setOtherSessions(res.data.other_sessions || []);
     } catch (err) { toast.error(err.response?.data?.message || 'Failed to load roster'); }
     finally { setLoading(false); }
   }, [classId, date]);
@@ -123,10 +144,10 @@ export default function TeacherAttendance() {
   const fetchHistory = useCallback(async () => {
     if (!classId) return;
     try {
-      const res = await api.get(`/attendance/class/${classId}`, { params: { limit: 20 } });
+      const res = await api.get(`/attendance/class/${classId}`, { params: { limit: 20, scope: historyScope } });
       setHistory(res.data.sessions || []);
     } catch { toast.error('Failed to load attendance history'); }
-  }, [classId]);
+  }, [classId, historyScope]);
 
   const fetchSummary = useCallback(async () => {
     if (!classId) return;
@@ -140,11 +161,11 @@ export default function TeacherAttendance() {
     if (!classId) return;
     setReportLoading(true);
     try {
-      const res = await api.get(`/attendance/class/${classId}/report`, { params: { period: reportPeriod, date: reportDate } });
+      const res = await api.get(`/attendance/class/${classId}/report`, { params: { period: reportPeriod, date: reportDate, scope: reportScope } });
       setReport(res.data);
     } catch (err) { toast.error(err.response?.data?.message || 'Failed to load report'); }
     finally { setReportLoading(false); }
-  }, [classId, reportPeriod, reportDate]);
+  }, [classId, reportPeriod, reportDate, reportScope]);
 
   useEffect(() => { if (tab === 'take') fetchSession(); }, [tab, fetchSession]);
   useEffect(() => { if (tab === 'history') fetchHistory(); }, [tab, fetchHistory]);
@@ -182,11 +203,11 @@ export default function TeacherAttendance() {
 
   const handleExportCSV = () => {
     if (!report) return;
-    const header = ['Student', 'Email', ...report.session_dates.map(d => fmtShort(d)), 'Rate (%)'];
+    const header = ['Student', ...report.sessions.map(s => `${fmtShort(s.date)} (${s.teacher_name})`), 'Rate (%)'];
     const rows = report.students.map(s => [
-      s.name, s.email,
-      ...report.session_dates.map(d => {
-        const st = s.by_date[d];
+      s.name,
+      ...report.sessions.map(sess => {
+        const st = s.by_session[sess.id];
         return st ? STATUS_META[st].label : '—';
       }),
       s.rate == null ? '—' : s.rate,
@@ -200,22 +221,24 @@ export default function TeacherAttendance() {
   }, {});
 
   const className = useMemo(() => classes.find(c => c.id === classId)?.name || '', [classes, classId]);
+  const multiTeacherReport = useMemo(() => report && new Set(report.sessions.map(s => s.teacher_name)).size > 1, [report]);
 
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3 no-print">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 no-print animate-fade-in">
         <div className="flex-1">
           <h2 className="font-display font-bold text-lg" style={{ color: 'var(--text-primary)' }}>Attendance</h2>
           <p className="text-sm text-muted">Take daily attendance and track class records</p>
         </div>
-        <select value={classId} onChange={e => setClassId(e.target.value)} className="input-field sm:w-56">
+        <select value={classId} onChange={e => setClassId(e.target.value)}
+          className="input-field sm:w-56 cursor-pointer">
           {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b overflow-x-auto no-print" style={{ borderColor: 'var(--border-color)' }}>
+      <div className="flex gap-2 border-b overflow-x-auto no-print" style={{ borderColor: 'var(--card-border)' }}>
         {[
           { key: 'take', label: 'Take Attendance', Icon: UserCheck },
           { key: 'history', label: 'History', Icon: History },
@@ -223,37 +246,61 @@ export default function TeacherAttendance() {
           { key: 'report', label: 'Reports', Icon: FileBarChart2 },
         ].map(({ key, label, Icon }) => (
           <button key={key} onClick={() => setTab(key)}
-            className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold border-b-2 transition-colors flex-shrink-0"
-            style={{
-              borderColor: tab === key ? 'var(--primary-500, #6366f1)' : 'transparent',
-              color: tab === key ? 'var(--text-primary)' : 'var(--text-muted, #888)',
-            }}>
-            <Icon className="w-4 h-4" /> {label}
+            className="relative flex items-center gap-1.5 px-3 py-2 text-sm font-semibold transition-colors duration-200 flex-shrink-0 group"
+            style={{ color: tab === key ? 'var(--text-primary)' : 'var(--text-muted, #888)' }}>
+            <Icon className="w-4 h-4 transition-transform duration-200 group-hover:scale-110" /> {label}
+            <span className="absolute left-0 right-0 -bottom-px h-0.5 rounded-full transition-all duration-300 ease-out"
+              style={{
+                background: tab === key ? 'var(--primary-500, #6366f1)' : 'transparent',
+                transform: tab === key ? 'scaleX(1)' : 'scaleX(0)',
+              }} />
           </button>
         ))}
       </div>
 
       {tab === 'take' && (
-        <div className="space-y-4">
+        <div className="space-y-4 animate-fade-in">
           <div className="flex flex-col sm:flex-row sm:items-center gap-3">
             <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
               <input type="date" value={date} max={todayStr()} onChange={e => setDate(e.target.value)}
                 className="input-field pl-10" />
             </div>
             <div className="flex gap-1.5 flex-wrap">
               {STATUSES.map(s => (
-                <button key={s} onClick={() => markAll(s)} className="btn-secondary text-xs px-2.5 py-1.5">
+                <button key={s} onClick={() => markAll(s)}
+                  className="btn-secondary text-xs px-2.5 py-1.5 hover:scale-[1.04] active:scale-[0.97] transition-transform duration-150">
                   Mark all {STATUS_META[s].label}
                 </button>
               ))}
             </div>
             {alreadyTaken && (
-              <span className="text-xs badge bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300">
-                Already taken — editing will update it
+              <span className="text-xs badge bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300 animate-scale-in">
+                You already took this session — editing will update it
               </span>
             )}
           </div>
+
+          {/* Awareness banner — other teachers who already took attendance today */}
+          {!!otherSessions.length && (
+            <div className="card flex items-start gap-3 animate-slide-up" style={{ background: 'rgba(99,102,241,0.06)', borderColor: 'rgba(99,102,241,0.25)' }}>
+              <Info className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: '#6366f1' }} />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                  Also taken today by {otherSessions.length} other teacher{otherSessions.length > 1 ? 's' : ''}
+                </p>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {otherSessions.map((o, i) => (
+                    <span key={i} className="text-xs badge transition-transform duration-150 hover:scale-105"
+                      style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', color: 'var(--text-primary)' }}>
+                      <User className="w-3 h-3" /> {o.teacher_name} · {o.counts.present}P / {o.counts.absent}A
+                    </span>
+                  ))}
+                </div>
+                <p className="text-xs text-muted mt-2">Your own session below is independent — it won't overwrite theirs.</p>
+              </div>
+            </div>
+          )}
 
           {loading ? (
             <div className="flex items-center justify-center py-20">
@@ -269,27 +316,37 @@ export default function TeacherAttendance() {
             <>
               <div className="flex gap-2 flex-wrap">
                 {STATUSES.map(s => (
-                  <span key={s} className="text-xs badge" style={{ background: STATUS_META[s].bg, color: STATUS_META[s].color }}>
+                  <span key={s} className="text-xs badge transition-transform duration-150 hover:scale-105" style={{ background: STATUS_META[s].bg, color: STATUS_META[s].color }}>
                     {STATUS_META[s].label}: {counts[s]}
                   </span>
                 ))}
               </div>
               {/* Sorted A→Z by the backend */}
-              <div className="card divide-y" style={{ borderColor: 'var(--border-color)' }}>
-                {records.map(r => (
-                  <div key={r.student_id} className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
-                    <div className="min-w-0">
-                      <p className="font-semibold text-sm truncate" style={{ color: 'var(--text-primary)' }}>{r.name}</p>
-                      <p className="text-xs text-muted truncate">{r.email}</p>
-                    </div>
+              <div className="card p-0 overflow-hidden">
+                {records.map((r, i) => (
+                  <div key={r.student_id}
+                    className="flex items-center justify-between gap-3 px-5 py-3 transition-colors duration-150 hover:bg-[var(--surface-100)] animate-slide-up"
+                    style={{
+                      borderTop: i === 0 ? 'none' : '1px solid var(--card-border)',
+                      animationDelay: `${Math.min(i * 25, 400)}ms`,
+                    }}>
+                    <p className="font-semibold text-sm truncate flex items-center gap-2.5" style={{ color: 'var(--text-primary)' }}>
+                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold flex-shrink-0"
+                        style={{ background: 'var(--surface-100)', color: 'var(--text-secondary)' }}>{i + 1}</span>
+                      {r.name}
+                    </p>
                     <div className="flex gap-1.5 flex-shrink-0">
                       {STATUSES.map(s => {
                         const { Icon, color, bg, label } = STATUS_META[s];
                         const active = r.status === s;
                         return (
                           <button key={s} title={label} onClick={() => setStatus(r.student_id, s)}
-                            className="p-2 rounded-lg transition-all"
-                            style={active ? { background: bg, color } : { background: 'transparent', color: 'var(--text-muted, #999)' }}>
+                            className="p-2 rounded-lg transition-all duration-150 hover:scale-[1.15] active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
+                            style={{
+                              background: active ? bg : 'transparent',
+                              color: active ? color : 'var(--text-muted, #999)',
+                              '--tw-ring-color': color,
+                            }}>
                             <Icon className="w-4 h-4" />
                           </button>
                         );
@@ -310,7 +367,10 @@ export default function TeacherAttendance() {
       )}
 
       {tab === 'history' && (
-        <div className="space-y-3">
+        <div className="space-y-3 animate-fade-in">
+          <div className="flex justify-end no-print">
+            <ScopeToggle value={historyScope} onChange={setHistoryScope} />
+          </div>
           {history.length === 0 ? (
             <div className="card text-center py-16">
               <History className="w-12 h-12 mx-auto mb-3 text-muted opacity-30" />
@@ -318,10 +378,20 @@ export default function TeacherAttendance() {
               <p className="text-sm text-muted">Sessions you record will show up here.</p>
             </div>
           ) : (
-            history.map(s => (
-              <div key={s.id} className="card flex items-center justify-between gap-3">
-                <div>
-                  <p className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{fmtLong(s.date)}</p>
+            history.map((s, i) => (
+              <div key={s.id}
+                className="card flex items-center justify-between gap-3 transition-all duration-200 hover:shadow-soft hover:-translate-y-0.5 animate-slide-up"
+                style={{ animationDelay: `${Math.min(i * 30, 300)}ms` }}>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{fmtLong(s.date)}</p>
+                    <span className="text-xs badge" style={{
+                      background: s.mine ? 'rgba(99,102,241,0.12)' : 'var(--surface-100)',
+                      color: s.mine ? '#6366f1' : 'var(--text-secondary)',
+                    }}>
+                      <User className="w-3 h-3" /> {s.mine ? 'You' : s.teacher_name}
+                    </span>
+                  </div>
                   <div className="flex gap-2 flex-wrap mt-1.5">
                     {STATUSES.map(st => (
                       <span key={st} className="text-xs badge" style={{ background: STATUS_META[st].bg, color: STATUS_META[st].color }}>
@@ -330,10 +400,12 @@ export default function TeacherAttendance() {
                     ))}
                   </div>
                 </div>
-                <button onClick={() => setDeleteTarget(s)}
-                  className="p-2 rounded-lg hover:bg-red-50 hover:text-red-500 transition-colors flex-shrink-0" title="Delete session">
-                  <Trash2 className="w-4 h-4 text-muted" />
-                </button>
+                {s.mine && (
+                  <button onClick={() => setDeleteTarget(s)}
+                    className="p-2 rounded-lg hover:bg-red-50 hover:text-red-500 active:scale-90 transition-all duration-150 flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300" title="Delete session">
+                    <Trash2 className="w-4 h-4 text-muted" />
+                  </button>
+                )}
               </div>
             ))
           )}
@@ -341,7 +413,7 @@ export default function TeacherAttendance() {
       )}
 
       {tab === 'summary' && (
-        <div className="card overflow-x-auto">
+        <div className="card overflow-x-auto p-0 animate-fade-in">
           {summary.length === 0 ? (
             <div className="text-center py-16">
               <BarChart3 className="w-12 h-12 mx-auto mb-3 text-muted opacity-30" />
@@ -351,24 +423,25 @@ export default function TeacherAttendance() {
           ) : (
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-xs text-muted uppercase border-b" style={{ borderColor: 'var(--border-color)' }}>
-                  <th className="py-2 pr-3">Student (A→Z)</th>
-                  <th className="py-2 px-3">Present</th>
-                  <th className="py-2 px-3">Absent</th>
-                  <th className="py-2 px-3">Late</th>
-                  <th className="py-2 px-3">Excused</th>
-                  <th className="py-2 pl-3">Rate</th>
+                <tr className="text-left text-xs text-muted uppercase" style={{ borderBottom: '1px solid var(--card-border)' }}>
+                  <th className="py-3 px-5">Student (A→Z)</th>
+                  <th className="py-3 px-3">Present</th>
+                  <th className="py-3 px-3">Absent</th>
+                  <th className="py-3 px-3">Late</th>
+                  <th className="py-3 px-3">Excused</th>
+                  <th className="py-3 pl-3 pr-5">Rate</th>
                 </tr>
               </thead>
               <tbody>
-                {summary.map(s => (
-                  <tr key={s.student_id} className="border-b last:border-0" style={{ borderColor: 'var(--border-color)' }}>
-                    <td className="py-2.5 pr-3">
+                {summary.map((s, i) => (
+                  <tr key={s.student_id}
+                    className="transition-colors duration-150 hover:bg-[var(--surface-100)]"
+                    style={{ borderTop: i === 0 ? 'none' : '1px solid var(--card-border)' }}>
+                    <td className="py-3 px-5">
                       <div className="flex items-center gap-2">
-                        <div>
-                          <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>{s.student_name}</p>
-                          <p className="text-xs text-muted">{s.student_email}</p>
-                        </div>
+                        <span className="inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold flex-shrink-0"
+                          style={{ background: 'var(--surface-100)', color: 'var(--text-secondary)' }}>{i + 1}</span>
+                        <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>{s.student_name}</p>
                         {s.at_risk && (
                           <span title="At risk: low attendance rate or 3+ consecutive absences"
                             className="text-xs badge flex-shrink-0" style={{ background: 'rgba(239,68,68,0.12)', color: '#ef4444' }}>
@@ -377,11 +450,11 @@ export default function TeacherAttendance() {
                         )}
                       </div>
                     </td>
-                    <td className="py-2.5 px-3">{s.present}</td>
-                    <td className="py-2.5 px-3">{s.absent}</td>
-                    <td className="py-2.5 px-3">{s.late}</td>
-                    <td className="py-2.5 px-3">{s.excused}</td>
-                    <td className="py-2.5 pl-3 font-semibold" style={{ color: rateColor(s.attendance_rate) }}>
+                    <td className="py-3 px-3">{s.present}</td>
+                    <td className="py-3 px-3">{s.absent}</td>
+                    <td className="py-3 px-3">{s.late}</td>
+                    <td className="py-3 px-3">{s.excused}</td>
+                    <td className="py-3 pl-3 pr-5 font-semibold" style={{ color: rateColor(s.attendance_rate) }}>
                       {s.attendance_rate == null ? '—' : `${s.attendance_rate}%`}
                     </td>
                   </tr>
@@ -393,13 +466,13 @@ export default function TeacherAttendance() {
       )}
 
       {tab === 'report' && (
-        <div className="space-y-5">
+        <div className="space-y-5 animate-fade-in">
           {/* Controls */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-3 no-print">
             <div className="flex rounded-xl p-1 gap-1" style={{ background: 'var(--surface-100)' }}>
               {PERIODS.map(p => (
                 <button key={p.key} onClick={() => setReportPeriod(p.key)}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200"
                   style={reportPeriod === p.key
                     ? { background: 'var(--card-bg)', color: 'var(--text-primary)', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }
                     : { color: 'var(--text-secondary)' }}>
@@ -408,14 +481,17 @@ export default function TeacherAttendance() {
               ))}
             </div>
             <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
               <input type="date" value={reportDate} onChange={e => setReportDate(e.target.value)} className="input-field pl-10" />
             </div>
+            <ScopeToggle value={reportScope} onChange={setReportScope} />
             <div className="flex-1" />
-            <button onClick={handleExportCSV} disabled={!report} className="btn-secondary text-sm">
+            <button onClick={handleExportCSV} disabled={!report}
+              className="btn-secondary text-sm hover:scale-[1.03] active:scale-[0.97] transition-transform duration-150">
               <Download className="w-4 h-4" /> Export CSV
             </button>
-            <button onClick={() => window.print()} disabled={!report} className="btn-secondary text-sm">
+            <button onClick={() => window.print()} disabled={!report}
+              className="btn-secondary text-sm hover:scale-[1.03] active:scale-[0.97] transition-transform duration-150">
               <Printer className="w-4 h-4" /> Print
             </button>
           </div>
@@ -424,11 +500,11 @@ export default function TeacherAttendance() {
             <div className="flex items-center justify-center py-20">
               <div className="animate-spin w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full" />
             </div>
-          ) : !report || report.session_dates.length === 0 ? (
+          ) : !report || report.sessions.length === 0 ? (
             <div className="card text-center py-16">
               <FileBarChart2 className="w-12 h-12 mx-auto mb-3 text-muted opacity-30" />
               <p className="font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>No sessions in this period</p>
-              <p className="text-sm text-muted">Try a different date or period.</p>
+              <p className="text-sm text-muted">Try a different date, period, or scope.</p>
             </div>
           ) : (
             <>
@@ -446,14 +522,14 @@ export default function TeacherAttendance() {
 
               {/* Stat cards */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="card flex items-center gap-3">
+                <div className="card flex items-center gap-3 transition-all duration-200 hover:shadow-soft hover:-translate-y-0.5">
                   <RateRing rate={report.class_stats.average_rate} size={64} />
                   <div>
                     <p className="text-xs text-muted">Average Rate</p>
                     <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{report.class_stats.total_sessions} session(s)</p>
                   </div>
                 </div>
-                <div className="card">
+                <div className="card transition-all duration-200 hover:shadow-soft hover:-translate-y-0.5">
                   <div className="flex items-center gap-2 mb-1">
                     <AlertTriangle className="w-4 h-4" style={{ color: '#ef4444' }} />
                     <p className="text-xs text-muted">At-Risk Students</p>
@@ -468,7 +544,7 @@ export default function TeacherAttendance() {
                     </p>
                   )}
                 </div>
-                <div className="card">
+                <div className="card transition-all duration-200 hover:shadow-soft hover:-translate-y-0.5">
                   <div className="flex items-center gap-2 mb-1">
                     <Trophy className="w-4 h-4" style={{ color: '#10b981' }} />
                     <p className="text-xs text-muted">Best Day</p>
@@ -476,11 +552,11 @@ export default function TeacherAttendance() {
                   {report.class_stats.best_day ? (
                     <>
                       <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{fmtShort(report.class_stats.best_day.date)}</p>
-                      <p className="text-xs font-semibold" style={{ color: '#10b981' }}>{report.class_stats.best_day.rate}% present</p>
+                      <p className="text-xs font-semibold" style={{ color: '#10b981' }}>{report.class_stats.best_day.rate}% present{multiTeacherReport ? ` · ${report.class_stats.best_day.teacher_name}` : ''}</p>
                     </>
                   ) : <p className="text-sm text-muted">—</p>}
                 </div>
-                <div className="card">
+                <div className="card transition-all duration-200 hover:shadow-soft hover:-translate-y-0.5">
                   <div className="flex items-center gap-2 mb-1">
                     <Frown className="w-4 h-4" style={{ color: '#ef4444' }} />
                     <p className="text-xs text-muted">Toughest Day</p>
@@ -488,25 +564,26 @@ export default function TeacherAttendance() {
                   {report.class_stats.worst_day ? (
                     <>
                       <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{fmtShort(report.class_stats.worst_day.date)}</p>
-                      <p className="text-xs font-semibold" style={{ color: '#ef4444' }}>{report.class_stats.worst_day.rate}% present</p>
+                      <p className="text-xs font-semibold" style={{ color: '#ef4444' }}>{report.class_stats.worst_day.rate}% present{multiTeacherReport ? ` · ${report.class_stats.worst_day.teacher_name}` : ''}</p>
                     </>
                   ) : <p className="text-sm text-muted">—</p>}
                 </div>
               </div>
 
-              {/* Register grid — students (A→Z) × session dates */}
+              {/* Register grid — students (A→Z) × sessions (one per teacher per day) */}
               <div className="card overflow-x-auto p-0">
                 <table className="w-full text-xs border-collapse">
                   <thead>
                     <tr>
                       <th className="sticky left-0 text-left px-3 py-2.5 font-bold uppercase tracking-wide text-xs"
-                        style={{ background: 'var(--surface-100)', color: 'var(--text-secondary)', minWidth: 160 }}>
+                        style={{ background: 'var(--surface-100)', color: 'var(--text-secondary)', minWidth: 180 }}>
                         Student (A→Z)
                       </th>
-                      {report.session_dates.map(d => (
-                        <th key={d} className="px-2 py-2.5 text-center font-bold whitespace-nowrap"
+                      {report.sessions.map(sess => (
+                        <th key={sess.id} className="px-2 py-2.5 text-center font-bold whitespace-nowrap"
                           style={{ background: 'var(--surface-100)', color: 'var(--text-secondary)' }}>
-                          {fmtShort(d)}
+                          {fmtShort(sess.date)}
+                          {multiTeacherReport && <div className="text-[10px] font-medium normal-case text-muted mt-0.5">{sess.teacher_name}</div>}
                         </th>
                       ))}
                       <th className="px-3 py-2.5 text-center font-bold" style={{ background: 'var(--surface-100)', color: 'var(--text-secondary)' }}>
@@ -515,18 +592,22 @@ export default function TeacherAttendance() {
                     </tr>
                   </thead>
                   <tbody>
-                    {report.students.map(s => (
-                      <tr key={s.student_id} className="border-t" style={{ borderColor: 'var(--border-color)' }}>
+                    {report.students.map((s, i) => (
+                      <tr key={s.student_id} className="transition-colors duration-150 hover:bg-[var(--surface-100)]"
+                        style={{ borderTop: i === 0 ? 'none' : '1px solid var(--card-border)' }}>
                         <td className="sticky left-0 px-3 py-2 font-semibold" style={{ background: 'var(--card-bg)', color: 'var(--text-primary)' }}>
+                          <span className="inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold mr-2 align-middle"
+                            style={{ background: 'var(--surface-100)', color: 'var(--text-secondary)' }}>{i + 1}</span>
                           {s.name}
                         </td>
-                        {report.session_dates.map(d => {
-                          const st = s.by_date[d];
+                        {report.sessions.map(sess => {
+                          const st = s.by_session[sess.id];
                           const meta = st ? STATUS_META[st] : null;
                           return (
-                            <td key={d} className="px-2 py-2 text-center">
+                            <td key={sess.id} className="px-2 py-2 text-center">
                               {meta ? (
-                                <span title={meta.label} className="inline-flex items-center justify-center w-5 h-5 rounded-full font-bold"
+                                <span title={meta.label}
+                                  className="inline-flex items-center justify-center w-5 h-5 rounded-full font-bold transition-transform duration-150 hover:scale-125"
                                   style={{ background: meta.bg, color: meta.color }}>{meta.letter}</span>
                               ) : <span className="text-muted">—</span>}
                             </td>
