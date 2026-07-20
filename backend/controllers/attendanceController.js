@@ -3,7 +3,7 @@ const { Attendance, Class, User } = require('../models/db');
 const { createDirectNotification, createInAppNotification } = require('../services/notificationHelpers');
 
 // Normalize any date/string to midnight UTC so "2025-01-10" and a Date object
-// for the same calendar day always collide on the unique (class_id, date) index.
+// for the same calendar day always collide when matching sessions.
 function toDayStart(dateInput) {
   const d = new Date(dateInput);
   if (isNaN(d.getTime())) return null;
@@ -11,7 +11,6 @@ function toDayStart(dateInput) {
 }
 
 const MS_DAY = 24 * 60 * 60 * 1000;
-const isoDay = (d) => new Date(d).toISOString().slice(0, 10);
 
 // Resolve a 'daily' | 'weekly' | 'monthly' period into a { start, end } day range
 // (inclusive, UTC midnight), anchored on the given reference date.
@@ -53,10 +52,27 @@ async function assertTeacherOwnsClass(classId, teacherId) {
   }).lean();
 }
 
+function tallyCounts(records) {
+  const counts = { present: 0, absent: 0, late: 0, excused: 0 };
+  records.forEach(r => { counts[r.status] = (counts[r.status] || 0) + 1; });
+  return counts;
+}
+
+async function namesById(ids) {
+  const unique = [...new Set(ids.map(String))];
+  if (!unique.length) return new Map();
+  const users = await User.find({ _id: { $in: unique } }, 'name').lean();
+  return new Map(users.map(u => [u._id.toString(), u.name]));
+}
+
 // GET /api/attendance/session?classId=&date=
-// Returns either the saved session for that class+date, or — if none exists
-// yet — the class roster defaulted to 'present' so the teacher can fill it
-// in from scratch.
+// Every teacher assigned to a class takes their OWN attendance session for a
+// given day — a class may be visited by several teachers across different
+// periods, and each one's session is independent (one teacher's entry never
+// blocks or overwrites another's). Returns this teacher's saved session for
+// that class+date, or — if they haven't taken it yet — the class roster
+// defaulted to 'present' so they can fill it in from scratch. Also surfaces
+// any *other* teachers' sessions already taken that same day, for awareness.
 const getSession = async (req, res) => {
   try {
     const { classId, date } = req.query;
@@ -68,20 +84,31 @@ const getSession = async (req, res) => {
     const day = toDayStart(date);
     if (!day) return res.status(400).json({ message: 'Invalid date' });
 
-    const roster = await User.find({ _id: { $in: cls.students }, role: 'student' }, 'name email level trade').sort({ name: 1 }).lean();
+    const roster = await User.find({ _id: { $in: cls.students }, role: 'student' }, 'name level trade').sort({ name: 1 }).lean();
 
-    const existing = await Attendance.findOne({ class_id: classId, date: day }).lean();
+    const [existing, otherSessions] = await Promise.all([
+      Attendance.findOne({ class_id: classId, date: day, teacher_id: req.session.user.id }).lean(),
+      Attendance.find({ class_id: classId, date: day, teacher_id: { $ne: req.session.user.id } }).lean(),
+    ]);
     const recordByStudent = new Map((existing?.records || []).map(r => [r.student_id.toString(), r]));
 
     const records = roster.map(s => ({
       student_id: s._id,
       name: s.name,
-      email: s.email,
       level: s.level,
       trade: s.trade,
       status: recordByStudent.get(s._id.toString())?.status || 'present',
       remarks: recordByStudent.get(s._id.toString())?.remarks || null,
     }));
+
+    let otherSessionsInfo = [];
+    if (otherSessions.length) {
+      const teacherNames = await namesById(otherSessions.map(s => s.teacher_id));
+      otherSessionsInfo = otherSessions.map(s => ({
+        teacher_name: teacherNames.get(s.teacher_id.toString()) || 'Another teacher',
+        counts: tallyCounts(s.records),
+      }));
+    }
 
     res.json({
       id: existing?._id || null,
@@ -89,12 +116,14 @@ const getSession = async (req, res) => {
       date: day,
       already_taken: !!existing,
       records,
+      other_sessions: otherSessionsInfo,
     });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
 // POST /api/attendance/session  { classId, date, records: [{ student_id, status, remarks }] }
-// Upserts the session for that class+date.
+// Upserts THIS teacher's session for that class+date — independent of any
+// session another teacher has already taken for the same class and day.
 const saveSession = async (req, res) => {
   try {
     const { classId, date, records } = req.body;
@@ -117,17 +146,12 @@ const saveSession = async (req, res) => {
         remarks: r.remarks || null,
       }));
 
-    const wasExisting = await Attendance.findOne({ class_id: classId, date: day }, '_id').lean();
+    const filter = { class_id: classId, date: day, teacher_id: req.session.user.id };
+    const wasExisting = await Attendance.findOne(filter, '_id').lean();
 
     const session = await Attendance.findOneAndUpdate(
-      { class_id: classId, date: day },
-      {
-        class_id: classId,
-        date: day,
-        teacher_id: req.session.user.id,
-        records: cleanRecords,
-        created_by: req.session.user.id,
-      },
+      filter,
+      { ...filter, records: cleanRecords, created_by: req.session.user.id },
       { upsert: true, new: true }
     );
 
@@ -151,11 +175,13 @@ const saveSession = async (req, res) => {
           linkId: session._id,
         })));
 
-        // ── Chronic absenteeism alert — tell the teacher when a student has
-        // just hit 3 consecutive absent sessions in this class. ──────────
+        // ── Chronic absenteeism alert — tell this teacher when a student has
+        // just missed their last 3 sessions in a row (scoped to sessions THIS
+        // teacher has taken, since another teacher's sessions are a separate
+        // series). ─────────────────────────────────────────────────────────
         const absentIds = cleanRecords.filter(r => r.status === 'absent').map(r => String(r.student_id));
         if (absentIds.length) {
-          const recentSessions = await Attendance.find({ class_id: classId, date: { $lte: day } })
+          const recentSessions = await Attendance.find({ class_id: classId, teacher_id: req.session.user.id, date: { $lte: day } })
             .sort({ date: -1 }).limit(3).select('records date').lean();
           if (recentSessions.length >= 3) {
             const chronicIds = absentIds.filter(sid => recentSessions.every(sess => {
@@ -163,11 +189,11 @@ const saveSession = async (req, res) => {
               return rec?.status === 'absent';
             }));
             if (chronicIds.length) {
-              const chronicStudents = await User.find({ _id: { $in: chronicIds } }, 'name').lean();
-              const names = chronicStudents.map(s => s.name).join(', ');
+              const chronicNames = await namesById(chronicIds);
+              const names = [...chronicNames.values()].join(', ');
               await createInAppNotification({
                 title: 'Attendance alert',
-                message: `${names} ${chronicStudents.length > 1 ? 'have' : 'has'} now been absent for 3 consecutive sessions in ${cls.name}.`,
+                message: `${names} ${chronicIds.length > 1 ? 'have' : 'has'} now been absent for 3 consecutive sessions in ${cls.name}.`,
                 type: 'warning',
                 classId,
                 teacherId: req.session.user.id,
@@ -185,39 +211,50 @@ const saveSession = async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
-// GET /api/attendance/class/:classId — paginated session history with per-day counts
+// GET /api/attendance/class/:classId?scope=all|mine — paginated session history.
+// Since sessions are per-teacher, the same day can list several entries (one
+// per teacher who took attendance); each is tagged with who took it.
 const getClassHistory = async (req, res) => {
   try {
     const { classId } = req.params;
-    const { page = 1, limit = 15 } = req.query;
+    const { page = 1, limit = 15, scope = 'all' } = req.query;
     const skip = (page - 1) * limit;
 
     const cls = await assertTeacherOwnsClass(classId, req.session.user.id);
     if (!cls) return res.status(403).json({ message: 'You are not assigned to this class.' });
 
+    const filter = { class_id: classId };
+    if (scope === 'mine') filter.teacher_id = req.session.user.id;
+
     const [sessions, total] = await Promise.all([
-      Attendance.find({ class_id: classId }).sort({ date: -1 }).skip(skip).limit(parseInt(limit)).lean(),
-      Attendance.countDocuments({ class_id: classId }),
+      Attendance.find(filter).sort({ date: -1, created_at: -1 }).skip(skip).limit(parseInt(limit)).lean(),
+      Attendance.countDocuments(filter),
     ]);
 
-    const result = sessions.map(s => {
-      const counts = { present: 0, absent: 0, late: 0, excused: 0 };
-      s.records.forEach(r => { counts[r.status] = (counts[r.status] || 0) + 1; });
-      return { id: s._id, date: s.date, total: s.records.length, counts };
-    });
+    const teacherNames = await namesById(sessions.map(s => s.teacher_id));
+
+    const result = sessions.map(s => ({
+      id: s._id,
+      date: s.date,
+      teacher_name: teacherNames.get(s.teacher_id.toString()) || 'Teacher',
+      mine: s.teacher_id.toString() === req.session.user.id,
+      total: s.records.length,
+      counts: tallyCounts(s.records),
+    }));
 
     res.json({ sessions: result, total, page: parseInt(page), limit: parseInt(limit) });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
-// GET /api/attendance/class/:classId/summary — per-student totals across all sessions
+// GET /api/attendance/class/:classId/summary — per-student totals across ALL
+// sessions taken for the class, by any assigned teacher.
 const getClassSummary = async (req, res) => {
   try {
     const { classId } = req.params;
     const cls = await assertTeacherOwnsClass(classId, req.session.user.id);
     if (!cls) return res.status(403).json({ message: 'You are not assigned to this class.' });
 
-    const students = await User.find({ _id: { $in: cls.students }, role: 'student' }, 'name email level trade').sort({ name: 1 }).lean();
+    const students = await User.find({ _id: { $in: cls.students }, role: 'student' }, 'name level trade').sort({ name: 1 }).lean();
     const sessions = await Attendance.find({ class_id: classId }, 'records date').sort({ date: -1 }).lean();
     const totalSessions = sessions.length;
 
@@ -238,7 +275,7 @@ const getClassSummary = async (req, res) => {
       const marked = counts.present + counts.absent + counts.late + counts.excused;
       const rate = marked ? Math.round((counts.present / marked) * 1000) / 10 : null;
       return {
-        student_id: s._id, student_name: s.name, student_email: s.email,
+        student_id: s._id, student_name: s.name,
         level: s.level, trade: s.trade,
         ...counts, attendance_rate: rate,
         current_absent_streak: currentAbsentStreak,
@@ -251,39 +288,49 @@ const getClassSummary = async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
-// GET /api/attendance/class/:classId/report?period=daily|weekly|monthly&date=
-// A register-style grid: students (rows, A-Z) × session dates (columns) for the
-// chosen period, plus class-level stats (average rate, at-risk students, best/
-// worst day) for a printable/exportable teacher report.
+// GET /api/attendance/class/:classId/report?period=daily|weekly|monthly&date=&scope=all|mine
+// A register-style grid: students (rows, A→Z) × sessions (columns) for the
+// chosen period — each column is one teacher's session on one day, since a
+// class can have more than one session per day. Plus class-level stats
+// (average rate, at-risk students, best/worst day) for a printable/
+// exportable teacher report.
 const getClassReport = async (req, res) => {
   try {
     const { classId } = req.params;
-    const { period = 'weekly', date } = req.query;
+    const { period = 'weekly', date, scope = 'all' } = req.query;
     const cls = await assertTeacherOwnsClass(classId, req.session.user.id);
     if (!cls) return res.status(403).json({ message: 'You are not assigned to this class.' });
 
     const range = getPeriodRange(period, date);
     if (!range) return res.status(400).json({ message: 'Invalid period. Use daily, weekly, or monthly.' });
 
+    const filter = { class_id: classId, date: { $gte: range.start, $lte: range.end } };
+    if (scope === 'mine') filter.teacher_id = req.session.user.id;
+
     const [sessions, roster] = await Promise.all([
-      Attendance.find({ class_id: classId, date: { $gte: range.start, $lte: range.end } }).sort({ date: 1 }).lean(),
-      User.find({ _id: { $in: cls.students }, role: 'student' }, 'name email level trade').sort({ name: 1 }).lean(),
+      Attendance.find(filter).sort({ date: 1, created_at: 1 }).lean(),
+      User.find({ _id: { $in: cls.students }, role: 'student' }, 'name level trade').sort({ name: 1 }).lean(),
     ]);
 
-    const sessionDates = sessions.map(s => isoDay(s.date));
+    const teacherNames = await namesById(sessions.map(s => s.teacher_id));
+    const sessionMeta = sessions.map(s => ({
+      id: s._id.toString(),
+      date: s.date,
+      teacher_name: teacherNames.get(s.teacher_id.toString()) || 'Teacher',
+    }));
 
     const students = roster.map(s => {
-      const by_date = {};
+      const by_session = {};
       const counts = { present: 0, absent: 0, late: 0, excused: 0 };
       sessions.forEach(sess => {
         const rec = sess.records.find(r => r.student_id.toString() === s._id.toString());
         const status = rec?.status || null;
-        by_date[isoDay(sess.date)] = status;
+        by_session[sess._id.toString()] = status;
         if (status) counts[status]++;
       });
       const marked = counts.present + counts.absent + counts.late + counts.excused;
       const rate = marked ? Math.round((counts.present / marked) * 1000) / 10 : null;
-      return { student_id: s._id, name: s.name, email: s.email, level: s.level, trade: s.trade, by_date, counts, rate };
+      return { student_id: s._id, name: s.name, level: s.level, trade: s.trade, by_session, counts, rate };
     });
 
     const rated = students.filter(s => s.rate != null);
@@ -293,12 +340,11 @@ const getClassReport = async (req, res) => {
 
     let bestDay = null, worstDay = null;
     sessions.forEach(sess => {
-      const counts = { present: 0, absent: 0, late: 0, excused: 0 };
-      sess.records.forEach(r => { counts[r.status] = (counts[r.status] || 0) + 1; });
+      const counts = tallyCounts(sess.records);
       const marked = counts.present + counts.absent + counts.late + counts.excused;
       const rate = marked ? Math.round((counts.present / marked) * 1000) / 10 : null;
       if (rate == null) return;
-      const entry = { date: sess.date, rate, counts };
+      const entry = { date: sess.date, teacher_name: teacherNames.get(sess.teacher_id.toString()) || 'Teacher', rate, counts };
       if (!bestDay || rate > bestDay.rate) bestDay = entry;
       if (!worstDay || rate < worstDay.rate) worstDay = entry;
     });
@@ -306,7 +352,7 @@ const getClassReport = async (req, res) => {
     res.json({
       period, start: range.start, end: range.end,
       class_name: cls.name,
-      session_dates: sessionDates,
+      sessions: sessionMeta,
       students,
       class_stats: { average_rate: averageRate, total_sessions: sessions.length, at_risk: atRisk, best_day: bestDay, worst_day: worstDay },
     });
@@ -328,6 +374,14 @@ const getMyReport = async (req, res) => {
     const classIds = classId ? [classId] : enrolledClasses.map(c => c._id.toString());
     const classNameById = new Map(enrolledClasses.map(c => [c._id.toString(), c.name]));
 
+    const [sessions, prevSessions, allSessions] = await Promise.all([
+      Attendance.find({ class_id: { $in: classIds }, date: { $gte: range.start, $lte: range.end } }).lean(),
+      Attendance.find({ class_id: { $in: classIds }, date: { $gte: prevRange.start, $lte: prevRange.end } }).lean(),
+      Attendance.find({ class_id: { $in: enrolledClasses.map(c => c._id.toString()) } }).sort({ date: -1 }).select('records teacher_id').lean(),
+    ]);
+
+    const teacherNames = await namesById([...sessions, ...prevSessions].map(s => s.teacher_id));
+
     const summarize = (sessArr) => {
       const counts = { present: 0, absent: 0, late: 0, excused: 0 };
       const days = [];
@@ -338,6 +392,7 @@ const getMyReport = async (req, res) => {
         days.push({
           date: s.date, class_id: s.class_id,
           class_name: classNameById.get(s.class_id.toString()) || null,
+          teacher_name: teacherNames.get(s.teacher_id.toString()) || null,
           status: rec.status, remarks: rec.remarks,
         });
       });
@@ -346,12 +401,6 @@ const getMyReport = async (req, res) => {
       const rate = marked ? Math.round((counts.present / marked) * 1000) / 10 : null;
       return { counts, rate, days };
     };
-
-    const [sessions, prevSessions, allSessions] = await Promise.all([
-      Attendance.find({ class_id: { $in: classIds }, date: { $gte: range.start, $lte: range.end } }).lean(),
-      Attendance.find({ class_id: { $in: classIds }, date: { $gte: prevRange.start, $lte: prevRange.end } }).lean(),
-      Attendance.find({ class_id: { $in: enrolledClasses.map(c => c._id.toString()) } }).sort({ date: -1 }).select('records').lean(),
-    ]);
 
     const current = summarize(sessions);
     const previous = summarize(prevSessions);
@@ -391,6 +440,7 @@ const getMyAttendance = async (req, res) => {
     const classNameById = new Map(enrolledClasses.map(c => [c._id.toString(), c.name]));
 
     const sessions = await Attendance.find({ class_id: { $in: classIds } }).sort({ date: 1 }).lean();
+    const teacherNames = await namesById(sessions.map(s => s.teacher_id));
 
     const counts = { present: 0, absent: 0, late: 0, excused: 0 };
     const history = [];
@@ -402,6 +452,7 @@ const getMyAttendance = async (req, res) => {
         date: s.date,
         class_id: s.class_id,
         class_name: classNameById.get(s.class_id.toString()) || null,
+        teacher_name: teacherNames.get(s.teacher_id.toString()) || null,
         status: rec.status,
         remarks: rec.remarks,
       });
