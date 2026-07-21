@@ -160,7 +160,7 @@ export default function AttemptAssessment() {
   if (result) {
     return (
       <div className="fixed inset-0 flex items-center justify-center p-6" style={{ background: 'var(--bg-primary, #0f172a)' }}>
-        <div className="card max-w-md w-full p-8 text-center">
+        <div className="card assessment-card max-w-md w-full p-8 text-center">
           {result.autoSubmitted ? (
             <ShieldAlert className="w-12 h-12 mx-auto mb-3 text-amber-500" />
           ) : (
@@ -174,14 +174,14 @@ export default function AttemptAssessment() {
           <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>{result.message}</p>
           {result.total_score != null ? (
             <div className="flex items-center justify-center gap-2 text-2xl font-bold mb-4" style={{ color: 'var(--text-primary)' }}>
-              <Award className="w-6 h-6 text-amber-500" /> {result.total_score} pts
+              <Award className="w-6 h-6 text-amber-500 assessment-icon-float" /> {result.total_score} pts
             </div>
           ) : (
             <p className="text-sm mb-4 flex items-center justify-center gap-1.5" style={{ color: 'var(--text-secondary)' }}>
               <Hourglass className="w-4 h-4" /> Some open questions need to be graded by your teacher before your final score is ready.
             </p>
           )}
-          <button onClick={() => navigate('/student/assessments')} className="btn-primary w-full">Back to Assessments</button>
+          <button onClick={() => navigate('/student/assessments')} className="btn-primary assessment-cta w-full">Back to Assessments</button>
         </div>
       </div>
     );
@@ -204,7 +204,7 @@ export default function AttemptAssessment() {
           <p className="font-semibold text-white">{attempt.assessment_title}</p>
           <p className="text-xs" style={{ color: 'rgba(255,255,255,0.6)' }}>{attempt.module_name} · Question {current + 1} of {attempt.questions.length} · {answeredCount} answered</p>
         </div>
-        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl font-mono font-bold ${isLow ? 'text-red-400' : 'text-white'}`}
+        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl font-mono font-bold transition-colors duration-300 ${isLow ? 'text-red-400 assessment-timer-urgent' : 'text-white'}`}
           style={{ background: isLow ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.08)' }}>
           <Clock className="w-4 h-4" /> {fmtRemaining(remaining)}
         </div>
@@ -216,10 +216,11 @@ export default function AttemptAssessment() {
           const done = answers[qq.id] != null && answers[qq.id] !== '';
           return (
             <button key={qq.id} onClick={() => setCurrent(i)}
-              className="w-8 h-8 flex-shrink-0 rounded-lg text-xs font-bold transition-colors"
+              className="w-8 h-8 flex-shrink-0 rounded-lg text-xs font-bold transition-all duration-200 hover:scale-110"
               style={{
                 background: i === current ? '#6366f1' : (done ? 'rgba(16,185,129,0.25)' : 'rgba(255,255,255,0.08)'),
                 color: i === current ? '#fff' : (done ? '#34d399' : 'rgba(255,255,255,0.6)'),
+                boxShadow: i === current ? '0 4px 12px rgba(99,102,241,0.45)' : 'none',
               }}>{i + 1}</button>
           );
         })}
@@ -227,7 +228,7 @@ export default function AttemptAssessment() {
 
       {/* Question body */}
       <div className="flex-1 overflow-y-auto px-6 py-6">
-        <div className="max-w-2xl mx-auto">
+        <div className="max-w-2xl mx-auto" key={q.id} style={{ animation: 'assessmentRise 0.3s cubic-bezier(0.16,1,0.3,1) both' }}>
           <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'rgba(255,255,255,0.5)' }}>{q.marks} pts</p>
           <h2 className="text-lg font-semibold mb-5 text-white">{q.question_text}</h2>
 
@@ -242,9 +243,9 @@ export default function AttemptAssessment() {
                       const next = selected ? cur.filter(k => k !== opt.key) : [...cur, opt.key];
                       saveAnswer(q.id, next);
                     }}
-                    className="w-full text-left px-4 py-3 rounded-xl border-2 transition-colors flex items-center gap-3"
-                    style={{ borderColor: selected ? '#6366f1' : 'rgba(255,255,255,0.15)', background: selected ? 'rgba(99,102,241,0.15)' : 'rgba(255,255,255,0.04)', color: '#fff' }}>
-                    <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0" style={{ background: selected ? '#6366f1' : 'rgba(255,255,255,0.1)' }}>{opt.key}</span>
+                    className="w-full text-left px-4 py-3 rounded-xl border-2 transition-all duration-200 flex items-center gap-3 hover:-translate-y-0.5"
+                    style={{ borderColor: selected ? '#6366f1' : 'rgba(255,255,255,0.15)', background: selected ? 'rgba(99,102,241,0.15)' : 'rgba(255,255,255,0.04)', color: '#fff', boxShadow: selected ? '0 6px 18px rgba(99,102,241,0.25)' : 'none' }}>
+                    <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 transition-transform duration-200" style={{ background: selected ? '#6366f1' : 'rgba(255,255,255,0.1)', transform: selected ? 'scale(1.1)' : 'scale(1)' }}>{opt.key}</span>
                     {opt.text}
                   </button>
                 );
@@ -256,8 +257,8 @@ export default function AttemptAssessment() {
             <div className="flex gap-3">
               {['true', 'false'].map(v => (
                 <button key={v} onClick={() => saveAnswer(q.id, v)}
-                  className="flex-1 py-4 rounded-xl border-2 font-semibold capitalize transition-colors"
-                  style={{ borderColor: answers[q.id] === v ? '#6366f1' : 'rgba(255,255,255,0.15)', background: answers[q.id] === v ? 'rgba(99,102,241,0.15)' : 'rgba(255,255,255,0.04)', color: '#fff' }}>
+                  className="flex-1 py-4 rounded-xl border-2 font-semibold capitalize transition-all duration-200 hover:-translate-y-0.5"
+                  style={{ borderColor: answers[q.id] === v ? '#6366f1' : 'rgba(255,255,255,0.15)', background: answers[q.id] === v ? 'rgba(99,102,241,0.15)' : 'rgba(255,255,255,0.04)', color: '#fff', boxShadow: answers[q.id] === v ? '0 6px 18px rgba(99,102,241,0.25)' : 'none' }}>
                   {v}
                 </button>
               ))}
@@ -312,20 +313,20 @@ export default function AttemptAssessment() {
       {/* Bottom nav */}
       <div className="flex items-center justify-between px-6 py-4" style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}>
         <button onClick={() => setCurrent(c => Math.max(0, c - 1))} disabled={current === 0}
-          className="px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-1.5 disabled:opacity-40"
+          className="px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-1.5 disabled:opacity-40 transition-all duration-150 hover:brightness-125"
           style={{ background: 'rgba(255,255,255,0.08)', color: '#fff' }}>
           <ChevronLeft className="w-4 h-4" /> Previous
         </button>
 
         {current < attempt.questions.length - 1 ? (
           <button onClick={() => setCurrent(c => Math.min(attempt.questions.length - 1, c + 1))}
-            className="px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-1.5"
+            className="px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-1.5 transition-all duration-150 hover:brightness-125"
             style={{ background: 'rgba(255,255,255,0.08)', color: '#fff' }}>
             Next <ChevronRight className="w-4 h-4" />
           </button>
         ) : (
           <button onClick={() => finishAttempt(null)} disabled={submitting}
-            className="btn-primary flex items-center gap-2">
+            className="btn-primary assessment-cta flex items-center gap-2">
             {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             Submit Assessment
           </button>
