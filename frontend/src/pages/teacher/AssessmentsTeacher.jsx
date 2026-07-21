@@ -28,12 +28,16 @@ import { useAuth } from '../../context/AuthContext';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import ConfirmModal from '../../components/common/ConfirmModal';
+import QuizBuilderModal from '../../components/common/QuizBuilderModal';
+import ShareAssessmentModal from '../../components/common/ShareAssessmentModal';
+import AssessmentAttemptsModal from '../../components/common/AssessmentAttemptsModal';
 import {
   Plus, Edit2, Trash2, X, BookOpen, FileText, Users,
   ChevronRight, Send, Save, Clock, CheckCircle, XCircle,
   AlertCircle, School, GraduationCap, RefreshCw,
   Download, Upload, TrendingUp, Search, ArrowUp, ArrowDown,
   ArrowUpDown, Sparkles, Filter, X as XSmall, Eraser,
+  ListChecks, Share2, BarChart3,
 } from 'lucide-react';
 
 /* ─────────── Constants ─────────── */
@@ -314,6 +318,11 @@ export default function TeacherAssessments() {
 
   /* ── Confirm modal ── */
   const [confirmModal, setConfirmModal] = useState({ open: false });
+
+  /* ── Online-assessment (quiz) feature state ── */
+  const [questionsModal, setQuestionsModal] = useState(null);
+  const [shareModal, setShareModal]         = useState(null);
+  const [attemptsModal, setAttemptsModal]   = useState(null);
 
   /* ── NEW: table search / sort / filter (client-side only — the API
      request made by fetchData() never changes because of these). ── */
@@ -976,6 +985,17 @@ export default function TeacherAssessments() {
                           <button className="ta-btn ta-icon-btn" onClick={() => openMarks(a)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 8, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#e2e8f0' : '#374151', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
                             <Users size={11} /> Marks
                           </button>
+                          <button className="ta-btn ta-icon-btn" onClick={() => setQuestionsModal(a)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 8, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#e2e8f0' : '#374151', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                            <ListChecks size={11} /> Questions
+                          </button>
+                          <button className="ta-btn ta-icon-btn" onClick={() => setShareModal(a)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 8, border: `1px solid ${a.is_shared ? 'rgba(16,185,129,0.35)' : (dark ? '#2a3042' : '#e5e7eb')}`, background: a.is_shared ? 'rgba(16,185,129,0.1)' : (dark ? '#1a1f2e' : '#f9fafb'), color: a.is_shared ? T.green : (dark ? '#e2e8f0' : '#374151'), fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                            <Share2 size={11} /> {a.is_shared ? 'Shared' : 'Share'}
+                          </button>
+                          {a.is_shared && (
+                            <button className="ta-btn ta-icon-btn" onClick={() => setAttemptsModal(a)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 8, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#e2e8f0' : '#374151', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                              <BarChart3 size={11} /> Results
+                            </button>
+                          )}
                           {!isLocked && (
                             <>
                               <button className="ta-btn ta-icon-btn" onClick={() => openEdit(a)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 8, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#e2e8f0' : '#374151', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
@@ -1523,6 +1543,27 @@ export default function TeacherAssessments() {
         confirmText={confirmModal.confirmText}
         cancelText="Cancel"
       />
+
+      {questionsModal && (
+        <QuizBuilderModal
+          assessment={questionsModal}
+          onClose={() => setQuestionsModal(null)}
+          onSaved={fetchData}
+        />
+      )}
+      {shareModal && (
+        <ShareAssessmentModal
+          assessment={shareModal}
+          onClose={() => setShareModal(null)}
+          onShared={fetchData}
+        />
+      )}
+      {attemptsModal && (
+        <AssessmentAttemptsModal
+          assessment={attemptsModal}
+          onClose={() => setAttemptsModal(null)}
+        />
+      )}
     </div>
   );
 }

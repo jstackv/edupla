@@ -23,6 +23,7 @@ import Assignments from './pages/teacher/Assignments';
 import TeacherAttendance from './pages/teacher/Attendance';
 import TeacherAnnouncements from './pages/teacher/Announcements';
 import TeacherAssessmentPage from './pages/teacher/AssessmentsTeacher';
+import TeacherAssessmentsOnline from './pages/teacher/AssessmentsOnline';
 import TeacherGroups from './pages/teacher/Groups';
 
 import StudentDashboard from './pages/student/Dashboard';
@@ -32,6 +33,8 @@ import StudentAssignments from './pages/student/Assignments';
 import StudentAttendance from './pages/student/Attendance';
 import StudentAnnouncements from './pages/student/Announcements';
 import StudentGroups from './pages/student/Groups';
+import StudentAssessments from './pages/student/Assessments';
+import AttemptAssessment from './pages/student/AttemptAssessment';
 
 import AdminDashboard from './pages/admin/Dashboard';
 import SuperAdminDashboard from './pages/admin/SuperAdminDashboard';
@@ -146,6 +149,7 @@ function AppRoutes() {
       <Route path="/teacher/attendance"    element={<TeacherRoute><TeacherAttendance /></TeacherRoute>} />
       <Route path="/teacher/announcements" element={<TeacherRoute><TeacherAnnouncements /></TeacherRoute>} />
       <Route path="/teacher/assessments-grade" element={<TeacherRoute><TeacherAssessmentPage /></TeacherRoute>} />
+      <Route path="/teacher/assessments"       element={<TeacherRoute><TeacherAssessmentsOnline /></TeacherRoute>} />
       <Route path="/teacher/groups"            element={<TeacherRoute><TeacherGroups /></TeacherRoute>} />
 
       {/* Student routes */}
@@ -156,6 +160,8 @@ function AppRoutes() {
       <Route path="/student/attendance"    element={<StudentRoute><StudentAttendance /></StudentRoute>} />
       <Route path="/student/announcements" element={<StudentRoute><StudentAnnouncements /></StudentRoute>} />
       <Route path="/student/groups"        element={<StudentRoute><StudentGroups /></StudentRoute>} />
+      <Route path="/student/assessments"   element={<StudentRoute><StudentAssessments /></StudentRoute>} />
+      <Route path="/student/assessments/:id/attempt" element={<StudentRoute><AttemptAssessment /></StudentRoute>} />
 
       {/* Admin routes — dashboard routes to correct dashboard based on role */}
       <Route path="/admin/dashboard"   element={<AdminRoute><AdminDashboardRouter /></AdminRoute>} />

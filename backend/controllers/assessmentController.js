@@ -1,6 +1,9 @@
-const { Course, Assessment, Mark, Class, User, AssessmentSubmission } = require('../models/db');
+const { Course, Assessment, Mark, Class, User, AssessmentSubmission, AssessmentQuestion, AssessmentAttempt } = require('../models/db');
 const mongoose = require('mongoose');
 const XLSX = require('xlsx');
+const PDFDocument = require('pdfkit');
+const { createInAppNotification, getStudentEmails, getTeacherEmail } = require('../services/notificationHelpers');
+const { notifyAssessmentShared } = require('../services/emailService');
 
 /* ─────────────────────────────────────────────────────────
    Assessment title is derived from the assessment type.
@@ -477,9 +480,14 @@ exports.teacherGetCourses = async (req, res) => {
 
 exports.teacherGetAssessments = async (req, res) => {
   try {
-    const { course_id } = req.query;
+    const { course_id, class_id, mode } = req.query;
     const filter = { teacher_id: req.user.id };
     if (course_id) filter.course_id = course_id;
+    if (class_id) filter.class_id = class_id;
+    // Marks Recording and the independent online-Assessments page each only
+    // ever see their own records. Default to 'marks' for backward compatibility
+    // with the existing Marks Recording page, which never sends this param.
+    filter.mode = mode === 'quiz' ? 'quiz' : 'marks';
 
     const assessments = await Assessment.find(filter)
       .populate('course_id', 'name code class_id class_ids total_marks category')
@@ -521,7 +529,8 @@ exports.teacherGetAssessments = async (req, res) => {
 
 exports.teacherCreateAssessment = async (req, res) => {
   try {
-    const { course_id, class_id, type, term, academic_year, max_marks } = req.body;
+    const { course_id, class_id, type, term, academic_year, max_marks, mode } = req.body;
+    const assessmentMode = mode === 'quiz' ? 'quiz' : 'marks';
 
     if (!course_id || !class_id || !type || !term || !academic_year) {
       return res.status(400).json({ message: 'Class, module, type, term, and year are required' });
@@ -553,10 +562,14 @@ exports.teacherCreateAssessment = async (req, res) => {
       });
     }
 
-    /* ── Server-side duplicate guard — scoped to THIS class only.
+    /* ── Server-side duplicate guard — scoped to THIS class AND this mode.
        A module assigned to several classes can have its own independent
        Formative/Integrated/Comprehensive assessment per class; an assessment
-       created for one class is never treated as already created for another. ── */
+       created for one class is never treated as already created for another.
+       The manual "Marks Recording" assessment and an independent online-quiz
+       assessment for the same module/class/type/term/year are two separate
+       records (they live on two separate teacher pages), so mode is part of
+       the duplicate check too. ── */
     const existing = await Assessment.findOne({
       course_id,
       class_id,
@@ -564,6 +577,7 @@ exports.teacherCreateAssessment = async (req, res) => {
       type,
       term,
       academic_year,
+      mode: assessmentMode,
     });
     if (existing) {
       const cls = await Class.findById(class_id).select('name').lean();
@@ -582,6 +596,7 @@ exports.teacherCreateAssessment = async (req, res) => {
       academic_year,
       max_marks: courseWeight,
       created_by: req.user.id,
+      mode: assessmentMode,
     });
 
     res.status(201).json({ message: 'Assessment created', id: assessment._id });
@@ -639,6 +654,7 @@ exports.teacherUpdateAssessment = async (req, res) => {
       type: checkType,
       term: checkTerm,
       academic_year: checkYear,
+      mode: assessment.mode,
     });
     if (duplicate) {
       return res.status(409).json({
@@ -674,9 +690,18 @@ exports.teacherDeleteAssessment = async (req, res) => {
       });
     }
 
+    const attemptsCount = await AssessmentAttempt.countDocuments({ assessment_id: req.params.id });
+    if (attemptsCount > 0) {
+      return res.status(400).json({
+        message: `Cannot delete this assessment — ${attemptsCount} student attempt(s) have already been recorded.`,
+      });
+    }
+
     await Assessment.deleteOne({ _id: req.params.id });
     await Mark.deleteMany({ assessment_id: req.params.id });
     await AssessmentSubmission.deleteOne({ assessment_id: req.params.id });
+    await AssessmentQuestion.deleteMany({ assessment_id: req.params.id });
+    await AssessmentAttempt.deleteMany({ assessment_id: req.params.id });
     res.json({ message: 'Assessment deleted' });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
@@ -1310,5 +1335,844 @@ exports.studentGetCourses = async (req, res) => {
       .lean();
 
     res.json({ courses: courses.map(c => ({ ...c, id: c._id })) });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+/* ═══════════════════════════════════════════════════════════════════════
+   ONLINE ASSESSMENT (QUIZ) FEATURE
+   ───────────────────────────────────────────────────────────────────────
+   Adds question-based, auto-graded assessments on top of the existing
+   marks-entry Assessment model:
+     1. Teacher builds a question paper for an assessment (MCQ, True/False,
+        Fill-in-the-gap, Matching, Open) — teacherSaveQuestions.
+     2. Teacher shares it with the class with a duration, expiry, and
+        attempt limit — teacherShareAssessment.
+     3. Students see it under "Assessments", read the instructions, and
+        start it — studentGetSharedAssessments / studentGetAssessmentInstructions
+        / studentStartAttempt.
+     4. The attempt runs full-screen client-side; the server enforces the
+        time limit and accepts autosaves and the final submit/auto-submit.
+     5. On submit, everything except open questions is auto-graded exactly
+        against the teacher's expected answers. Open questions wait for the
+        teacher (teacherGradeOpenAnswers). Once an attempt is fully graded
+        its score feeds into the same Mark model the manual-entry flow uses,
+        so the existing report/approval pipeline picks it up automatically.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+function shuffleArray(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function normStr(s) { return (s ?? '').toString().trim().toLowerCase(); }
+
+/*
+ * Auto-grade one answer against its question's expected answer.
+ * Returns { auto_score, is_correct, needsManual }. `needsManual` is true
+ * only for open questions, which always require a teacher score.
+ */
+function gradeAnswer(question, answer) {
+  const marks = question.marks || 0;
+  switch (question.type) {
+    case 'mcq': {
+      const correct = Array.isArray(question.correct_answer)
+        ? question.correct_answer.map(normStr)
+        : [normStr(question.correct_answer)];
+      const given = Array.isArray(answer) ? answer.map(normStr) : (answer != null ? [normStr(answer)] : []);
+      const isCorrect = correct.length > 0 && correct.length === given.length && correct.every(c => given.includes(c));
+      return { auto_score: isCorrect ? marks : 0, is_correct: isCorrect, needsManual: false };
+    }
+    case 'true_false': {
+      const isCorrect = normStr(answer) === normStr(question.correct_answer);
+      return { auto_score: isCorrect ? marks : 0, is_correct: isCorrect, needsManual: false };
+    }
+    case 'fill_gap': {
+      const accepted = Array.isArray(question.correct_answer)
+        ? question.correct_answer.map(normStr)
+        : [normStr(question.correct_answer)];
+      const isCorrect = accepted.includes(normStr(answer));
+      return { auto_score: isCorrect ? marks : 0, is_correct: isCorrect, needsManual: false };
+    }
+    case 'matching': {
+      const pairs = question.pairs || [];
+      if (!pairs.length) return { auto_score: 0, is_correct: false, needsManual: false };
+      const given = answer && typeof answer === 'object' ? answer : {};
+      let correctCount = 0;
+      pairs.forEach(p => { if (normStr(given[p.left]) === normStr(p.right)) correctCount++; });
+      const isCorrect = correctCount === pairs.length;
+      const score = Math.round((marks * correctCount / pairs.length) * 100) / 100;
+      return { auto_score: score, is_correct: isCorrect, needsManual: false };
+    }
+    case 'open':
+    default:
+      return { auto_score: null, is_correct: null, needsManual: true };
+  }
+}
+
+/* Strip a question of anything that would give the answer away before
+   sending it to a student who is about to attempt it. */
+function stripQuestionForAttempt(q) {
+  const base = { id: q._id, type: q.type, question_text: q.question_text, marks: q.marks };
+  if (q.type === 'mcq') base.options = (q.options || []).map(o => ({ key: o.key, text: o.text }));
+  if (q.type === 'matching') {
+    base.left_items = (q.pairs || []).map(p => p.left);
+    base.right_options = shuffleArray((q.pairs || []).map(p => p.right));
+  }
+  return base;
+}
+
+async function buildAttemptPayload(attempt, assessment, orderedQuestions) {
+  let questions = orderedQuestions;
+  if (!questions) {
+    const found = await AssessmentQuestion.find({ _id: { $in: attempt.question_order } }).lean();
+    const map = {};
+    found.forEach(q => { map[q._id.toString()] = q; });
+    questions = attempt.question_order.map(id => map[id.toString()]).filter(Boolean);
+  }
+  const answerMap = {};
+  (attempt.answers || []).forEach(a => { answerMap[a.question_id.toString()] = a.answer; });
+
+  return {
+    attempt_id: attempt._id,
+    assessment_id: assessment._id,
+    assessment_title: assessment.title,
+    module_name: assessment.course_id?.name,
+    instructions: assessment.instructions,
+    duration_minutes: assessment.duration_minutes,
+    started_at: attempt.started_at,
+    due_at: attempt.due_at,
+    questions: questions.map(q => ({
+      ...stripQuestionForAttempt(q),
+      saved_answer: answerMap[q._id.toString()] ?? null,
+    })),
+  };
+}
+
+/* Recompute an attempt's total score from its (now fully-scored) answers,
+   mark it graded, and — if it beats the student's best score so far — push
+   it into the Mark model so it flows through the existing report/approval
+   pipeline exactly like a manually entered mark. */
+async function finalizeAttemptSubmission(attempt, { autoSubmitted = false, reason = null } = {}) {
+  const questions = await AssessmentQuestion.find({ _id: { $in: attempt.question_order } }).lean();
+  const qMap = {};
+  questions.forEach(q => { qMap[q._id.toString()] = q; });
+
+  let allGraded = true;
+  attempt.answers.forEach(a => {
+    const q = qMap[a.question_id.toString()];
+    if (!q) return;
+    if (a.auto_score == null && a.manual_score == null) {
+      const g = gradeAnswer(q, a.answer);
+      a.auto_score = g.auto_score;
+      a.is_correct = g.is_correct;
+    }
+    if (a.auto_score == null && a.manual_score == null) allGraded = false;
+  });
+
+  attempt.status = allGraded ? 'graded' : 'submitted';
+  attempt.needs_manual_grading = !allGraded;
+  attempt.submitted_at = new Date();
+  attempt.auto_submitted = autoSubmitted;
+  attempt.auto_submit_reason = reason;
+
+  if (allGraded) {
+    const total = attempt.answers.reduce((s, a) => s + (a.auto_score != null ? a.auto_score : a.manual_score), 0);
+    attempt.total_score = Math.round(total * 100) / 100;
+    attempt.graded_at = new Date();
+  }
+
+  await attempt.save();
+
+  if (allGraded) {
+    const assessment = await Assessment.findById(attempt.assessment_id).lean();
+    if (assessment) await recomputeAndUpsertMark(assessment, attempt.student_id);
+  }
+  return attempt;
+}
+
+/* A student's Mark for a quiz-mode assessment is always their BEST fully
+   graded attempt — matches the "however many attempts, best one counts"
+   expectation and keeps a single source of truth for reports. */
+async function recomputeAndUpsertMark(assessment, studentId) {
+  const attempts = await AssessmentAttempt.find({
+    assessment_id: assessment._id, student_id: studentId, status: 'graded', total_score: { $ne: null },
+  }).lean();
+  if (!attempts.length) return;
+  const best = attempts.reduce((a, b) => (b.total_score > a.total_score ? b : a));
+  await Mark.findOneAndUpdate(
+    { assessment_id: assessment._id, student_id: studentId },
+    { marks: best.total_score, entered_by: assessment.teacher_id },
+    { upsert: true, setDefaultsOnInsert: true }
+  );
+}
+
+/* ═══════════════════════ TEACHER: Question builder ═══════════════════ */
+
+exports.teacherGetQuestions = async (req, res) => {
+  try {
+    const assessment = await Assessment.findOne({ _id: req.params.id, teacher_id: req.user.id }).lean();
+    if (!assessment) return res.status(404).json({ message: 'Assessment not found' });
+
+    const locked = await AssessmentAttempt.countDocuments({
+      assessment_id: assessment._id, status: { $ne: 'in_progress' },
+    }) > 0;
+
+    const questions = await AssessmentQuestion.find({ assessment_id: req.params.id }).sort({ order: 1 }).lean();
+    res.json({
+      questions: questions.map(q => ({ ...q, id: q._id })),
+      locked,
+      mode: assessment.mode,
+      is_shared: assessment.is_shared,
+    });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+exports.teacherSaveQuestions = async (req, res) => {
+  try {
+    const assessment = await Assessment.findOne({ _id: req.params.id, teacher_id: req.user.id });
+    if (!assessment) return res.status(404).json({ message: 'Assessment not found' });
+
+    const submittedAttempts = await AssessmentAttempt.countDocuments({
+      assessment_id: assessment._id, status: { $ne: 'in_progress' },
+    });
+    if (submittedAttempts > 0) {
+      return res.status(400).json({ message: 'Questions are locked — students have already submitted attempts for this assessment.' });
+    }
+
+    const { questions } = req.body;
+    if (!Array.isArray(questions) || questions.length === 0) {
+      return res.status(400).json({ message: 'Add at least one question.' });
+    }
+
+    const VALID_TYPES = ['mcq', 'true_false', 'fill_gap', 'matching', 'open'];
+    for (const q of questions) {
+      if (!q.question_text || !q.question_text.trim()) {
+        return res.status(400).json({ message: 'Every question needs question text.' });
+      }
+      if (!VALID_TYPES.includes(q.type)) {
+        return res.status(400).json({ message: `Invalid question type "${q.type}".` });
+      }
+      if (!q.marks || Number(q.marks) <= 0) {
+        return res.status(400).json({ message: 'Every question needs marks greater than 0.' });
+      }
+      if (q.type === 'mcq' && (!Array.isArray(q.options) || q.options.length < 2)) {
+        return res.status(400).json({ message: 'Multiple choice questions need at least 2 options.' });
+      }
+      if (q.type === 'mcq' && (!Array.isArray(q.correct_answer) || q.correct_answer.length === 0)) {
+        return res.status(400).json({ message: 'Select the correct option(s) for every multiple choice question.' });
+      }
+      if (q.type === 'matching' && (!Array.isArray(q.pairs) || q.pairs.length < 2)) {
+        return res.status(400).json({ message: 'Matching questions need at least 2 pairs.' });
+      }
+      if (q.type === 'true_false' && !['true', 'false'].includes(String(q.correct_answer))) {
+        return res.status(400).json({ message: 'True/False questions need a correct answer of true or false.' });
+      }
+      if (q.type === 'fill_gap' && (!q.correct_answer || (Array.isArray(q.correct_answer) && q.correct_answer.length === 0))) {
+        return res.status(400).json({ message: 'Fill-in-the-gap questions need at least one expected answer.' });
+      }
+    }
+
+    await AssessmentQuestion.deleteMany({ assessment_id: assessment._id });
+    const docs = questions.map((q, i) => ({
+      assessment_id: assessment._id,
+      type: q.type,
+      question_text: q.question_text.trim(),
+      options: q.type === 'mcq' ? q.options : [],
+      pairs: q.type === 'matching' ? q.pairs : [],
+      correct_answer: q.type === 'open' ? (q.correct_answer || null) : q.correct_answer,
+      marks: Number(q.marks),
+      order: i,
+    }));
+    await AssessmentQuestion.insertMany(docs);
+
+    if (assessment.mode !== 'quiz') {
+      assessment.mode = 'quiz';
+      await assessment.save();
+    }
+
+    res.json({ message: 'Questions saved.', count: docs.length });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+/* ═══════════════════════ TEACHER: Share / unshare ═════════════════════ */
+
+exports.teacherShareAssessment = async (req, res) => {
+  try {
+    const { duration_minutes, expires_at, max_attempts, instructions, shuffle_questions } = req.body;
+
+    const assessment = await Assessment.findOne({ _id: req.params.id, teacher_id: req.user.id })
+      .populate('course_id', 'name')
+      .populate('class_id', 'name students');
+    if (!assessment) return res.status(404).json({ message: 'Assessment not found' });
+
+    const qCount = await AssessmentQuestion.countDocuments({ assessment_id: assessment._id });
+    if (qCount === 0) {
+      return res.status(400).json({ message: 'Add at least one question before sharing this assessment.' });
+    }
+    if (!duration_minutes || Number(duration_minutes) <= 0) {
+      return res.status(400).json({ message: 'Set an assessment duration greater than 0 minutes.' });
+    }
+    if (expires_at && new Date(expires_at) <= new Date()) {
+      return res.status(400).json({ message: 'Expiry date/time must be in the future.' });
+    }
+    if (!assessment.class_id) {
+      return res.status(400).json({ message: 'This assessment has no class assigned.' });
+    }
+
+    assessment.mode              = 'quiz';
+    assessment.duration_minutes  = Number(duration_minutes);
+    assessment.expires_at        = expires_at ? new Date(expires_at) : null;
+    assessment.max_attempts      = Math.max(1, Number(max_attempts) || 1);
+    assessment.instructions      = instructions ?? assessment.instructions;
+    assessment.shuffle_questions = shuffle_questions !== false;
+    assessment.is_shared         = true;
+    assessment.shared_at         = new Date();
+    await assessment.save();
+
+    res.json({ message: 'Assessment shared with the class.' });
+
+    // ── Notify students async (never block the response) ────────────────
+    try {
+      const teacher = await User.findById(req.user.id, 'name').lean();
+      const studentEmails = await getStudentEmails(assessment.class_id._id);
+
+      await createInAppNotification({
+        title: `New Assessment: ${assessment.title}`,
+        message: `${teacher?.name || 'Your teacher'} shared "${assessment.title}" (${assessment.course_id?.name || 'module'}) for you to attempt in ${assessment.class_id?.name || 'your class'}.`,
+        type: 'info',
+        classId: assessment.class_id._id,
+        teacherId: req.user.id,
+        linkType: 'assessment',
+        linkId: assessment._id,
+        courseId: assessment.course_id?._id || null,
+      });
+
+      if (studentEmails.length) {
+        notifyAssessmentShared({
+          studentEmails,
+          teacherEmail: await getTeacherEmail(req.user.id),
+          assessmentTitle: assessment.title,
+          moduleName: assessment.course_id?.name,
+          className: assessment.class_id?.name,
+          teacherName: teacher?.name || 'Your teacher',
+          durationMinutes: assessment.duration_minutes,
+          maxAttempts: assessment.max_attempts,
+          expiresAt: assessment.expires_at,
+        }).catch(err => console.error('Email send error:', err.message));
+      }
+    } catch (err) {
+      console.error('Notification error (assessment share):', err.message);
+    }
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+exports.teacherUnshareAssessment = async (req, res) => {
+  try {
+    const updated = await Assessment.findOneAndUpdate(
+      { _id: req.params.id, teacher_id: req.user.id },
+      { is_shared: false },
+      { new: true }
+    );
+    if (!updated) return res.status(404).json({ message: 'Assessment not found' });
+    res.json({ message: 'Assessment unshared. Students can no longer start new attempts.' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+/* ═══════════════════════ TEACHER: Attempts / grading / mark sheet ═════ */
+
+exports.teacherListAttempts = async (req, res) => {
+  try {
+    const assessment = await Assessment.findOne({ _id: req.params.id, teacher_id: req.user.id })
+      .populate('class_id', 'name students')
+      .populate('course_id', 'name')
+      .lean();
+    if (!assessment) return res.status(404).json({ message: 'Assessment not found' });
+
+    const students = await User.find({ _id: { $in: assessment.class_id?.students || [] } }, 'name email')
+      .sort({ name: 1 }).lean();
+    const attempts = await AssessmentAttempt.find({ assessment_id: assessment._id }).sort({ attempt_number: 1 }).lean();
+
+    const byStudent = {};
+    attempts.forEach(a => {
+      const key = a.student_id.toString();
+      (byStudent[key] = byStudent[key] || []).push(a);
+    });
+
+    const totalAgg = await AssessmentQuestion.aggregate([
+      { $match: { assessment_id: assessment._id } },
+      { $group: { _id: null, total: { $sum: '$marks' } } },
+    ]);
+    const maxMarks = totalAgg[0]?.total || 0;
+
+    const rows = students.map(s => {
+      const list = byStudent[s._id.toString()] || [];
+      const graded = list.filter(a => a.status === 'graded');
+      const best = [...graded].sort((a, b) => b.total_score - a.total_score)[0];
+      const pendingGrading = list.some(a => a.needs_manual_grading && a.status === 'submitted');
+      return {
+        student_id: s._id,
+        student_name: s.name,
+        student_email: s.email,
+        attempts_used: list.length,
+        best_score: best ? best.total_score : null,
+        max_marks: maxMarks,
+        percentage: best && maxMarks ? Math.round((best.total_score / maxMarks) * 100) : null,
+        status: pendingGrading ? 'needs_grading' : (best ? 'graded' : (list.length ? 'submitted' : 'not_attempted')),
+        attempts: list.map(a => ({
+          id: a._id, attempt_number: a.attempt_number, status: a.status,
+          total_score: a.total_score, needs_manual_grading: a.needs_manual_grading,
+          auto_submitted: a.auto_submitted, auto_submit_reason: a.auto_submit_reason,
+          submitted_at: a.submitted_at,
+        })),
+      };
+    });
+
+    res.json({ assessment: { ...assessment, id: assessment._id, max_marks_computed: maxMarks }, rows });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+exports.teacherGetAttemptForGrading = async (req, res) => {
+  try {
+    const attempt = await AssessmentAttempt.findById(req.params.attemptId)
+      .populate('student_id', 'name email').lean();
+    if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
+
+    const assessment = await Assessment.findOne({ _id: attempt.assessment_id, teacher_id: req.user.id }).lean();
+    if (!assessment) return res.status(403).json({ message: 'Access denied' });
+
+    const questions = await AssessmentQuestion.find({ _id: { $in: attempt.question_order } }).lean();
+    const qMap = {};
+    questions.forEach(q => { qMap[q._id.toString()] = q; });
+
+    const answers = attempt.question_order.map(qid => {
+      const q = qMap[qid.toString()];
+      const a = attempt.answers.find(x => x.question_id.toString() === qid.toString());
+      return {
+        question_id: qid, type: q?.type, question_text: q?.question_text, marks: q?.marks,
+        options: q?.options, pairs: q?.pairs, correct_answer: q?.correct_answer,
+        student_answer: a?.answer ?? null,
+        auto_score: a?.auto_score ?? null,
+        manual_score: a?.manual_score ?? null,
+        is_correct: a?.is_correct ?? null,
+      };
+    });
+
+    res.json({
+      attempt: {
+        id: attempt._id, status: attempt.status, total_score: attempt.total_score,
+        student: attempt.student_id, submitted_at: attempt.submitted_at,
+        auto_submitted: attempt.auto_submitted, auto_submit_reason: attempt.auto_submit_reason,
+      },
+      assessment: { id: assessment._id, title: assessment.title },
+      answers,
+    });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+exports.teacherGradeOpenAnswers = async (req, res) => {
+  try {
+    const attempt = await AssessmentAttempt.findById(req.params.attemptId);
+    if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
+
+    const assessment = await Assessment.findOne({ _id: attempt.assessment_id, teacher_id: req.user.id }).lean();
+    if (!assessment) return res.status(403).json({ message: 'Access denied' });
+
+    const { grades } = req.body;
+    if (!Array.isArray(grades)) return res.status(400).json({ message: 'Grades payload is required.' });
+
+    const questions = await AssessmentQuestion.find({ _id: { $in: grades.map(g => g.question_id) } }).lean();
+    const qMap = {};
+    questions.forEach(q => { qMap[q._id.toString()] = q; });
+
+    grades.forEach(({ question_id, manual_score }) => {
+      const q = qMap[String(question_id)];
+      if (!q || q.type !== 'open') return;
+      const entry = attempt.answers.find(a => a.question_id.toString() === String(question_id));
+      if (!entry) return;
+      const clamped = Math.max(0, Math.min(Number(manual_score) || 0, q.marks));
+      entry.manual_score = clamped;
+      entry.is_correct = clamped > 0;
+    });
+
+    const allGraded = attempt.answers.every(a => a.auto_score != null || a.manual_score != null);
+    attempt.needs_manual_grading = !allGraded;
+    if (allGraded) {
+      const total = attempt.answers.reduce((s, a) => s + (a.auto_score != null ? a.auto_score : a.manual_score), 0);
+      attempt.total_score = Math.round(total * 100) / 100;
+      attempt.status = 'graded';
+      attempt.graded_by = req.user.id;
+      attempt.graded_at = new Date();
+    }
+    await attempt.save();
+
+    if (allGraded) {
+      await recomputeAndUpsertMark(assessment, attempt.student_id);
+    }
+
+    res.json({
+      message: allGraded ? 'Grading complete.' : 'Scores saved. Some open questions still need grading.',
+      status: attempt.status,
+      total_score: attempt.total_score,
+    });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+/* ═══════════════════════ TEACHER: Mark sheet exports ══════════════════ */
+
+exports.teacherDownloadAttemptsExcel = async (req, res) => {
+  try {
+    const assessment = await Assessment.findOne({ _id: req.params.id, teacher_id: req.user.id })
+      .populate('class_id', 'name students').populate('course_id', 'name').lean();
+    if (!assessment) return res.status(404).json({ message: 'Assessment not found' });
+
+    const students = await User.find({ _id: { $in: assessment.class_id?.students || [] } }, 'name email')
+      .sort({ name: 1 }).lean();
+    const attempts = await AssessmentAttempt.find({ assessment_id: assessment._id }).lean();
+    const byStudent = {};
+    attempts.forEach(a => { const k = a.student_id.toString(); (byStudent[k] = byStudent[k] || []).push(a); });
+
+    const totalAgg = await AssessmentQuestion.aggregate([
+      { $match: { assessment_id: assessment._id } },
+      { $group: { _id: null, total: { $sum: '$marks' } } },
+    ]);
+    const maxMarks = totalAgg[0]?.total || 0;
+
+    const header = ['No.', 'Student Name', 'Email', 'Attempts Used', `Best Score (out of ${maxMarks})`, 'Percentage', 'Status'];
+    const rows = students.map((s, i) => {
+      const list = byStudent[s._id.toString()] || [];
+      const graded = list.filter(a => a.status === 'graded');
+      const best = [...graded].sort((a, b) => b.total_score - a.total_score)[0];
+      const pendingGrading = list.some(a => a.needs_manual_grading && a.status === 'submitted');
+      const status = pendingGrading ? 'Needs manual grading' : (best ? 'Graded' : (list.length ? 'Submitted' : 'Not attempted'));
+      return [
+        i + 1, s.name || '', s.email || '', list.length,
+        best ? best.total_score : '',
+        best && maxMarks ? `${Math.round((best.total_score / maxMarks) * 100)}%` : '',
+        status,
+      ];
+    });
+
+    const title = `${assessment.title} — ${assessment.course_id?.name || ''} — ${assessment.class_id?.name || ''}`;
+    const sheetData = [[title], [], header, ...rows];
+    const ws = XLSX.utils.aoa_to_sheet(sheetData);
+    ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: header.length - 1 } }];
+    ws['!cols'] = [{ wch: 6 }, { wch: 28 }, { wch: 30 }, { wch: 14 }, { wch: 22 }, { wch: 12 }, { wch: 20 }];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Mark Sheet');
+    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    const filename = `assessment-marksheet-${(assessment.title || 'assessment').replace(/[^a-z0-9]+/gi, '-')}.xlsx`;
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(buffer);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+exports.teacherDownloadAttemptsPdf = async (req, res) => {
+  try {
+    const assessment = await Assessment.findOne({ _id: req.params.id, teacher_id: req.user.id })
+      .populate('class_id', 'name students').populate('course_id', 'name').lean();
+    if (!assessment) return res.status(404).json({ message: 'Assessment not found' });
+
+    const students = await User.find({ _id: { $in: assessment.class_id?.students || [] } }, 'name email')
+      .sort({ name: 1 }).lean();
+    const attempts = await AssessmentAttempt.find({ assessment_id: assessment._id }).lean();
+    const byStudent = {};
+    attempts.forEach(a => { const k = a.student_id.toString(); (byStudent[k] = byStudent[k] || []).push(a); });
+
+    const totalAgg = await AssessmentQuestion.aggregate([
+      { $match: { assessment_id: assessment._id } },
+      { $group: { _id: null, total: { $sum: '$marks' } } },
+    ]);
+    const maxMarks = totalAgg[0]?.total || 0;
+
+    const filename = `assessment-marksheet-${(assessment.title || 'assessment').replace(/[^a-z0-9]+/gi, '-')}.pdf`;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+    const doc = new PDFDocument({ size: 'A4', margin: 40 });
+    doc.pipe(res);
+
+    doc.fontSize(16).font('Helvetica-Bold').text(assessment.title, { align: 'center' });
+    doc.fontSize(10).font('Helvetica').fillColor('#555')
+      .text(`${assessment.course_id?.name || ''} — ${assessment.class_id?.name || ''}`, { align: 'center' })
+      .text(`Generated ${new Date().toLocaleString()}`, { align: 'center' });
+    doc.moveDown(1.2);
+    doc.fillColor('#000');
+
+    const cols = [
+      { label: 'No.', width: 28 },
+      { label: 'Name', width: 140 },
+      { label: 'Email', width: 150 },
+      { label: 'Attempts', width: 55 },
+      { label: `Score /${maxMarks}`, width: 65 },
+      { label: '%', width: 40 },
+      { label: 'Status', width: 82 },
+    ];
+    const startX = doc.page.margins.left;
+    let y = doc.y;
+
+    const drawRow = (values, opts = {}) => {
+      let x = startX;
+      doc.font(opts.bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(9);
+      cols.forEach((c, i) => {
+        doc.text(String(values[i] ?? ''), x, y, { width: c.width, ellipsis: true });
+        x += c.width;
+      });
+      y += 18;
+    };
+
+    drawRow(cols.map(c => c.label), { bold: true });
+    doc.moveTo(startX, y).lineTo(startX + cols.reduce((s, c) => s + c.width, 0), y).strokeColor('#ccc').stroke();
+    y += 4;
+
+    students.forEach((s, i) => {
+      if (y > 760) { doc.addPage(); y = doc.page.margins.top; }
+      const list = byStudent[s._id.toString()] || [];
+      const graded = list.filter(a => a.status === 'graded');
+      const best = [...graded].sort((a, b) => b.total_score - a.total_score)[0];
+      const pendingGrading = list.some(a => a.needs_manual_grading && a.status === 'submitted');
+      const status = pendingGrading ? 'Needs grading' : (best ? 'Graded' : (list.length ? 'Submitted' : 'Not attempted'));
+      drawRow([
+        i + 1, s.name || '', s.email || '', list.length,
+        best ? best.total_score : '—',
+        best && maxMarks ? `${Math.round((best.total_score / maxMarks) * 100)}%` : '—',
+        status,
+      ]);
+    });
+
+    doc.end();
+  } catch (err) {
+    if (!res.headersSent) res.status(500).json({ message: err.message });
+  }
+};
+
+/* ═══════════════════════ STUDENT: Browse / instructions ═══════════════ */
+
+exports.studentGetSharedAssessments = async (req, res) => {
+  try {
+    const cls = await Class.findOne({ students: req.user.id }).lean();
+    if (!cls) return res.json({ assessments: [] });
+
+    const assessments = await Assessment.find({ class_id: cls._id, mode: 'quiz', is_shared: true })
+      .populate('course_id', 'name code')
+      .populate('teacher_id', 'name')
+      .sort({ shared_at: -1 })
+      .lean();
+
+    const enriched = await Promise.all(assessments.map(async a => {
+      const attempts = await AssessmentAttempt.find({ assessment_id: a._id, student_id: req.user.id }).lean();
+      const graded = attempts.filter(x => x.status === 'graded');
+      const best = [...graded].sort((x, y) => y.total_score - x.total_score)[0];
+      const inProgress = attempts.find(x => x.status === 'in_progress');
+      const expired = a.expires_at ? new Date() > new Date(a.expires_at) : false;
+      const attemptsUsed = attempts.length;
+      return {
+        ...a, id: a._id,
+        module_name: a.course_id?.name,
+        teacher_name: a.teacher_id?.name,
+        attempts_used: attemptsUsed,
+        attempts_left: Math.max((a.max_attempts || 1) - attemptsUsed, 0),
+        expired,
+        can_start: !expired && (a.max_attempts || 1) - attemptsUsed > 0,
+        in_progress_attempt_id: inProgress ? inProgress._id : null,
+        best_score: best ? best.total_score : null,
+        has_pending_grading: attempts.some(x => x.needs_manual_grading),
+      };
+    }));
+
+    res.json({ assessments: enriched });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+exports.studentGetAssessmentInstructions = async (req, res) => {
+  try {
+    const assessment = await Assessment.findOne({ _id: req.params.id, mode: 'quiz', is_shared: true })
+      .populate('course_id', 'name')
+      .populate('teacher_id', 'name')
+      .lean();
+    if (!assessment) return res.status(404).json({ message: 'Assessment not found or not shared.' });
+
+    const cls = await Class.findOne({ _id: assessment.class_id, students: req.user.id }).lean();
+    if (!cls) return res.status(403).json({ message: 'This assessment is not available to you.' });
+
+    const questions = await AssessmentQuestion.find({ assessment_id: assessment._id }).lean();
+    const totalMarks = questions.reduce((s, q) => s + (q.marks || 0), 0);
+    const attemptsUsed = await AssessmentAttempt.countDocuments({ assessment_id: assessment._id, student_id: req.user.id });
+    const inProgress = await AssessmentAttempt.findOne({
+      assessment_id: assessment._id, student_id: req.user.id, status: 'in_progress',
+    }).lean();
+
+    res.json({
+      id: assessment._id,
+      title: assessment.title,
+      module_name: assessment.course_id?.name,
+      teacher_name: assessment.teacher_id?.name,
+      instructions: assessment.instructions,
+      duration_minutes: assessment.duration_minutes,
+      max_attempts: assessment.max_attempts,
+      attempts_used: attemptsUsed,
+      attempts_left: Math.max((assessment.max_attempts || 1) - attemptsUsed, 0),
+      expires_at: assessment.expires_at,
+      expired: assessment.expires_at ? new Date() > new Date(assessment.expires_at) : false,
+      question_count: questions.length,
+      total_marks: totalMarks,
+      in_progress_attempt_id: inProgress ? inProgress._id : null,
+    });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+/* ═══════════════════════ STUDENT: Attempt lifecycle ═══════════════════ */
+
+exports.studentStartAttempt = async (req, res) => {
+  try {
+    const assessment = await Assessment.findOne({ _id: req.params.id, mode: 'quiz', is_shared: true })
+      .populate('course_id', 'name');
+    if (!assessment) return res.status(404).json({ message: 'Assessment not found or not shared.' });
+
+    const cls = await Class.findOne({ _id: assessment.class_id, students: req.user.id }).lean();
+    if (!cls) return res.status(403).json({ message: 'This assessment is not available to you.' });
+
+    if (assessment.expires_at && new Date() > new Date(assessment.expires_at)) {
+      return res.status(400).json({ message: 'This assessment has expired.' });
+    }
+
+    // Resume an in-progress attempt still within its time window instead of
+    // burning a fresh attempt on every page load/refresh.
+    const existing = await AssessmentAttempt.findOne({
+      assessment_id: assessment._id, student_id: req.user.id, status: 'in_progress',
+    });
+    if (existing) {
+      if (new Date() < new Date(existing.due_at)) {
+        return res.json(await buildAttemptPayload(existing, assessment));
+      }
+      // Time ran out but the client never called auto-submit (e.g. the tab
+      // was closed) — finalize it now before deciding on a new attempt.
+      await finalizeAttemptSubmission(existing, { autoSubmitted: true, reason: 'timeout' });
+    }
+
+    const attemptsUsed = await AssessmentAttempt.countDocuments({ assessment_id: assessment._id, student_id: req.user.id });
+    if (attemptsUsed >= (assessment.max_attempts || 1)) {
+      return res.status(400).json({ message: 'You have used all your attempts for this assessment.' });
+    }
+
+    const questions = await AssessmentQuestion.find({ assessment_id: assessment._id }).sort({ order: 1 }).lean();
+    if (!questions.length) return res.status(400).json({ message: 'This assessment has no questions yet.' });
+
+    // Shuffle only matters (and only needs to differ per attempt) when more
+    // than one attempt is allowed.
+    const ordered = (assessment.max_attempts || 1) > 1 ? shuffleArray(questions) : questions;
+
+    const now = new Date();
+    const dueAt = new Date(now.getTime() + (assessment.duration_minutes || 30) * 60000);
+
+    const attempt = await AssessmentAttempt.create({
+      assessment_id: assessment._id,
+      student_id: req.user.id,
+      attempt_number: attemptsUsed + 1,
+      question_order: ordered.map(q => q._id),
+      answers: ordered.map(q => ({ question_id: q._id, answer: null })),
+      started_at: now,
+      due_at: dueAt,
+      status: 'in_progress',
+    });
+
+    res.status(201).json(await buildAttemptPayload(attempt, assessment, ordered));
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+exports.studentGetAttempt = async (req, res) => {
+  try {
+    const attempt = await AssessmentAttempt.findOne({ _id: req.params.attemptId, student_id: req.user.id });
+    if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
+
+    const assessment = await Assessment.findById(attempt.assessment_id).populate('course_id', 'name').lean();
+
+    if (attempt.status !== 'in_progress') {
+      return res.json({
+        ended: true, status: attempt.status, total_score: attempt.total_score,
+        needs_manual_grading: attempt.needs_manual_grading,
+      });
+    }
+    if (new Date() >= new Date(attempt.due_at)) {
+      await finalizeAttemptSubmission(attempt, { autoSubmitted: true, reason: 'timeout' });
+      return res.json({
+        ended: true, status: attempt.status, total_score: attempt.total_score,
+        needs_manual_grading: attempt.needs_manual_grading, auto_submitted: true,
+      });
+    }
+    res.json(await buildAttemptPayload(attempt, assessment));
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+exports.studentSaveAnswer = async (req, res) => {
+  try {
+    const { question_id, answer } = req.body;
+    const attempt = await AssessmentAttempt.findOne({ _id: req.params.attemptId, student_id: req.user.id });
+    if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
+    if (attempt.status !== 'in_progress') return res.status(400).json({ message: 'This attempt has already ended.' });
+    if (new Date() >= new Date(attempt.due_at)) return res.status(400).json({ message: 'Time is up.' });
+
+    const entry = attempt.answers.find(a => a.question_id.toString() === String(question_id));
+    if (!entry) return res.status(400).json({ message: 'Question not part of this attempt.' });
+    entry.answer = answer;
+    await attempt.save();
+    res.json({ saved: true });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+exports.studentSubmitAttempt = async (req, res) => {
+  try {
+    const attempt = await AssessmentAttempt.findOne({ _id: req.params.attemptId, student_id: req.user.id });
+    if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
+    if (attempt.status !== 'in_progress') {
+      return res.status(400).json({ message: 'This attempt has already been submitted.' });
+    }
+
+    const incoming = Array.isArray(req.body.answers) ? req.body.answers : [];
+    incoming.forEach(({ question_id, answer }) => {
+      const entry = attempt.answers.find(a => a.question_id.toString() === String(question_id));
+      if (entry) entry.answer = answer;
+    });
+
+    await finalizeAttemptSubmission(attempt, { autoSubmitted: false });
+    res.json({
+      message: 'Assessment submitted.',
+      status: attempt.status,
+      total_score: attempt.total_score,
+      needs_manual_grading: attempt.needs_manual_grading,
+    });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+/* Called by the client automatically when the timer hits zero, or when the
+   student leaves the full-screen exam window (blur / visibility change /
+   exits full screen). Idempotent — a second call just reports the result. */
+exports.studentAutoSubmitAttempt = async (req, res) => {
+  try {
+    const attempt = await AssessmentAttempt.findOne({ _id: req.params.attemptId, student_id: req.user.id });
+    if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
+    if (attempt.status !== 'in_progress') {
+      return res.json({ message: 'Already submitted.', status: attempt.status, total_score: attempt.total_score });
+    }
+
+    const reason = req.body.reason === 'left_screen' ? 'left_screen' : 'timeout';
+    const incoming = Array.isArray(req.body.answers) ? req.body.answers : [];
+    incoming.forEach(({ question_id, answer }) => {
+      const entry = attempt.answers.find(a => a.question_id.toString() === String(question_id));
+      if (entry) entry.answer = answer;
+    });
+
+    await finalizeAttemptSubmission(attempt, { autoSubmitted: true, reason });
+    res.json({
+      message: reason === 'left_screen'
+        ? 'You left the assessment screen, so it was submitted automatically.'
+        : 'Time was up, so the assessment was submitted automatically.',
+      status: attempt.status, total_score: attempt.total_score, reason,
+    });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
