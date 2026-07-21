@@ -702,3 +702,119 @@ html { scroll-behavior: smooth; }
     overflow-y: auto;
   }
 }
+
+/* ── Assessments (teacher + student) — signature interaction layer ──────
+   A dedicated, scoped set of hover/motion treatments for the online
+   Assessments feature so it feels distinctly more alive than a plain CRUD
+   list, without touching the global `.card` used across the whole app. */
+
+@keyframes assessmentRise {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes assessmentShimmerSweep {
+  0%   { transform: translateX(-120%) skewX(-15deg); }
+  100% { transform: translateX(220%) skewX(-15deg); }
+}
+@keyframes assessmentPulseRing {
+  0%   { box-shadow: 0 0 0 0 rgba(16,185,129,0.45); }
+  70%  { box-shadow: 0 0 0 8px rgba(16,185,129,0); }
+  100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); }
+}
+@keyframes assessmentFloat {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-3px); }
+}
+
+.assessment-tile {
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.25s cubic-bezier(0.16,1,0.3,1), box-shadow 0.25s ease, border-color 0.25s ease;
+  animation: assessmentRise 0.35s cubic-bezier(0.16,1,0.3,1) both;
+}
+.assessment-tile:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 32px rgba(99,102,241,0.16), 0 2px 8px rgba(0,0,0,0.06);
+  border-color: rgba(99,102,241,0.45);
+}
+.assessment-tile:active { transform: translateY(-1px); }
+.assessment-tile .assessment-tile-icon {
+  transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+}
+.assessment-tile:hover .assessment-tile-icon {
+  transform: scale(1.15) rotate(-6deg);
+}
+
+.assessment-card {
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s cubic-bezier(0.16,1,0.3,1), box-shadow 0.2s ease, border-color 0.2s ease;
+  animation: assessmentRise 0.35s cubic-bezier(0.16,1,0.3,1) both;
+}
+.assessment-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 28px rgba(15,23,42,0.10);
+  border-color: rgba(99,102,241,0.35);
+}
+
+/* Staggered entrance for lists of assessment cards — each child animates in
+   slightly after the previous one, calc()'d from a --i custom property. */
+.assessment-stagger > * {
+  animation: assessmentRise 0.4s cubic-bezier(0.16,1,0.3,1) both;
+  animation-delay: calc(var(--i, 0) * 55ms);
+}
+
+.assessment-badge-live {
+  position: relative;
+}
+.assessment-badge-live::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  animation: assessmentPulseRing 2.2s ease-out infinite;
+}
+
+/* Sheen sweep across the primary CTA on hover — a single deliberate flourish
+   rather than scattered effects everywhere. */
+.assessment-cta {
+  position: relative;
+  overflow: hidden;
+}
+.assessment-cta::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 40%; height: 100%;
+  background: linear-gradient(120deg, transparent, rgba(255,255,255,0.35), transparent);
+  transform: translateX(-120%) skewX(-15deg);
+  pointer-events: none;
+}
+.assessment-cta:hover::after:not(:disabled) { animation: assessmentShimmerSweep 0.9s ease; }
+
+.assessment-icon-float { animation: assessmentFloat 3.2s ease-in-out infinite; }
+
+.assessment-progress-track {
+  height: 6px;
+  border-radius: 99px;
+  background: var(--surface-100);
+  overflow: hidden;
+}
+.assessment-progress-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, #6366f1, #8b5cf6);
+  transition: width 0.6s cubic-bezier(0.16,1,0.3,1);
+}
+
+.assessment-timer-urgent { animation: assessmentPulseRing 1.4s ease-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .assessment-tile, .assessment-card, .assessment-stagger > *,
+  .assessment-badge-live::before, .assessment-cta::after,
+  .assessment-icon-float, .assessment-timer-urgent,
+  .assessment-progress-fill {
+    animation: none !important;
+    transition: none !important;
+  }
+}

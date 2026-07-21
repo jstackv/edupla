@@ -19,6 +19,18 @@ const connectDB = async () => {
     } catch (err) {
       console.error('⚠️  Attendance index sync failed:', err.message);
     }
+
+    // The Assessment model's unique index changed from
+    // (course_id, class_id, type, term, academic_year, mode) to
+    // (course_id, class_id, term, academic_year, mode, title) so a teacher
+    // can create more than one assessment of the same type (e.g. two or
+    // more Formative Assessments) in the same term. Without a sync, the old
+    // index stays live and blocks the very thing this change is meant to allow.
+    try {
+      await Assessment.syncIndexes();
+    } catch (err) {
+      console.error('⚠️  Assessment index sync failed:', err.message);
+    }
   } catch (err) {
     console.error('❌ MongoDB connection error:', err.message);
     throw err;
@@ -254,13 +266,15 @@ const assessmentSchema = new mongoose.Schema({
   shared_at:          { type: Date, default: null },
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
-// One assessment of a given type/term/year per module PER CLASS — the same module
-// can have its own independent set of assessments in each class it's assigned to.
-// `mode` is part of the key too: the manual "Marks Recording" assessment and an
-// independent online-quiz assessment for the same module/class/type/term/year are
-// two separate records that live on two separate teacher pages, by design.
+// A module/class/term/year can now hold MULTIPLE assessments of the same
+// type (e.g. two or more Formative Assessments in one term), so `title` is
+// part of the uniqueness key instead of being implied by `type` alone.
+// `mode` is still part of the key too: the manual "Marks Recording" assessment
+// and an independent online-quiz assessment for the same module/class/type/
+// term/year are two separate records that live on two separate teacher
+// pages, by design.
 assessmentSchema.index(
-  { course_id: 1, class_id: 1, type: 1, term: 1, academic_year: 1, mode: 1 },
+  { course_id: 1, class_id: 1, term: 1, academic_year: 1, mode: 1, title: 1 },
   { unique: true }
 );
 

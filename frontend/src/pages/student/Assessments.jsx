@@ -51,10 +51,10 @@ function InstructionsModal({ assessment, onClose, onStart, starting }) {
           <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{data.module_name} · {data.teacher_name}</p>
 
           <div className="grid grid-cols-2 gap-3 text-sm">
-            <div className="card p-3"><Clock className="w-4 h-4 mb-1" style={{ color: 'var(--text-secondary)' }} /><div style={{ color: 'var(--text-primary)' }} className="font-semibold">{data.duration_minutes} min</div><div className="text-xs" style={{ color: 'var(--text-secondary)' }}>Time limit</div></div>
-            <div className="card p-3"><RotateCcw className="w-4 h-4 mb-1" style={{ color: 'var(--text-secondary)' }} /><div style={{ color: 'var(--text-primary)' }} className="font-semibold">{data.attempts_left} of {data.max_attempts}</div><div className="text-xs" style={{ color: 'var(--text-secondary)' }}>Attempts left</div></div>
-            <div className="card p-3"><ClipboardCheck className="w-4 h-4 mb-1" style={{ color: 'var(--text-secondary)' }} /><div style={{ color: 'var(--text-primary)' }} className="font-semibold">{data.question_count} questions</div><div className="text-xs" style={{ color: 'var(--text-secondary)' }}>Total {data.total_marks} pts</div></div>
-            <div className="card p-3"><CalendarClock className="w-4 h-4 mb-1" style={{ color: 'var(--text-secondary)' }} /><div style={{ color: 'var(--text-primary)' }} className="font-semibold text-xs">{fmtDate(data.expires_at)}</div><div className="text-xs" style={{ color: 'var(--text-secondary)' }}>Available until</div></div>
+            <div className="card assessment-card p-3"><Clock className="w-4 h-4 mb-1" style={{ color: 'var(--text-secondary)' }} /><div style={{ color: 'var(--text-primary)' }} className="font-semibold">{data.duration_minutes} min</div><div className="text-xs" style={{ color: 'var(--text-secondary)' }}>Time limit</div></div>
+            <div className="card assessment-card p-3"><RotateCcw className="w-4 h-4 mb-1" style={{ color: 'var(--text-secondary)' }} /><div style={{ color: 'var(--text-primary)' }} className="font-semibold">{data.attempts_left} of {data.max_attempts}</div><div className="text-xs" style={{ color: 'var(--text-secondary)' }}>Attempts left</div></div>
+            <div className="card assessment-card p-3"><ClipboardCheck className="w-4 h-4 mb-1" style={{ color: 'var(--text-secondary)' }} /><div style={{ color: 'var(--text-primary)' }} className="font-semibold">{data.question_count} questions</div><div className="text-xs" style={{ color: 'var(--text-secondary)' }}>Total {data.total_marks} pts</div></div>
+            <div className="card assessment-card p-3"><CalendarClock className="w-4 h-4 mb-1" style={{ color: 'var(--text-secondary)' }} /><div style={{ color: 'var(--text-primary)' }} className="font-semibold text-xs">{fmtDate(data.expires_at)}</div><div className="text-xs" style={{ color: 'var(--text-secondary)' }}>Available until</div></div>
           </div>
 
           {data.instructions && (
@@ -75,7 +75,7 @@ function InstructionsModal({ assessment, onClose, onStart, starting }) {
             <button
               onClick={() => onStart(data.in_progress_attempt_id)}
               disabled={starting || (data.expired || (data.attempts_left <= 0 && !data.in_progress_attempt_id))}
-              className="btn-primary flex items-center gap-2"
+              className="btn-primary assessment-cta flex items-center gap-2"
             >
               {starting ? <Loader2 className="w-4 h-4 animate-spin" /> : <PlayCircle className="w-4 h-4" />}
               {data.in_progress_attempt_id ? 'Resume Assessment' : 'Start Assessment'}
@@ -128,7 +128,7 @@ export default function StudentAssessments() {
     <div className="p-6 max-w-5xl mx-auto">
       <div className="flex items-center gap-3 mb-6">
         <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-indigo-100 dark:bg-indigo-900/40">
-          <ClipboardCheck className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+          <ClipboardCheck className="w-5 h-5 text-indigo-600 dark:text-indigo-400 assessment-icon-float" />
         </div>
         <div>
           <h1 className="font-display text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Assessments</h1>
@@ -147,9 +147,9 @@ export default function StudentAssessments() {
         Object.entries(grouped).map(([module, list]) => (
           <div key={module} className="mb-6">
             <h2 className="text-sm font-bold uppercase tracking-wide mb-2" style={{ color: 'var(--text-secondary)' }}>{module}</h2>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {list.map(a => (
-                <div key={a.id} className="card p-4 flex flex-col gap-2">
+            <div className="grid gap-3 sm:grid-cols-2 assessment-stagger">
+              {list.map((a, i) => (
+                <div key={a.id} style={{ '--i': i }} className="card assessment-card p-4 flex flex-col gap-2">
                   <div className="flex items-start justify-between gap-2">
                     <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>{a.title}</h3>
                     <StatusPill a={a} />
@@ -163,7 +163,7 @@ export default function StudentAssessments() {
                   <button
                     onClick={() => setInstructionsFor(a)}
                     disabled={a.expired || (!a.can_start && !a.in_progress_attempt_id)}
-                    className="btn-primary text-sm mt-1 flex items-center justify-center gap-2 disabled:opacity-50"
+                    className="btn-primary assessment-cta text-sm mt-1 flex items-center justify-center gap-2 disabled:opacity-50"
                   >
                     {a.in_progress_attempt_id
                       ? <><PlayCircle className="w-4 h-4" /> Resume</>

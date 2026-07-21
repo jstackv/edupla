@@ -5,6 +5,14 @@
  * set the attempt duration, an expiry date/time, how many attempts a
  * student gets, and instructions shown before the student starts.
  *
+ * When re-sharing an already-shared assessment ("Update Sharing"), the form
+ * is pre-filled with its current settings instead of resetting them — so
+ * bumping one field (say, the expiry) doesn't silently reset the others,
+ * like attempts, back to their defaults.
+ *
+ * For just adding an extra attempt without touching anything else, use
+ * AddAttemptModal instead — it's the lighter-weight, more direct action.
+ *
  * API contract: POST /assessment/teacher/assessments/:id/share
  *   body: { duration_minutes, expires_at, max_attempts, instructions }
  */
@@ -23,14 +31,23 @@ function defaultExpiry() {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-export default function ShareAssessmentModal({ assessment, onClose, onShared }) {
-  const [durationMinutes, setDurationMinutes] = useState(30);
-  const [expiresAt, setExpiresAt] = useState(defaultExpiry());
-  const [maxAttempts, setMaxAttempts] = useState(1);
-  const [instructions, setInstructions] = useState('Read every question carefully. The assessment opens in full screen and submits automatically if you leave the exam screen or when time runs out.');
-  const [saving, setSaving] = useState(false);
+function toDatetimeLocal(value) {
+  if (!value) return defaultExpiry();
+  const d = new Date(value);
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
+export default function ShareAssessmentModal({ assessment, onClose, onShared }) {
   const isReshare = assessment.is_shared;
+
+  const [durationMinutes, setDurationMinutes] = useState(assessment.duration_minutes || 30);
+  const [expiresAt, setExpiresAt] = useState(isReshare ? toDatetimeLocal(assessment.expires_at) : defaultExpiry());
+  const [maxAttempts, setMaxAttempts] = useState(assessment.max_attempts || 1);
+  const [instructions, setInstructions] = useState(
+    assessment.instructions || 'Read every question carefully. The assessment opens in full screen and submits automatically if you leave the exam screen or when time runs out.'
+  );
+  const [saving, setSaving] = useState(false);
 
   const handleShare = async () => {
     if (!durationMinutes || Number(durationMinutes) <= 0) return toast.error('Set a duration greater than 0 minutes.');
@@ -56,8 +73,13 @@ export default function ShareAssessmentModal({ assessment, onClose, onShared }) 
     <Modal isOpen={true} onClose={onClose} title={`${isReshare ? 'Update sharing' : 'Share'} — ${assessment.title}`}>
       <div className="space-y-4">
         <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-          This will publish the assessment to <strong>{assessment.class_id?.name || 'the class'}</strong>. Every student will get an in-app and email notification.
+          This will {isReshare ? 're-publish' : 'publish'} the assessment to <strong>{assessment.class_id?.name || 'the class'}</strong>. Every student will get an in-app and email notification.
         </p>
+        {isReshare && (
+          <p className="text-xs px-3 py-2 rounded-xl" style={{ background: 'rgba(99,102,241,0.08)', color: 'var(--text-secondary)' }}>
+            Just want to give students an extra attempt? Use <strong>Add Attempt</strong> instead — it's quicker and skips the full re-notification.
+          </p>
+        )}
 
         <div>
           <label className="text-xs font-semibold flex items-center gap-1.5 mb-1" style={{ color: 'var(--text-secondary)' }}>
@@ -91,7 +113,7 @@ export default function ShareAssessmentModal({ assessment, onClose, onShared }) 
 
         <div className="flex justify-end gap-2 pt-2">
           <button onClick={onClose} className="btn-secondary">Cancel</button>
-          <button onClick={handleShare} disabled={saving} className="btn-primary flex items-center gap-2">
+          <button onClick={handleShare} disabled={saving} className="btn-primary assessment-cta flex items-center gap-2">
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             {isReshare ? 'Update & Re-notify' : 'Share Assessment'}
           </button>
