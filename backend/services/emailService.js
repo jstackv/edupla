@@ -260,9 +260,48 @@ async function notifyAnnouncement({ studentEmails, teacherEmail, announcementTit
   });
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+//  7. Online assessment shared (notify students)
+// ═══════════════════════════════════════════════════════════════════════════
+async function notifyAssessmentShared({ studentEmails, teacherEmail, assessmentTitle, moduleName, className, teacherName, durationMinutes, maxAttempts, expiresAt }) {
+  if (!studentEmails?.length) return;
+  const expiresStr = expiresAt
+    ? new Date(expiresAt).toLocaleString('en-US', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit',
+      })
+    : 'No expiry set';
+
+  const body = `
+    <h2 style="margin:0 0 6px;font-size:22px;font-weight:800;color:#111827;">New Assessment to Attempt 📝</h2>
+    <p style="margin:0 0 24px;font-size:14px;color:#6b7280;">Your teacher has shared an online assessment for you to complete.</p>
+    <div style="background:#f8faff;border:1px solid #e0e7ff;border-radius:12px;padding:20px 24px;margin-bottom:24px;">
+      <p style="margin:0 0 4px;font-size:11px;font-weight:700;color:#6366f1;text-transform:uppercase;letter-spacing:0.08em;">${moduleName || 'Assessment'}</p>
+      <p style="margin:0;font-size:20px;font-weight:800;color:#1e1b4b;">${assessmentTitle}</p>
+    </div>
+    <table cellpadding="0" cellspacing="0" style="width:100%;">
+      ${infoRow('Class', className || '—')}
+      ${infoRow('Teacher', teacherName)}
+      ${infoRow('Duration', durationMinutes ? `${durationMinutes} minutes` : 'No time limit')}
+      ${infoRow('Attempts allowed', String(maxAttempts || 1))}
+      ${infoRow('Available until', `<span style="color:#ef4444;">${expiresStr}</span>`)}
+    </table>
+    <div style="margin-top:20px;padding:14px 18px;background:#fef3c7;border:1px solid #fde68a;border-radius:10px;font-size:13px;color:#92400e;">
+      ⏰ The assessment opens in full screen and submits automatically when time runs out or if you leave the exam screen. Make sure you're ready before you start.
+    </div>
+    ${ctaBtn('Go to Assessments →', `${APP_URL()}/student/assessments`)}`;
+
+  await sendMail({
+    to: studentEmails,
+    ...(teacherEmail ? { bcc: teacherEmail } : {}),
+    subject: `📝 New Assessment: ${assessmentTitle}${className ? ' — ' + className : ''}`,
+    html: wrapEmail({ title: 'New Assessment', preheader: `${teacherName} shared: ${assessmentTitle}`, body }),
+  });
+}
+
 module.exports = {
   notifyAccountStatus,
   notifyWelcome,
+  notifyAssessmentShared,
   notifyAssignmentPosted,
   notifyAssignmentSubmitted,
   notifyDocumentPosted,

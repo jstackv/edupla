@@ -54,8 +54,28 @@ router.get('/teacher/assessments/:id/marks/template', isAuthenticated, isTeacher
 router.post('/teacher/assessments/:id/marks/upload',  isAuthenticated, isTeacher, excelUpload.single('file'), ctrl.teacherUploadMarks);
 router.get('/teacher/reports/:assessmentId',  isAuthenticated, isTeacher, ctrl.teacherAssessmentReport);
 
+// ── TEACHER: online-quiz feature (question builder, sharing, grading) ─────
+router.get('/teacher/assessments/:id/questions',        isAuthenticated, isTeacher, ctrl.teacherGetQuestions);
+router.post('/teacher/assessments/:id/questions',       isAuthenticated, isTeacher, ctrl.teacherSaveQuestions);
+router.post('/teacher/assessments/:id/share',           isAuthenticated, isTeacher, ctrl.teacherShareAssessment);
+router.post('/teacher/assessments/:id/unshare',         isAuthenticated, isTeacher, ctrl.teacherUnshareAssessment);
+router.get('/teacher/assessments/:id/attempts',         isAuthenticated, isTeacher, ctrl.teacherListAttempts);
+router.get('/teacher/assessments/:id/attempts/excel',   isAuthenticated, isTeacher, ctrl.teacherDownloadAttemptsExcel);
+router.get('/teacher/assessments/:id/attempts/pdf',     isAuthenticated, isTeacher, ctrl.teacherDownloadAttemptsPdf);
+router.get('/teacher/attempts/:attemptId',               isAuthenticated, isTeacher, ctrl.teacherGetAttemptForGrading);
+router.post('/teacher/attempts/:attemptId/grade',        isAuthenticated, isTeacher, ctrl.teacherGradeOpenAnswers);
+
 // Student: get all courses assigned to their class
 const { isStudent } = require('../middleware/auth');
 router.get('/student/courses', isAuthenticated, isStudent, ctrl.studentGetCourses);
+
+// ── STUDENT: online-quiz feature (browse, attempt, submit) ────────────────
+router.get('/student/assessments',                      isAuthenticated, isStudent, ctrl.studentGetSharedAssessments);
+router.get('/student/assessments/:id/instructions',     isAuthenticated, isStudent, ctrl.studentGetAssessmentInstructions);
+router.post('/student/assessments/:id/start',           isAuthenticated, isStudent, ctrl.studentStartAttempt);
+router.get('/student/attempts/:attemptId',                isAuthenticated, isStudent, ctrl.studentGetAttempt);
+router.post('/student/attempts/:attemptId/answer',        isAuthenticated, isStudent, ctrl.studentSaveAnswer);
+router.post('/student/attempts/:attemptId/submit',          isAuthenticated, isStudent, ctrl.studentSubmitAttempt);
+router.post('/student/attempts/:attemptId/auto-submit',     isAuthenticated, isStudent, ctrl.studentAutoSubmitAttempt);
 
 module.exports = router;

@@ -1,0 +1,366 @@
+/**
+ * AssessmentsOnline.jsx  ("Assessments" menu — independent from Marks Recording)
+ *
+ * Flow: pick a class you're assigned to → pick a module assigned in that
+ * class → see every online assessment created for that module in that
+ * class, with actions to create a new one, build its questions, share it
+ * with the class, and view results/mark sheet.
+ *
+ * These records are mode:'quiz' Assessment documents — a completely
+ * separate set from the mode:'marks' records used by the Marks Recording
+ * page, even when they share the same module/class/type/term/year.
+ *
+ * API contract:
+ *   GET  /assessment/teacher/courses                                   -> modules + their assigned classes
+ *   GET  /assessment/teacher/assessments?course_id=&class_id=&mode=quiz -> assessments for one module+class
+ *   POST /assessment/teacher/assessments            (mode: 'quiz')     -> create
+ *   PUT  /assessment/teacher/assessments/:id                            -> edit
+ *   DELETE /assessment/teacher/assessments/:id                          -> delete
+ */
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import api from '../../utils/api';
+import toast from 'react-hot-toast';
+import Modal from '../../components/common/Modal';
+import ConfirmModal from '../../components/common/ConfirmModal';
+import QuizBuilderModal from '../../components/common/QuizBuilderModal';
+import ShareAssessmentModal from '../../components/common/ShareAssessmentModal';
+import AssessmentAttemptsModal from '../../components/common/AssessmentAttemptsModal';
+import {
+  ClipboardCheck, School, BookOpen, ChevronRight, Plus, Loader2,
+  ListChecks, Share2, BarChart3, Edit2, Trash2, ArrowLeft, Users, Inbox,
+} from 'lucide-react';
+
+const TERMS = ['Term 1', 'Term 2', 'Term 3'];
+const CURRENT_YEAR = new Date().getFullYear();
+const YEARS = [`${CURRENT_YEAR - 1}-${CURRENT_YEAR}`, `${CURRENT_YEAR}-${CURRENT_YEAR + 1}`, `${CURRENT_YEAR + 1}-${CURRENT_YEAR + 2}`];
+const ASSESSMENT_TYPES = [
+  { key: 'FA', label: 'Formative Assessment' },
+  { key: 'IA', label: 'Integrated Assessment' },
+  { key: 'CA', label: 'Comprehensive Assessment' },
+];
+
+function courseClasses(course) {
+  return (Array.isArray(course.class_ids) && course.class_ids.length > 0)
+    ? course.class_ids
+    : (course.class_id ? [course.class_id] : []);
+}
+
+/* ── Create / edit an assessment (type, term, year, max marks) ── */
+function AssessmentFormModal({ course, cls, editing, onClose, onSaved }) {
+  const [type, setType] = useState(editing?.type || 'FA');
+  const [term, setTerm] = useState(editing?.term || TERMS[0]);
+  const [academicYear, setAcademicYear] = useState(editing?.academic_year || YEARS[1]);
+  const [maxMarks, setMaxMarks] = useState(editing?.max_marks || course.total_marks || 100);
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      if (editing) {
+        await api.put(`/assessment/teacher/assessments/${editing.id}`, { type, term, academic_year: academicYear });
+      } else {
+        await api.post('/assessment/teacher/assessments', {
+          course_id: course.id, class_id: cls.id || cls._id, type, term, academic_year: academicYear, max_marks: maxMarks, mode: 'quiz',
+        });
+      }
+      toast.success(editing ? 'Assessment updated' : 'Assessment created');
+      onSaved();
+      onClose();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to save assessment');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal isOpen={true} onClose={onClose} title={editing ? 'Edit Assessment' : 'Create Assessment'}>
+      <div className="space-y-4">
+        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{course.name} · {cls.name}</p>
+
+        <div>
+          <label className="text-xs font-semibold mb-1 block" style={{ color: 'var(--text-secondary)' }}>Assessment type</label>
+          <div className="grid grid-cols-1 gap-2">
+            {ASSESSMENT_TYPES.map(t => (
+              <button key={t.key} onClick={() => setType(t.key)}
+                className="text-left px-3 py-2 rounded-xl border-2 text-sm font-medium transition-colors"
+                style={{ borderColor: type === t.key ? '#6366f1' : 'var(--card-border)', background: type === t.key ? 'rgba(99,102,241,0.1)' : 'transparent', color: 'var(--text-primary)' }}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs font-semibold mb-1 block" style={{ color: 'var(--text-secondary)' }}>Term</label>
+            <select value={term} onChange={e => setTerm(e.target.value)} className="chat-form-field w-full text-sm">
+              {TERMS.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-semibold mb-1 block" style={{ color: 'var(--text-secondary)' }}>Academic year</label>
+            <select value={academicYear} onChange={e => setAcademicYear(e.target.value)} className="chat-form-field w-full text-sm">
+              {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+          </div>
+        </div>
+
+        {!editing && (
+          <div>
+            <label className="text-xs font-semibold mb-1 block" style={{ color: 'var(--text-secondary)' }}>Maximum marks</label>
+            <input type="number" min="1" max={course.total_marks || 100} value={maxMarks} onChange={e => setMaxMarks(e.target.value)} className="chat-form-field w-full text-sm" />
+            <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>Cannot exceed the module weight ({course.total_marks || 100} marks).</p>
+          </div>
+        )}
+
+        <div className="flex justify-end gap-2 pt-2">
+          <button onClick={onClose} className="btn-secondary">Cancel</button>
+          <button onClick={handleSave} disabled={saving} className="btn-primary flex items-center gap-2">
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+            {editing ? 'Save Changes' : 'Create Assessment'}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+export default function AssessmentsOnline() {
+  const [loadingCourses, setLoadingCourses] = useState(true);
+  const [courses, setCourses] = useState([]);
+
+  const [selectedClass, setSelectedClass] = useState(null);   // { _id/id, name }
+  const [selectedCourse, setSelectedCourse] = useState(null); // module
+
+  const [assessments, setAssessments] = useState([]);
+  const [loadingAssessments, setLoadingAssessments] = useState(false);
+
+  const [formModal, setFormModal] = useState(null);   // { editing } | null when creating fresh (use {} sentinel)
+  const [questionsModal, setQuestionsModal] = useState(null);
+  const [shareModal, setShareModal] = useState(null);
+  const [attemptsModal, setAttemptsModal] = useState(null);
+  const [confirmModal, setConfirmModal] = useState({ open: false });
+
+  useEffect(() => {
+    (async () => {
+      setLoadingCourses(true);
+      try {
+        const { data } = await api.get('/assessment/teacher/courses');
+        setCourses(data.courses);
+      } catch (err) {
+        toast.error(err.response?.data?.message || 'Failed to load your modules');
+      } finally {
+        setLoadingCourses(false);
+      }
+    })();
+  }, []);
+
+  /* Unique classes derived from every module assigned to this teacher */
+  const classes = useMemo(() => {
+    const map = new Map();
+    courses.forEach(c => courseClasses(c).forEach(cl => { if (cl?._id) map.set(String(cl._id), cl); }));
+    return Array.from(map.values());
+  }, [courses]);
+
+  /* Modules assigned in the selected class */
+  const modulesInClass = useMemo(() => {
+    if (!selectedClass) return [];
+    return courses.filter(c => courseClasses(c).some(cl => String(cl._id) === String(selectedClass._id)));
+  }, [courses, selectedClass]);
+
+  const loadAssessments = useCallback(async () => {
+    if (!selectedClass || !selectedCourse) return;
+    setLoadingAssessments(true);
+    try {
+      const { data } = await api.get('/assessment/teacher/assessments', {
+        params: { course_id: selectedCourse.id, class_id: selectedClass._id, mode: 'quiz' },
+      });
+      setAssessments(data.assessments);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to load assessments');
+    } finally {
+      setLoadingAssessments(false);
+    }
+  }, [selectedClass, selectedCourse]);
+
+  useEffect(() => { loadAssessments(); }, [loadAssessments]);
+
+  const handleDelete = (a) => {
+    setConfirmModal({
+      open: true,
+      variant: 'danger',
+      title: 'Delete Assessment',
+      message: `Delete "${a.title}"? This cannot be undone.`,
+      confirmText: 'Delete',
+      onConfirm: async () => {
+        setConfirmModal(cm => ({ ...cm, loading: true }));
+        try {
+          await api.delete(`/assessment/teacher/assessments/${a.id}`);
+          toast.success('Assessment deleted');
+          loadAssessments();
+        } catch (err) {
+          toast.error(err.response?.data?.message || 'Failed to delete assessment');
+        } finally {
+          setConfirmModal({ open: false });
+        }
+      },
+    });
+  };
+
+  const step = !selectedClass ? 'classes' : !selectedCourse ? 'modules' : 'assessments';
+
+  return (
+    <div className="p-6 max-w-5xl mx-auto">
+      <div className="flex items-center gap-3 mb-2">
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-indigo-100 dark:bg-indigo-900/40">
+          <ClipboardCheck className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+        </div>
+        <div>
+          <h1 className="font-display text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Assessments</h1>
+          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Build and share online assessments students attempt digitally</p>
+        </div>
+      </div>
+
+      {/* Breadcrumb */}
+      <div className="flex items-center gap-1.5 text-sm mb-6 flex-wrap">
+        <button onClick={() => { setSelectedClass(null); setSelectedCourse(null); }}
+          className="font-semibold" style={{ color: selectedClass ? 'var(--text-secondary)' : '#6366f1' }}>Classes</button>
+        {selectedClass && (
+          <>
+            <ChevronRight className="w-3.5 h-3.5" style={{ color: 'var(--text-secondary)' }} />
+            <button onClick={() => setSelectedCourse(null)} className="font-semibold" style={{ color: selectedCourse ? 'var(--text-secondary)' : '#6366f1' }}>{selectedClass.name}</button>
+          </>
+        )}
+        {selectedCourse && (
+          <>
+            <ChevronRight className="w-3.5 h-3.5" style={{ color: 'var(--text-secondary)' }} />
+            <span className="font-semibold" style={{ color: '#6366f1' }}>{selectedCourse.name}</span>
+          </>
+        )}
+      </div>
+
+      {loadingCourses ? (
+        <div className="flex items-center justify-center py-16"><Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--text-secondary)' }} /></div>
+      ) : step === 'classes' ? (
+        classes.length === 0 ? (
+          <div className="card p-10 text-center">
+            <Inbox className="w-10 h-10 mx-auto mb-3" style={{ color: 'var(--text-secondary)' }} />
+            <p style={{ color: 'var(--text-secondary)' }}>No classes assigned to you yet — ask an admin to assign a module to one of your classes first.</p>
+          </div>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+            {classes.map(cl => (
+              <button key={cl._id} onClick={() => setSelectedClass(cl)} className="card p-5 text-left hover:shadow-md transition-shadow">
+                <School className="w-6 h-6 mb-2 text-indigo-500" />
+                <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>{cl.name}</p>
+                <p className="text-xs mt-1 flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>
+                  View modules <ChevronRight className="w-3.5 h-3.5" />
+                </p>
+              </button>
+            ))}
+          </div>
+        )
+      ) : step === 'modules' ? (
+        <>
+          <button onClick={() => setSelectedClass(null)} className="text-sm font-semibold flex items-center gap-1 mb-4" style={{ color: 'var(--text-secondary)' }}>
+            <ArrowLeft className="w-4 h-4" /> Back to classes
+          </button>
+          {modulesInClass.length === 0 ? (
+            <div className="card p-10 text-center">
+              <Inbox className="w-10 h-10 mx-auto mb-3" style={{ color: 'var(--text-secondary)' }} />
+              <p style={{ color: 'var(--text-secondary)' }}>No modules assigned to you in this class yet.</p>
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+              {modulesInClass.map(c => (
+                <button key={c.id} onClick={() => setSelectedCourse(c)} className="card p-5 text-left hover:shadow-md transition-shadow">
+                  <BookOpen className="w-6 h-6 mb-2 text-violet-500" />
+                  <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>{c.name}</p>
+                  {c.code && <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{c.code}</p>}
+                  <p className="text-xs mt-1 flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>
+                    View assessments <ChevronRight className="w-3.5 h-3.5" />
+                  </p>
+                </button>
+              ))}
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          <div className="flex items-center justify-between mb-4">
+            <button onClick={() => setSelectedCourse(null)} className="text-sm font-semibold flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>
+              <ArrowLeft className="w-4 h-4" /> Back to modules
+            </button>
+            <button onClick={() => setFormModal({})} className="btn-primary text-sm flex items-center gap-1.5">
+              <Plus className="w-4 h-4" /> Create New Assessment
+            </button>
+          </div>
+
+          {loadingAssessments ? (
+            <div className="flex items-center justify-center py-16"><Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--text-secondary)' }} /></div>
+          ) : assessments.length === 0 ? (
+            <div className="card p-10 text-center">
+              <Inbox className="w-10 h-10 mx-auto mb-3" style={{ color: 'var(--text-secondary)' }} />
+              <p style={{ color: 'var(--text-secondary)' }}>No assessments yet for this module in {selectedClass.name}.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {assessments.map(a => (
+                <div key={a.id} className="card p-4 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>{a.title}</p>
+                      <span className="badge text-xs" style={{ background: a.is_shared ? 'rgba(16,185,129,0.12)' : 'rgba(156,163,175,0.15)', color: a.is_shared ? '#10b981' : '#9ca3af' }}>
+                        {a.is_shared ? 'Shared' : 'Draft'}
+                      </span>
+                    </div>
+                    <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{a.term} · {a.academic_year} · Max {a.max_marks} marks</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button onClick={() => setQuestionsModal(a)} className="btn-secondary text-xs flex items-center gap-1.5"><ListChecks className="w-3.5 h-3.5" /> Questions</button>
+                    <button onClick={() => setShareModal(a)} className="btn-secondary text-xs flex items-center gap-1.5"><Share2 className="w-3.5 h-3.5" /> {a.is_shared ? 'Update Sharing' : 'Share'}</button>
+                    {a.is_shared && <button onClick={() => setAttemptsModal(a)} className="btn-secondary text-xs flex items-center gap-1.5"><BarChart3 className="w-3.5 h-3.5" /> Results</button>}
+                    <button onClick={() => setFormModal({ editing: a })} className="btn-secondary text-xs flex items-center gap-1.5"><Edit2 className="w-3.5 h-3.5" /> Edit</button>
+                    <button onClick={() => handleDelete(a)} className="text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-red-500" style={{ border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.07)' }}><Trash2 className="w-3.5 h-3.5" /> Delete</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {formModal && selectedCourse && selectedClass && (
+        <AssessmentFormModal
+          course={selectedCourse}
+          cls={selectedClass}
+          editing={formModal.editing}
+          onClose={() => setFormModal(null)}
+          onSaved={loadAssessments}
+        />
+      )}
+      {questionsModal && (
+        <QuizBuilderModal assessment={questionsModal} onClose={() => setQuestionsModal(null)} onSaved={loadAssessments} />
+      )}
+      {shareModal && (
+        <ShareAssessmentModal assessment={shareModal} onClose={() => setShareModal(null)} onShared={loadAssessments} />
+      )}
+      {attemptsModal && (
+        <AssessmentAttemptsModal assessment={attemptsModal} onClose={() => setAttemptsModal(null)} />
+      )}
+
+      <ConfirmModal
+        open={confirmModal.open}
+        onClose={() => setConfirmModal({ open: false })}
+        onConfirm={confirmModal.onConfirm}
+        loading={confirmModal.loading}
+        variant={confirmModal.variant}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText={confirmModal.confirmText}
+        cancelText="Cancel"
+      />
+    </div>
+  );
+}

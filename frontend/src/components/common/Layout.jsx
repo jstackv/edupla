@@ -10,7 +10,7 @@ import {
   Megaphone, LogOut, Sun, Moon, ChevronRight, ChevronLeft,
   GraduationCap, BookMarked, Notebook, Shield, UserCheck,
   UserCircle, Settings, Bell, Search, Home,
-  Layers, UserPlus, AlertTriangle, X, Crown,
+  Layers, UserPlus, AlertTriangle, X, Crown, ClipboardCheck,
 } from 'lucide-react';
 import NotificationPanel from './NotificationPanel';
 
@@ -23,6 +23,7 @@ const TeacherLinks = [
   { to: '/teacher/assignments',      icon: ClipboardList,   label: 'Assignments',   section: 'manage' },
   { to: '/teacher/attendance',       icon: UserCheck,       label: 'Attendance',    section: 'manage' },
   { to: '/teacher/assessments-grade',icon: BookMarked,      label: 'Marks Recording',   section: 'manage' },
+  { to: '/teacher/assessments',      icon: ClipboardCheck,  label: 'Assessments',       section: 'manage' },
   { to: '/teacher/announcements',    icon: Megaphone,       label: 'Announcements', section: 'manage' },
   { to: '/teacher/groups',           icon: Users,           label: 'Groups',         section: 'manage' },
 ];
@@ -31,6 +32,7 @@ const StudentLinks = [
   { to: '/student/classes',       icon: BookMarked,      label: 'My Classes',    section: 'main' },
   { to: '/student/documents',     icon: Notebook,        label: 'Notes & Docs',  section: 'manage' },
   { to: '/student/assignments',   icon: ClipboardList,   label: 'Assignments',   section: 'manage' },
+  { to: '/student/assessments',   icon: ClipboardCheck,  label: 'Assessments',   section: 'manage' },
   { to: '/student/attendance',    icon: UserCheck,       label: 'Attendance',    section: 'manage' },
   { to: '/student/announcements', icon: Megaphone,       label: 'Announcements', section: 'manage' },
   { to: '/student/groups',        icon: Users,           label: 'My Groups',      section: 'manage' },
@@ -416,7 +418,7 @@ export default function Layout({ children }) {
   const pageTitle =
     location.pathname === '/profile'  ? 'Profile'  :
     location.pathname === '/settings' ? 'Settings' :
-    location.pathname === '/teacher/assessments-grade' ? 'Assessments' :
+    location.pathname === '/teacher/assessments-grade' ? 'Marks Recording' :
     location.pathname === '/admin/assessments' ? 'Assessments' :
     location.pathname === '/teacher/groups' ? 'Groups' :
     location.pathname === '/student/groups' ? 'My Groups' :

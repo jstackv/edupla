@@ -133,7 +133,7 @@ const notificationSchema = new mongoose.Schema({
   // Deep-link target so clicking the notification can jump straight to where
   // the action lives (the document, assignment, announcement, or submission
   // that triggered it), instead of just opening the notification panel.
-  link_type:  { type: String, enum: ['document', 'assignment', 'announcement', 'submission', 'group', 'teacher_dm', 'attendance', null], default: null },
+  link_type:  { type: String, enum: ['document', 'assignment', 'announcement', 'submission', 'group', 'teacher_dm', 'attendance', 'assessment', null], default: null },
   link_id:    { type: mongoose.Schema.Types.ObjectId, default: null },
   course_id:  { type: mongoose.Schema.Types.ObjectId, ref: 'Course', default: null },
   read_by:    [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
@@ -239,12 +239,28 @@ const assessmentSchema = new mongoose.Schema({
   academic_year:  { type: String, required: true }, // e.g. "2024-2025"
   max_marks:      { type: Number, default: 100 },
   created_by:     { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+
+  // ── Online quiz feature ────────────────────────────────────────────────
+  // 'marks' (default/legacy): teacher enters marks manually, exactly as before.
+  // 'quiz': the teacher has built a question paper for this assessment that
+  //         students attempt online; marks are produced from graded attempts.
+  mode:               { type: String, enum: ['marks', 'quiz'], default: 'marks' },
+  instructions:       { type: String, default: null },      // shown to the student before starting
+  duration_minutes:   { type: Number, default: null },       // time limit per attempt
+  shuffle_questions:  { type: Boolean, default: true },      // shuffle order when max_attempts > 1
+  max_attempts:       { type: Number, default: 1 },
+  expires_at:         { type: Date, default: null },         // no more attempts can start after this
+  is_shared:          { type: Boolean, default: false },     // published/visible to students
+  shared_at:          { type: Date, default: null },
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
 // One assessment of a given type/term/year per module PER CLASS — the same module
 // can have its own independent set of assessments in each class it's assigned to.
+// `mode` is part of the key too: the manual "Marks Recording" assessment and an
+// independent online-quiz assessment for the same module/class/type/term/year are
+// two separate records that live on two separate teacher pages, by design.
 assessmentSchema.index(
-  { course_id: 1, class_id: 1, type: 1, term: 1, academic_year: 1 },
+  { course_id: 1, class_id: 1, type: 1, term: 1, academic_year: 1, mode: 1 },
   { unique: true }
 );
 
@@ -270,6 +286,57 @@ const assessmentSubmissionSchema = new mongoose.Schema({
   reviewed_at:   { type: Date, default: null },
   review_note:   { type: String, default: null },
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
+
+// Question bank for a quiz-mode Assessment. One document per question.
+// `type` decides which of the optional fields are meaningful:
+//   mcq         → options[] (with is_correct flags via correct_answer key list)
+//   true_false  → correct_answer: 'true' | 'false'
+//   fill_gap    → correct_answer: string (or JSON array of acceptable strings)
+//   matching    → pairs[]: { left, right } — correct_answer is derived from pairs
+//   open        → no auto-grading; correct_answer holds the teacher's model
+//                 answer used only as a reference when grading manually
+const assessmentQuestionSchema = new mongoose.Schema({
+  assessment_id:  { type: mongoose.Schema.Types.ObjectId, ref: 'Assessment', required: true },
+  type:           { type: String, enum: ['mcq', 'true_false', 'fill_gap', 'matching', 'open'], required: true },
+  question_text:  { type: String, required: true },
+  options:        [{ key: String, text: String }],   // mcq choices, e.g. [{key:'A',text:'...'}]
+  pairs:          [{ left: String, right: String }],  // matching pairs (right = correct match for left)
+  // Expected answer(s). For mcq: array of correct option keys (usually one).
+  // For true_false: 'true'/'false'. For fill_gap: array of accepted strings
+  // (case-insensitive exact match). For matching/open: reference answer only.
+  correct_answer: { type: mongoose.Schema.Types.Mixed, default: null },
+  marks:          { type: Number, required: true, default: 1 },
+  order:          { type: Number, default: 0 },
+}, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
+assessmentQuestionSchema.index({ assessment_id: 1, order: 1 });
+
+// One attempt of a quiz-mode Assessment by one student.
+const assessmentAttemptSchema = new mongoose.Schema({
+  assessment_id:  { type: mongoose.Schema.Types.ObjectId, ref: 'Assessment', required: true },
+  student_id:     { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  attempt_number: { type: Number, required: true, default: 1 },
+  // Order the questions were shown in (shuffled per-attempt when the
+  // assessment allows more than one attempt) — array of question IDs.
+  question_order: [{ type: mongoose.Schema.Types.ObjectId, ref: 'AssessmentQuestion' }],
+  answers: [{
+    question_id:  { type: mongoose.Schema.Types.ObjectId, ref: 'AssessmentQuestion', required: true },
+    answer:       { type: mongoose.Schema.Types.Mixed, default: null }, // string, array, or {left:right} map
+    auto_score:   { type: Number, default: null },
+    manual_score: { type: Number, default: null },
+    is_correct:   { type: Boolean, default: null }, // null until auto/manually graded
+  }],
+  status:              { type: String, enum: ['in_progress', 'submitted', 'graded'], default: 'in_progress' },
+  started_at:          { type: Date, default: Date.now },
+  due_at:              { type: Date, required: true },   // started_at + duration_minutes
+  submitted_at:        { type: Date, default: null },
+  auto_submitted:       { type: Boolean, default: false }, // true when time ran out or the student left the exam screen
+  auto_submit_reason:   { type: String, enum: ['timeout', 'left_screen', null], default: null },
+  needs_manual_grading: { type: Boolean, default: false }, // has ungraded open questions
+  total_score:          { type: Number, default: null },   // final score once fully graded
+  graded_by:            { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  graded_at:            { type: Date, default: null },
+}, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
+assessmentAttemptSchema.index({ assessment_id: 1, student_id: 1, attempt_number: 1 }, { unique: true });
 
 // ── Maintenance Mode — single global settings document ─────────────────
 // Only one document ever exists for this collection (key: 'singleton').
@@ -453,6 +520,8 @@ const Course       = mongoose.model('Course',       courseSchema);
 const Assessment   = mongoose.model('Assessment',   assessmentSchema);
 const Mark         = mongoose.model('Mark',         markSchema);
 const AssessmentSubmission = mongoose.model('AssessmentSubmission', assessmentSubmissionSchema);
+const AssessmentQuestion = mongoose.model('AssessmentQuestion', assessmentQuestionSchema);
+const AssessmentAttempt  = mongoose.model('AssessmentAttempt',  assessmentAttemptSchema);
 const Maintenance      = mongoose.model('Maintenance',      maintenanceSchema);
 const DiscussionGroup  = mongoose.model('DiscussionGroup',  discussionGroupSchema);
 const ClassCollaboration = mongoose.model('ClassCollaboration', classCollaborationSchema);
@@ -466,6 +535,7 @@ module.exports = {
   User, Class, Document, Assignment, Submission, Announcement, Notification, Level, Trade,
   ProgramConfig, ReportConfig,
   Course, Assessment, Mark, AssessmentSubmission,
+  AssessmentQuestion, AssessmentAttempt,
   Maintenance,
   DiscussionGroup,
   ClassCollaboration, DirectMessage,
