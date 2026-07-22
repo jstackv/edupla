@@ -55,18 +55,21 @@ app.use('/api/notifications',     require('./routes/notifications'));
 const { isAuthenticated, isTeacher } = require('./middleware/auth');
 
 app.get('/api/analytics', isAuthenticated, isTeacher, async (req, res) => {
-  const { Class, Document, Assignment, Submission, Announcement, Assessment, Mark, Course, AssessmentSubmission } = require('./models/db');
+  const { Class, Document, Assignment, Submission, Announcement, Assessment, Mark, Course, AssessmentSubmission, Attendance, DiscussionGroup } = require('./models/db');
   const mongoose = require('mongoose');
   const teacherId = new mongoose.Types.ObjectId(req.user.id);
 
   try {
-    const [classes, docs, assignments, announcements, assessments, modules] = await Promise.all([
+    const [classes, docs, assignments, announcements, assessments, modules, attendanceSessions, groups, onlineAssessments] = await Promise.all([
       Class.countDocuments({ $or: [{ teacher_id: teacherId }, { extra_teachers: teacherId }] }),
       Document.countDocuments({ teacher_id: teacherId }),
       Assignment.countDocuments({ teacher_id: teacherId }),
       Announcement.countDocuments({ teacher_id: teacherId }),
       Assessment.countDocuments({ teacher_id: teacherId }),
       Course.countDocuments({ teacher_id: teacherId }),
+      Attendance.countDocuments({ teacher_id: teacherId }),
+      DiscussionGroup.countDocuments({ teacher_id: teacherId }),
+      Assessment.countDocuments({ teacher_id: teacherId, is_shared: true }),
     ]);
 
     const teacherClasses = await Class.find(
@@ -77,7 +80,7 @@ app.get('/api/analytics', isAuthenticated, isTeacher, async (req, res) => {
     teacherClasses.forEach(c => c.students.forEach(s => studentSet.add(s.toString())));
     const students = studentSet.size;
 
-    const counts = { classes, students, documents: docs, assignments, announcements, assessments, modules };
+    const counts = { classes, students, documents: docs, assignments, announcements, assessments, modules, attendanceSessions, groups, onlineAssessments };
 
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const assignmentIds = (await Assignment.find({ teacher_id: teacherId }, '_id')).map(a => a._id);

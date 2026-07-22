@@ -22,7 +22,7 @@ import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import {
   Loader2, Clock, AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight,
-  Send, ShieldAlert, Award, Hourglass,
+  Send, ShieldAlert, Award, Hourglass, Scale, Target,
 } from 'lucide-react';
 
 function useCountdown(dueAt, onExpire) {
@@ -158,6 +158,7 @@ export default function AttemptAssessment() {
   }
 
   if (result) {
+    const decisionColor = result.decision === 'C' ? '#10b981' : (result.decision === 'NYC' ? '#ef4444' : null);
     return (
       <div className="fixed inset-0 flex items-center justify-center p-6" style={{ background: 'var(--bg-primary, #0f172a)' }}>
         <div className="card assessment-card max-w-md w-full p-8 text-center">
@@ -172,9 +173,25 @@ export default function AttemptAssessment() {
               : 'Assessment submitted'}
           </h2>
           <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>{result.message}</p>
+
           {result.total_score != null ? (
-            <div className="flex items-center justify-center gap-2 text-2xl font-bold mb-4" style={{ color: 'var(--text-primary)' }}>
-              <Award className="w-6 h-6 text-amber-500 assessment-icon-float" /> {result.total_score} pts
+            <div className="space-y-3 mb-4">
+              <div className="flex items-center justify-center gap-2 text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+                <Award className="w-6 h-6 text-amber-500 assessment-icon-float" /> {result.total_score} / {result.max_marks} pts
+              </div>
+              {result.marks_on_mw != null && (
+                <div className="flex items-center justify-center gap-1.5 text-sm" style={{ color: 'var(--text-secondary)' }}>
+                  <Scale className="w-3.5 h-3.5" /> {result.marks_on_mw} / {result.module_weight} on module weight
+                  {result.percentage != null && <span>· {result.percentage}%</span>}
+                </div>
+              )}
+              {result.decision && (
+                <div className="flex items-center justify-center">
+                  <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold" style={{ background: `${decisionColor}1f`, color: decisionColor }}>
+                    <Target className="w-4 h-4" /> {result.decision === 'C' ? 'Competent' : 'Not Yet Competent'} ({result.decision})
+                  </span>
+                </div>
+              )}
             </div>
           ) : (
             <p className="text-sm mb-4 flex items-center justify-center gap-1.5" style={{ color: 'var(--text-secondary)' }}>

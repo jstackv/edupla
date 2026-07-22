@@ -11,7 +11,7 @@ import {
   Eye, BarChart2, Lock, CheckSquare,
   User, ClipboardCheck, Workflow, BadgeCheck, FileBarChart2,
   School, ListChecks, FolderKanban, GitBranch, Boxes,
-  FileCheck2, UserCog, SlidersHorizontal, ArrowDown
+  FileCheck2, UserCog, SlidersHorizontal, ArrowDown, Mic, Timer
 } from 'lucide-react';
 
 const FONT_IMPORT = `@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Outfit:wght@300;400;500;600;700;800;900&display=swap');`;
@@ -24,6 +24,7 @@ const FEATURES = [
   { icon: UserCog,         color: '#0ea5e9', label: 'Teacher Management',   desc: 'Admins onboard teachers, assign them to classes and modules, and manage extra co-teachers per class.' },
   { icon: Users,           color: '#10b981', label: 'Student Management',   desc: 'Enroll students by level, trade and class year, bulk-import records, and track every learner in one directory.' },
   { icon: ListChecks,      color: '#6366f1', label: 'Assessment & Modules', desc: 'Configure modules with weighted marks, then run Formative (FA), Integrated (IA) and Comprehensive (CA) assessments per class.' },
+  { icon: Timer,           color: '#f97316', label: 'Online Assessments & Auto-Grading', desc: 'Build MCQ, matching and open-ended quizzes, share a timed link with an attempt limit — questions and options shuffle per student, the timer auto-submits at the deadline, and answers are auto-graded instantly (with manual grading for open-ended ones).' },
   { icon: FileBarChart2,   color: '#14b8a6', label: 'Report Management',    desc: 'Generate student report cards, per-assessment breakdowns and full class performance reports, ranked automatically.' },
   { icon: SlidersHorizontal, color: '#ec4899', label: 'TVET Curriculum Setup', desc: 'Define Sector, Trade, Qualification Title and RTQF Level per class — fully aligned to competency-based TVET programs.' },
   { icon: ClipboardCheck,  color: '#22c55e', label: 'Mark Approval Flow',   desc: 'Marks move through Draft → Submitted → Approved with admin review, so reports always reflect verified results.' },
@@ -31,6 +32,9 @@ const FEATURES = [
   { icon: MessageSquare,   color: '#0ea5e9', label: 'Group Collaboration', desc: 'Teacher-led discussion groups with team leaders, plus optional peer-to-peer messaging within a class.' },
   { icon: Shield,          color: '#ef4444', label: 'Enterprise Security', desc: 'Session-based auth, role permissions, encrypted file storage, and full activity audit trails built in.' },
   { icon: Globe,           color: '#6366f1', label: 'Any Device',          desc: 'Fully responsive admin, teacher and student portals — flawless on desktop, tablet, and mobile.' },
+  { icon: CheckSquare,     color: '#06b6d4', label: 'Attendance & At-Risk Alerts', desc: 'Take session-based attendance in seconds, auto-flag students below 75% or on an absence streak, and pull daily, weekly or monthly reports.' },
+  { icon: Bell,            color: '#f59e0b', label: 'Real-Time Notifications', desc: 'A dedicated notification center with unread counts, mark-as-read and clear-all, so every grade, message and alert reaches the right person instantly.' },
+  { icon: Mic,             color: '#8b5cf6', label: 'Direct Messaging & Voice Notes', desc: 'Private teacher–student threads and peer chat, with voice notes and media sharing built right into every conversation.' }
 ];
 
 // TVET / competency-based curriculum configuration pipeline
@@ -497,7 +501,7 @@ export default function Landing() {
                 style={{ display:'inline-flex', alignItems:'center', gap:8, padding:'14px 28px', borderRadius:13, background:'linear-gradient(135deg,#4f46e5,#7c3aed)', color:'white', fontWeight:700, fontSize:15, textDecoration:'none', boxShadow:'0 8px 28px rgba(99,102,241,0.45)', transition:'all 0.25s' }}
                 onMouseEnter={function(e){ e.currentTarget.style.transform='translateY(-2px)'; e.currentTarget.style.boxShadow='0 14px 40px rgba(99,102,241,0.55)'; }}
                 onMouseLeave={function(e){ e.currentTarget.style.transform='translateY(0)'; e.currentTarget.style.boxShadow='0 8px 28px rgba(99,102,241,0.45)'; }}
-              >Start for Free <ArrowRight size={15} /></Link>
+              >Get Started <ArrowRight size={15} /></Link>
               <a href="#features"
                 style={{ display:'inline-flex', alignItems:'center', gap:8, padding:'14px 24px', borderRadius:13, background:t.card, color:t.tp, fontWeight:600, fontSize:15, textDecoration:'none', border:'1px solid '+t.bord, backdropFilter:'blur(12px)', transition:'all 0.2s' }}
                 onMouseEnter={function(e){ e.currentTarget.style.borderColor='#6366f1'; }}
