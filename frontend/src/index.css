@@ -818,3 +818,69 @@ html { scroll-behavior: smooth; }
     transition: none !important;
   }
 }
+
+/* ── Results mark-sheet modal ── */
+.results-row {
+  position: relative;
+  transition: background 0.2s ease, transform 0.2s cubic-bezier(0.16,1,0.3,1), box-shadow 0.2s ease;
+  animation: assessmentRise 0.35s cubic-bezier(0.16,1,0.3,1) both;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+.results-row::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: linear-gradient(180deg, #6366f1, #8b5cf6);
+  transform: scaleY(0);
+  transform-origin: center;
+  transition: transform 0.25s cubic-bezier(0.16,1,0.3,1);
+}
+.results-row:hover {
+  background: var(--surface-100);
+  transform: translateX(2px);
+}
+.results-row:hover::before { transform: scaleY(1); }
+
+.results-decision-badge {
+  display: inline-flex;
+  transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s ease;
+}
+.results-row:hover .results-decision-badge {
+  transform: scale(1.08);
+}
+
+.results-expand-panel {
+  animation: results-expand 0.28s cubic-bezier(0.16,1,0.3,1) both;
+  transform-origin: top;
+}
+@keyframes results-expand {
+  from { opacity: 0; transform: translateY(-6px) scaleY(0.96); }
+  to   { opacity: 1; transform: translateY(0) scaleY(1); }
+}
+
+.results-attempt-chip {
+  transition: background 0.2s ease, transform 0.2s cubic-bezier(0.16,1,0.3,1), box-shadow 0.2s ease;
+}
+.results-attempt-chip:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(15,23,42,0.10);
+}
+
+.results-download-btn {
+  transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s ease, background 0.2s ease;
+}
+.results-download-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(99,102,241,0.18);
+}
+.results-download-btn:active:not(:disabled) { transform: translateY(0); }
+
+@media (prefers-reduced-motion: reduce) {
+  .results-row, .results-row::before, .results-decision-badge,
+  .results-expand-panel, .results-attempt-chip, .results-download-btn {
+    animation: none !important;
+    transition: none !important;
+  }
+}
