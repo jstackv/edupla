@@ -6,7 +6,8 @@ import {
   BookOpen, Users, FileText, ClipboardList, Megaphone,
   TrendingUp, Award, ChevronRight, BarChart2, Layers,
   BookMarked, ArrowUpRight, Flame, Target, Zap,
-  GraduationCap, Calendar, Bell, CheckCircle2,
+  GraduationCap, Bell, CheckCircle2,
+  UserCheck, MessageSquare, Timer,
 } from 'lucide-react';
 
 /* ─── Animated counter ─── */
@@ -342,6 +343,9 @@ export default function TeacherDashboard() {
         <StatCard icon={FileText}      label="Assignments"     value={c.assignments || 0}   color="#22d3ee" bg="rgba(34,211,238,0.1)"  to="/teacher/assignments" />
         <StatCard icon={BookMarked}    label="Documents"       value={c.documents || 0}     color="#f472b6" bg="rgba(244,114,182,0.1)" to="/teacher/documents" />
         <StatCard icon={Megaphone}     label="Announcements"   value={c.announcements || 0} color="#06b6d4" bg="rgba(6,182,212,0.1)"   to="/teacher/announcements" />
+        <StatCard icon={UserCheck}     label="Attendance Sessions" value={c.attendanceSessions || 0} color="#14b8a6" bg="rgba(20,184,166,0.1)" to="/teacher/attendance" />
+        <StatCard icon={MessageSquare} label="Discussion Groups"  value={c.groups || 0}        color="#f97316" bg="rgba(249,115,22,0.1)"  to="/teacher/groups" sub="+ student messaging" />
+        <StatCard icon={Timer}         label="Online Quizzes"     value={c.onlineAssessments || 0} color="#8b5cf6" bg="rgba(139,92,246,0.1)" to="/teacher/assessments" sub="shared with students" />
       </div>
 
       {/* ── Charts Row ── */}
@@ -616,10 +620,12 @@ export default function TeacherDashboard() {
           {[
             { label: 'New Assignment', to: '/teacher/assignments',       icon: ClipboardList, color: '#fbbf24', bg: 'rgba(251,191,36,0.1)' },
             { label: 'Grade Work',     to: '/teacher/assessments-grade', icon: BarChart2,     color: '#818cf8', bg: 'rgba(129,140,248,0.1)' },
+            { label: 'Take Attendance', to: '/teacher/attendance',       icon: UserCheck,     color: '#14b8a6', bg: 'rgba(20,184,166,0.1)' },
+            { label: 'Online Quiz',    to: '/teacher/assessments',       icon: Timer,         color: '#8b5cf6', bg: 'rgba(139,92,246,0.1)' },
             { label: 'Documents',      to: '/teacher/documents',         icon: FileText,      color: '#f472b6', bg: 'rgba(244,114,182,0.1)' },
             { label: 'Announce',       to: '/teacher/announcements',     icon: Megaphone,     color: '#22d3ee', bg: 'rgba(34,211,238,0.1)' },
             { label: 'My Classes',     to: '/teacher/classes',           icon: BookOpen,      color: '#34d399', bg: 'rgba(52,211,153,0.1)' },
-            { label: 'Calendar',       to: '/teacher/calendar',          icon: Calendar,      color: '#a78bfa', bg: 'rgba(167,139,250,0.1)' },
+            { label: 'Groups & DMs',   to: '/teacher/groups',            icon: MessageSquare, color: '#f97316', bg: 'rgba(249,115,22,0.1)' },
           ].map((a, i) => (
             <Link key={a.to} to={a.to} style={{ textDecoration: 'none' }}>
               <div style={{

@@ -35,7 +35,7 @@ const StudentLinks = [
   { to: '/student/assessments',   icon: ClipboardCheck,  label: 'Assessments',   section: 'manage' },
   { to: '/student/attendance',    icon: UserCheck,       label: 'Attendance',    section: 'manage' },
   { to: '/student/announcements', icon: Megaphone,       label: 'Announcements', section: 'manage' },
-  { to: '/student/groups',        icon: Users,           label: 'My Groups',      section: 'manage' },
+  { to: '/student/groups',        icon: Users,           label: 'Groups',      section: 'manage' },
 ];
 const AdminLinks = [
   { to: '/admin/dashboard',   icon: LayoutDashboard, label: 'Dashboard',     section: 'main' },

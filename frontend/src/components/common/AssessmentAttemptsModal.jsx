@@ -267,6 +267,8 @@ export default function AssessmentAttemptsModal({ assessment, onClose }) {
                   <th className="py-2 pr-3">Attempts</th>
                   <th className="py-2 pr-3">Best Score</th>
                   <th className="py-2 pr-3">%</th>
+                  <th className="py-2 pr-3">MW</th>
+                  <th className="py-2 pr-3">Decision</th>
                   <th className="py-2 pr-3">Status</th>
                   <th className="py-2 pr-3"></th>
                 </tr>
@@ -286,6 +288,20 @@ export default function AssessmentAttemptsModal({ assessment, onClose }) {
                         <td className="py-2 pr-3" style={{ color: 'var(--text-secondary)' }}>{row.attempts_used}</td>
                         <td className="py-2 pr-3 font-mono" style={{ color: 'var(--text-primary)' }}>{row.best_score != null ? `${row.best_score} / ${row.max_marks}` : '—'}</td>
                         <td className="py-2 pr-3" style={{ color: 'var(--text-secondary)' }}>{row.percentage != null ? `${row.percentage}%` : '—'}</td>
+                        <td className="py-2 pr-3 font-mono" style={{ color: 'var(--text-secondary)' }}>{row.marks_on_mw != null ? `${row.marks_on_mw} / ${row.module_weight}` : (row.module_weight ? `— / ${row.module_weight}` : '—')}</td>
+                        <td className="py-2 pr-3">
+                          {row.decision ? (
+                            <span
+                              className="text-xs font-bold px-2 py-0.5 rounded-full"
+                              style={{
+                                background: row.decision === 'C' ? 'rgba(16,185,129,0.14)' : 'rgba(239,68,68,0.14)',
+                                color: row.decision === 'C' ? '#10b981' : '#ef4444',
+                              }}
+                            >
+                              {row.decision}
+                            </span>
+                          ) : '—'}
+                        </td>
                         <td className="py-2 pr-3">
                           <span className="badge text-xs" style={{ background: st.bg, color: st.color }}>{st.label}</span>
                         </td>
@@ -304,7 +320,7 @@ export default function AssessmentAttemptsModal({ assessment, onClose }) {
                       </tr>
                       {expanded && (
                         <tr>
-                          <td colSpan={6} className="pb-3">
+                          <td colSpan={8} className="pb-3">
                             <AttemptsList attempts={row.attempts} onViewAttempt={setGradingAttemptId} />
                           </td>
                         </tr>
@@ -313,7 +329,7 @@ export default function AssessmentAttemptsModal({ assessment, onClose }) {
                   );
                 })}
                 {rows.length === 0 && (
-                  <tr><td colSpan={6} className="py-8 text-center" style={{ color: 'var(--text-secondary)' }}>No students in this class yet.</td></tr>
+                  <tr><td colSpan={8} className="py-8 text-center" style={{ color: 'var(--text-secondary)' }}>No students in this class yet.</td></tr>
                 )}
               </tbody>
             </table>

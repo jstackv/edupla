@@ -15,6 +15,22 @@ const TYPE_TITLES = {
   CA: 'Comprehensive Assessment',
 };
 
+// Competency decision (Rwandan CBT convention, mirrors the admin report):
+// Specific modules pass at 70%, everything else passes at 50%.
+function passingLineForCategory(category) {
+  return category === 'Specific modules' ? 70 : 50;
+}
+function computeDecision(pct, category) {
+  if (pct == null || Number.isNaN(pct)) return null;
+  return pct >= passingLineForCategory(category) ? 'C' : 'NYC';
+}
+// Scale a score earned out of fromMax onto a different total (the module
+// weight), e.g. 62/80 -> ~100.6/130. Null if nothing sensible to scale.
+function scaleScore(obtained, fromMax, toMax) {
+  if (obtained == null || !fromMax) return null;
+  return Math.round((obtained / fromMax) * toMax * 100) / 100;
+}
+
 /* ─────────────────────────────────────────────────────────
    Helper: normalise class_ids from the request body.
    Accepts:
@@ -529,7 +545,7 @@ exports.teacherGetAssessments = async (req, res) => {
 
 exports.teacherCreateAssessment = async (req, res) => {
   try {
-    const { course_id, class_id, type, term, academic_year, max_marks, mode, title } = req.body;
+    const { course_id, class_id, type, term, academic_year, mode, title } = req.body;
     const assessmentMode = mode === 'quiz' ? 'quiz' : 'marks';
 
     if (!course_id || !class_id || !type || !term || !academic_year) {
@@ -556,11 +572,10 @@ exports.teacherCreateAssessment = async (req, res) => {
     }
 
     const courseWeight = course.total_marks || 100;
-    if (max_marks && Number(max_marks) > courseWeight) {
-      return res.status(400).json({
-        message: `Max marks cannot exceed the module weight set by admin (${courseWeight} marks).`,
-      });
-    }
+    /* Quiz-mode assessments no longer take a manually entered maximum — the
+       max is derived automatically once the teacher builds the question
+       paper (sum of each question's marks), and is kept ≤ the module weight
+       by teacherSaveQuestions. It starts at 0 here and is filled in later. */
 
     /* ── Titles: a module/class/term/year can now hold MULTIPLE assessments
        of the same type (e.g. 2+ Formative Assessments), so the duplicate
@@ -608,7 +623,7 @@ exports.teacherCreateAssessment = async (req, res) => {
       type,
       term,
       academic_year,
-      max_marks: courseWeight,
+      max_marks: assessmentMode === 'quiz' ? 0 : courseWeight,
       created_by: req.user.id,
       mode: assessmentMode,
     });
@@ -695,7 +710,9 @@ exports.teacherUpdateAssessment = async (req, res) => {
       });
     }
 
-    update.max_marks = assessment.course_id?.total_marks || assessment.max_marks || 100;
+    if (assessment.mode !== 'quiz') {
+      update.max_marks = assessment.course_id?.total_marks || assessment.max_marks || 100;
+    }
 
     const updated = await Assessment.findOneAndUpdate(
       { _id: req.params.id, teacher_id: req.user.id },
@@ -1526,6 +1543,28 @@ async function finalizeAttemptSubmission(attempt, { autoSubmitted = false, reaso
   return attempt;
 }
 
+/* Builds the "here's your result" payload shared by submit / auto-submit /
+   resume-after-ended, so the student always sees their score on both the
+   assessment's own scale AND the module weight scale, plus the C/NYC
+   decision once grading is fully complete (open questions included). */
+function buildResultPayload(assessment, attempt) {
+  const maxMarks = assessment.max_marks || 0;
+  const moduleWeight = assessment.course_id?.total_marks || 100;
+  const category = assessment.course_id?.category || 'Complementary modules';
+  const totalScore = attempt.total_score;
+  const percentage = totalScore != null && maxMarks ? Math.round((totalScore / maxMarks) * 100) : null;
+  return {
+    status: attempt.status,
+    total_score: totalScore,
+    needs_manual_grading: attempt.needs_manual_grading,
+    max_marks: maxMarks,
+    module_weight: moduleWeight,
+    marks_on_mw: scaleScore(totalScore, maxMarks, moduleWeight),
+    percentage,
+    decision: attempt.status === 'graded' ? computeDecision(percentage, category) : null,
+  };
+}
+
 /* A student's Mark for a quiz-mode assessment is always their BEST fully
    graded attempt — matches the "however many attempts, best one counts"
    expectation and keeps a single source of truth for reports. */
@@ -1565,7 +1604,8 @@ exports.teacherGetQuestions = async (req, res) => {
 
 exports.teacherSaveQuestions = async (req, res) => {
   try {
-    const assessment = await Assessment.findOne({ _id: req.params.id, teacher_id: req.user.id });
+    const assessment = await Assessment.findOne({ _id: req.params.id, teacher_id: req.user.id })
+      .populate('course_id', 'total_marks');
     if (!assessment) return res.status(404).json({ message: 'Assessment not found' });
 
     const submittedAttempts = await AssessmentAttempt.countDocuments({
@@ -1608,6 +1648,18 @@ exports.teacherSaveQuestions = async (req, res) => {
       }
     }
 
+    /* The assessment's maximum is no longer set by hand — it's always the
+       sum of the question marks the teacher just built, capped at the
+       module's weight so a single assessment can never claim more than the
+       whole module is worth. */
+    const quizMax = questions.reduce((s, q) => s + Number(q.marks), 0);
+    const courseWeight = assessment.course_id?.total_marks || 100;
+    if (quizMax > courseWeight) {
+      return res.status(400).json({
+        message: `The total question marks (${quizMax}) exceed the module weight (${courseWeight} marks). Reduce some question marks before saving.`,
+      });
+    }
+
     await AssessmentQuestion.deleteMany({ assessment_id: assessment._id });
     const docs = questions.map((q, i) => ({
       assessment_id: assessment._id,
@@ -1621,12 +1673,11 @@ exports.teacherSaveQuestions = async (req, res) => {
     }));
     await AssessmentQuestion.insertMany(docs);
 
-    if (assessment.mode !== 'quiz') {
-      assessment.mode = 'quiz';
-      await assessment.save();
-    }
+    assessment.max_marks = quizMax;
+    if (assessment.mode !== 'quiz') assessment.mode = 'quiz';
+    await assessment.save();
 
-    res.json({ message: 'Questions saved.', count: docs.length });
+    res.json({ message: 'Questions saved.', count: docs.length, max_marks: quizMax });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
@@ -1777,7 +1828,7 @@ exports.teacherListAttempts = async (req, res) => {
   try {
     const assessment = await Assessment.findOne({ _id: req.params.id, teacher_id: req.user.id })
       .populate('class_id', 'name students')
-      .populate('course_id', 'name')
+      .populate('course_id', 'name total_marks category')
       .lean();
     if (!assessment) return res.status(404).json({ message: 'Assessment not found' });
 
@@ -1796,20 +1847,28 @@ exports.teacherListAttempts = async (req, res) => {
       { $group: { _id: null, total: { $sum: '$marks' } } },
     ]);
     const maxMarks = totalAgg[0]?.total || 0;
+    const moduleWeight = assessment.course_id?.total_marks || 100;
+    const category = assessment.course_id?.category || 'Complementary modules';
 
     const rows = students.map(s => {
       const list = byStudent[s._id.toString()] || [];
       const graded = list.filter(a => a.status === 'graded');
       const best = [...graded].sort((a, b) => b.total_score - a.total_score)[0];
       const pendingGrading = list.some(a => a.needs_manual_grading && a.status === 'submitted');
+      const bestScore = best ? best.total_score : null;
+      const percentage = bestScore != null && maxMarks ? Math.round((bestScore / maxMarks) * 100) : null;
+      const marksOnMw = scaleScore(bestScore, maxMarks, moduleWeight);
       return {
         student_id: s._id,
         student_name: s.name,
         student_email: s.email,
         attempts_used: list.length,
-        best_score: best ? best.total_score : null,
+        best_score: bestScore,
         max_marks: maxMarks,
-        percentage: best && maxMarks ? Math.round((best.total_score / maxMarks) * 100) : null,
+        module_weight: moduleWeight,
+        marks_on_mw: marksOnMw,
+        percentage,
+        decision: computeDecision(percentage, category),
         status: pendingGrading ? 'needs_grading' : (best ? 'graded' : (list.length ? 'submitted' : 'not_attempted')),
         attempts: list.map(a => ({
           id: a._id, attempt_number: a.attempt_number, status: a.status,
@@ -1820,7 +1879,7 @@ exports.teacherListAttempts = async (req, res) => {
       };
     });
 
-    res.json({ assessment: { ...assessment, id: assessment._id, max_marks_computed: maxMarks }, rows });
+    res.json({ assessment: { ...assessment, id: assessment._id, max_marks_computed: maxMarks, module_weight: moduleWeight }, rows });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
@@ -1915,7 +1974,7 @@ exports.teacherGradeOpenAnswers = async (req, res) => {
 exports.teacherDownloadAttemptsExcel = async (req, res) => {
   try {
     const assessment = await Assessment.findOne({ _id: req.params.id, teacher_id: req.user.id })
-      .populate('class_id', 'name students').populate('course_id', 'name').lean();
+      .populate('class_id', 'name students').populate('course_id', 'name total_marks category').lean();
     if (!assessment) return res.status(404).json({ message: 'Assessment not found' });
 
     const students = await User.find({ _id: { $in: assessment.class_id?.students || [] } }, 'name email')
@@ -1929,18 +1988,25 @@ exports.teacherDownloadAttemptsExcel = async (req, res) => {
       { $group: { _id: null, total: { $sum: '$marks' } } },
     ]);
     const maxMarks = totalAgg[0]?.total || 0;
+    const moduleWeight = assessment.course_id?.total_marks || 100;
+    const category = assessment.course_id?.category || 'Complementary modules';
 
-    const header = ['No.', 'Student Name', 'Email', 'Attempts Used', `Best Score (out of ${maxMarks})`, 'Percentage', 'Status'];
+    const header = ['No.', 'Student Name', 'Email', 'Attempts Used', `Score (out of ${maxMarks})`, `MW (out of ${moduleWeight})`, 'Percentage', 'Decision', 'Status'];
     const rows = students.map((s, i) => {
       const list = byStudent[s._id.toString()] || [];
       const graded = list.filter(a => a.status === 'graded');
       const best = [...graded].sort((a, b) => b.total_score - a.total_score)[0];
       const pendingGrading = list.some(a => a.needs_manual_grading && a.status === 'submitted');
       const status = pendingGrading ? 'Needs manual grading' : (best ? 'Graded' : (list.length ? 'Submitted' : 'Not attempted'));
+      const bestScore = best ? best.total_score : null;
+      const percentage = bestScore != null && maxMarks ? Math.round((bestScore / maxMarks) * 100) : null;
+      const decision = computeDecision(percentage, category);
       return [
         i + 1, s.name || '', s.email || '', list.length,
-        best ? best.total_score : '',
-        best && maxMarks ? `${Math.round((best.total_score / maxMarks) * 100)}%` : '',
+        bestScore != null ? bestScore : '',
+        moduleWeight,
+        percentage != null ? `${percentage}%` : '',
+        decision || '',
         status,
       ];
     });
@@ -1949,7 +2015,7 @@ exports.teacherDownloadAttemptsExcel = async (req, res) => {
     const sheetData = [[title], [], header, ...rows];
     const ws = XLSX.utils.aoa_to_sheet(sheetData);
     ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: header.length - 1 } }];
-    ws['!cols'] = [{ wch: 6 }, { wch: 28 }, { wch: 30 }, { wch: 14 }, { wch: 22 }, { wch: 12 }, { wch: 20 }];
+    ws['!cols'] = [{ wch: 6 }, { wch: 28 }, { wch: 30 }, { wch: 14 }, { wch: 18 }, { wch: 16 }, { wch: 12 }, { wch: 10 }, { wch: 20 }];
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Mark Sheet');
@@ -1965,7 +2031,7 @@ exports.teacherDownloadAttemptsExcel = async (req, res) => {
 exports.teacherDownloadAttemptsPdf = async (req, res) => {
   try {
     const assessment = await Assessment.findOne({ _id: req.params.id, teacher_id: req.user.id })
-      .populate('class_id', 'name students').populate('course_id', 'name').lean();
+      .populate('class_id', 'name students').populate('course_id', 'name total_marks category').lean();
     if (!assessment) return res.status(404).json({ message: 'Assessment not found' });
 
     const students = await User.find({ _id: { $in: assessment.class_id?.students || [] } }, 'name email')
@@ -1979,6 +2045,8 @@ exports.teacherDownloadAttemptsPdf = async (req, res) => {
       { $group: { _id: null, total: { $sum: '$marks' } } },
     ]);
     const maxMarks = totalAgg[0]?.total || 0;
+    const moduleWeight = assessment.course_id?.total_marks || 100;
+    const category = assessment.course_id?.category || 'Complementary modules';
 
     const filename = `assessment-marksheet-${(assessment.title || 'assessment').replace(/[^a-z0-9]+/gi, '-')}.pdf`;
     res.setHeader('Content-Type', 'application/pdf');
@@ -1995,13 +2063,13 @@ exports.teacherDownloadAttemptsPdf = async (req, res) => {
     doc.fillColor('#000');
 
     const cols = [
-      { label: 'No.', width: 28 },
-      { label: 'Name', width: 140 },
-      { label: 'Email', width: 150 },
-      { label: 'Attempts', width: 55 },
-      { label: `Score /${maxMarks}`, width: 65 },
-      { label: '%', width: 40 },
-      { label: 'Status', width: 82 },
+      { label: 'No.', width: 26 },
+      { label: 'Name', width: 158 },
+      { label: 'Attempts', width: 58 },
+      { label: 'Score', width: 55 },
+      { label: 'Max', width: 45 },
+      { label: 'MW', width: 45 },
+      { label: 'Decision', width: 65 },
     ];
     const startX = doc.page.margins.left;
     let y = doc.y;
@@ -2010,9 +2078,11 @@ exports.teacherDownloadAttemptsPdf = async (req, res) => {
       let x = startX;
       doc.font(opts.bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(9);
       cols.forEach((c, i) => {
+        if (opts.colors && opts.colors[i]) doc.fillColor(opts.colors[i]); else doc.fillColor('#000');
         doc.text(String(values[i] ?? ''), x, y, { width: c.width, ellipsis: true });
         x += c.width;
       });
+      doc.fillColor('#000');
       y += 18;
     };
 
@@ -2025,14 +2095,19 @@ exports.teacherDownloadAttemptsPdf = async (req, res) => {
       const list = byStudent[s._id.toString()] || [];
       const graded = list.filter(a => a.status === 'graded');
       const best = [...graded].sort((a, b) => b.total_score - a.total_score)[0];
-      const pendingGrading = list.some(a => a.needs_manual_grading && a.status === 'submitted');
-      const status = pendingGrading ? 'Needs grading' : (best ? 'Graded' : (list.length ? 'Submitted' : 'Not attempted'));
-      drawRow([
-        i + 1, s.name || '', s.email || '', list.length,
-        best ? best.total_score : '—',
-        best && maxMarks ? `${Math.round((best.total_score / maxMarks) * 100)}%` : '—',
-        status,
-      ]);
+      const bestScore = best ? best.total_score : null;
+      const percentage = bestScore != null && maxMarks ? Math.round((bestScore / maxMarks) * 100) : null;
+      const decision = computeDecision(percentage, category);
+      drawRow(
+        [
+          i + 1, s.name || '', list.length,
+          bestScore != null ? bestScore : '—',
+          maxMarks || '—',
+          moduleWeight || '—',
+          decision || (list.length ? '—' : 'Not attempted'),
+        ],
+        { colors: { 6: decision === 'C' ? '#10b981' : (decision === 'NYC' ? '#ef4444' : undefined) } }
+      );
     });
 
     doc.end();
@@ -2049,7 +2124,7 @@ exports.studentGetSharedAssessments = async (req, res) => {
     if (!cls) return res.json({ assessments: [] });
 
     const assessments = await Assessment.find({ class_id: cls._id, mode: 'quiz', is_shared: true })
-      .populate('course_id', 'name code')
+      .populate('course_id', 'name code total_marks category')
       .populate('teacher_id', 'name')
       .sort({ shared_at: -1 })
       .lean();
@@ -2061,6 +2136,9 @@ exports.studentGetSharedAssessments = async (req, res) => {
       const inProgress = attempts.find(x => x.status === 'in_progress');
       const expired = a.expires_at ? new Date() > new Date(a.expires_at) : false;
       const attemptsUsed = attempts.length;
+      const bestScore = best ? best.total_score : null;
+      const moduleWeight = a.course_id?.total_marks || 100;
+      const percentage = bestScore != null && a.max_marks ? Math.round((bestScore / a.max_marks) * 100) : null;
       return {
         ...a, id: a._id,
         module_name: a.course_id?.name,
@@ -2070,7 +2148,10 @@ exports.studentGetSharedAssessments = async (req, res) => {
         expired,
         can_start: !expired && (a.max_attempts || 1) - attemptsUsed > 0,
         in_progress_attempt_id: inProgress ? inProgress._id : null,
-        best_score: best ? best.total_score : null,
+        best_score: bestScore,
+        module_weight: moduleWeight,
+        marks_on_mw: scaleScore(bestScore, a.max_marks, moduleWeight),
+        decision: best ? computeDecision(percentage, a.course_id?.category || 'Complementary modules') : null,
         has_pending_grading: attempts.some(x => x.needs_manual_grading),
       };
     }));
@@ -2180,20 +2261,14 @@ exports.studentGetAttempt = async (req, res) => {
     const attempt = await AssessmentAttempt.findOne({ _id: req.params.attemptId, student_id: req.user.id });
     if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
 
-    const assessment = await Assessment.findById(attempt.assessment_id).populate('course_id', 'name').lean();
+    const assessment = await Assessment.findById(attempt.assessment_id).populate('course_id', 'name total_marks category').lean();
 
     if (attempt.status !== 'in_progress') {
-      return res.json({
-        ended: true, status: attempt.status, total_score: attempt.total_score,
-        needs_manual_grading: attempt.needs_manual_grading,
-      });
+      return res.json({ ended: true, ...buildResultPayload(assessment, attempt) });
     }
     if (new Date() >= new Date(attempt.due_at)) {
       await finalizeAttemptSubmission(attempt, { autoSubmitted: true, reason: 'timeout' });
-      return res.json({
-        ended: true, status: attempt.status, total_score: attempt.total_score,
-        needs_manual_grading: attempt.needs_manual_grading, auto_submitted: true,
-      });
+      return res.json({ ended: true, auto_submitted: true, ...buildResultPayload(assessment, attempt) });
     }
     res.json(await buildAttemptPayload(attempt, assessment));
   } catch (err) { res.status(500).json({ message: err.message }); }
@@ -2230,12 +2305,8 @@ exports.studentSubmitAttempt = async (req, res) => {
     });
 
     await finalizeAttemptSubmission(attempt, { autoSubmitted: false });
-    res.json({
-      message: 'Assessment submitted.',
-      status: attempt.status,
-      total_score: attempt.total_score,
-      needs_manual_grading: attempt.needs_manual_grading,
-    });
+    const assessment = await Assessment.findById(attempt.assessment_id).populate('course_id', 'name total_marks category').lean();
+    res.json({ message: 'Assessment submitted.', ...buildResultPayload(assessment, attempt) });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
@@ -2247,7 +2318,8 @@ exports.studentAutoSubmitAttempt = async (req, res) => {
     const attempt = await AssessmentAttempt.findOne({ _id: req.params.attemptId, student_id: req.user.id });
     if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
     if (attempt.status !== 'in_progress') {
-      return res.json({ message: 'Already submitted.', status: attempt.status, total_score: attempt.total_score });
+      const assessment = await Assessment.findById(attempt.assessment_id).populate('course_id', 'name total_marks category').lean();
+      return res.json({ message: 'Already submitted.', ...buildResultPayload(assessment, attempt) });
     }
 
     const reason = req.body.reason === 'left_screen' ? 'left_screen' : 'timeout';
@@ -2258,11 +2330,13 @@ exports.studentAutoSubmitAttempt = async (req, res) => {
     });
 
     await finalizeAttemptSubmission(attempt, { autoSubmitted: true, reason });
+    const assessment = await Assessment.findById(attempt.assessment_id).populate('course_id', 'name total_marks category').lean();
     res.json({
       message: reason === 'left_screen'
         ? 'You left the assessment screen, so it was submitted automatically.'
         : 'Time was up, so the assessment was submitted automatically.',
-      status: attempt.status, total_score: attempt.total_score, reason,
+      reason,
+      ...buildResultPayload(assessment, attempt),
     });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };

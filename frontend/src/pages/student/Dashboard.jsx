@@ -8,6 +8,7 @@ import {
   Award, Calendar, Flame, Sparkles, GraduationCap, Mail,
   TrendingUp, Star, Zap, BookOpen, Target, ArrowUpRight,
   BarChart3, Trophy, Bell, ChevronDown,
+  UserCheck, MessageSquare, Timer,
 } from 'lucide-react';
 
 /* ── Helpers ── */
@@ -44,14 +45,14 @@ function AnimatedNumber({ value, suffix = '', duration = 900 }) {
 }
 
 /* ── Completion ring ── */
-function ProgressRing({ percent, size = 96, stroke = 9 }) {
+function ProgressRing({ percent, size = 96, stroke = 9, color = 'white', trackColor = 'rgba(255,255,255,0.15)' }) {
   const r = (size - stroke) / 2;
   const circ = 2 * Math.PI * r;
   const offset = circ - (percent / 100) * circ;
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: 'rotate(-90deg)' }}>
-      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth={stroke} />
-      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="white" strokeWidth={stroke}
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={trackColor} strokeWidth={stroke} />
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={stroke}
         strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
         style={{ transition: 'stroke-dashoffset 1.2s cubic-bezier(0.34,1.56,0.64,1)' }} />
     </svg>
@@ -146,12 +147,15 @@ export default function StudentDashboard() {
     (async () => {
       setLoading(true);
       try {
-        const [classesRes, assignmentsRes, announcementsRes, docsRes, coursesRes] = await Promise.all([
+        const [classesRes, assignmentsRes, announcementsRes, docsRes, coursesRes, attendanceRes, quizzesRes, groupsRes] = await Promise.all([
           api.get('/classes/my').catch(() => ({ data: { classes: [] } })),
           api.get('/assignments?limit=20').catch(() => ({ data: { assignments: [], total: 0 } })),
           api.get('/announcements?limit=5').catch(() => ({ data: { announcements: [] } })),
           api.get('/documents?limit=6').catch(() => ({ data: { documents: [] } })),
           api.get('/assessment/student/courses').catch(() => ({ data: { courses: [] } })),
+          api.get('/attendance/my').catch(() => ({ data: { counts: {}, attendance_rate: null, history: [] } })),
+          api.get('/assessment/student/assessments').catch(() => ({ data: { assessments: [] } })),
+          api.get('/group-discussions/my/groups').catch(() => ({ data: { groups: [] } })),
         ]);
         setData({
           classes: classesRes.data.classes || [],
@@ -160,6 +164,10 @@ export default function StudentDashboard() {
           announcements: announcementsRes.data.announcements || [],
           documents: docsRes.data.documents || [],
           courses: coursesRes.data.courses || [],
+          attendanceRate: attendanceRes.data.attendance_rate,
+          attendanceCounts: attendanceRes.data.counts || {},
+          quizzes: quizzesRes.data.assessments || [],
+          groups: groupsRes.data.groups || [],
         });
       } catch {}
       setLoading(false);
@@ -174,7 +182,18 @@ export default function StudentDashboard() {
 
   const pending = data?.assignments?.filter(a => !a.submission_id) || [];
   const submitted = data?.assignments?.filter(a => a.submission_id) || [];
-  const graded = data?.assignments?.filter(a => a.score !== null && a.score !== undefined && a.max_score) || [];
+  const availableQuizzes = (data?.quizzes || []).filter(q => q.can_start);
+
+  const PASS_MARK = 50; // percentage line used across the app's reports
+  const quizPct = (q) => Math.round(((q.best_score || 0) / (q.max_marks || 100)) * 100);
+  /* "Conducted" = the student has actually taken (attempted) the quiz.
+     "Graded" = a conducted quiz that has a final score. "Passed" = graded
+     at or above the pass mark. Marks/performance now come entirely from
+     these online-assessment results, not from assignment submissions. */
+  const conductedQuizzes = (data?.quizzes || []).filter(q => (q.attempts_used || 0) > 0);
+  const gradedQuizzes = conductedQuizzes.filter(q => q.best_score !== null && q.best_score !== undefined);
+  const passedQuizzes = gradedQuizzes.filter(q => quizPct(q) >= PASS_MARK);
+  const pendingGradingQuizzes = conductedQuizzes.filter(q => q.has_pending_grading);
 
   const completionPercent = useMemo(() => {
     const total = data?.totalAssignments || 0;
@@ -182,10 +201,12 @@ export default function StudentDashboard() {
     return Math.round((submitted.length / total) * 100);
   }, [data, submitted.length]);
 
-  const averageScore = useMemo(() => {
-    if (!graded.length) return null;
-    return Math.round(graded.reduce((s, a) => s + (a.score / a.max_score) * 100, 0) / graded.length);
-  }, [graded]);
+  /* Average score is the mean percentage across graded online assessments. */
+  const averageScore = gradedQuizzes.length
+    ? Math.round(gradedQuizzes.reduce((s, q) => s + quizPct(q), 0) / gradedQuizzes.length)
+    : null;
+
+  const passRate = gradedQuizzes.length ? Math.round((passedQuizzes.length / gradedQuizzes.length) * 100) : null;
 
   /* Consecutive submitted days — streak calculation */
   const streak = useMemo(() => {
@@ -197,11 +218,11 @@ export default function StudentDashboard() {
     return count;
   }, [submitted]);
 
-  /* Score band for grade rating label */
+  /* Score band for grade rating label — driven by online assessment average */
   const gradeLabel = averageScore === null ? null
     : averageScore >= 80 ? { label: 'Excellent', color: '#10b981' }
     : averageScore >= 60 ? { label: 'Good', color: '#6366f1' }
-    : averageScore >= 40 ? { label: 'Average', color: '#f59e0b' }
+    : averageScore >= PASS_MARK ? { label: 'Average', color: '#f59e0b' }
     : { label: 'Needs work', color: '#ef4444' };
 
   const teachers = useMemo(() => {
@@ -251,91 +272,178 @@ export default function StudentDashboard() {
       {/* ── Hero ── */}
       <div style={{
         ...visStyle(0),
-        borderRadius: 22,
-        background: 'linear-gradient(135deg, #065f46 0%, #059669 45%, #0d9488 100%)',
-        padding: '24px 26px', position: 'relative', overflow: 'hidden',
-        boxShadow: '0 16px 48px rgba(5,150,105,0.3)',
+        borderRadius: 26,
+        background: 'linear-gradient(120deg, #064e3b 0%, #047857 30%, #0d9488 58%, #0e7490 78%, #4338ca 100%)',
+        padding: '30px 32px', position: 'relative', overflow: 'hidden',
+        boxShadow: '0 26px 70px rgba(5,150,105,0.35), 0 0 0 1px rgba(255,255,255,0.06) inset',
       }}>
-        {/* decorative circles */}
-        <div style={{ position: 'absolute', top: -40, right: -30, width: 200, height: 200, borderRadius: '50%', background: 'rgba(255,255,255,0.05)', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', bottom: -30, right: 120, width: 120, height: 120, borderRadius: '50%', background: 'rgba(255,255,255,0.04)', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)' }} />
+        {/* animated mesh glow orbs */}
+        <div style={{ position: 'absolute', top: -70, right: -50, width: 280, height: 280, borderRadius: '50%', background: 'radial-gradient(circle, rgba(52,211,153,0.35), transparent 70%)', filter: 'blur(10px)', pointerEvents: 'none', animation: 'heroFloat 7s ease-in-out infinite' }} />
+        <div style={{ position: 'absolute', bottom: -80, left: '28%', width: 240, height: 240, borderRadius: '50%', background: 'radial-gradient(circle, rgba(139,92,246,0.3), transparent 70%)', filter: 'blur(14px)', pointerEvents: 'none', animation: 'heroFloat 8.5s ease-in-out infinite 0.6s' }} />
+        <div style={{ position: 'absolute', top: '15%', left: -60, width: 180, height: 180, borderRadius: '50%', background: 'radial-gradient(circle, rgba(34,211,238,0.28), transparent 70%)', filter: 'blur(12px)', pointerEvents: 'none', animation: 'heroFloat 6.5s ease-in-out infinite 1.2s' }} />
 
-        <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-          {/* Left: greeting */}
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>
-              {todayLabel}
-            </p>
-            <h2 style={{ fontSize: 22, fontWeight: 800, color: '#fff', letterSpacing: '-0.02em', marginBottom: 6 }}>
-              {greeting}, {user?.name?.split(' ')[0]} 👋
-            </h2>
+        {/* dot-grid overlay for a techy texture */}
+        <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.07, pointerEvents: 'none' }}>
+          <defs>
+            <pattern id="studentHeroDots" width="22" height="22" patternUnits="userSpaceOnUse">
+              <circle cx="1.5" cy="1.5" r="1.5" fill="white" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#studentHeroDots)" />
+        </svg>
 
-            {/* Status pill */}
-            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
-              {pending.length === 0 ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.15)', borderRadius: 30, padding: '6px 14px', backdropFilter: 'blur(8px)' }}>
-                  <Sparkles style={{ width: 14, height: 14, color: '#fcd34d' }} />
-                  <span style={{ fontSize: 12, fontWeight: 600, color: '#fff' }}>All caught up — great work!</span>
+        {/* shimmer top edge */}
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent)' }} />
+
+        {/* floating decorative badges */}
+        {averageScore !== null && (
+          <div style={{
+            position: 'absolute', top: 26, right: 148, padding: '7px 13px', borderRadius: 12,
+            background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.22)', backdropFilter: 'blur(10px)',
+            display: 'flex', alignItems: 'center', gap: 6, animation: 'heroFloat 5s ease-in-out infinite', boxShadow: '0 8px 20px rgba(0,0,0,0.12)',
+          }} className="hero-badge-desktop">
+            <Trophy style={{ width: 12, height: 12, color: '#fcd34d' }} />
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap' }}>{passedQuizzes.length} Assessment{passedQuizzes.length !== 1 ? 's' : ''} passed</span>
+          </div>
+        )}
+
+        <div style={{ position: 'relative' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap' }}>
+
+            {/* Left: avatar + greeting */}
+            <div style={{ minWidth: 0, flex: 1, display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+              <div style={{ position: 'relative', flexShrink: 0 }}>
+                <div style={{
+                  width: 54, height: 54, borderRadius: 17,
+                  background: 'linear-gradient(135deg, rgba(255,255,255,0.28), rgba(255,255,255,0.08))',
+                  border: '1px solid rgba(255,255,255,0.32)', backdropFilter: 'blur(10px)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 19, fontWeight: 800, color: '#fff', boxShadow: '0 10px 26px rgba(0,0,0,0.18)',
+                }}>{initials(user?.name)}</div>
+                <div style={{ position: 'absolute', bottom: -2, right: -2, width: 14, height: 14, borderRadius: '50%', background: '#34d399', border: '2.5px solid #065f46', boxShadow: '0 0 0 2px rgba(52,211,153,0.25)' }} />
+              </div>
+
+              <div style={{ minWidth: 0 }}>
+                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>
+                  {todayLabel}
+                </p>
+                <h2 style={{ fontSize: 'clamp(20px,2.6vw,26px)', fontWeight: 800, color: '#fff', letterSpacing: '-0.02em', marginBottom: 8, lineHeight: 1.15 }}>
+                  {greeting}, {user?.name?.split(' ')[0]} 👋
+                </h2>
+
+                {/* Status pills */}
+                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                  {pending.length === 0 ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.15)', borderRadius: 30, padding: '6px 14px', backdropFilter: 'blur(8px)' }}>
+                      <Sparkles style={{ width: 14, height: 14, color: '#fcd34d' }} />
+                      <span style={{ fontSize: 12, fontWeight: 600, color: '#fff' }}>All caught up — great work!</span>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.15)', borderRadius: 30, padding: '6px 14px', backdropFilter: 'blur(8px)' }}>
+                      <Flame style={{ width: 14, height: 14, color: '#fcd34d' }} />
+                      <span style={{ fontSize: 12, fontWeight: 600, color: '#fff' }}>
+                        {pending.length} assignment{pending.length !== 1 ? 's' : ''} need your attention
+                      </span>
+                    </div>
+                  )}
+                  {streak > 1 && <StreakBadge count={streak} />}
+                  {availableQuizzes.length > 0 && (
+                    <Link to="/student/assessments" style={{ textDecoration: 'none' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(139,92,246,0.28)', border: '1px solid rgba(139,92,246,0.4)', borderRadius: 30, padding: '6px 14px', backdropFilter: 'blur(8px)' }}>
+                        <Timer style={{ width: 14, height: 14, color: '#e9d5ff' }} />
+                        <span style={{ fontSize: 12, fontWeight: 600, color: '#fff' }}>
+                          {availableQuizzes.length} Assessment{availableQuizzes.length !== 1 ? 's' : ''} ready →
+                        </span>
+                      </div>
+                    </Link>
+                  )}
                 </div>
-              ) : (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.15)', borderRadius: 30, padding: '6px 14px', backdropFilter: 'blur(8px)' }}>
-                  <Flame style={{ width: 14, height: 14, color: '#fcd34d' }} />
-                  <span style={{ fontSize: 12, fontWeight: 600, color: '#fff' }}>
-                    {pending.length} assignment{pending.length !== 1 ? 's' : ''} need your attention
-                  </span>
+
+                {/* Hero micro-stats */}
+                <div style={{ display: 'flex', gap: 22, marginTop: 20, flexWrap: 'wrap' }}>
+                  {[
+                    { label: 'Classes', val: data?.classes?.length || 0 },
+                    { label: 'Modules', val: data?.courses?.length || 0 },
+                    { label: 'Assessments passed', val: passedQuizzes.length },
+                    { label: 'Groups', val: data?.groups?.length || 0 },
+                  ].map(({ label, val }) => (
+                    <div key={label}>
+                      <p style={{ fontSize: 18, fontWeight: 800, color: '#fff', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{val}</p>
+                      <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', marginTop: 2, fontWeight: 500 }}>{label}</p>
+                    </div>
+                  ))}
                 </div>
-              )}
-              {streak > 1 && <StreakBadge count={streak} />}
+              </div>
             </div>
 
-            {/* Hero micro-stats */}
-            <div style={{ display: 'flex', gap: 20, marginTop: 18, flexWrap: 'wrap' }}>
-              {[
-                { label: 'Classes', val: data?.classes?.length || 0 },
-                { label: 'Modules', val: data?.courses?.length || 0 },
-                { label: 'Submitted', val: submitted.length },
-              ].map(({ label, val }) => (
-                <div key={label}>
-                  <p style={{ fontSize: 18, fontWeight: 800, color: '#fff', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{val}</p>
-                  <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', marginTop: 2, fontWeight: 500 }}>{label}</p>
+            {/* Right: dual ring cluster — assignment completion + quiz average */}
+            <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexShrink: 0 }}>
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <ProgressRing percent={ringFilled ? completionPercent : 0} size={88} stroke={8} color="#fff" />
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                  <span style={{ fontSize: 17, fontWeight: 800, color: '#fff', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{completionPercent}%</span>
+                  <span style={{ fontSize: 8.5, color: 'rgba(255,255,255,0.55)', fontWeight: 600, letterSpacing: '0.05em' }}>DONE</span>
                 </div>
-              ))}
+              </div>
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <ProgressRing percent={ringFilled ? (averageScore || 0) : 0} size={88} stroke={8} color="#fcd34d" />
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                  <span style={{ fontSize: 17, fontWeight: 800, color: '#fff', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{averageScore !== null ? `${averageScore}%` : '—'}</span>
+                  <span style={{ fontSize: 8.5, color: 'rgba(255,255,255,0.55)', fontWeight: 600, letterSpacing: '0.05em' }}>ASS AVG</span>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Right: completion ring */}
-          <div style={{ position: 'relative', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <ProgressRing percent={ringFilled ? completionPercent : 0} size={96} stroke={9} />
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-              <span style={{ fontSize: 19, fontWeight: 800, color: '#fff', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
-                {completionPercent}%
-              </span>
-              <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.55)', fontWeight: 600, letterSpacing: '0.06em' }}>DONE</span>
+          {/* Dual progress bars */}
+          <div className="hero-bars-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginTop: 24 }}>
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                  Assignment completion
+                </span>
+                <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.75)', fontWeight: 700 }}>
+                  {submitted.length} / {data?.totalAssignments || 0}
+                </span>
+              </div>
+              <div style={{ height: 5, borderRadius: 5, background: 'rgba(255,255,255,0.12)', overflow: 'hidden' }}>
+                <div style={{
+                  height: '100%', borderRadius: 5,
+                  background: 'linear-gradient(90deg, rgba(255,255,255,0.7), rgba(255,255,255,0.95))',
+                  width: `${completionPercent}%`,
+                  transition: 'width 1.3s cubic-bezier(0.34,1.56,0.64,1)',
+                }} />
+              </div>
             </div>
-          </div>
-        </div>
-
-        {/* Progress bar */}
-        <div style={{ marginTop: 20, position: 'relative' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-            <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-              Assignment completion
-            </span>
-            <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.75)', fontWeight: 700 }}>
-              {submitted.length} / {data?.totalAssignments || 0}
-            </span>
-          </div>
-          <div style={{ height: 5, borderRadius: 5, background: 'rgba(255,255,255,0.12)', overflow: 'hidden' }}>
-            <div style={{
-              height: '100%', borderRadius: 5,
-              background: 'linear-gradient(90deg, rgba(255,255,255,0.7), rgba(255,255,255,0.95))',
-              width: `${completionPercent}%`,
-              transition: 'width 1.3s cubic-bezier(0.34,1.56,0.64,1)',
-            }} />
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                  Assessment pass rate
+                </span>
+                <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.75)', fontWeight: 700 }}>
+                  {passedQuizzes.length} / {gradedQuizzes.length}
+                </span>
+              </div>
+              <div style={{ height: 5, borderRadius: 5, background: 'rgba(255,255,255,0.12)', overflow: 'hidden' }}>
+                <div style={{
+                  height: '100%', borderRadius: 5,
+                  background: 'linear-gradient(90deg, #fde68a, #fcd34d)',
+                  width: `${passRate || 0}%`,
+                  transition: 'width 1.3s cubic-bezier(0.34,1.56,0.64,1) 0.1s',
+                }} />
+              </div>
+            </div>
           </div>
         </div>
       </div>
+
+      <style>{`
+        @keyframes heroFloat { 0%,100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-10px) scale(1.03); } }
+        @media (max-width: 640px) {
+          .hero-badge-desktop { display: none !important; }
+          .hero-bars-grid { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
 
       {/* ── Stat Cards ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3" style={visStyle(0.07)}>
@@ -346,12 +454,93 @@ export default function StudentDashboard() {
           color="text-emerald-600" iconBg="bg-emerald-100 dark:bg-emerald-900/30"
           sublabel={`of ${data?.totalAssignments || 0} total`} animateNum />
         <StatCard icon={Award} label="Avg score" value={averageScore !== null ? averageScore : '—'} suffix={averageScore !== null ? '%' : ''}
-          to="/student/assignments" color="text-violet-600" iconBg="bg-violet-100 dark:bg-violet-900/30"
-          sublabel={gradeLabel?.label} animateNum={averageScore !== null} />
+          to="/student/assessments" color="text-violet-600" iconBg="bg-violet-100 dark:bg-violet-900/30"
+          sublabel={gradeLabel?.label || 'from quizzes'} animateNum={averageScore !== null} />
         <StatCard icon={BookOpen} label="Documents" value={data?.documents?.length || 0} to="/student/documents"
           color="text-cyan-600" iconBg="bg-cyan-100 dark:bg-cyan-900/30"
           sublabel="available" animateNum />
+        <StatCard icon={Timer} label="Assessments" value={availableQuizzes.length} to="/student/assessments"
+          color="text-purple-600" iconBg="bg-purple-100 dark:bg-purple-900/30"
+          sublabel={availableQuizzes.length ? 'ready to attempt' : 'none open'} animateNum />
+        <StatCard icon={UserCheck} label="Attendance" value={data?.attendanceRate !== null && data?.attendanceRate !== undefined ? data.attendanceRate : '—'}
+          suffix={data?.attendanceRate !== null && data?.attendanceRate !== undefined ? '%' : ''}
+          to="/student/attendance" color="text-teal-600" iconBg="bg-teal-100 dark:bg-teal-900/30"
+          sublabel="present rate" animateNum={data?.attendanceRate !== null && data?.attendanceRate !== undefined} />
+        <StatCard icon={MessageSquare} label="Groups" value={data?.groups?.length || 0} to="/student/groups"
+          color="text-orange-600" iconBg="bg-orange-100 dark:bg-orange-900/30"
+          sublabel="discussion & chat" animateNum />
       </div>
+
+      {/* ── Quick Actions ── */}
+      <div className="card" style={visStyle(0.09)}>
+        <div className="flex items-center gap-2 mb-4">
+          <Zap style={{ width: 14, height: 14, color: '#fbbf24' }} />
+          <h3 className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>Quick Actions</h3>
+        </div>
+        <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 9 }}>
+          {[
+            { label: 'Assignments',  to: '/student/assignments',  icon: ClipboardList, color: '#fbbf24', bg: 'rgba(251,191,36,0.1)' },
+            { label: 'Assessments',  to: '/student/assessments',  icon: Timer,         color: '#8b5cf6', bg: 'rgba(139,92,246,0.1)' },
+            { label: 'Attendance',   to: '/student/attendance',   icon: UserCheck,     color: '#14b8a6', bg: 'rgba(20,184,166,0.1)' },
+            { label: 'Documents',    to: '/student/documents',    icon: FileText,      color: '#f472b6', bg: 'rgba(244,114,182,0.1)' },
+            { label: 'Groups & DMs', to: '/student/groups',       icon: MessageSquare, color: '#f97316', bg: 'rgba(249,115,22,0.1)' },
+            { label: 'Announce',     to: '/student/announcements', icon: Megaphone,    color: '#22d3ee', bg: 'rgba(34,211,238,0.1)' },
+            { label: 'My Classes',   to: '/student/classes',      icon: BookOpen,      color: '#34d399', bg: 'rgba(52,211,153,0.1)' },
+          ].map(a => (
+            <Link key={a.to} to={a.to} style={{ textDecoration: 'none' }}>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 9, padding: '11px 13px',
+                borderRadius: 13, background: a.bg, border: `1px solid ${a.color}20`,
+                transition: 'transform 0.2s cubic-bezier(.34,1.56,.64,1), box-shadow 0.2s ease',
+                cursor: 'pointer',
+              }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = `0 6px 16px ${a.color}22`; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}>
+                <a.icon size={14} style={{ color: a.color, flexShrink: 0 }} />
+                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.2 }}>{a.label}</span>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Available Online Quizzes ── */}
+      {availableQuizzes.length > 0 && (
+        <div className="card" style={visStyle(0.1)}>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-sm flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+              <Timer style={{ width: 14, height: 14, color: '#8b5cf6' }} />
+              Assessments available now
+              <span className="badge text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">{availableQuizzes.length}</span>
+            </h3>
+            <Link to="/student/assessments" className="text-xs text-primary-600 hover:underline flex items-center gap-1">
+              View all <ChevronRight className="w-3 h-3" />
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {availableQuizzes.slice(0, 4).map((q, i) => (
+              <Link key={q.id} to="/student/assessments" style={{ textDecoration: 'none' }}>
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 12,
+                  background: 'var(--card-border)', transition: 'transform 0.15s',
+                  animation: `fadeSlide 0.35s ease ${i * 0.06}s both`,
+                }}
+                  onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+                  onMouseLeave={e => e.currentTarget.style.transform = ''}>
+                  <div style={{ width: 34, height: 34, borderRadius: 9, background: 'rgba(139,92,246,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Timer style={{ width: 15, height: 15, color: '#8b5cf6' }} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{q.title}</p>
+                    <p className="text-xs text-muted truncate">{q.module_name}{q.duration_minutes ? ` · ${q.duration_minutes} min` : ''}{q.attempts_left != null ? ` · ${q.attempts_left} attempt${q.attempts_left !== 1 ? 's' : ''} left` : ''}</p>
+                  </div>
+                  <ChevronRight style={{ width: 14, height: 14, color: 'var(--text-secondary)', opacity: 0.4, flexShrink: 0 }} />
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── Performance + Pending row ── */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4" style={visStyle(0.12)}>
@@ -394,9 +583,9 @@ export default function StudentDashboard() {
           {/* Score breakdown bars */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {[
-              { label: 'Submitted', val: submitted.length, total: data?.totalAssignments || 1, color: '#10b981' },
-              { label: 'Graded',    val: graded.length,    total: Math.max(submitted.length, 1), color: '#6366f1' },
-              { label: 'Pending',   val: pending.length,   total: Math.max(data?.totalAssignments || 1, 1), color: '#f59e0b' },
+              { label: 'Conducted',      val: conductedQuizzes.length,      total: Math.max(data?.quizzes?.length || 1, 1), color: '#10b981' },
+              { label: 'Passed',         val: passedQuizzes.length,         total: Math.max(gradedQuizzes.length, 1),        color: '#6366f1' },
+              { label: 'Pending review', val: pendingGradingQuizzes.length, total: Math.max(conductedQuizzes.length, 1),     color: '#f59e0b' },
             ].map(row => (
               <div key={row.label}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
@@ -463,32 +652,35 @@ export default function StudentDashboard() {
         </div>
       </div>
 
-      {/* ── Graded work with scores ── */}
-      {graded.length > 0 && (
+      {/* ── Recent quiz results ── */}
+      {gradedQuizzes.length > 0 && (
         <div className="card" style={visStyle(0.17)}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-sm flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
               <Trophy style={{ width: 15, height: 15, color: '#f59e0b' }} />
-              Recent grades
+              Recent assessment results
             </h3>
-            <Link to="/student/assignments" className="text-xs text-primary-600 hover:underline flex items-center gap-1">
+            <Link to="/student/assessments" className="text-xs text-primary-600 hover:underline flex items-center gap-1">
               All results <ChevronRight className="w-3 h-3" />
             </Link>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {graded.slice(0, 4).map((a, i) => {
-              const pct = Math.round((a.score / a.max_score) * 100);
+            {gradedQuizzes.slice(0, 4).map((q, i) => {
+              const pct = quizPct(q);
               const c = scoreColor(pct);
+              const passed = pct >= PASS_MARK;
               return (
-                <div key={a.id} style={{ padding: '12px 14px', borderRadius: 14, background: 'var(--card-border)', animation: `fadeSlide 0.35s ease ${i * 0.06}s both` }}>
+                <div key={q.id} style={{ padding: '12px 14px', borderRadius: 14, background: 'var(--card-border)', animation: `fadeSlide 0.35s ease ${i * 0.06}s both` }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
-                    <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)', flex: 1 }}>{a.title}</p>
+                    <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)', flex: 1 }}>{q.title}</p>
                     <span style={{ fontSize: 16, fontWeight: 800, color: c, flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{pct}%</span>
                   </div>
                   <ScoreBar percent={pct} color={c} />
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
-                    <span className="text-xs text-muted">{a.class_name}</span>
-                    <span className="text-xs text-muted">{a.score} / {a.max_score} pts</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
+                    <span className="text-xs text-muted truncate">{q.module_name}</span>
+                    <span className={`badge text-xs flex-shrink-0 ${passed ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400' : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400'}`}>
+                      {passed ? 'Passed' : 'Failed'}
+                    </span>
                   </div>
                 </div>
               );

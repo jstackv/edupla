@@ -120,9 +120,20 @@ function AssessmentCard({ a, i, onOpen }) {
       </div>
 
       {a.best_score != null && (
-        <div className="flex items-center gap-2 -mt-1 relative">
+        <div className="flex items-center gap-2 -mt-1 relative flex-wrap">
           <StatusPill a={a} />
           <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{a.best_score} / {a.max_marks} pts</span>
+          {a.decision && (
+            <span
+              className="text-xs font-bold px-1.5 py-0.5 rounded-full"
+              style={{
+                background: a.decision === 'C' ? 'rgba(16,185,129,0.14)' : 'rgba(239,68,68,0.14)',
+                color: a.decision === 'C' ? '#10b981' : '#ef4444',
+              }}
+            >
+              {a.decision}
+            </span>
+          )}
         </div>
       )}
 

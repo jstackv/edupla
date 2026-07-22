@@ -38,7 +38,7 @@ import AssessmentAttemptsModal from '../../components/common/AssessmentAttemptsM
 import {
   ClipboardCheck, School, BookOpen, ChevronRight, Plus, Loader2,
   ListChecks, Share2, BarChart3, Edit2, Trash2, ArrowLeft, Inbox,
-  Lock, PlusCircle, Sparkles,
+  Lock, PlusCircle, Sparkles, Award, FileEdit, Users, Scale,
 } from 'lucide-react';
 
 const TERMS = ['Term 1', 'Term 2', 'Term 3'];
@@ -56,6 +56,106 @@ function courseClasses(course) {
     : (course.class_id ? [course.class_id] : []);
 }
 
+/* Glance-and-go summary strip above the assessment list — same pattern as
+   the student Assessments page's OverviewStrip, so the teacher-facing
+   screen reads with the same polish. */
+function AssessmentOverviewStrip({ assessments }) {
+  const total = assessments.length;
+  const shared = assessments.filter(a => a.is_shared).length;
+  const draft = total - shared;
+  const marked = assessments.reduce((s, a) => s + (a.marked_count || 0), 0);
+
+  if (total === 0) return null;
+
+  const items = [
+    { label: 'Assessments', value: total, color: '#6366f1', icon: ClipboardCheck },
+    { label: 'Shared', value: shared, color: '#10b981', icon: Share2 },
+    { label: 'Drafts', value: draft, color: '#9ca3af', icon: FileEdit },
+    { label: 'Marks recorded', value: marked, color: '#f59e0b', icon: Award },
+  ];
+
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6 assessment-stagger">
+      {items.map((it, i) => (
+        <div key={it.label} style={{ '--i': i }} className="card assessment-card p-3.5 flex items-center gap-3 relative overflow-hidden">
+          <div className="pointer-events-none absolute top-0 right-0 w-16 h-16" style={{ background: `radial-gradient(circle at top right, ${it.color}20 0%, transparent 70%)` }} />
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `${it.color}1f` }}>
+            <it.icon className="w-4.5 h-4.5" style={{ color: it.color }} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-lg font-bold leading-none" style={{ color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>{it.value}</p>
+            <p className="text-xs truncate" style={{ color: 'var(--text-secondary)' }}>{it.label}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* One assessment's card — ambient status glow + a clear read on where its
+   marks currently stand (auto-computed max, capped by the module weight). */
+function AssessmentCard({ a, i, onQuestions, onShare, onAddAttempt, onResults, onEdit, onDelete }) {
+  const statusColor = a.is_shared ? '#10b981' : '#9ca3af';
+  const hasQuestions = (a.max_marks || 0) > 0;
+
+  return (
+    <div
+      style={{ '--i': i, borderColor: `color-mix(in srgb, ${statusColor} 18%, var(--card-border))` }}
+      className="card assessment-card p-4 flex flex-col gap-3 relative"
+    >
+      <div
+        className="pointer-events-none absolute top-0 right-0 w-24 h-24 rounded-2xl"
+        style={{ background: `radial-gradient(circle at top right, ${statusColor}18 0%, transparent 70%)` }}
+      />
+
+      <div className="flex items-start justify-between gap-2 relative flex-wrap">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>{a.title}</p>
+            <span className={`badge text-xs ${a.is_shared ? 'assessment-badge-live' : ''}`} style={{ background: a.is_shared ? 'rgba(16,185,129,0.12)' : 'rgba(156,163,175,0.15)', color: statusColor }}>
+              {a.is_shared ? 'Shared' : 'Draft'}
+            </span>
+          </div>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>{a.term} · {a.academic_year}</p>
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap text-xs relative">
+          <span className="flex items-center gap-1 px-2 py-0.5 rounded-full" style={{ background: 'var(--surface-100)', color: 'var(--text-secondary)' }}>
+            <Scale className="w-3 h-3" />
+            {hasQuestions ? `${a.max_marks} / ${a.course_id?.total_marks || 100} MW` : `Awaiting questions (MW ${a.course_id?.total_marks || 100})`}
+          </span>
+          {a.is_shared && (
+            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full" style={{ background: 'var(--surface-100)', color: 'var(--text-secondary)' }}>
+              <Users className="w-3 h-3" /> {a.max_attempts} attempt{a.max_attempts > 1 ? 's' : ''}
+            </span>
+          )}
+          {a.student_count > 0 && (
+            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full" style={{ background: 'var(--surface-100)', color: 'var(--text-secondary)' }}>
+              <Award className="w-3 h-3" /> {a.marked_count}/{a.student_count} marked
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2 relative">
+        <button onClick={() => onQuestions(a)} className="btn-secondary text-xs flex items-center gap-1.5"><ListChecks className="w-3.5 h-3.5" /> Questions</button>
+        <button onClick={() => onShare(a)} className="btn-secondary text-xs flex items-center gap-1.5"><Share2 className="w-3.5 h-3.5" /> {a.is_shared ? 'Update Sharing' : 'Share'}</button>
+        {a.is_shared && <button onClick={() => onAddAttempt(a)} className="btn-secondary text-xs flex items-center gap-1.5"><PlusCircle className="w-3.5 h-3.5" /> Add Attempt</button>}
+        {a.is_shared && <button onClick={() => onResults(a)} className="btn-secondary text-xs flex items-center gap-1.5"><BarChart3 className="w-3.5 h-3.5" /> Results</button>}
+        <button
+          onClick={() => onEdit(a)}
+          title={a.is_shared ? 'Unshare to edit type/term/year/title' : 'Edit'}
+          className="btn-secondary text-xs flex items-center gap-1.5"
+          style={a.is_shared ? { opacity: 0.55, cursor: 'not-allowed' } : undefined}
+        >
+          {a.is_shared ? <Lock className="w-3.5 h-3.5" /> : <Edit2 className="w-3.5 h-3.5" />} Edit
+        </button>
+        <button onClick={() => onDelete(a)} className="text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-red-500 transition-all duration-150 hover:bg-red-500/10 ml-auto" style={{ border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.07)' }}><Trash2 className="w-3.5 h-3.5" /> Delete</button>
+      </div>
+    </div>
+  );
+}
+
 /* ── Create / edit an assessment (type, term, year, title, max marks) ──
    Multiple assessments of the same type/term/year are allowed now, so the
    title is what tells them apart — left blank, the backend auto-numbers it
@@ -65,7 +165,6 @@ function AssessmentFormModal({ course, cls, editing, existingAssessments, onClos
   const [type, setType] = useState(editing?.type || 'FA');
   const [term, setTerm] = useState(editing?.term || TERMS[0]);
   const [academicYear, setAcademicYear] = useState(editing?.academic_year || YEARS[1]);
-  const [maxMarks, setMaxMarks] = useState(editing?.max_marks || course.total_marks || 100);
   const [title, setTitle] = useState(editing?.title || '');
   const [saving, setSaving] = useState(false);
 
@@ -86,7 +185,7 @@ function AssessmentFormModal({ course, cls, editing, existingAssessments, onClos
       } else {
         await api.post('/assessment/teacher/assessments', {
           course_id: course.id, class_id: cls.id || cls._id, type, term, academic_year: academicYear,
-          max_marks: maxMarks, mode: 'quiz', title: title.trim() || undefined,
+          mode: 'quiz', title: title.trim() || undefined,
         });
       }
       toast.success(editing ? 'Assessment updated' : 'Assessment created');
@@ -149,10 +248,11 @@ function AssessmentFormModal({ course, cls, editing, existingAssessments, onClos
         </div>
 
         {!editing && (
-          <div>
-            <label className="text-xs font-semibold mb-1 block" style={{ color: 'var(--text-secondary)' }}>Maximum marks</label>
-            <input type="number" min="1" max={course.total_marks || 100} value={maxMarks} onChange={e => setMaxMarks(e.target.value)} className="chat-form-field w-full text-sm" />
-            <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>Cannot exceed the module weight ({course.total_marks || 100} marks).</p>
+          <div className="p-3 rounded-xl text-sm flex items-start gap-2" style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)' }}>
+            <Sparkles className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#6366f1' }} />
+            <p style={{ color: 'var(--text-secondary)' }}>
+              No need to set a maximum here — once you build the question paper, the total is calculated automatically from each question's marks (capped at the module weight, {course.total_marks || 100} marks).
+            </p>
           </div>
         )}
 
@@ -357,37 +457,22 @@ export default function AssessmentsOnline() {
               <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>You can create several formative assessments in the same term — each just needs its own title.</p>
             </div>
           ) : (
-            <div className="space-y-3 assessment-stagger">
-              {assessments.map((a, i) => (
-                <div key={a.id} style={{ '--i': i }} className="card assessment-card p-4 flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>{a.title}</p>
-                      <span className={`badge text-xs ${a.is_shared ? 'assessment-badge-live' : ''}`} style={{ background: a.is_shared ? 'rgba(16,185,129,0.12)' : 'rgba(156,163,175,0.15)', color: a.is_shared ? '#10b981' : '#9ca3af' }}>
-                        {a.is_shared ? 'Shared' : 'Draft'}
-                      </span>
-                      {a.is_shared && <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>· {a.max_attempts} attempt{a.max_attempts > 1 ? 's' : ''} allowed</span>}
-                    </div>
-                    <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{a.term} · {a.academic_year} · Max {a.max_marks} marks</p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button onClick={() => setQuestionsModal(a)} className="btn-secondary text-xs flex items-center gap-1.5"><ListChecks className="w-3.5 h-3.5" /> Questions</button>
-                    <button onClick={() => setShareModal(a)} className="btn-secondary text-xs flex items-center gap-1.5"><Share2 className="w-3.5 h-3.5" /> {a.is_shared ? 'Update Sharing' : 'Share'}</button>
-                    {a.is_shared && <button onClick={() => setAddAttemptModal(a)} className="btn-secondary text-xs flex items-center gap-1.5"><PlusCircle className="w-3.5 h-3.5" /> Add Attempt</button>}
-                    {a.is_shared && <button onClick={() => setAttemptsModal(a)} className="btn-secondary text-xs flex items-center gap-1.5"><BarChart3 className="w-3.5 h-3.5" /> Results</button>}
-                    <button
-                      onClick={() => handleEditClick(a)}
-                      title={a.is_shared ? 'Unshare to edit type/term/year/title' : 'Edit'}
-                      className="btn-secondary text-xs flex items-center gap-1.5"
-                      style={a.is_shared ? { opacity: 0.55, cursor: 'not-allowed' } : undefined}
-                    >
-                      {a.is_shared ? <Lock className="w-3.5 h-3.5" /> : <Edit2 className="w-3.5 h-3.5" />} Edit
-                    </button>
-                    <button onClick={() => handleDelete(a)} className="text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-red-500 transition-all duration-150 hover:bg-red-500/10" style={{ border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.07)' }}><Trash2 className="w-3.5 h-3.5" /> Delete</button>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <>
+              <AssessmentOverviewStrip assessments={assessments} />
+              <div className="space-y-3 assessment-stagger">
+                {assessments.map((a, i) => (
+                  <AssessmentCard
+                    key={a.id} a={a} i={i}
+                    onQuestions={setQuestionsModal}
+                    onShare={setShareModal}
+                    onAddAttempt={setAddAttemptModal}
+                    onResults={setAttemptsModal}
+                    onEdit={handleEditClick}
+                    onDelete={handleDelete}
+                  />
+                ))}
+              </div>
+            </>
           )}
         </>
       )}
