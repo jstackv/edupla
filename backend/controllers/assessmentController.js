@@ -22,7 +22,14 @@ function passingLineForCategory(category) {
 }
 function computeDecision(pct, category) {
   if (pct == null || Number.isNaN(pct)) return null;
+  // Compare against the RAW (unrounded) percentage — rounding first can flip
+  // a genuine 69.6% up to a displayed 70% and wrongly award Competent.
   return pct >= passingLineForCategory(category) ? 'C' : 'NYC';
+}
+// Raw (unrounded) percentage, used for the C/NYC decision itself.
+function rawPercentage(obtained, max) {
+  if (obtained == null || !max) return null;
+  return (obtained / max) * 100;
 }
 // Scale a score earned out of fromMax onto a different total (the module
 // weight), e.g. 62/80 -> ~100.6/130. Null if nothing sensible to scale.
@@ -733,20 +740,11 @@ exports.teacherDeleteAssessment = async (req, res) => {
     const assessment = await Assessment.findOne({ _id: req.params.id, teacher_id: req.user.id });
     if (!assessment) return res.status(404).json({ message: 'Assessment not found' });
 
-    const marksCount = await Mark.countDocuments({ assessment_id: req.params.id, marks: { $ne: null } });
-    if (marksCount > 0) {
-      return res.status(400).json({
-        message: `Cannot delete this assessment — ${marksCount} mark(s) have already been recorded. Clear all marks before deleting.`,
-      });
-    }
-
-    const attemptsCount = await AssessmentAttempt.countDocuments({ assessment_id: req.params.id });
-    if (attemptsCount > 0) {
-      return res.status(400).json({
-        message: `Cannot delete this assessment — ${attemptsCount} student attempt(s) have already been recorded.`,
-      });
-    }
-
+    // A teacher owns this assessment and may remove it at their own
+    // discretion — online quiz attempts/results are a separate concern from
+    // the Marks Recording feature (the `Mark` model), so neither recorded
+    // marks nor recorded attempts should block deletion here. Everything
+    // tied to the assessment is cascade-deleted along with it.
     await Assessment.deleteOne({ _id: req.params.id });
     await Mark.deleteMany({ assessment_id: req.params.id });
     await AssessmentSubmission.deleteOne({ assessment_id: req.params.id });
@@ -1856,7 +1854,8 @@ exports.teacherListAttempts = async (req, res) => {
       const best = [...graded].sort((a, b) => b.total_score - a.total_score)[0];
       const pendingGrading = list.some(a => a.needs_manual_grading && a.status === 'submitted');
       const bestScore = best ? best.total_score : null;
-      const percentage = bestScore != null && maxMarks ? Math.round((bestScore / maxMarks) * 100) : null;
+      const rawPct = rawPercentage(bestScore, maxMarks);
+      const percentage = rawPct != null ? Math.round(rawPct) : null;
       const marksOnMw = scaleScore(bestScore, maxMarks, moduleWeight);
       return {
         student_id: s._id,
@@ -1868,7 +1867,7 @@ exports.teacherListAttempts = async (req, res) => {
         module_weight: moduleWeight,
         marks_on_mw: marksOnMw,
         percentage,
-        decision: computeDecision(percentage, category),
+        decision: computeDecision(rawPct, category),
         status: pendingGrading ? 'needs_grading' : (best ? 'graded' : (list.length ? 'submitted' : 'not_attempted')),
         attempts: list.map(a => ({
           id: a._id, attempt_number: a.attempt_number, status: a.status,
@@ -1991,23 +1990,22 @@ exports.teacherDownloadAttemptsExcel = async (req, res) => {
     const moduleWeight = assessment.course_id?.total_marks || 100;
     const category = assessment.course_id?.category || 'Complementary modules';
 
-    const header = ['No.', 'Student Name', 'Email', 'Attempts Used', `Score (out of ${maxMarks})`, `MW (out of ${moduleWeight})`, 'Percentage', 'Decision', 'Status'];
+    const header = ['No.', 'Name', `Score(${maxMarks})`, '%', `MW(${moduleWeight})`, 'Decision'];
     const rows = students.map((s, i) => {
       const list = byStudent[s._id.toString()] || [];
       const graded = list.filter(a => a.status === 'graded');
       const best = [...graded].sort((a, b) => b.total_score - a.total_score)[0];
-      const pendingGrading = list.some(a => a.needs_manual_grading && a.status === 'submitted');
-      const status = pendingGrading ? 'Needs manual grading' : (best ? 'Graded' : (list.length ? 'Submitted' : 'Not attempted'));
       const bestScore = best ? best.total_score : null;
-      const percentage = bestScore != null && maxMarks ? Math.round((bestScore / maxMarks) * 100) : null;
-      const decision = computeDecision(percentage, category);
+      const rawPct = rawPercentage(bestScore, maxMarks);
+      const percentage = rawPct != null ? Math.round(rawPct) : null;
+      const marksOnMw = scaleScore(bestScore, maxMarks, moduleWeight);
+      const decision = best ? computeDecision(rawPct, category) : null;
       return [
-        i + 1, s.name || '', s.email || '', list.length,
+        i + 1, s.name || '',
         bestScore != null ? bestScore : '',
-        moduleWeight,
         percentage != null ? `${percentage}%` : '',
-        decision || '',
-        status,
+        marksOnMw != null ? marksOnMw : '',
+        decision || (list.length ? '' : 'Not attempted'),
       ];
     });
 
@@ -2015,7 +2013,7 @@ exports.teacherDownloadAttemptsExcel = async (req, res) => {
     const sheetData = [[title], [], header, ...rows];
     const ws = XLSX.utils.aoa_to_sheet(sheetData);
     ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: header.length - 1 } }];
-    ws['!cols'] = [{ wch: 6 }, { wch: 28 }, { wch: 30 }, { wch: 14 }, { wch: 18 }, { wch: 16 }, { wch: 12 }, { wch: 10 }, { wch: 20 }];
+    ws['!cols'] = [{ wch: 6 }, { wch: 30 }, { wch: 16 }, { wch: 10 }, { wch: 16 }, { wch: 14 }];
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Mark Sheet');
@@ -2064,11 +2062,10 @@ exports.teacherDownloadAttemptsPdf = async (req, res) => {
 
     const cols = [
       { label: 'No.', width: 26 },
-      { label: 'Name', width: 158 },
-      { label: 'Attempts', width: 58 },
-      { label: 'Score', width: 55 },
-      { label: 'Max', width: 45 },
-      { label: 'MW', width: 45 },
+      { label: 'Name', width: 190 },
+      { label: `Score(${maxMarks})`, width: 80 },
+      { label: '%', width: 50 },
+      { label: `MW(${moduleWeight})`, width: 80 },
       { label: 'Decision', width: 65 },
     ];
     const startX = doc.page.margins.left;
@@ -2096,17 +2093,19 @@ exports.teacherDownloadAttemptsPdf = async (req, res) => {
       const graded = list.filter(a => a.status === 'graded');
       const best = [...graded].sort((a, b) => b.total_score - a.total_score)[0];
       const bestScore = best ? best.total_score : null;
-      const percentage = bestScore != null && maxMarks ? Math.round((bestScore / maxMarks) * 100) : null;
-      const decision = computeDecision(percentage, category);
+      const rawPct = rawPercentage(bestScore, maxMarks);
+      const percentage = rawPct != null ? Math.round(rawPct) : null;
+      const marksOnMw = scaleScore(bestScore, maxMarks, moduleWeight);
+      const decision = best ? computeDecision(rawPct, category) : null;
       drawRow(
         [
-          i + 1, s.name || '', list.length,
+          i + 1, s.name || '',
           bestScore != null ? bestScore : '—',
-          maxMarks || '—',
-          moduleWeight || '—',
+          percentage != null ? `${percentage}%` : '—',
+          marksOnMw != null ? marksOnMw : '—',
           decision || (list.length ? '—' : 'Not attempted'),
         ],
-        { colors: { 6: decision === 'C' ? '#10b981' : (decision === 'NYC' ? '#ef4444' : undefined) } }
+        { colors: { 5: decision === 'C' ? '#10b981' : (decision === 'NYC' ? '#ef4444' : undefined) } }
       );
     });
 
@@ -2138,7 +2137,8 @@ exports.studentGetSharedAssessments = async (req, res) => {
       const attemptsUsed = attempts.length;
       const bestScore = best ? best.total_score : null;
       const moduleWeight = a.course_id?.total_marks || 100;
-      const percentage = bestScore != null && a.max_marks ? Math.round((bestScore / a.max_marks) * 100) : null;
+      const rawPct = rawPercentage(bestScore, a.max_marks);
+      const percentage = rawPct != null ? Math.round(rawPct) : null;
       return {
         ...a, id: a._id,
         module_name: a.course_id?.name,
@@ -2151,7 +2151,8 @@ exports.studentGetSharedAssessments = async (req, res) => {
         best_score: bestScore,
         module_weight: moduleWeight,
         marks_on_mw: scaleScore(bestScore, a.max_marks, moduleWeight),
-        decision: best ? computeDecision(percentage, a.course_id?.category || 'Complementary modules') : null,
+        percentage,
+        decision: best ? computeDecision(rawPct, a.course_id?.category || 'Complementary modules') : null,
         has_pending_grading: attempts.some(x => x.needs_manual_grading),
       };
     }));

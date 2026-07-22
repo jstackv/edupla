@@ -334,7 +334,7 @@ export default function AssessmentsOnline() {
       open: true,
       variant: 'danger',
       title: 'Delete Assessment',
-      message: `Delete "${a.title}"? This cannot be undone.`,
+      message: `Delete "${a.title}"? Any student attempts and results recorded for it will be removed as well. This cannot be undone.`,
       confirmText: 'Delete',
       onConfirm: async () => {
         setConfirmModal(cm => ({ ...cm, loading: true }));

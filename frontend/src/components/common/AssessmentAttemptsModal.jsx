@@ -7,7 +7,9 @@
  *    "View answers" action so the teacher can see exactly what the student
  *    answered on every question — not only the ones still awaiting manual
  *    grading
- *  - a per-attempt grading view for open questions that need a manual score
+ *  - a per-attempt grading view for open questions: ungraded questions get a
+ *    score input right away, and already-graded ones can be reopened via a
+ *    "Regrade" button in case the teacher scored something incorrectly
  *  - Excel / PDF mark-sheet downloads
  *
  * API contract:
@@ -24,6 +26,7 @@ import toast from 'react-hot-toast';
 import {
   Loader2, FileSpreadsheet, FileText, ArrowLeft,
   CheckCircle2, AlertCircle, Save, ChevronDown, ChevronUp, Eye, ShieldAlert,
+  Pencil, X as XIcon,
 } from 'lucide-react';
 
 const STATUS_STYLE = {
@@ -33,16 +36,26 @@ const STATUS_STYLE = {
   not_attempted:  { label: 'Not attempted',   color: '#9ca3af', bg: 'rgba(156,163,175,0.12)' },
 };
 
+// Shared column template for the mark-sheet "grid table" — used verbatim by
+// both the header row and every data row so columns can never drift out of
+// alignment (unlike an HTML <table>, whose layout algorithm can redistribute
+// column widths based on content/container in surprising ways). Student gets
+// a flexible track (minmax + 1fr) so full names get the remaining space
+// instead of being squeezed into a fixed width.
+const GRID_COLS = '44px minmax(150px,1fr) 90px 110px 70px 110px 90px 150px';
+const GRID_MIN_WIDTH = 44 + 150 + 90 + 110 + 70 + 110 + 90 + 150; // fixed parts + Student floor
+
 const ATTEMPT_STATUS_STYLE = {
   graded:       { label: 'Graded',      color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
   submitted:    { label: 'Submitted',   color: '#6366f1', bg: 'rgba(99,102,241,0.12)' },
   in_progress:  { label: 'In progress', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
 };
 
-/* Shows every answer on an attempt. Editable score inputs only appear for
-   open questions that still need a manual score — everything else (already
-   auto- or manually-graded) is shown read-only, so the teacher can review a
-   fully-graded attempt without accidentally re-triggering a save. */
+/* Shows every answer on an attempt. Ungraded open questions get an editable
+   score input right away; already-graded open questions are shown read-only
+   with a "Regrade" button so the teacher can reopen and correct a score they
+   entered wrongly. Auto-graded questions stay read-only (they aren't a
+   manual-grading concern). */
 function GradingView({ attemptId, onClose, onGraded }) {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
@@ -82,6 +95,19 @@ function GradingView({ attemptId, onClose, onGraded }) {
     }
   };
 
+  // Reopen an already-graded open question so the teacher can correct a
+  // mistaken score. Cancelling reverts to the read-only view without saving.
+  const startEdit = (questionId, currentScore) => {
+    setScores(s => ({ ...s, [questionId]: String(currentScore ?? 0) }));
+  };
+  const cancelEdit = (questionId) => {
+    setScores(s => {
+      const next = { ...s };
+      delete next[questionId];
+      return next;
+    });
+  };
+
   if (loading) return <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--text-secondary)' }} /></div>;
   if (!data) return null;
 
@@ -97,7 +123,6 @@ function GradingView({ attemptId, onClose, onGraded }) {
       <div className="flex items-center justify-between">
         <div>
           <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>{data.attempt.student?.name}</p>
-          <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{data.attempt.student?.email}</p>
         </div>
         {data.attempt.total_score != null ? (
           <span className="font-mono font-bold text-lg" style={{ color: 'var(--text-primary)' }}>{data.attempt.total_score} pts</span>
@@ -110,7 +135,9 @@ function GradingView({ attemptId, onClose, onGraded }) {
 
       <div className="space-y-3">
         {data.answers.map((a, i) => {
-          const needsGradingHere = a.type === 'open' && a.manual_score == null && Object.prototype.hasOwnProperty.call(scores, a.question_id);
+          const isOpen = a.type === 'open';
+          const wasManuallyGraded = isOpen && a.manual_score != null;
+          const isEditing = isOpen && Object.prototype.hasOwnProperty.call(scores, a.question_id);
           return (
             <div key={a.question_id} className="card assessment-card p-3">
               <div className="flex items-start justify-between gap-2 mb-2">
@@ -129,7 +156,7 @@ function GradingView({ attemptId, onClose, onGraded }) {
                   : Array.isArray(a.student_answer) ? a.student_answer.join(', ') : (a.student_answer ?? '—')}
               </div>
 
-              {needsGradingHere ? (
+              {isEditing ? (
                 <div className="flex items-center gap-2">
                   <label className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Score:</label>
                   <input
@@ -137,13 +164,32 @@ function GradingView({ attemptId, onClose, onGraded }) {
                     value={scores[a.question_id] ?? ''}
                     onChange={e => setScores(s => ({ ...s, [a.question_id]: e.target.value }))}
                     className="chat-form-field w-24 text-sm"
+                    autoFocus={wasManuallyGraded}
                   />
                   <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>/ {a.marks}</span>
+                  {wasManuallyGraded && (
+                    <button
+                      onClick={() => cancelEdit(a.question_id)}
+                      className="text-xs font-semibold flex items-center gap-1 transition-colors duration-150 hover:opacity-80"
+                      style={{ color: 'var(--text-secondary)' }}
+                    >
+                      <XIcon className="w-3.5 h-3.5" /> Cancel
+                    </button>
+                  )}
                 </div>
-              ) : a.type === 'open' ? (
-                <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                  Manually graded: {a.manual_score ?? 0} / {a.marks} pts
-                </p>
+              ) : wasManuallyGraded ? (
+                <div className="flex items-center gap-2">
+                  <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                    Manually graded: {a.manual_score ?? 0} / {a.marks} pts
+                  </p>
+                  <button
+                    onClick={() => startEdit(a.question_id, a.manual_score)}
+                    className="text-xs font-semibold flex items-center gap-1 transition-colors duration-150 hover:opacity-80"
+                    style={{ color: '#6366f1' }}
+                  >
+                    <Pencil className="w-3.5 h-3.5" /> Regrade
+                  </button>
+                </div>
               ) : (
                 <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
                   Auto-graded: {a.auto_score ?? 0} / {a.marks} pts
@@ -172,7 +218,7 @@ function AttemptsList({ attempts, onViewAttempt }) {
       {attempts.map(att => {
         const st = ATTEMPT_STATUS_STYLE[att.status] || ATTEMPT_STATUS_STYLE.submitted;
         return (
-          <div key={att.id} className="flex items-center justify-between gap-2 text-xs px-3 py-2 rounded-lg" style={{ background: 'var(--surface-100)' }}>
+          <div key={att.id} className="results-attempt-chip flex items-center justify-between gap-2 text-xs px-3 py-2 rounded-lg" style={{ background: 'var(--surface-100)' }}>
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>Attempt {att.attempt_number}</span>
               <span className="badge" style={{ background: st.bg, color: st.color }}>{st.label}</span>
@@ -237,7 +283,7 @@ export default function AssessmentAttemptsModal({ assessment, onClose }) {
   };
 
   return (
-    <Modal isOpen={true} onClose={onClose} title={`Results — ${assessment.title}`} size="xl">
+    <Modal isOpen={true} onClose={onClose} title={`Results — ${assessment.title}`} size="2xl">
       {gradingAttemptId ? (
         <GradingView
           attemptId={gradingAttemptId}
@@ -249,10 +295,10 @@ export default function AssessmentAttemptsModal({ assessment, onClose }) {
       ) : (
         <div className="space-y-4">
           <div className="flex justify-end gap-2">
-            <button onClick={() => download('excel')} disabled={!!downloading} className="btn-secondary text-xs flex items-center gap-1.5">
+            <button onClick={() => download('excel')} disabled={!!downloading} className="results-download-btn btn-secondary text-xs flex items-center gap-1.5">
               {downloading === 'excel' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileSpreadsheet className="w-3.5 h-3.5" />} Excel
             </button>
-            <button onClick={() => download('pdf')} disabled={!!downloading} className="btn-secondary text-xs flex items-center gap-1.5">
+            <button onClick={() => download('pdf')} disabled={!!downloading} className="results-download-btn btn-secondary text-xs flex items-center gap-1.5">
               {downloading === 'pdf' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />} PDF
             </button>
           </div>
@@ -260,79 +306,85 @@ export default function AssessmentAttemptsModal({ assessment, onClose }) {
           <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>The best score across all of a student's attempts is what counts towards their result. Expand a student to see their individual attempts and every answer they gave.</p>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-xs uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>
-                  <th className="py-2 pr-3">Student</th>
-                  <th className="py-2 pr-3">Attempts</th>
-                  <th className="py-2 pr-3">Best Score</th>
-                  <th className="py-2 pr-3">%</th>
-                  <th className="py-2 pr-3">MW</th>
-                  <th className="py-2 pr-3">Decision</th>
-                  <th className="py-2 pr-3">Status</th>
-                  <th className="py-2 pr-3"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map(row => {
-                  const st = STATUS_STYLE[row.status] || STATUS_STYLE.not_attempted;
-                  const expanded = expandedStudentId === row.student_id;
-                  const canExpand = row.attempts_used > 0;
-                  return (
-                    <Fragment key={row.student_id}>
-                      <tr className="table-row" style={{ borderTop: '1px solid var(--card-border)' }}>
-                        <td className="py-2 pr-3">
-                          <div style={{ color: 'var(--text-primary)' }} className="font-medium">{row.student_name}</div>
-                          <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>{row.student_email}</div>
-                        </td>
-                        <td className="py-2 pr-3" style={{ color: 'var(--text-secondary)' }}>{row.attempts_used}</td>
-                        <td className="py-2 pr-3 font-mono" style={{ color: 'var(--text-primary)' }}>{row.best_score != null ? `${row.best_score} / ${row.max_marks}` : '—'}</td>
-                        <td className="py-2 pr-3" style={{ color: 'var(--text-secondary)' }}>{row.percentage != null ? `${row.percentage}%` : '—'}</td>
-                        <td className="py-2 pr-3 font-mono" style={{ color: 'var(--text-secondary)' }}>{row.marks_on_mw != null ? `${row.marks_on_mw} / ${row.module_weight}` : (row.module_weight ? `— / ${row.module_weight}` : '—')}</td>
-                        <td className="py-2 pr-3">
-                          {row.decision ? (
-                            <span
-                              className="text-xs font-bold px-2 py-0.5 rounded-full"
-                              style={{
-                                background: row.decision === 'C' ? 'rgba(16,185,129,0.14)' : 'rgba(239,68,68,0.14)',
-                                color: row.decision === 'C' ? '#10b981' : '#ef4444',
-                              }}
-                            >
-                              {row.decision}
-                            </span>
-                          ) : '—'}
-                        </td>
-                        <td className="py-2 pr-3">
-                          <span className="badge text-xs" style={{ background: st.bg, color: st.color }}>{st.label}</span>
-                        </td>
-                        <td className="py-2 pr-3 text-right">
-                          {canExpand && (
-                            <button
-                              onClick={() => setExpandedStudentId(expanded ? null : row.student_id)}
-                              className="text-xs font-semibold flex items-center gap-1 ml-auto transition-colors duration-150 hover:opacity-80"
-                              style={{ color: '#6366f1' }}
-                            >
-                              {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                              {expanded ? 'Hide attempts' : 'View attempts'}
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                      {expanded && (
-                        <tr>
-                          <td colSpan={8} className="pb-3">
-                            <AttemptsList attempts={row.attempts} onViewAttempt={setGradingAttemptId} />
-                          </td>
-                        </tr>
-                      )}
-                    </Fragment>
-                  );
-                })}
-                {rows.length === 0 && (
-                  <tr><td colSpan={8} className="py-8 text-center" style={{ color: 'var(--text-secondary)' }}>No students in this class yet.</td></tr>
-                )}
-              </tbody>
-            </table>
+            <div style={{ minWidth: GRID_MIN_WIDTH }}>
+              {/* Header row */}
+              <div
+                className="grid text-xs uppercase tracking-wide"
+                style={{ gridTemplateColumns: GRID_COLS, color: 'var(--text-secondary)' }}
+              >
+                <div className="py-2 px-3 min-w-0 truncate">No.</div>
+                <div className="py-2 px-3 min-w-0 truncate">Student</div>
+                <div className="py-2 px-3 min-w-0 truncate">Attempts</div>
+                <div className="py-2 px-3 min-w-0 truncate">Best Score</div>
+                <div className="py-2 px-3 min-w-0 truncate">%</div>
+                <div className="py-2 px-3 min-w-0 truncate">MW</div>
+                <div className="py-2 px-3 min-w-0 truncate">Decision</div>
+                <div className="py-2 px-3 min-w-0 truncate">Status</div>
+              </div>
+
+              {rows.map((row, i) => {
+                const st = STATUS_STYLE[row.status] || STATUS_STYLE.not_attempted;
+                const expanded = expandedStudentId === row.student_id;
+                const canExpand = row.attempts_used > 0;
+                return (
+                  <Fragment key={row.student_id}>
+                    <div
+                      className="results-row grid items-center"
+                      style={{ gridTemplateColumns: GRID_COLS, borderTop: '1px solid var(--card-border)', '--i': i }}
+                    >
+                      <div className="py-2.5 px-3 min-w-0 truncate" style={{ color: 'var(--text-secondary)' }}>{i + 1}</div>
+                      <div className="py-2.5 px-3 min-w-0 truncate font-medium" style={{ color: 'var(--text-primary)' }}>
+                        {row.student_name}
+                      </div>
+                      <div className="py-2.5 px-3 min-w-0 truncate" style={{ color: 'var(--text-secondary)' }}>{row.attempts_used}</div>
+                      <div className="py-2.5 px-3 min-w-0 truncate font-mono" style={{ color: 'var(--text-primary)' }}>
+                        {row.best_score != null ? `${row.best_score} / ${row.max_marks}` : '—'}
+                      </div>
+                      <div className="py-2.5 px-3 min-w-0 truncate" style={{ color: 'var(--text-secondary)' }}>
+                        {row.percentage != null ? `${row.percentage}%` : '—'}
+                      </div>
+                      <div className="py-2.5 px-3 min-w-0 truncate font-mono" style={{ color: 'var(--text-secondary)' }}>
+                        {row.marks_on_mw != null ? `${row.marks_on_mw} / ${row.module_weight}` : (row.module_weight ? `— / ${row.module_weight}` : '—')}
+                      </div>
+                      <div className="py-2.5 px-3 min-w-0 truncate">
+                        {row.decision ? (
+                          <span
+                            className="results-decision-badge text-xs font-bold px-2 py-0.5 rounded-full"
+                            style={{
+                              background: row.decision === 'C' ? 'rgba(16,185,129,0.14)' : 'rgba(239,68,68,0.14)',
+                              color: row.decision === 'C' ? '#10b981' : '#ef4444',
+                            }}
+                          >
+                            {row.decision}
+                          </span>
+                        ) : '—'}
+                      </div>
+                      <div className="py-2.5 px-3 min-w-0 flex items-center gap-2">
+                        <span className="badge text-xs whitespace-nowrap" style={{ background: st.bg, color: st.color }}>{st.label}</span>
+                        {canExpand && (
+                          <button
+                            onClick={() => setExpandedStudentId(expanded ? null : row.student_id)}
+                            title={expanded ? 'Hide attempts' : 'View attempts'}
+                            className="flex-shrink-0 transition-all duration-150 hover:opacity-80"
+                            style={{ color: '#6366f1' }}
+                          >
+                            {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {expanded && (
+                      <div className="results-expand-panel pb-3 px-3">
+                        <AttemptsList attempts={row.attempts} onViewAttempt={setGradingAttemptId} />
+                      </div>
+                    )}
+                  </Fragment>
+                );
+              })}
+              {rows.length === 0 && (
+                <div className="py-8 text-center" style={{ color: 'var(--text-secondary)' }}>No students in this class yet.</div>
+              )}
+            </div>
           </div>
         </div>
       )}
