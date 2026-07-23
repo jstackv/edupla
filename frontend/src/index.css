@@ -843,6 +843,19 @@ html { scroll-behavior: smooth; }
 }
 .results-row:hover::before { transform: scaleY(1); }
 
+/* Pinned "No." / "Student" columns for wide tables (e.g. Overall results
+   with several per-assessment columns) — stay opaque and on top so the
+   scrolling columns behind them don't bleed through, and pick up the same
+   hover highlight as the rest of the row. */
+.results-sticky-col {
+  position: sticky;
+  z-index: 2;
+  background: var(--card-bg);
+}
+.results-header-row .results-sticky-col { background: var(--card-bg); }
+.results-row:hover .results-sticky-col { background: var(--surface-100); }
+
+
 .results-decision-badge {
   display: inline-flex;
   transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s ease;

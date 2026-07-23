@@ -68,7 +68,6 @@ export default function QuizBuilderModal({ assessment, onClose, onSaved }) {
   }, [assessment.id]);
 
   const totalMarks = questions.reduce((s, q) => s + (Number(q.marks) || 0), 0);
-  const overWeight = totalMarks > moduleWeight;
 
   const updateQuestion = (key, patch) => {
     setQuestions(qs => qs.map(q => (q._key === key ? { ...q, ...patch } : q)));
@@ -115,7 +114,6 @@ export default function QuizBuilderModal({ assessment, onClose, onSaved }) {
       if (q.type === 'fill_gap' && !(q.correct_answer || []).some(a => a.trim())) return toast.error('Add at least one expected answer for every fill-in-the-gap question.');
       if (q.type === 'matching' && q.pairs.some(p => !p.left.trim() || !p.right.trim())) return toast.error('Fill in every matching pair.');
     }
-    if (overWeight) return toast.error(`Total question marks (${totalMarks}) exceed the module weight (${moduleWeight}). Reduce some question marks first.`);
 
     setSaving(true);
     try {
@@ -155,13 +153,13 @@ export default function QuizBuilderModal({ assessment, onClose, onSaved }) {
 
           <div className="flex items-center justify-between text-sm">
             <span style={{ color: 'var(--text-secondary)' }}>{questions.length} question{questions.length !== 1 ? 's' : ''}</span>
-            <span className="font-semibold flex items-center gap-1.5" style={{ color: overWeight ? '#ef4444' : 'var(--text-primary)' }}>
+            <span className="font-semibold flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
               Total marks: {totalMarks} / {moduleWeight} MW
             </span>
           </div>
-          {overWeight && (
-            <p className="text-xs -mt-2" style={{ color: '#ef4444' }}>
-              This exceeds the module weight ({moduleWeight} marks) — reduce some question marks before saving.
+          {totalMarks > moduleWeight && (
+            <p className="text-xs -mt-2" style={{ color: 'var(--text-secondary)' }}>
+              This is worth more than the module weight ({moduleWeight} marks) — that's fine, a student's score is scaled onto the module weight automatically when results are calculated.
             </p>
           )}
           <p className="text-xs -mt-2" style={{ color: 'var(--text-secondary)' }}>

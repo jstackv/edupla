@@ -1646,17 +1646,12 @@ exports.teacherSaveQuestions = async (req, res) => {
       }
     }
 
-    /* The assessment's maximum is no longer set by hand — it's always the
-       sum of the question marks the teacher just built, capped at the
-       module's weight so a single assessment can never claim more than the
-       whole module is worth. */
+    /* The assessment's maximum is the sum of the question marks the teacher
+       just built. It's no longer capped at the module weight — a teacher
+       may deliberately build a paper worth more (or less) than the module
+       weight; results scaling (scaleScore) already converts whatever ratio
+       a student earns onto the module weight correctly regardless. */
     const quizMax = questions.reduce((s, q) => s + Number(q.marks), 0);
-    const courseWeight = assessment.course_id?.total_marks || 100;
-    if (quizMax > courseWeight) {
-      return res.status(400).json({
-        message: `The total question marks (${quizMax}) exceed the module weight (${courseWeight} marks). Reduce some question marks before saving.`,
-      });
-    }
 
     await AssessmentQuestion.deleteMany({ assessment_id: assessment._id });
     const docs = questions.map((q, i) => ({
@@ -1919,6 +1914,224 @@ exports.teacherListAttempts = async (req, res) => {
 
     res.json({ assessment: { ...assessment, id: assessment._id, max_marks_computed: maxMarks, module_weight: moduleWeight }, rows });
   } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+/* ═══════════════════════ TEACHER: Overall (combined) results ══════════
+   When a module/class/term/year holds MORE THAN ONE assessment of the
+   same type (e.g. Formative Assessment 1 + Formative Assessment 2), the
+   teacher can either look at any single one of them individually (same
+   as before) or ask for the "Overall" view: every shared assessment in
+   that type/term/year group is combined into one result per student —
+   their best score on each assessment is summed, that sum is taken over
+   the sum of each assessment's own max marks, and the combined fraction
+   is finally scaled onto the module weight. This keeps the module weight
+   from being counted more than once even though several assessments each
+   independently cap at it. ═══════════════════════════════════════════ */
+async function buildOverallResults(teacherId, { course_id, class_id, type, term, academic_year }) {
+  const course = await Course.findOne({ _id: course_id, teacher_id: teacherId }, 'name total_marks category').lean();
+  if (!course) return null;
+  const cls = await Class.findById(class_id, 'name students').lean();
+  if (!cls) return null;
+
+  const assessments = await Assessment.find({
+    teacher_id: teacherId, course_id, class_id, type, term, academic_year, mode: 'quiz', is_shared: true,
+  }).sort({ created_at: 1 }).lean();
+
+  const moduleWeight = course.total_marks || 100;
+  const category = course.category || 'Complementary modules';
+
+  const maxMarksByAssessment = {};
+  for (const a of assessments) {
+    const agg = await AssessmentQuestion.aggregate([
+      { $match: { assessment_id: a._id } },
+      { $group: { _id: null, total: { $sum: '$marks' } } },
+    ]);
+    maxMarksByAssessment[a._id.toString()] = agg[0]?.total || 0;
+  }
+  const combinedMax = assessments.reduce((s, a) => s + (maxMarksByAssessment[a._id.toString()] || 0), 0);
+
+  const students = await User.find({ _id: { $in: cls.students || [] } }, 'name email').sort({ name: 1 }).lean();
+
+  const attempts = assessments.length
+    ? await AssessmentAttempt.find({ assessment_id: { $in: assessments.map(a => a._id) }, voided: { $ne: true } }).lean()
+    : [];
+  const byKey = {};
+  attempts.forEach(at => {
+    const k = `${at.assessment_id}_${at.student_id}`;
+    (byKey[k] = byKey[k] || []).push(at);
+  });
+
+  const rows = students.map(s => {
+    let totalObtained = 0;
+    let anyAttempted = false;
+    let anyPendingGrading = false;
+
+    const perAssessment = assessments.map(a => {
+      const list = byKey[`${a._id}_${s._id}`] || [];
+      const graded = list.filter(x => x.status === 'graded');
+      const best = [...graded].sort((x, y) => y.total_score - x.total_score)[0];
+      const bestScore = best ? best.total_score : null;
+      if (bestScore != null) { totalObtained += bestScore; anyAttempted = true; }
+      if (list.some(x => x.needs_manual_grading && x.status === 'submitted')) anyPendingGrading = true;
+      return {
+        assessment_id: a._id, title: a.title,
+        best_score: bestScore, max_marks: maxMarksByAssessment[a._id.toString()] || 0,
+        attempts_used: list.length,
+      };
+    });
+
+    const rawPct = anyAttempted ? rawPercentage(totalObtained, combinedMax) : null;
+    const percentage = rawPct != null ? Math.round(rawPct) : null;
+
+    return {
+      student_id: s._id, student_name: s.name, student_email: s.email,
+      per_assessment: perAssessment,
+      total_obtained: anyAttempted ? Math.round(totalObtained * 100) / 100 : null,
+      combined_max: combinedMax,
+      percentage,
+      module_weight: moduleWeight,
+      marks_on_mw: anyAttempted ? scaleScore(totalObtained, combinedMax, moduleWeight) : null,
+      decision: anyAttempted ? computeDecision(rawPct, category) : null,
+      status: anyPendingGrading ? 'needs_grading' : (anyAttempted ? 'graded' : 'not_attempted'),
+    };
+  });
+
+  return {
+    course: { id: course._id, name: course.name },
+    class: { id: cls._id, name: cls.name },
+    type, term, academic_year,
+    assessments: assessments.map(a => ({ id: a._id, title: a.title, max_marks: maxMarksByAssessment[a._id.toString()] || 0 })),
+    combined_max: combinedMax,
+    module_weight: moduleWeight,
+    rows,
+  };
+}
+
+exports.teacherGetOverallResults = async (req, res) => {
+  try {
+    const { course_id, class_id, type, term, academic_year } = req.query;
+    if (!course_id || !class_id || !type || !term || !academic_year) {
+      return res.status(400).json({ message: 'course_id, class_id, type, term and academic_year are required' });
+    }
+    const result = await buildOverallResults(req.user.id, { course_id, class_id, type, term, academic_year });
+    if (!result) return res.status(404).json({ message: 'Module or class not found' });
+    res.json(result);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+exports.teacherDownloadOverallExcel = async (req, res) => {
+  try {
+    const { course_id, class_id, type, term, academic_year } = req.query;
+    const result = await buildOverallResults(req.user.id, { course_id, class_id, type, term, academic_year });
+    if (!result) return res.status(404).json({ message: 'Module or class not found' });
+
+    const header = [
+      'No.', 'Name',
+      ...result.assessments.map(a => `${a.title}(${a.max_marks})`),
+      `Total(${result.combined_max})`, '%', `MW(${result.module_weight})`, 'Decision',
+    ];
+    const rows = result.rows.map((r, i) => [
+      i + 1, r.student_name,
+      ...r.per_assessment.map(pa => pa.best_score != null ? pa.best_score : ''),
+      r.total_obtained != null ? r.total_obtained : '',
+      r.percentage != null ? `${r.percentage}%` : '',
+      r.marks_on_mw != null ? r.marks_on_mw : '',
+      r.decision || (r.status === 'not_attempted' ? 'Not attempted' : ''),
+    ]);
+
+    const typeLabel = TYPE_TITLES[type] || type;
+    const title = `Overall — ${typeLabel} — ${result.course.name} — ${result.class.name} — ${term} ${academic_year}`;
+    const sheetData = [[title], [], header, ...rows];
+    const ws = XLSX.utils.aoa_to_sheet(sheetData);
+    ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: header.length - 1 } }];
+    ws['!cols'] = [{ wch: 6 }, { wch: 28 }, ...result.assessments.map(() => ({ wch: 16 })), { wch: 14 }, { wch: 10 }, { wch: 16 }, { wch: 12 }];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Overall');
+    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    const filename = `overall-marksheet-${type}-${term}-${academic_year}`.replace(/[^a-z0-9]+/gi, '-') + '.xlsx';
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(buffer);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+exports.teacherDownloadOverallPdf = async (req, res) => {
+  try {
+    const { course_id, class_id, type, term, academic_year } = req.query;
+    const result = await buildOverallResults(req.user.id, { course_id, class_id, type, term, academic_year });
+    if (!result) return res.status(404).json({ message: 'Module or class not found' });
+
+    const typeLabel = TYPE_TITLES[type] || type;
+    const filename = `overall-marksheet-${type}-${term}-${academic_year}`.replace(/[^a-z0-9]+/gi, '-') + '.pdf';
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+    const doc = new PDFDocument({ size: 'A4', margin: 40, layout: result.assessments.length > 3 ? 'landscape' : 'portrait' });
+    doc.pipe(res);
+
+    doc.fontSize(16).font('Helvetica-Bold').text(`Overall — ${typeLabel}`, { align: 'center' });
+    doc.fontSize(10).font('Helvetica').fillColor('#555')
+      .text(`${result.course.name} — ${result.class.name} — ${term} ${academic_year}`, { align: 'center' })
+      .text(`Generated ${new Date().toLocaleString()}`, { align: 'center' });
+    doc.moveDown(1.2);
+    doc.fillColor('#000');
+
+    const usableWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+    const fixedWidth = 26 + 150 + 70 + 45 + 65 + 65; // No + Name + Total + % + MW + Decision
+    const perAssessmentWidth = result.assessments.length
+      ? Math.max(50, Math.floor((usableWidth - fixedWidth) / result.assessments.length))
+      : 0;
+
+    const cols = [
+      { label: 'No.', width: 26 },
+      { label: 'Name', width: 150 },
+      ...result.assessments.map(a => ({ label: `${a.title}`, width: perAssessmentWidth })),
+      { label: `Total(${result.combined_max})`, width: 70 },
+      { label: '%', width: 45 },
+      { label: `MW(${result.module_weight})`, width: 65 },
+      { label: 'Decision', width: 65 },
+    ];
+    const startX = doc.page.margins.left;
+    let y = doc.y;
+
+    const drawRow = (values, opts = {}) => {
+      let x = startX;
+      doc.font(opts.bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(8.5);
+      cols.forEach((c, i) => {
+        if (opts.colors && opts.colors[i]) doc.fillColor(opts.colors[i]); else doc.fillColor('#000');
+        doc.text(String(values[i] ?? ''), x, y, { width: c.width, ellipsis: true });
+        x += c.width;
+      });
+      doc.fillColor('#000');
+      y += 18;
+    };
+
+    drawRow(cols.map(c => c.label), { bold: true });
+    doc.moveTo(startX, y).lineTo(startX + cols.reduce((s, c) => s + c.width, 0), y).strokeColor('#ccc').stroke();
+    y += 4;
+
+    const pageBottom = doc.page.height - doc.page.margins.bottom;
+    result.rows.forEach((r, i) => {
+      if (y > pageBottom - 30) { doc.addPage(); y = doc.page.margins.top; }
+      const decisionColIndex = cols.length - 1;
+      drawRow(
+        [
+          i + 1, r.student_name,
+          ...r.per_assessment.map(pa => pa.best_score != null ? pa.best_score : '—'),
+          r.total_obtained != null ? r.total_obtained : '—',
+          r.percentage != null ? `${r.percentage}%` : '—',
+          r.marks_on_mw != null ? r.marks_on_mw : '—',
+          r.decision || (r.status === 'not_attempted' ? 'Not attempted' : '—'),
+        ],
+        { colors: { [decisionColIndex]: r.decision === 'C' ? '#10b981' : (r.decision === 'NYC' ? '#ef4444' : undefined) } }
+      );
+    });
+    doc.end();
+  } catch (err) {
+    if (!res.headersSent) res.status(500).json({ message: err.message });
+  }
 };
 
 exports.teacherGetAttemptForGrading = async (req, res) => {
