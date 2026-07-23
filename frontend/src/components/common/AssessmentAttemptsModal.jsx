@@ -21,6 +21,7 @@
  */
 import { useState, useEffect, Fragment } from 'react';
 import Modal from './Modal';
+import ConfirmModal from './ConfirmModal';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import {
@@ -61,6 +62,7 @@ function GradingView({ attemptId, onClose, onGraded }) {
   const [data, setData] = useState(null);
   const [scores, setScores] = useState({});
   const [saving, setSaving] = useState(false);
+  const [confirmZero, setConfirmZero] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -81,7 +83,7 @@ function GradingView({ attemptId, onClose, onGraded }) {
     return () => { alive = false; };
   }, [attemptId]);
 
-  const handleSave = async () => {
+  const doSave = async () => {
     const grades = Object.entries(scores).map(([question_id, manual_score]) => ({ question_id, manual_score: Number(manual_score) || 0 }));
     setSaving(true);
     try {
@@ -93,6 +95,15 @@ function GradingView({ attemptId, onClose, onGraded }) {
     } finally {
       setSaving(false);
     }
+  };
+
+  // Blank score fields would be saved as 0 (Number('') || 0) — warn the
+  // teacher first instead of silently zeroing a question they simply
+  // haven't gotten to yet.
+  const handleSave = () => {
+    const blankCount = Object.values(scores).filter(v => v === '' || v == null).length;
+    if (blankCount > 0) { setConfirmZero(true); return; }
+    doSave();
   };
 
   // Reopen an already-graded open question so the teacher can correct a
@@ -113,6 +124,7 @@ function GradingView({ attemptId, onClose, onGraded }) {
 
   const pendingOpenIds = Object.keys(scores);
   const hasPendingGrading = pendingOpenIds.length > 0;
+  const blankCount = Object.values(scores).filter(v => v === '' || v == null).length;
 
   return (
     <div className="space-y-4">
@@ -208,6 +220,17 @@ function GradingView({ attemptId, onClose, onGraded }) {
           </button>
         </div>
       )}
+
+      <ConfirmModal
+        open={confirmZero}
+        onClose={() => setConfirmZero(false)}
+        onConfirm={() => { setConfirmZero(false); doSave(); }}
+        variant="warning"
+        title="Ungraded questions will score 0"
+        message={`${blankCount} question${blankCount > 1 ? 's' : ''} ${blankCount > 1 ? "don't" : "doesn't"} have a score entered yet. If you continue, ${blankCount > 1 ? 'they' : 'it'} will be recorded as 0 out of ${blankCount > 1 ? 'their' : 'its'} marks. Continue?`}
+        confirmText="Save as 0"
+        cancelText="Go back"
+      />
     </div>
   );
 }

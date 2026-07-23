@@ -1568,7 +1568,7 @@ function buildResultPayload(assessment, attempt) {
    expectation and keeps a single source of truth for reports. */
 async function recomputeAndUpsertMark(assessment, studentId) {
   const attempts = await AssessmentAttempt.find({
-    assessment_id: assessment._id, student_id: studentId, status: 'graded', total_score: { $ne: null },
+    assessment_id: assessment._id, student_id: studentId, status: 'graded', total_score: { $ne: null }, voided: { $ne: true },
   }).lean();
   if (!attempts.length) return;
   const best = attempts.reduce((a, b) => (b.total_score > a.total_score ? b : a));
@@ -1587,7 +1587,7 @@ exports.teacherGetQuestions = async (req, res) => {
     if (!assessment) return res.status(404).json({ message: 'Assessment not found' });
 
     const locked = await AssessmentAttempt.countDocuments({
-      assessment_id: assessment._id, status: { $ne: 'in_progress' },
+      assessment_id: assessment._id, status: { $ne: 'in_progress' }, voided: { $ne: true },
     }) > 0;
 
     const questions = await AssessmentQuestion.find({ assessment_id: req.params.id }).sort({ order: 1 }).lean();
@@ -1607,7 +1607,7 @@ exports.teacherSaveQuestions = async (req, res) => {
     if (!assessment) return res.status(404).json({ message: 'Assessment not found' });
 
     const submittedAttempts = await AssessmentAttempt.countDocuments({
-      assessment_id: assessment._id, status: { $ne: 'in_progress' },
+      assessment_id: assessment._id, status: { $ne: 'in_progress' }, voided: { $ne: true },
     });
     if (submittedAttempts > 0) {
       return res.status(400).json({ message: 'Questions are locked — students have already submitted attempts for this assessment.' });
@@ -1710,7 +1710,7 @@ exports.teacherShareAssessment = async (req, res) => {
        already used more attempts than the new value would allow, block it
        and point the teacher at the dedicated "Add attempt" action instead. */
     if (assessment.is_shared) {
-      const mostUsed = await AssessmentAttempt.findOne({ assessment_id: assessment._id })
+      const mostUsed = await AssessmentAttempt.findOne({ assessment_id: assessment._id, voided: { $ne: true } })
         .sort({ attempt_number: -1 }).lean();
       if (mostUsed && requestedMaxAttempts < mostUsed.attempt_number) {
         return res.status(400).json({
@@ -1768,25 +1768,46 @@ exports.teacherShareAssessment = async (req, res) => {
 
 exports.teacherUnshareAssessment = async (req, res) => {
   try {
-    const updated = await Assessment.findOneAndUpdate(
-      { _id: req.params.id, teacher_id: req.user.id },
-      { is_shared: false },
-      { new: true }
+    const assessment = await Assessment.findOne({ _id: req.params.id, teacher_id: req.user.id });
+    if (!assessment) return res.status(404).json({ message: 'Assessment not found' });
+
+    assessment.is_shared = false;
+    await assessment.save();
+
+    // Void every existing attempt — students' submissions are no longer
+    // considered towards results/marks/attempt limits, and the question
+    // paper is unlocked for editing. Attempts are kept (not deleted) purely
+    // as an audit trail; every read path filters `voided: true` out.
+    const voidResult = await AssessmentAttempt.updateMany(
+      { assessment_id: assessment._id, voided: { $ne: true } },
+      { voided: true, voided_at: new Date() }
     );
-    if (!updated) return res.status(404).json({ message: 'Assessment not found' });
-    res.json({ message: 'Assessment unshared. Students can no longer start new attempts.' });
+    // The Mark records for this assessment were auto-derived from those now-
+    // voided attempts — clear them so no stale mark lingers until the
+    // assessment is re-shared and graded again.
+    await Mark.deleteMany({ assessment_id: assessment._id });
+
+    res.json({
+      message: voidResult.modifiedCount > 0
+        ? `Assessment unshared. ${voidResult.modifiedCount} student submission(s) have been voided and won't count towards results. You can now edit the questions freely.`
+        : 'Assessment unshared. Students can no longer start new attempts. You can now edit the questions freely.',
+    });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
 /* Give students one (or more) extra attempts on an assessment that's already
    shared — e.g. because a student needs another try to demonstrate they've
    understood the material. This is deliberately a lighter-weight action than
-   full re-sharing: it doesn't touch duration/expiry/instructions and doesn't
-   require re-sending the "new assessment" notification email; students who
-   are already looking at the assessment just see more attempts available. */
+   full re-sharing: it doesn't require re-sending the "new assessment"
+   notification email; students who are already looking at the assessment
+   just see more attempts available.
+   Optionally also updates duration_minutes / expires_at (e.g. giving the
+   extra attempt a fresh window to be used in), without touching
+   instructions or resetting anything else the way a full re-share would. */
 exports.teacherAddAttempts = async (req, res) => {
   try {
     const additional = Math.max(1, Math.round(Number(req.body.additional_attempts) || 1));
+    const { duration_minutes, expires_at } = req.body;
 
     const assessment = await Assessment.findOne({ _id: req.params.id, teacher_id: req.user.id })
       .populate('course_id', 'name')
@@ -1796,10 +1817,28 @@ exports.teacherAddAttempts = async (req, res) => {
       return res.status(400).json({ message: 'This assessment has not been shared yet — share it first.' });
     }
 
+    if (duration_minutes !== undefined && duration_minutes !== null && duration_minutes !== '') {
+      if (Number(duration_minutes) <= 0) {
+        return res.status(400).json({ message: 'Duration must be greater than 0 minutes.' });
+      }
+      assessment.duration_minutes = Number(duration_minutes);
+    }
+    if (expires_at !== undefined && expires_at !== null && expires_at !== '') {
+      if (new Date(expires_at) <= new Date()) {
+        return res.status(400).json({ message: 'Expiry date/time must be in the future.' });
+      }
+      assessment.expires_at = new Date(expires_at);
+    }
+
     assessment.max_attempts = (assessment.max_attempts || 1) + additional;
     await assessment.save();
 
-    res.json({ message: `Added ${additional} attempt${additional > 1 ? 's' : ''}. Students now get up to ${assessment.max_attempts} attempt${assessment.max_attempts > 1 ? 's' : ''}.`, max_attempts: assessment.max_attempts });
+    res.json({
+      message: `Added ${additional} attempt${additional > 1 ? 's' : ''}. Students now get up to ${assessment.max_attempts} attempt${assessment.max_attempts > 1 ? 's' : ''}.`,
+      max_attempts: assessment.max_attempts,
+      duration_minutes: assessment.duration_minutes,
+      expires_at: assessment.expires_at,
+    });
 
     // ── Notify students async — a quick heads-up, not a full re-share blast ──
     try {
@@ -1832,7 +1871,7 @@ exports.teacherListAttempts = async (req, res) => {
 
     const students = await User.find({ _id: { $in: assessment.class_id?.students || [] } }, 'name email')
       .sort({ name: 1 }).lean();
-    const attempts = await AssessmentAttempt.find({ assessment_id: assessment._id }).sort({ attempt_number: 1 }).lean();
+    const attempts = await AssessmentAttempt.find({ assessment_id: assessment._id, voided: { $ne: true } }).sort({ attempt_number: 1 }).lean();
 
     const byStudent = {};
     attempts.forEach(a => {
@@ -1924,6 +1963,9 @@ exports.teacherGradeOpenAnswers = async (req, res) => {
   try {
     const attempt = await AssessmentAttempt.findById(req.params.attemptId);
     if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
+    if (attempt.voided) {
+      return res.status(400).json({ message: 'This attempt was voided when the assessment was unshared and can no longer be graded.' });
+    }
 
     const assessment = await Assessment.findOne({ _id: attempt.assessment_id, teacher_id: req.user.id }).lean();
     if (!assessment) return res.status(403).json({ message: 'Access denied' });
@@ -1978,7 +2020,7 @@ exports.teacherDownloadAttemptsExcel = async (req, res) => {
 
     const students = await User.find({ _id: { $in: assessment.class_id?.students || [] } }, 'name email')
       .sort({ name: 1 }).lean();
-    const attempts = await AssessmentAttempt.find({ assessment_id: assessment._id }).lean();
+    const attempts = await AssessmentAttempt.find({ assessment_id: assessment._id, voided: { $ne: true } }).lean();
     const byStudent = {};
     attempts.forEach(a => { const k = a.student_id.toString(); (byStudent[k] = byStudent[k] || []).push(a); });
 
@@ -2034,7 +2076,7 @@ exports.teacherDownloadAttemptsPdf = async (req, res) => {
 
     const students = await User.find({ _id: { $in: assessment.class_id?.students || [] } }, 'name email')
       .sort({ name: 1 }).lean();
-    const attempts = await AssessmentAttempt.find({ assessment_id: assessment._id }).lean();
+    const attempts = await AssessmentAttempt.find({ assessment_id: assessment._id, voided: { $ne: true } }).lean();
     const byStudent = {};
     attempts.forEach(a => { const k = a.student_id.toString(); (byStudent[k] = byStudent[k] || []).push(a); });
 
@@ -2129,7 +2171,7 @@ exports.studentGetSharedAssessments = async (req, res) => {
       .lean();
 
     const enriched = await Promise.all(assessments.map(async a => {
-      const attempts = await AssessmentAttempt.find({ assessment_id: a._id, student_id: req.user.id }).lean();
+      const attempts = await AssessmentAttempt.find({ assessment_id: a._id, student_id: req.user.id, voided: { $ne: true } }).lean();
       const graded = attempts.filter(x => x.status === 'graded');
       const best = [...graded].sort((x, y) => y.total_score - x.total_score)[0];
       const inProgress = attempts.find(x => x.status === 'in_progress');
@@ -2174,9 +2216,9 @@ exports.studentGetAssessmentInstructions = async (req, res) => {
 
     const questions = await AssessmentQuestion.find({ assessment_id: assessment._id }).lean();
     const totalMarks = questions.reduce((s, q) => s + (q.marks || 0), 0);
-    const attemptsUsed = await AssessmentAttempt.countDocuments({ assessment_id: assessment._id, student_id: req.user.id });
+    const attemptsUsed = await AssessmentAttempt.countDocuments({ assessment_id: assessment._id, student_id: req.user.id, voided: { $ne: true } });
     const inProgress = await AssessmentAttempt.findOne({
-      assessment_id: assessment._id, student_id: req.user.id, status: 'in_progress',
+      assessment_id: assessment._id, student_id: req.user.id, status: 'in_progress', voided: { $ne: true },
     }).lean();
 
     res.json({
@@ -2216,7 +2258,7 @@ exports.studentStartAttempt = async (req, res) => {
     // Resume an in-progress attempt still within its time window instead of
     // burning a fresh attempt on every page load/refresh.
     const existing = await AssessmentAttempt.findOne({
-      assessment_id: assessment._id, student_id: req.user.id, status: 'in_progress',
+      assessment_id: assessment._id, student_id: req.user.id, status: 'in_progress', voided: { $ne: true },
     });
     if (existing) {
       if (new Date() < new Date(existing.due_at)) {
@@ -2227,10 +2269,16 @@ exports.studentStartAttempt = async (req, res) => {
       await finalizeAttemptSubmission(existing, { autoSubmitted: true, reason: 'timeout' });
     }
 
-    const attemptsUsed = await AssessmentAttempt.countDocuments({ assessment_id: assessment._id, student_id: req.user.id });
+    // Attempts still count towards the assessment's max_attempts (only real,
+    // non-voided ones), but the attempt_number itself must stay unique
+    // against EVERY attempt ever created for this student — including ones
+    // voided by a prior unshare — since attempt_number is part of a unique
+    // index and old attempt numbers are never reused.
+    const attemptsUsed = await AssessmentAttempt.countDocuments({ assessment_id: assessment._id, student_id: req.user.id, voided: { $ne: true } });
     if (attemptsUsed >= (assessment.max_attempts || 1)) {
       return res.status(400).json({ message: 'You have used all your attempts for this assessment.' });
     }
+    const totalAttemptsEver = await AssessmentAttempt.countDocuments({ assessment_id: assessment._id, student_id: req.user.id });
 
     const questions = await AssessmentQuestion.find({ assessment_id: assessment._id }).sort({ order: 1 }).lean();
     if (!questions.length) return res.status(400).json({ message: 'This assessment has no questions yet.' });
@@ -2245,7 +2293,7 @@ exports.studentStartAttempt = async (req, res) => {
     const attempt = await AssessmentAttempt.create({
       assessment_id: assessment._id,
       student_id: req.user.id,
-      attempt_number: attemptsUsed + 1,
+      attempt_number: totalAttemptsEver + 1,
       question_order: ordered.map(q => q._id),
       answers: ordered.map(q => ({ question_id: q._id, answer: null })),
       started_at: now,

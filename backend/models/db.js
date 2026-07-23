@@ -349,6 +349,13 @@ const assessmentAttemptSchema = new mongoose.Schema({
   total_score:          { type: Number, default: null },   // final score once fully graded
   graded_by:            { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   graded_at:            { type: Date, default: null },
+  // Set when the teacher unshares the assessment to go back and edit its
+  // questions. Voided attempts are kept (not deleted) for audit purposes but
+  // are excluded from every count/result/decision computation, and don't
+  // block re-editing the question paper. They stay void even if the
+  // assessment is re-shared afterwards — only genuinely new attempts count.
+  voided:               { type: Boolean, default: false },
+  voided_at:            { type: Date, default: null },
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 assessmentAttemptSchema.index({ assessment_id: 1, student_id: 1, attempt_number: 1 }, { unique: true });
 
