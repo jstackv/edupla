@@ -15,8 +15,11 @@
  * needs its own title, which is auto-numbered by the backend when left blank.
  *
  * Editing (type/term/year/class/title) is only allowed before an assessment
- * is shared; once shared, "Add attempt" and "Update sharing" are the ways to
- * adjust it further.
+ * is shared; once shared, "Unshare" is how a teacher gets back into editing
+ * the question paper — it voids every submission recorded so far (they no
+ * longer count towards results/marks) and re-shared attempts start fresh.
+ * "Add attempt" and "Update sharing" are the ways to adjust a still-shared
+ * assessment further without unsharing it.
  *
  * API contract:
  *   GET  /assessment/teacher/courses                                   -> modules + their assigned classes
@@ -24,7 +27,8 @@
  *   POST /assessment/teacher/assessments            (mode: 'quiz')     -> create
  *   PUT  /assessment/teacher/assessments/:id                            -> edit (pre-share only)
  *   DELETE /assessment/teacher/assessments/:id                          -> delete
- *   POST /assessment/teacher/assessments/:id/attempts/add               -> add attempt(s) to a shared assessment
+ *   POST /assessment/teacher/assessments/:id/unshare                    -> unshare + void submissions, unlocks questions
+ *   POST /assessment/teacher/assessments/:id/attempts/add               -> add attempt(s), optionally with new duration/expiry
  */
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import api from '../../utils/api';
@@ -38,7 +42,7 @@ import AssessmentAttemptsModal from '../../components/common/AssessmentAttemptsM
 import {
   ClipboardCheck, School, BookOpen, ChevronRight, Plus, Loader2,
   ListChecks, Share2, BarChart3, Edit2, Trash2, ArrowLeft, Inbox,
-  Lock, PlusCircle, Sparkles, Award, FileEdit, Users, Scale,
+  Lock, PlusCircle, Sparkles, Award, FileEdit, Users, Scale, Undo2,
 } from 'lucide-react';
 
 const TERMS = ['Term 1', 'Term 2', 'Term 3'];
@@ -94,7 +98,7 @@ function AssessmentOverviewStrip({ assessments }) {
 
 /* One assessment's card — ambient status glow + a clear read on where its
    marks currently stand (auto-computed max, capped by the module weight). */
-function AssessmentCard({ a, i, onQuestions, onShare, onAddAttempt, onResults, onEdit, onDelete }) {
+function AssessmentCard({ a, i, onQuestions, onShare, onAddAttempt, onResults, onEdit, onDelete, onUnshare }) {
   const statusColor = a.is_shared ? '#10b981' : '#9ca3af';
   const hasQuestions = (a.max_marks || 0) > 0;
 
@@ -142,6 +146,16 @@ function AssessmentCard({ a, i, onQuestions, onShare, onAddAttempt, onResults, o
         <button onClick={() => onShare(a)} className="btn-secondary text-xs flex items-center gap-1.5"><Share2 className="w-3.5 h-3.5" /> {a.is_shared ? 'Update Sharing' : 'Share'}</button>
         {a.is_shared && <button onClick={() => onAddAttempt(a)} className="btn-secondary text-xs flex items-center gap-1.5"><PlusCircle className="w-3.5 h-3.5" /> Add Attempt</button>}
         {a.is_shared && <button onClick={() => onResults(a)} className="btn-secondary text-xs flex items-center gap-1.5"><BarChart3 className="w-3.5 h-3.5" /> Results</button>}
+        {a.is_shared && (
+          <button
+            onClick={() => onUnshare(a)}
+            title="Unshare to edit questions — voids current student submissions"
+            className="text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all duration-150 hover:bg-amber-500/10"
+            style={{ border: '1px solid rgba(245,158,11,0.35)', background: 'rgba(245,158,11,0.08)', color: '#d97706' }}
+          >
+            <Undo2 className="w-3.5 h-3.5" /> Unshare
+          </button>
+        )}
         <button
           onClick={() => onEdit(a)}
           title={a.is_shared ? 'Unshare to edit type/term/year/title' : 'Edit'}
@@ -351,6 +365,28 @@ export default function AssessmentsOnline() {
     });
   };
 
+  const handleUnshare = (a) => {
+    setConfirmModal({
+      open: true,
+      variant: 'danger',
+      title: 'Unshare Assessment',
+      message: `Unshare "${a.title}"? Students will no longer be able to start or continue it, and every submission recorded so far will be voided — it won't count towards results or marks anymore. You'll then be able to edit the questions freely. This can't be undone, though you can re-share it again afterwards with fresh attempts.`,
+      confirmText: 'Unshare',
+      onConfirm: async () => {
+        setConfirmModal(cm => ({ ...cm, loading: true }));
+        try {
+          const { data } = await api.post(`/assessment/teacher/assessments/${a.id}/unshare`);
+          toast.success(data.message || 'Assessment unshared');
+          loadAssessments();
+        } catch (err) {
+          toast.error(err.response?.data?.message || 'Failed to unshare assessment');
+        } finally {
+          setConfirmModal({ open: false });
+        }
+      },
+    });
+  };
+
   const handleEditClick = (a) => {
     if (a.is_shared) {
       toast.error('This assessment has already been shared. Unshare it first if you need to change its type, term, year or title.');
@@ -469,6 +505,7 @@ export default function AssessmentsOnline() {
                     onResults={setAttemptsModal}
                     onEdit={handleEditClick}
                     onDelete={handleDelete}
+                    onUnshare={handleUnshare}
                   />
                 ))}
               </div>
