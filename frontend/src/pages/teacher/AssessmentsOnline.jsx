@@ -39,6 +39,8 @@ import QuizBuilderModal from '../../components/common/QuizBuilderModal';
 import ShareAssessmentModal from '../../components/common/ShareAssessmentModal';
 import AddAttemptModal from '../../components/common/AddAttemptModal';
 import AssessmentAttemptsModal from '../../components/common/AssessmentAttemptsModal';
+import ResultsPickerModal from '../../components/common/ResultsPickerModal';
+import OverallResultsModal from '../../components/common/OverallResultsModal';
 import {
   ClipboardCheck, School, BookOpen, ChevronRight, Plus, Loader2,
   ListChecks, Share2, BarChart3, Edit2, Trash2, ArrowLeft, Inbox,
@@ -98,7 +100,7 @@ function AssessmentOverviewStrip({ assessments }) {
 
 /* One assessment's card — ambient status glow + a clear read on where its
    marks currently stand (auto-computed max, capped by the module weight). */
-function AssessmentCard({ a, i, onQuestions, onShare, onAddAttempt, onResults, onEdit, onDelete, onUnshare }) {
+function AssessmentCard({ a, i, onQuestions, onShare, onAddAttempt, onEdit, onDelete, onUnshare }) {
   const statusColor = a.is_shared ? '#10b981' : '#9ca3af';
   const hasQuestions = (a.max_marks || 0) > 0;
 
@@ -145,7 +147,6 @@ function AssessmentCard({ a, i, onQuestions, onShare, onAddAttempt, onResults, o
         <button onClick={() => onQuestions(a)} className="btn-secondary text-xs flex items-center gap-1.5"><ListChecks className="w-3.5 h-3.5" /> Questions</button>
         <button onClick={() => onShare(a)} className="btn-secondary text-xs flex items-center gap-1.5"><Share2 className="w-3.5 h-3.5" /> {a.is_shared ? 'Update Sharing' : 'Share'}</button>
         {a.is_shared && <button onClick={() => onAddAttempt(a)} className="btn-secondary text-xs flex items-center gap-1.5"><PlusCircle className="w-3.5 h-3.5" /> Add Attempt</button>}
-        {a.is_shared && <button onClick={() => onResults(a)} className="btn-secondary text-xs flex items-center gap-1.5"><BarChart3 className="w-3.5 h-3.5" /> Results</button>}
         {a.is_shared && (
           <button
             onClick={() => onUnshare(a)}
@@ -265,7 +266,7 @@ function AssessmentFormModal({ course, cls, editing, existingAssessments, onClos
           <div className="p-3 rounded-xl text-sm flex items-start gap-2" style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)' }}>
             <Sparkles className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#6366f1' }} />
             <p style={{ color: 'var(--text-secondary)' }}>
-              No need to set a maximum here — once you build the question paper, the total is calculated automatically from each question's marks (capped at the module weight, {course.total_marks || 100} marks).
+              No need to set a maximum here — once you build the question paper, the total is calculated automatically from each question's marks. It doesn't need to match the module weight ({course.total_marks || 100} marks) exactly — results are scaled onto it automatically.
             </p>
           </div>
         )}
@@ -296,7 +297,9 @@ export default function AssessmentsOnline() {
   const [questionsModal, setQuestionsModal] = useState(null);
   const [shareModal, setShareModal] = useState(null);
   const [addAttemptModal, setAddAttemptModal] = useState(null);
-  const [attemptsModal, setAttemptsModal] = useState(null);
+  const [resultsPickerOpen, setResultsPickerOpen] = useState(false);
+  const [attemptsModal, setAttemptsModal] = useState(null);   // single-assessment results
+  const [overallModal, setOverallModal] = useState(null);     // combined ("Overall") results for a type/term/year group
   const [confirmModal, setConfirmModal] = useState({ open: false });
 
   useEffect(() => {
@@ -479,9 +482,16 @@ export default function AssessmentsOnline() {
             <button onClick={() => setSelectedCourse(null)} className="text-sm font-semibold flex items-center gap-1 transition-colors duration-150 hover:opacity-80" style={{ color: 'var(--text-secondary)' }}>
               <ArrowLeft className="w-4 h-4" /> Back to modules
             </button>
-            <button onClick={() => setFormModal({})} className="btn-primary assessment-cta text-sm flex items-center gap-1.5">
-              <Plus className="w-4 h-4" /> Create New Assessment
-            </button>
+            <div className="flex items-center gap-2">
+              {assessments.some(a => a.is_shared) && (
+                <button onClick={() => setResultsPickerOpen(true)} className="btn-secondary text-sm flex items-center gap-1.5">
+                  <BarChart3 className="w-4 h-4" /> View Results
+                </button>
+              )}
+              <button onClick={() => setFormModal({})} className="btn-primary assessment-cta text-sm flex items-center gap-1.5">
+                <Plus className="w-4 h-4" /> Create New Assessment
+              </button>
+            </div>
           </div>
 
           {loadingAssessments ? (
@@ -502,7 +512,6 @@ export default function AssessmentsOnline() {
                     onQuestions={setQuestionsModal}
                     onShare={setShareModal}
                     onAddAttempt={setAddAttemptModal}
-                    onResults={setAttemptsModal}
                     onEdit={handleEditClick}
                     onDelete={handleDelete}
                     onUnshare={handleUnshare}
@@ -533,8 +542,27 @@ export default function AssessmentsOnline() {
       {addAttemptModal && (
         <AddAttemptModal assessment={addAttemptModal} onClose={() => setAddAttemptModal(null)} onAdded={loadAssessments} />
       )}
+      {resultsPickerOpen && (
+        <ResultsPickerModal
+          assessments={assessments}
+          onClose={() => setResultsPickerOpen(false)}
+          onSelectAssessment={(a) => { setResultsPickerOpen(false); setAttemptsModal(a); }}
+          onSelectOverall={(g) => { setResultsPickerOpen(false); setOverallModal(g); }}
+        />
+      )}
       {attemptsModal && (
         <AssessmentAttemptsModal assessment={attemptsModal} onClose={() => setAttemptsModal(null)} />
+      )}
+      {overallModal && selectedCourse && selectedClass && (
+        <OverallResultsModal
+          courseId={selectedCourse.id}
+          classId={selectedClass._id}
+          type={overallModal.type}
+          term={overallModal.term}
+          academicYear={overallModal.academic_year}
+          typeLabel={ASSESSMENT_TYPES.find(t => t.key === overallModal.type)?.label || overallModal.type}
+          onClose={() => setOverallModal(null)}
+        />
       )}
 
       <ConfirmModal

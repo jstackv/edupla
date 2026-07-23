@@ -61,6 +61,12 @@ router.post('/teacher/assessments/:id/share',           isAuthenticated, isTeach
 router.post('/teacher/assessments/:id/unshare',         isAuthenticated, isTeacher, ctrl.teacherUnshareAssessment);
 router.post('/teacher/assessments/:id/attempts/add',    isAuthenticated, isTeacher, ctrl.teacherAddAttempts);
 router.get('/teacher/assessments/:id/attempts',         isAuthenticated, isTeacher, ctrl.teacherListAttempts);
+
+// Overall (combined) results — every shared assessment of one type/term/year
+// in a module+class, combined into a single scaled result per student.
+router.get('/teacher/assessments/overall',              isAuthenticated, isTeacher, ctrl.teacherGetOverallResults);
+router.get('/teacher/assessments/overall/excel',        isAuthenticated, isTeacher, ctrl.teacherDownloadOverallExcel);
+router.get('/teacher/assessments/overall/pdf',          isAuthenticated, isTeacher, ctrl.teacherDownloadOverallPdf);
 router.get('/teacher/assessments/:id/attempts/excel',   isAuthenticated, isTeacher, ctrl.teacherDownloadAttemptsExcel);
 router.get('/teacher/assessments/:id/attempts/pdf',     isAuthenticated, isTeacher, ctrl.teacherDownloadAttemptsPdf);
 router.get('/teacher/attempts/:attemptId',               isAuthenticated, isTeacher, ctrl.teacherGetAttemptForGrading);
