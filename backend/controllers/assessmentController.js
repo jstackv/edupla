@@ -1392,11 +1392,12 @@ exports.studentGetCourses = async (req, res) => {
    marks-entry Assessment model:
      1. Teacher builds a question paper for an assessment (MCQ, True/False,
         Fill-in-the-gap, Matching, Open) — teacherSaveQuestions.
-     2. Teacher shares it with the class with a duration, expiry, and
-        attempt limit — teacherShareAssessment.
-     3. Students see it under "Assessments", read the instructions, and
-        start it — studentGetSharedAssessments / studentGetAssessmentInstructions
-        / studentStartAttempt.
+     2. Teacher shares it with the class with a duration, expiry, optional
+        start time (available_from), and attempt limit — teacherShareAssessment.
+     3. Students see it under "Assessments" as soon as it's shared, read the
+        instructions, and start it once available_from has passed (if set)
+        — studentGetSharedAssessments / studentGetAssessmentInstructions /
+        studentStartAttempt.
      4. The attempt runs full-screen client-side; the server enforces the
         time limit and accepts autosaves and the final submit/auto-submit.
      5. On submit, everything except open questions is auto-graded exactly
@@ -1678,7 +1679,7 @@ exports.teacherSaveQuestions = async (req, res) => {
 
 exports.teacherShareAssessment = async (req, res) => {
   try {
-    const { duration_minutes, expires_at, max_attempts, instructions, shuffle_questions } = req.body;
+    const { duration_minutes, expires_at, available_from, max_attempts, instructions, shuffle_questions } = req.body;
 
     const assessment = await Assessment.findOne({ _id: req.params.id, teacher_id: req.user.id })
       .populate('course_id', 'name')
@@ -1694,6 +1695,13 @@ exports.teacherShareAssessment = async (req, res) => {
     }
     if (expires_at && new Date(expires_at) <= new Date()) {
       return res.status(400).json({ message: 'Expiry date/time must be in the future.' });
+    }
+    // available_from is optional — leaving it unset means students can start
+    // as soon as the share notification lands, same as before this field
+    // existed. When set, it just has to make sense against the expiry: the
+    // window it opens has to actually give students time to start.
+    if (available_from && expires_at && new Date(available_from) >= new Date(expires_at)) {
+      return res.status(400).json({ message: 'The start time must be before the expiry date/time.' });
     }
     if (!assessment.class_id) {
       return res.status(400).json({ message: 'This assessment has no class assigned.' });
@@ -1717,6 +1725,7 @@ exports.teacherShareAssessment = async (req, res) => {
     assessment.mode              = 'quiz';
     assessment.duration_minutes  = Number(duration_minutes);
     assessment.expires_at        = expires_at ? new Date(expires_at) : null;
+    assessment.available_from    = available_from ? new Date(available_from) : null;
     assessment.max_attempts      = requestedMaxAttempts;
     assessment.instructions      = instructions ?? assessment.instructions;
     assessment.shuffle_questions = shuffle_questions !== false;
@@ -1753,6 +1762,7 @@ exports.teacherShareAssessment = async (req, res) => {
           durationMinutes: assessment.duration_minutes,
           maxAttempts: assessment.max_attempts,
           expiresAt: assessment.expires_at,
+          availableFrom: assessment.available_from,
         }).catch(err => console.error('Email send error:', err.message));
       }
     } catch (err) {
@@ -1802,7 +1812,7 @@ exports.teacherUnshareAssessment = async (req, res) => {
 exports.teacherAddAttempts = async (req, res) => {
   try {
     const additional = Math.max(1, Math.round(Number(req.body.additional_attempts) || 1));
-    const { duration_minutes, expires_at } = req.body;
+    const { duration_minutes, expires_at, available_from } = req.body;
 
     const assessment = await Assessment.findOne({ _id: req.params.id, teacher_id: req.user.id })
       .populate('course_id', 'name')
@@ -1824,6 +1834,13 @@ exports.teacherAddAttempts = async (req, res) => {
       }
       assessment.expires_at = new Date(expires_at);
     }
+    if (available_from !== undefined) {
+      const newAvailableFrom = available_from ? new Date(available_from) : null;
+      if (newAvailableFrom && assessment.expires_at && newAvailableFrom >= new Date(assessment.expires_at)) {
+        return res.status(400).json({ message: 'The start time must be before the expiry date/time.' });
+      }
+      assessment.available_from = newAvailableFrom;
+    }
 
     assessment.max_attempts = (assessment.max_attempts || 1) + additional;
     await assessment.save();
@@ -1833,6 +1850,7 @@ exports.teacherAddAttempts = async (req, res) => {
       max_attempts: assessment.max_attempts,
       duration_minutes: assessment.duration_minutes,
       expires_at: assessment.expires_at,
+      available_from: assessment.available_from,
     });
 
     // ── Notify students async — a quick heads-up, not a full re-share blast ──
@@ -2389,6 +2407,10 @@ exports.studentGetSharedAssessments = async (req, res) => {
       const best = [...graded].sort((x, y) => y.total_score - x.total_score)[0];
       const inProgress = attempts.find(x => x.status === 'in_progress');
       const expired = a.expires_at ? new Date() > new Date(a.expires_at) : false;
+      // Shared and visible, but the teacher-set start time hasn't arrived
+      // yet — students can see it and read the instructions, they just
+      // can't start an attempt until then.
+      const notYetAvailable = a.available_from ? new Date() < new Date(a.available_from) : false;
       const attemptsUsed = attempts.length;
       const bestScore = best ? best.total_score : null;
       const moduleWeight = a.course_id?.total_marks || 100;
@@ -2401,7 +2423,10 @@ exports.studentGetSharedAssessments = async (req, res) => {
         attempts_used: attemptsUsed,
         attempts_left: Math.max((a.max_attempts || 1) - attemptsUsed, 0),
         expired,
-        can_start: !expired && (a.max_attempts || 1) - attemptsUsed > 0,
+        not_yet_available: notYetAvailable,
+        // A resumed in-progress attempt is always allowed through, regardless
+        // of available_from — that gate only applies to STARTING a new one.
+        can_start: !expired && !notYetAvailable && (a.max_attempts || 1) - attemptsUsed > 0,
         in_progress_attempt_id: inProgress ? inProgress._id : null,
         best_score: bestScore,
         module_weight: moduleWeight,
@@ -2444,6 +2469,8 @@ exports.studentGetAssessmentInstructions = async (req, res) => {
       max_attempts: assessment.max_attempts,
       attempts_used: attemptsUsed,
       attempts_left: Math.max((assessment.max_attempts || 1) - attemptsUsed, 0),
+      available_from: assessment.available_from,
+      not_yet_available: assessment.available_from ? new Date() < new Date(assessment.available_from) : false,
       expires_at: assessment.expires_at,
       expired: assessment.expires_at ? new Date() > new Date(assessment.expires_at) : false,
       question_count: questions.length,
@@ -2469,7 +2496,9 @@ exports.studentStartAttempt = async (req, res) => {
     }
 
     // Resume an in-progress attempt still within its time window instead of
-    // burning a fresh attempt on every page load/refresh.
+    // burning a fresh attempt on every page load/refresh. This is allowed
+    // even before available_from would otherwise permit a fresh start — an
+    // attempt already under way must keep respecting only its own due_at.
     const existing = await AssessmentAttempt.findOne({
       assessment_id: assessment._id, student_id: req.user.id, status: 'in_progress', voided: { $ne: true },
     });
@@ -2480,6 +2509,16 @@ exports.studentStartAttempt = async (req, res) => {
       // Time ran out but the client never called auto-submit (e.g. the tab
       // was closed) — finalize it now before deciding on a new attempt.
       await finalizeAttemptSubmission(existing, { autoSubmitted: true, reason: 'timeout' });
+    }
+
+    // The assessment is shared and visible, but the teacher-set start time
+    // hasn't arrived yet — block a fresh attempt until then. This is
+    // enforced server-side (not just hidden in the UI) since a student could
+    // otherwise hit this endpoint directly.
+    if (assessment.available_from && new Date() < new Date(assessment.available_from)) {
+      return res.status(400).json({
+        message: `This assessment isn't open yet. It becomes available on ${new Date(assessment.available_from).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}.`,
+      });
     }
 
     // Attempts still count towards the assessment's max_attempts (only real,

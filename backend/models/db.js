@@ -261,6 +261,13 @@ const assessmentSchema = new mongoose.Schema({
   duration_minutes:   { type: Number, default: null },       // time limit per attempt
   shuffle_questions:  { type: Boolean, default: true },      // shuffle order when max_attempts > 1
   max_attempts:       { type: Number, default: 1 },
+  // Students can see the assessment (and its instructions) as soon as it's
+  // shared, but can't actually START an attempt until this time. Leave null
+  // to make it startable immediately, same behavior as before this field
+  // existed. Once an attempt is started, its own due_at (started_at +
+  // duration_minutes) is what's respected — available_from only gates the
+  // START of an attempt, never how long the attempt itself runs for.
+  available_from:     { type: Date, default: null },
   expires_at:         { type: Date, default: null },         // no more attempts can start after this
   is_shared:          { type: Boolean, default: false },     // published/visible to students
   shared_at:          { type: Date, default: null },

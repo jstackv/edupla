@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
@@ -8,8 +8,12 @@ import {
   Award, Calendar, Flame, Sparkles, GraduationCap, Mail,
   TrendingUp, Star, Zap, BookOpen, Target, ArrowUpRight,
   BarChart3, Trophy, Bell, ChevronDown,
-  UserCheck, MessageSquare, Timer,
+  UserCheck, MessageSquare, Timer, Sun, Moon, Sunset, Activity,
 } from 'lucide-react';
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, RadialBarChart, RadialBar,
+} from 'recharts';
 
 /* ── Helpers ── */
 const LEVEL_CLASSES = [
@@ -22,6 +26,14 @@ const LEVEL_CLASSES = [
 ];
 const getCategoryClass = (val) => LEVEL_CLASSES[(val?.charCodeAt(0) || 0) % LEVEL_CLASSES.length];
 const initials = (name) => name ? name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase() : '?';
+
+/* Names in this system are stored "SURNAME Givenname" — greet the student
+   by the name they actually go by, which is the last token, not the first. */
+const displayFirstName = (name) => {
+  if (!name) return '';
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return parts[parts.length - 1];
+};
 
 /* ── Animated counter ── */
 function AnimatedNumber({ value, suffix = '', duration = 900 }) {
@@ -44,13 +56,18 @@ function AnimatedNumber({ value, suffix = '', duration = 900 }) {
   return <>{display}{suffix}</>;
 }
 
-/* ── Completion ring ── */
-function ProgressRing({ percent, size = 96, stroke = 9, color = 'white', trackColor = 'rgba(255,255,255,0.15)' }) {
+/* ── Completion ring (with hover pop + glow) ── */
+function ProgressRing({ percent, size = 96, stroke = 9, color = 'white', trackColor = 'rgba(255,255,255,0.15)', glow }) {
   const r = (size - stroke) / 2;
   const circ = 2 * Math.PI * r;
   const offset = circ - (percent / 100) * circ;
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: 'rotate(-90deg)' }}>
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: 'rotate(-90deg)', overflow: 'visible' }}>
+      {glow && (
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={stroke}
+          strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
+          style={{ filter: `blur(6px)`, opacity: 0.55, transition: 'stroke-dashoffset 1.2s cubic-bezier(0.34,1.56,0.64,1)' }} />
+      )}
       <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={trackColor} strokeWidth={stroke} />
       <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={stroke}
         strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
@@ -76,7 +93,7 @@ function ScoreBar({ percent, color = '#34d399' }) {
 function StreakBadge({ count }) {
   if (!count) return null;
   return (
-    <div className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold"
+    <div className="hero-pill flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold"
       style={{ background: 'rgba(255,255,255,0.18)', color: '#fff' }}>
       <Flame className="w-3.5 h-3.5" style={{ color: '#fcd34d' }} />
       {count}-day streak
@@ -84,12 +101,36 @@ function StreakBadge({ count }) {
   );
 }
 
-/* ── Stat card ── */
+/* ── Stat card with 3D tilt-on-hover ── */
 function StatCard({ icon: Icon, label, value, color, iconBg, to, sublabel, animateNum, suffix = '' }) {
+  const ref = useRef(null);
+  const [tilt, setTilt] = useState({ x: 0, y: 0 });
   const [hov, setHov] = useState(false);
+
+  const onMove = useCallback((e) => {
+    const el = ref.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const px = (e.clientX - rect.left) / rect.width - 0.5;
+    const py = (e.clientY - rect.top) / rect.height - 0.5;
+    setTilt({ x: py * -7, y: px * 7 });
+  }, []);
+
   return (
-    <Link to={to} className="stat-card group" style={{ textDecoration: 'none', position: 'relative', overflow: 'hidden' }}
-      onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}>
+    <Link
+      ref={ref}
+      to={to}
+      className="stat-card group"
+      style={{
+        textDecoration: 'none', position: 'relative', overflow: 'hidden',
+        transform: `perspective(600px) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg) ${hov ? 'scale(1.02)' : 'scale(1)'}`,
+        transition: hov ? 'transform 0.08s linear' : 'transform 0.35s cubic-bezier(0.34,1.56,0.64,1)',
+        willChange: 'transform',
+      }}
+      onMouseEnter={() => setHov(true)}
+      onMouseMove={onMove}
+      onMouseLeave={() => { setHov(false); setTilt({ x: 0, y: 0 }); }}
+    >
       <div style={{
         position: 'absolute', top: 0, right: 0, width: 64, height: 64,
         background: `radial-gradient(circle at top right, ${color}18 0%, transparent 70%)`,
@@ -97,10 +138,12 @@ function StatCard({ icon: Icon, label, value, color, iconBg, to, sublabel, anima
         opacity: hov ? 1 : 0.4,
       }} />
       <div className="flex items-start justify-between mb-4">
-        <div className={`w-10 h-10 ${iconBg} rounded-xl flex items-center justify-center`}>
+        <div className={`w-10 h-10 ${iconBg} rounded-xl flex items-center justify-center`}
+          style={{ transition: 'transform 0.35s cubic-bezier(0.34,1.56,0.64,1)', transform: hov ? 'scale(1.12) rotate(-6deg)' : 'scale(1) rotate(0deg)' }}>
           <Icon className={`w-5 h-5 ${color}`} />
         </div>
-        <ArrowUpRight className="w-4 h-4 text-muted group-hover:text-primary-500 transition-colors" />
+        <ArrowUpRight className="w-4 h-4 text-muted group-hover:text-primary-500 transition-colors"
+          style={{ transform: hov ? 'translate(2px,-2px)' : 'translate(0,0)', transition: 'transform 0.25s ease, color 0.2s ease' }} />
       </div>
       <p className="text-2xl font-bold mb-1" style={{ color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>
         {animateNum ? <AnimatedNumber value={value} suffix={suffix} /> : <>{value}{suffix}</>}
@@ -129,6 +172,22 @@ function scoreColor(pct) {
   return '#ef4444';
 }
 
+/* ── Custom chart tooltip ── */
+function ChartTooltip({ active, payload, label, unit = '' }) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div style={{
+      background: 'var(--card-bg, #fff)', border: '1px solid var(--card-border)', borderRadius: 10,
+      padding: '8px 12px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', fontSize: 12,
+    }}>
+      <p style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: 2 }}>{label}</p>
+      {payload.map((p, i) => (
+        <p key={i} style={{ color: p.color || p.fill, fontWeight: 600 }}>{p.name || p.dataKey}: {p.value}{unit}</p>
+      ))}
+    </div>
+  );
+}
+
 /* ══ MAIN ══ */
 export default function StudentDashboard() {
   const { user } = useAuth();
@@ -139,9 +198,22 @@ export default function StudentDashboard() {
   const [expandModules, setExpandModules] = useState(false);
   const [expandClasses, setExpandClasses] = useState(false);
 
+  /* hero pointer-driven spotlight + parallax */
+  const heroRef = useRef(null);
+  const [heroPos, setHeroPos] = useState({ x: 50, y: 40 });
+  const [heroHov, setHeroHov] = useState(false);
+  const onHeroMove = useCallback((e) => {
+    const el = heroRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    setHeroPos({ x: ((e.clientX - rect.left) / rect.width) * 100, y: ((e.clientY - rect.top) / rect.height) * 100 });
+  }, []);
+
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const TimeIcon = hour < 12 ? Sunset : hour < 17 ? Sun : Moon; // sunrise-ish / sun / moon
   const todayLabel = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+  const firstName = displayFirstName(user?.name);
 
   useEffect(() => {
     (async () => {
@@ -243,6 +315,41 @@ export default function StudentDashboard() {
     return Array.from(map.values()).map(t => ({ ...t, subjects: Array.from(t.subjects) }));
   }, [data]);
 
+  /* ── Chart datasets ── */
+  const weeklyActivity = useMemo(() => {
+    const days = [...Array(7)].map((_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - (6 - i));
+      return d;
+    });
+    return days.map(d => {
+      const count = submitted.filter(a => {
+        const sd = new Date(a.submitted_at || a.updated_at || 0);
+        return sd.toDateString() === d.toDateString();
+      }).length;
+      return {
+        day: d.toLocaleDateString(undefined, { weekday: 'short' }),
+        full: d.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' }),
+        submissions: count,
+      };
+    });
+  }, [submitted]);
+
+  const scoreTrend = useMemo(() => {
+    const sorted = [...gradedQuizzes]
+      .sort((a, b) => new Date(a.submitted_at || a.updated_at || 0) - new Date(b.submitted_at || b.updated_at || 0))
+      .slice(-8);
+    return sorted.map((q, i) => ({ label: `#${i + 1}`, title: q.title, score: quizPct(q) }));
+  }, [gradedQuizzes]);
+
+  const breakdownData = useMemo(() => ([
+    { name: 'Passed', value: passedQuizzes.length, color: '#10b981' },
+    { name: 'Failed', value: Math.max(gradedQuizzes.length - passedQuizzes.length, 0), color: '#ef4444' },
+    { name: 'Pending review', value: pendingGradingQuizzes.length, color: '#f59e0b' },
+  ].filter(d => d.value > 0)), [passedQuizzes.length, gradedQuizzes.length, pendingGradingQuizzes.length]);
+
+  const hasChartData = weeklyActivity.some(d => d.submissions > 0) || breakdownData.length > 0 || scoreTrend.length > 1;
+
   if (loading) return (
     <div className="flex flex-col items-center justify-center py-24 gap-4">
       <div style={{ position: 'relative', width: 48, height: 48 }}>
@@ -270,17 +377,52 @@ export default function StudentDashboard() {
     <div className="space-y-5">
 
       {/* ── Hero ── */}
-      <div style={{
-        ...visStyle(0),
-        borderRadius: 26,
-        background: 'linear-gradient(120deg, #064e3b 0%, #047857 30%, #0d9488 58%, #0e7490 78%, #4338ca 100%)',
-        padding: '30px 32px', position: 'relative', overflow: 'hidden',
-        boxShadow: '0 26px 70px rgba(5,150,105,0.35), 0 0 0 1px rgba(255,255,255,0.06) inset',
-      }}>
-        {/* animated mesh glow orbs */}
-        <div style={{ position: 'absolute', top: -70, right: -50, width: 280, height: 280, borderRadius: '50%', background: 'radial-gradient(circle, rgba(52,211,153,0.35), transparent 70%)', filter: 'blur(10px)', pointerEvents: 'none', animation: 'heroFloat 7s ease-in-out infinite' }} />
-        <div style={{ position: 'absolute', bottom: -80, left: '28%', width: 240, height: 240, borderRadius: '50%', background: 'radial-gradient(circle, rgba(139,92,246,0.3), transparent 70%)', filter: 'blur(14px)', pointerEvents: 'none', animation: 'heroFloat 8.5s ease-in-out infinite 0.6s' }} />
-        <div style={{ position: 'absolute', top: '15%', left: -60, width: 180, height: 180, borderRadius: '50%', background: 'radial-gradient(circle, rgba(34,211,238,0.28), transparent 70%)', filter: 'blur(12px)', pointerEvents: 'none', animation: 'heroFloat 6.5s ease-in-out infinite 1.2s' }} />
+      <div
+        ref={heroRef}
+        onMouseMove={onHeroMove}
+        onMouseEnter={() => setHeroHov(true)}
+        onMouseLeave={() => setHeroHov(false)}
+        style={{
+          ...visStyle(0),
+          borderRadius: 26,
+          background: 'linear-gradient(120deg, #064e3b 0%, #047857 30%, #0d9488 58%, #0e7490 78%, #4338ca 100%)',
+          backgroundSize: '160% 160%',
+          animation: 'heroGradientDrift 16s ease-in-out infinite',
+          padding: '30px 32px', position: 'relative', overflow: 'hidden',
+          boxShadow: heroHov
+            ? '0 32px 84px rgba(5,150,105,0.42), 0 0 0 1px rgba(255,255,255,0.09) inset'
+            : '0 26px 70px rgba(5,150,105,0.35), 0 0 0 1px rgba(255,255,255,0.06) inset',
+          transition: 'box-shadow 0.4s ease',
+        }}>
+        {/* pointer-tracking spotlight */}
+        <div style={{
+          position: 'absolute', inset: 0, pointerEvents: 'none',
+          background: `radial-gradient(480px circle at ${heroPos.x}% ${heroPos.y}%, rgba(255,255,255,0.10), transparent 60%)`,
+          opacity: heroHov ? 1 : 0, transition: 'opacity 0.35s ease',
+        }} />
+
+        {/* animated mesh glow orbs — now gently parallaxed by pointer */}
+        <div style={{
+          position: 'absolute', top: -70, right: -50, width: 280, height: 280, borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(52,211,153,0.35), transparent 70%)', filter: 'blur(10px)', pointerEvents: 'none',
+          animation: 'heroFloat 7s ease-in-out infinite',
+          transform: `translate(${(heroPos.x - 50) * 0.12}px, ${(heroPos.y - 50) * 0.12}px)`,
+          transition: 'transform 0.3s ease-out',
+        }} />
+        <div style={{
+          position: 'absolute', bottom: -80, left: '28%', width: 240, height: 240, borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(139,92,246,0.3), transparent 70%)', filter: 'blur(14px)', pointerEvents: 'none',
+          animation: 'heroFloat 8.5s ease-in-out infinite 0.6s',
+          transform: `translate(${(heroPos.x - 50) * -0.09}px, ${(heroPos.y - 50) * -0.09}px)`,
+          transition: 'transform 0.3s ease-out',
+        }} />
+        <div style={{
+          position: 'absolute', top: '15%', left: -60, width: 180, height: 180, borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(34,211,238,0.28), transparent 70%)', filter: 'blur(12px)', pointerEvents: 'none',
+          animation: 'heroFloat 6.5s ease-in-out infinite 1.2s',
+          transform: `translate(${(heroPos.x - 50) * 0.06}px, ${(heroPos.y - 50) * 0.06}px)`,
+          transition: 'transform 0.3s ease-out',
+        }} />
 
         {/* dot-grid overlay for a techy texture */}
         <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.07, pointerEvents: 'none' }}>
@@ -301,7 +443,11 @@ export default function StudentDashboard() {
             position: 'absolute', top: 26, right: 148, padding: '7px 13px', borderRadius: 12,
             background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.22)', backdropFilter: 'blur(10px)',
             display: 'flex', alignItems: 'center', gap: 6, animation: 'heroFloat 5s ease-in-out infinite', boxShadow: '0 8px 20px rgba(0,0,0,0.12)',
-          }} className="hero-badge-desktop">
+            transition: 'transform 0.25s cubic-bezier(0.34,1.56,0.64,1), background 0.25s ease',
+            cursor: 'default',
+          }} className="hero-badge-desktop hero-pill"
+            onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.08) translateY(-2px)'; e.currentTarget.style.background = 'rgba(255,255,255,0.2)'; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; }}>
             <Trophy style={{ width: 12, height: 12, color: '#fcd34d' }} />
             <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap' }}>{passedQuizzes.length} Assessment{passedQuizzes.length !== 1 ? 's' : ''} passed</span>
           </div>
@@ -313,33 +459,51 @@ export default function StudentDashboard() {
             {/* Left: avatar + greeting */}
             <div style={{ minWidth: 0, flex: 1, display: 'flex', gap: 16, alignItems: 'flex-start' }}>
               <div style={{ position: 'relative', flexShrink: 0 }}>
+                <div className="hero-avatar-ring" style={{
+                  position: 'absolute', inset: -4, borderRadius: 20,
+                  background: 'conic-gradient(from 0deg, #fcd34d, #34d399, #22d3ee, #a78bfa, #fcd34d)',
+                  opacity: 0.55, filter: 'blur(6px)', animation: 'heroRingSpin 6s linear infinite',
+                }} />
                 <div style={{
-                  width: 54, height: 54, borderRadius: 17,
+                  position: 'relative', width: 54, height: 54, borderRadius: 17,
                   background: 'linear-gradient(135deg, rgba(255,255,255,0.28), rgba(255,255,255,0.08))',
                   border: '1px solid rgba(255,255,255,0.32)', backdropFilter: 'blur(10px)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: 19, fontWeight: 800, color: '#fff', boxShadow: '0 10px 26px rgba(0,0,0,0.18)',
                 }}>{initials(user?.name)}</div>
-                <div style={{ position: 'absolute', bottom: -2, right: -2, width: 14, height: 14, borderRadius: '50%', background: '#34d399', border: '2.5px solid #065f46', boxShadow: '0 0 0 2px rgba(52,211,153,0.25)' }} />
+                <div style={{
+                  position: 'absolute', bottom: -2, right: -2, width: 14, height: 14, borderRadius: '50%',
+                  background: '#34d399', border: '2.5px solid #065f46', boxShadow: '0 0 0 2px rgba(52,211,153,0.25)',
+                  animation: 'heroPulse 2.4s ease-in-out infinite',
+                }} />
               </div>
 
               <div style={{ minWidth: 0 }}>
-                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>
+                <p style={{
+                  fontSize: 11, color: 'rgba(255,255,255,0.55)', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase',
+                  marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6,
+                }}>
+                  <TimeIcon style={{ width: 11, height: 11 }} />
                   {todayLabel}
                 </p>
-                <h2 style={{ fontSize: 'clamp(20px,2.6vw,26px)', fontWeight: 800, color: '#fff', letterSpacing: '-0.02em', marginBottom: 8, lineHeight: 1.15 }}>
-                  {greeting}, {user?.name?.split(' ')[0]} 👋
+                <h2 className="hero-greeting" style={{
+                  fontSize: 'clamp(20px,2.6vw,26px)', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: 8, lineHeight: 1.15,
+                  backgroundImage: 'linear-gradient(100deg, #ffffff 30%, #d1fae5 45%, #ffffff 60%)',
+                  backgroundSize: '220% 100%', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent',
+                  animation: 'heroTextShine 5s ease-in-out infinite',
+                }}>
+                  {greeting}, {firstName} <span style={{ display: 'inline-block', animation: 'heroWave 2.2s ease-in-out infinite', transformOrigin: '70% 70%' }}>👋</span>
                 </h2>
 
                 {/* Status pills */}
                 <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
                   {pending.length === 0 ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.15)', borderRadius: 30, padding: '6px 14px', backdropFilter: 'blur(8px)' }}>
+                    <div className="hero-pill" style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.15)', borderRadius: 30, padding: '6px 14px', backdropFilter: 'blur(8px)' }}>
                       <Sparkles style={{ width: 14, height: 14, color: '#fcd34d' }} />
                       <span style={{ fontSize: 12, fontWeight: 600, color: '#fff' }}>All caught up — great work!</span>
                     </div>
                   ) : (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.15)', borderRadius: 30, padding: '6px 14px', backdropFilter: 'blur(8px)' }}>
+                    <div className="hero-pill" style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.15)', borderRadius: 30, padding: '6px 14px', backdropFilter: 'blur(8px)' }}>
                       <Flame style={{ width: 14, height: 14, color: '#fcd34d' }} />
                       <span style={{ fontSize: 12, fontWeight: 600, color: '#fff' }}>
                         {pending.length} assignment{pending.length !== 1 ? 's' : ''} need your attention
@@ -349,7 +513,7 @@ export default function StudentDashboard() {
                   {streak > 1 && <StreakBadge count={streak} />}
                   {availableQuizzes.length > 0 && (
                     <Link to="/student/assessments" style={{ textDecoration: 'none' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(139,92,246,0.28)', border: '1px solid rgba(139,92,246,0.4)', borderRadius: 30, padding: '6px 14px', backdropFilter: 'blur(8px)' }}>
+                      <div className="hero-pill" style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(139,92,246,0.28)', border: '1px solid rgba(139,92,246,0.4)', borderRadius: 30, padding: '6px 14px', backdropFilter: 'blur(8px)' }}>
                         <Timer style={{ width: 14, height: 14, color: '#e9d5ff' }} />
                         <span style={{ fontSize: 12, fontWeight: 600, color: '#fff' }}>
                           {availableQuizzes.length} Assessment{availableQuizzes.length !== 1 ? 's' : ''} ready →
@@ -367,9 +531,12 @@ export default function StudentDashboard() {
                     { label: 'Assessments passed', val: passedQuizzes.length },
                     { label: 'Groups', val: data?.groups?.length || 0 },
                   ].map(({ label, val }) => (
-                    <div key={label}>
-                      <p style={{ fontSize: 18, fontWeight: 800, color: '#fff', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{val}</p>
+                    <div key={label} className="hero-microstat">
+                      <p style={{ fontSize: 18, fontWeight: 800, color: '#fff', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+                        <AnimatedNumber value={val} />
+                      </p>
                       <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', marginTop: 2, fontWeight: 500 }}>{label}</p>
+                      <span className="hero-microstat-underline" />
                     </div>
                   ))}
                 </div>
@@ -378,15 +545,15 @@ export default function StudentDashboard() {
 
             {/* Right: dual ring cluster — assignment completion + quiz average */}
             <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexShrink: 0 }}>
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <ProgressRing percent={ringFilled ? completionPercent : 0} size={88} stroke={8} color="#fff" />
+              <div className="hero-ring-wrap" style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <ProgressRing percent={ringFilled ? completionPercent : 0} size={88} stroke={8} color="#fff" glow />
                 <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
                   <span style={{ fontSize: 17, fontWeight: 800, color: '#fff', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{completionPercent}%</span>
                   <span style={{ fontSize: 8.5, color: 'rgba(255,255,255,0.55)', fontWeight: 600, letterSpacing: '0.05em' }}>DONE</span>
                 </div>
               </div>
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <ProgressRing percent={ringFilled ? (averageScore || 0) : 0} size={88} stroke={8} color="#fcd34d" />
+              <div className="hero-ring-wrap" style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <ProgressRing percent={ringFilled ? (averageScore || 0) : 0} size={88} stroke={8} color="#fcd34d" glow />
                 <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
                   <span style={{ fontSize: 17, fontWeight: 800, color: '#fff', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{averageScore !== null ? `${averageScore}%` : '—'}</span>
                   <span style={{ fontSize: 8.5, color: 'rgba(255,255,255,0.55)', fontWeight: 600, letterSpacing: '0.05em' }}>ASS AVG</span>
@@ -412,6 +579,7 @@ export default function StudentDashboard() {
                   background: 'linear-gradient(90deg, rgba(255,255,255,0.7), rgba(255,255,255,0.95))',
                   width: `${completionPercent}%`,
                   transition: 'width 1.3s cubic-bezier(0.34,1.56,0.64,1)',
+                  boxShadow: completionPercent > 0 ? '0 0 10px rgba(255,255,255,0.6)' : 'none',
                 }} />
               </div>
             </div>
@@ -430,6 +598,7 @@ export default function StudentDashboard() {
                   background: 'linear-gradient(90deg, #fde68a, #fcd34d)',
                   width: `${passRate || 0}%`,
                   transition: 'width 1.3s cubic-bezier(0.34,1.56,0.64,1) 0.1s',
+                  boxShadow: (passRate || 0) > 0 ? '0 0 10px rgba(252,211,77,0.6)' : 'none',
                 }} />
               </div>
             </div>
@@ -439,9 +608,26 @@ export default function StudentDashboard() {
 
       <style>{`
         @keyframes heroFloat { 0%,100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-10px) scale(1.03); } }
+        @keyframes heroGradientDrift { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+        @keyframes heroRingSpin { to { transform: rotate(360deg); } }
+        @keyframes heroPulse { 0%,100% { box-shadow: 0 0 0 2px rgba(52,211,153,0.25); } 50% { box-shadow: 0 0 0 5px rgba(52,211,153,0.12); } }
+        @keyframes heroWave { 0%,100% { transform: rotate(0deg); } 15% { transform: rotate(16deg); } 30% { transform: rotate(-8deg); } 45% { transform: rotate(14deg); } 60% { transform: rotate(0deg); } }
+        @keyframes heroTextShine { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+        .hero-pill { transition: transform 0.22s cubic-bezier(0.34,1.56,0.64,1), background 0.22s ease; cursor: default; }
+        .hero-pill:hover { transform: translateY(-2px); }
+        .hero-ring-wrap { transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+        .hero-ring-wrap:hover { transform: scale(1.06); }
+        .hero-microstat { position: relative; cursor: default; }
+        .hero-microstat-underline { position: absolute; left: 0; right: 100%; bottom: -6px; height: 2px; background: linear-gradient(90deg, #fcd34d, #34d399); border-radius: 2px; transition: right 0.28s ease; }
+        .hero-microstat:hover .hero-microstat-underline { right: 0; }
         @media (max-width: 640px) {
           .hero-badge-desktop { display: none !important; }
           .hero-bars-grid { grid-template-columns: 1fr !important; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .hero-greeting, [style*="heroFloat"], [style*="heroGradientDrift"], [style*="heroRingSpin"], [style*="heroPulse"], [style*="heroWave"], [style*="heroTextShine"] {
+            animation: none !important;
+          }
         }
       `}</style>
 
@@ -542,6 +728,114 @@ export default function StudentDashboard() {
         </div>
       )}
 
+      {/* ── Analytics: weekly activity + score trend + breakdown donut ── */}
+      {hasChartData && (
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4" style={visStyle(0.11)}>
+
+          {/* Weekly submission activity */}
+          <div className="card lg:col-span-3">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-semibold text-sm flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                <Activity style={{ width: 14, height: 14, color: '#10b981' }} />
+                Weekly submission activity
+              </h3>
+              <span className="text-xs text-muted">{submitted.length} total this period</span>
+            </div>
+            <div style={{ width: '100%', height: 190 }}>
+              <ResponsiveContainer>
+                <AreaChart data={weeklyActivity} margin={{ top: 12, right: 8, left: -22, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="submissionsFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#10b981" stopOpacity={0.45} />
+                      <stop offset="100%" stopColor="#10b981" stopOpacity={0.02} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--card-border)" />
+                  <XAxis dataKey="day" tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} axisLine={false} tickLine={false} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} axisLine={false} tickLine={false} width={24} />
+                  <Tooltip content={<ChartTooltip unit=" submitted" />} labelFormatter={(l, p) => p?.[0]?.payload?.full || l} />
+                  <Area type="monotone" dataKey="submissions" name="Submissions" stroke="#10b981" strokeWidth={2.5}
+                    fill="url(#submissionsFill)" dot={{ r: 3, fill: '#10b981', strokeWidth: 0 }}
+                    activeDot={{ r: 5, fill: '#10b981', stroke: '#fff', strokeWidth: 2 }} animationDuration={1100} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Assessment outcome breakdown donut */}
+          <div className="card lg:col-span-2" style={{ display: 'flex', flexDirection: 'column' }}>
+            <h3 className="font-semibold text-sm flex items-center gap-2 mb-2" style={{ color: 'var(--text-primary)' }}>
+              <Target style={{ width: 14, height: 14, color: '#6366f1' }} />
+              Assessment outcomes
+            </h3>
+            {breakdownData.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center py-6">
+                <p className="text-xs text-muted">No graded assessments yet</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1 }}>
+                <div style={{ width: 130, height: 150, position: 'relative', flexShrink: 0 }}>
+                  <ResponsiveContainer>
+                    <PieChart>
+                      <Pie data={breakdownData} dataKey="value" nameKey="name" cx="50%" cy="50%"
+                        innerRadius={38} outerRadius={58} paddingAngle={3} stroke="none" animationDuration={1000}>
+                        {breakdownData.map((d, i) => <Cell key={i} fill={d.color} />)}
+                      </Pie>
+                      <Tooltip content={<ChartTooltip />} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+                    <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>{gradedQuizzes.length}</span>
+                    <span style={{ fontSize: 8, color: 'var(--text-secondary)', fontWeight: 600, letterSpacing: '0.04em' }}>GRADED</span>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minWidth: 0 }}>
+                  {breakdownData.map(d => (
+                    <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: d.color, flexShrink: 0 }} />
+                      <span className="text-xs text-muted truncate" style={{ flex: 1 }}>{d.name}</span>
+                      <span className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>{d.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Score trend across most recent assessments */}
+          {scoreTrend.length > 1 && (
+            <div className="card lg:col-span-5">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-semibold text-sm flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                  <TrendingUp style={{ width: 14, height: 14, color: '#f59e0b' }} />
+                  Recent score trend
+                </h3>
+                <span className="text-xs text-muted">last {scoreTrend.length} graded assessments</span>
+              </div>
+              <div style={{ width: '100%', height: 160 }}>
+                <ResponsiveContainer>
+                  <AreaChart data={scoreTrend} margin={{ top: 12, right: 8, left: -22, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="scoreFill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.4} />
+                        <stop offset="100%" stopColor="#f59e0b" stopOpacity={0.02} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--card-border)" />
+                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} axisLine={false} tickLine={false} />
+                    <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} axisLine={false} tickLine={false} width={30} />
+                    <Tooltip content={<ChartTooltip unit="%" />} labelFormatter={(l, p) => p?.[0]?.payload?.title || l} />
+                    <Area type="monotone" dataKey="score" name="Score" stroke="#f59e0b" strokeWidth={2.5}
+                      fill="url(#scoreFill)" dot={{ r: 3, fill: '#f59e0b', strokeWidth: 0 }}
+                      activeDot={{ r: 5, fill: '#f59e0b', stroke: '#fff', strokeWidth: 2 }} animationDuration={1100} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ── Performance + Pending row ── */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4" style={visStyle(0.12)}>
 
@@ -561,7 +855,7 @@ export default function StudentDashboard() {
 
           {/* Score ring */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-            <div style={{ position: 'relative', width: 100, height: 100 }}>
+            <div className="hero-ring-wrap" style={{ position: 'relative', width: 100, height: 100 }}>
               <svg width={100} height={100} viewBox="0 0 100 100" style={{ transform: 'rotate(-90deg)' }}>
                 <circle cx={50} cy={50} r={40} fill="none" stroke="rgba(99,102,241,0.1)" strokeWidth={9} />
                 <circle cx={50} cy={50} r={40} fill="none"
@@ -822,12 +1116,6 @@ export default function StudentDashboard() {
                     <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{t.name}</p>
                     <p className="text-xs text-muted">{t.role}</p>
                     <p className="text-xs text-muted truncate mt-0.5" style={{ opacity: 0.75 }}>{t.subjects.join(', ')}</p>
-                    {t.email && (
-                      <a href={`mailto:${t.email}`} className="text-xs text-primary-600 hover:underline flex items-center gap-1 mt-1.5">
-                        <Mail style={{ width: 11, height: 11 }} />
-                        <span className="truncate">{t.email}</span>
-                      </a>
-                    )}
                   </div>
                 </div>
               ))}
@@ -882,7 +1170,7 @@ export default function StudentDashboard() {
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-sm flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
               <FileText style={{ width: 14, height: 14, color: '#ec4899' }} />
-              Study materials
+              SHared document materials
             </h3>
             <Link to="/student/documents" className="text-xs text-primary-600 hover:underline flex items-center gap-1">
               View all <ChevronRight className="w-3 h-3" />

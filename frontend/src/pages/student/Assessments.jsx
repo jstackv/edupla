@@ -34,6 +34,7 @@ function statusInfo(a) {
   if (a.in_progress_attempt_id) return { key: 'progress', label: 'In progress', color: '#f59e0b', bg: 'rgba(245,158,11,0.14)' };
   if (a.best_score != null) return { key: 'graded', label: 'Graded', color: '#10b981', bg: 'rgba(16,185,129,0.14)' };
   if (a.has_pending_grading) return { key: 'pending', label: 'Awaiting grading', color: '#6366f1', bg: 'rgba(99,102,241,0.14)' };
+  if (a.not_yet_available) return { key: 'scheduled', label: 'Starts soon', color: '#8b5cf6', bg: 'rgba(139,92,246,0.14)' };
   if (!a.can_start) return { key: 'locked', label: 'No attempts left', color: '#9ca3af', bg: 'rgba(156,163,175,0.15)' };
   return { key: 'new', label: 'Not started', color: '#3b82f6', bg: 'rgba(59,130,246,0.14)' };
 }
@@ -95,6 +96,18 @@ function ExpiryChip({ expiresAt, expired }) {
   );
 }
 
+/* Tells the student when a shared-but-not-open-yet assessment will start.
+   Shown instead of (never alongside) the expiry chip, since "starts in"
+   matters more than "due in" until the start time actually arrives. */
+function StartsChip({ availableFrom }) {
+  if (!availableFrom) return null;
+  return (
+    <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold flex-shrink-0" style={{ background: 'rgba(139,92,246,0.14)', color: '#8b5cf6' }}>
+      <CalendarClock className="w-3 h-3" /> Starts {fmtDate(availableFrom)}
+    </span>
+  );
+}
+
 function AssessmentCard({ a, i, onOpen }) {
   const s = statusInfo(a);
   const pct = a.max_marks ? Math.round(((a.best_score ?? 0) / a.max_marks) * 100) : 0;
@@ -144,19 +157,23 @@ function AssessmentCard({ a, i, onOpen }) {
         <span className="flex items-center gap-1 px-2 py-0.5 rounded-full" style={{ background: 'var(--surface-100)', color: 'var(--text-secondary)' }}>
           <RotateCcw className="w-3 h-3" /> {a.attempts_left}/{a.max_attempts} left
         </span>
-        <ExpiryChip expiresAt={a.expires_at} expired={a.expired} />
+        {a.not_yet_available && !a.expired
+          ? <StartsChip availableFrom={a.available_from} />
+          : <ExpiryChip expiresAt={a.expires_at} expired={a.expired} />}
       </div>
 
       <button
         onClick={() => onOpen(a)}
-        disabled={ctaDisabled}
+        disabled={ctaDisabled && !a.not_yet_available}
         className="btn-primary assessment-cta text-sm mt-1 flex items-center justify-center gap-2 disabled:opacity-45 disabled:cursor-not-allowed"
       >
         {a.in_progress_attempt_id
           ? <><PlayCircle className="w-4 h-4" /> Resume</>
-          : a.can_start
-            ? <><PlayCircle className="w-4 h-4" /> View &amp; Start</>
-            : <><CheckCircle2 className="w-4 h-4" /> {a.expired ? 'Expired' : 'No attempts left'}</>}
+          : a.not_yet_available
+            ? <><CalendarClock className="w-4 h-4" /> View details</>
+            : a.can_start
+              ? <><PlayCircle className="w-4 h-4" /> View &amp; Start</>
+              : <><CheckCircle2 className="w-4 h-4" /> {a.expired ? 'Expired' : 'No attempts left'}</>}
       </button>
     </div>
   );
@@ -240,7 +257,25 @@ function InstructionsModal({ assessment, onClose, onStart, starting }) {
               <div style={{ color: 'var(--text-primary)' }} className="font-semibold text-xs">{fmtDate(data.expires_at)}</div>
               <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>Available until</div>
             </div>
+            {data.available_from && (
+              <div className="card assessment-card p-3">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-1.5" style={{ background: 'rgba(139,92,246,0.12)' }}>
+                  <CalendarClock className="w-4 h-4" style={{ color: '#8b5cf6' }} />
+                </div>
+                <div style={{ color: 'var(--text-primary)' }} className="font-semibold text-xs">{fmtDate(data.available_from)}</div>
+                <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>Opens for starting</div>
+              </div>
+            )}
           </div>
+
+          {data.not_yet_available && (
+            <div className="p-3 rounded-xl text-sm flex items-start gap-2" style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.3)' }}>
+              <CalendarClock className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#8b5cf6' }} />
+              <p style={{ color: 'var(--text-secondary)' }}>
+                This assessment isn't open yet. You'll be able to start it on <strong style={{ color: 'var(--text-primary)' }}>{fmtDate(data.available_from)}</strong> — once your {data.duration_minutes} minute window opens, it starts from that moment.
+              </p>
+            </div>
+          )}
 
           {data.instructions && (
             <div className="p-3 rounded-xl text-sm" style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', color: 'var(--text-secondary)' }}>
@@ -259,11 +294,11 @@ function InstructionsModal({ assessment, onClose, onStart, starting }) {
             <button onClick={onClose} className="btn-secondary">Cancel</button>
             <button
               onClick={() => onStart(data.in_progress_attempt_id)}
-              disabled={starting || (data.expired || (data.attempts_left <= 0 && !data.in_progress_attempt_id))}
+              disabled={starting || (data.expired || data.not_yet_available || (data.attempts_left <= 0 && !data.in_progress_attempt_id))}
               className="btn-primary assessment-cta flex items-center gap-2"
             >
               {starting ? <Loader2 className="w-4 h-4 animate-spin" /> : <PlayCircle className="w-4 h-4" />}
-              {data.in_progress_attempt_id ? 'Resume Assessment' : 'Start Assessment'}
+              {data.in_progress_attempt_id ? 'Resume Assessment' : data.not_yet_available ? 'Not open yet' : 'Start Assessment'}
             </button>
           </div>
         </div>

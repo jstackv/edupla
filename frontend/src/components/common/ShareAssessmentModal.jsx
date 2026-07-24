@@ -2,8 +2,18 @@
  * ShareAssessmentModal.jsx
  *
  * Lets the teacher publish an assessment's question paper to its class:
- * set the attempt duration, an expiry date/time, how many attempts a
- * student gets, and instructions shown before the student starts.
+ * set the attempt duration, an optional start time, an expiry date/time,
+ * how many attempts a student gets, and instructions shown before the
+ * student starts.
+ *
+ * "Available from" vs "Expiry date & time": the assessment is shared (and
+ * visible to students) the moment this form is submitted — students always
+ * see it right away and can read the instructions. "Available from" only
+ * gates when they're allowed to actually START an attempt; leave it blank
+ * (or set it in the past) to let students start immediately, same as
+ * before this field existed. Whatever duration_minutes is set to is still
+ * fully respected once an attempt begins — available_from only decides
+ * when the clock is allowed to start, not how long it runs once it does.
  *
  * When re-sharing an already-shared assessment ("Update Sharing"), the form
  * is pre-filled with its current settings instead of resetting them — so
@@ -14,13 +24,13 @@
  * AddAttemptModal instead — it's the lighter-weight, more direct action.
  *
  * API contract: POST /assessment/teacher/assessments/:id/share
- *   body: { duration_minutes, expires_at, max_attempts, instructions }
+ *   body: { duration_minutes, available_from, expires_at, max_attempts, instructions }
  */
 import { useState } from 'react';
 import Modal from './Modal';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
-import { Send, Loader2, Clock, CalendarClock, RotateCcw, FileText } from 'lucide-react';
+import { Send, Loader2, Clock, CalendarClock, CalendarPlus, RotateCcw, FileText } from 'lucide-react';
 
 function defaultExpiry() {
   const d = new Date();
@@ -38,10 +48,21 @@ function toDatetimeLocal(value) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+// Unlike expiry (which always defaults to something 7 days out), "available
+// from" defaults to blank — blank means "students can start right away",
+// which is the same behavior the assessment had before this field existed.
+function toDatetimeLocalOrEmpty(value) {
+  if (!value) return '';
+  const d = new Date(value);
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 export default function ShareAssessmentModal({ assessment, onClose, onShared }) {
   const isReshare = assessment.is_shared;
 
   const [durationMinutes, setDurationMinutes] = useState(assessment.duration_minutes || 30);
+  const [availableFrom, setAvailableFrom] = useState(isReshare ? toDatetimeLocalOrEmpty(assessment.available_from) : '');
   const [expiresAt, setExpiresAt] = useState(isReshare ? toDatetimeLocal(assessment.expires_at) : defaultExpiry());
   const [maxAttempts, setMaxAttempts] = useState(assessment.max_attempts || 1);
   const [instructions, setInstructions] = useState(
@@ -51,10 +72,14 @@ export default function ShareAssessmentModal({ assessment, onClose, onShared }) 
 
   const handleShare = async () => {
     if (!durationMinutes || Number(durationMinutes) <= 0) return toast.error('Set a duration greater than 0 minutes.');
+    if (availableFrom && expiresAt && new Date(availableFrom) >= new Date(expiresAt)) {
+      return toast.error('The start time must be before the expiry date/time.');
+    }
     setSaving(true);
     try {
       await api.post(`/assessment/teacher/assessments/${assessment.id}/share`, {
         duration_minutes: Number(durationMinutes),
+        available_from: availableFrom ? new Date(availableFrom).toISOString() : null,
         expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
         max_attempts: Number(maxAttempts) || 1,
         instructions,
@@ -86,6 +111,16 @@ export default function ShareAssessmentModal({ assessment, onClose, onShared }) 
             <Clock className="w-3.5 h-3.5" /> Duration (minutes)
           </label>
           <input type="number" min="1" value={durationMinutes} onChange={e => setDurationMinutes(e.target.value)} className="chat-form-field w-full text-sm" />
+        </div>
+
+        <div>
+          <label className="text-xs font-semibold flex items-center gap-1.5 mb-1" style={{ color: 'var(--text-secondary)' }}>
+            <CalendarPlus className="w-3.5 h-3.5" /> Available from <span className="font-normal normal-case" style={{ color: 'var(--text-secondary)' }}>(optional)</span>
+          </label>
+          <input type="datetime-local" value={availableFrom} onChange={e => setAvailableFrom(e.target.value)} className="chat-form-field w-full text-sm" />
+          <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
+            Students are notified and can see this assessment right away, but can't start it until this time. Leave blank to let them start immediately.
+          </p>
         </div>
 
         <div>
