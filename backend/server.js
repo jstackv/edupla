@@ -1,4 +1,9 @@
 require('dotenv').config();
+console.log(
+  process.env.GEMINI_API_KEY
+    ? `GEMINI_API_KEY loaded (ends in ...${process.env.GEMINI_API_KEY.slice(-4)}) — AI question generation is enabled.`
+    : 'GEMINI_API_KEY is NOT set — AI question generation will return an error until it is added to backend/.env (get a free key, no card required, at https://aistudio.google.com/apikey) and the server is restarted.'
+);
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');

@@ -57,6 +57,7 @@ router.get('/teacher/reports/:assessmentId',  isAuthenticated, isTeacher, ctrl.t
 // ── TEACHER: online-quiz feature (question builder, sharing, grading) ─────
 router.get('/teacher/assessments/:id/questions',        isAuthenticated, isTeacher, ctrl.teacherGetQuestions);
 router.post('/teacher/assessments/:id/questions',       isAuthenticated, isTeacher, ctrl.teacherSaveQuestions);
+router.post('/teacher/assessments/:id/questions/generate', isAuthenticated, isTeacher, ctrl.teacherGenerateQuestions);
 router.post('/teacher/assessments/:id/share',           isAuthenticated, isTeacher, ctrl.teacherShareAssessment);
 router.post('/teacher/assessments/:id/unshare',         isAuthenticated, isTeacher, ctrl.teacherUnshareAssessment);
 router.post('/teacher/assessments/:id/attempts/add',    isAuthenticated, isTeacher, ctrl.teacherAddAttempts);

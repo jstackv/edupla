@@ -16,7 +16,7 @@ import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import {
   Plus, Trash2, Save, GripVertical, ListChecks, ToggleLeft,
-  PenLine, Shuffle, MessageSquareText, Lock, Loader2,
+  PenLine, Shuffle, MessageSquareText, Lock, Loader2, Sparkles, PencilLine,
 } from 'lucide-react';
 
 const QUESTION_TYPES = [
@@ -25,6 +25,12 @@ const QUESTION_TYPES = [
   { key: 'fill_gap',    label: 'Fill in the Gap', icon: PenLine },
   { key: 'matching',    label: 'Matching',        icon: Shuffle },
   { key: 'open',        label: 'Open Question',   icon: MessageSquareText },
+];
+
+const COMPLEXITY_LEVELS = [
+  { key: 'easy',     label: 'Easy' },
+  { key: 'medium',   label: 'Medium' },
+  { key: 'advanced', label: 'Advanced' },
 ];
 
 function blankQuestion(type = 'mcq') {
@@ -44,7 +50,52 @@ export default function QuizBuilderModal({ assessment, onClose, onSaved }) {
   const [locked, setLocked] = useState(false);
   const [questions, setQuestions] = useState([]);
 
+  // 'manual' shows the question-by-question editor (existing behaviour).
+  // 'ai' shows the generation form; once generation succeeds we drop back
+  // to 'manual' so the teacher reviews/edits the AI output with the exact
+  // same controls used for hand-built questions.
+  const [builderMode, setBuilderMode] = useState('manual');
+  const [generating, setGenerating] = useState(false);
+  const [justGenerated, setJustGenerated] = useState(false);
+  const [bulkMarks, setBulkMarks] = useState(1);
+  const [aiForm, setAiForm] = useState({
+    topic: assessment.course_id?.name || assessment.title || '',
+    references: '',
+    complexity: 'medium',
+    counts: { mcq: 0, true_false: 0, fill_gap: 0, matching: 0, open: 0 },
+  });
+
   const moduleWeight = assessment.course_id?.total_marks || 100;
+  const aiQuestionTotal = Object.values(aiForm.counts).reduce((s, n) => s + (Number(n) || 0), 0);
+
+  const updateAiCount = (type, value) => {
+    setAiForm(f => ({ ...f, counts: { ...f.counts, [type]: value } }));
+  };
+
+  const handleGenerate = async () => {
+    if (!aiForm.topic.trim()) return toast.error('Enter a topic for the AI to write questions about.');
+    if (aiQuestionTotal === 0) return toast.error('Set at least one question count in the mix below.');
+
+    setGenerating(true);
+    try {
+      const { data } = await api.post(`/assessment/teacher/assessments/${assessment.id}/questions/generate`, {
+        topic: aiForm.topic.trim(),
+        references: aiForm.references.trim(),
+        complexity: aiForm.complexity,
+        counts: aiForm.counts,
+      });
+      const generated = (data.questions || []).map(q => ({ ...blankQuestion(q.type), ...q, _key: Math.random().toString(36).slice(2) }));
+      if (!generated.length) return toast.error('The AI did not return any questions — try adjusting the topic or mix.');
+      setQuestions(generated);
+      setBuilderMode('manual');
+      setJustGenerated(true);
+      toast.success(`Generated ${generated.length} question${generated.length !== 1 ? 's' : ''}. Review and edit before saving.`);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to generate questions');
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   useEffect(() => {
     let alive = true;
@@ -141,7 +192,94 @@ export default function QuizBuilderModal({ assessment, onClose, onSaved }) {
         </div>
       ) : (
         <div className="space-y-4">
-          {locked && (
+          {!locked && (
+            <div className="flex gap-1 p-1 rounded-xl" style={{ background: 'var(--surface-1, rgba(255,255,255,0.04))' }}>
+              <button type="button" onClick={() => setBuilderMode('manual')}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition-colors"
+                style={{
+                  background: builderMode === 'manual' ? 'var(--card-bg, rgba(255,255,255,0.06))' : 'transparent',
+                  border: builderMode === 'manual' ? '1px solid var(--card-border)' : '1px solid transparent',
+                  color: builderMode === 'manual' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                }}>
+                <PencilLine className="w-4 h-4" /> Manual Creation
+              </button>
+              <button type="button" onClick={() => setBuilderMode('ai')}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition-colors"
+                style={{
+                  background: builderMode === 'ai' ? 'var(--card-bg, rgba(255,255,255,0.06))' : 'transparent',
+                  border: builderMode === 'ai' ? '1px solid var(--card-border)' : '1px solid transparent',
+                  color: builderMode === 'ai' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                }}>
+                <Sparkles className="w-4 h-4" /> AI Generation
+              </button>
+            </div>
+          )}
+
+          {builderMode === 'ai' && !locked && (
+            <div className="card p-4 space-y-4">
+              <div>
+                <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--text-secondary)' }}>Topic</label>
+                <input
+                  value={aiForm.topic}
+                  onChange={e => setAiForm(f => ({ ...f, topic: e.target.value }))}
+                  placeholder="e.g. Cell division and mitosis"
+                  className="chat-form-field w-full text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold block mb-1" style={{ color: 'var(--text-secondary)' }}>References (optional)</label>
+                <textarea
+                  value={aiForm.references}
+                  onChange={e => setAiForm(f => ({ ...f, references: e.target.value }))}
+                  placeholder="Paste links, textbook chapters, or notes to keep the questions precise — one per line"
+                  rows={2}
+                  className="chat-form-field w-full text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold block mb-2" style={{ color: 'var(--text-secondary)' }}>Question mix</label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {QUESTION_TYPES.map(t => (
+                    <div key={t.key} className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl" style={{ border: '1px solid var(--card-border)' }}>
+                      <span className="text-xs flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
+                        <t.icon className="w-3.5 h-3.5" style={{ color: 'var(--text-secondary)' }} /> {t.label}
+                      </span>
+                      <input
+                        type="number" min="0" step="1"
+                        value={aiForm.counts[t.key]}
+                        onChange={e => updateAiCount(t.key, e.target.value)}
+                        className="chat-form-field text-sm py-1 px-2 w-14 text-center"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-semibold block mb-2" style={{ color: 'var(--text-secondary)' }}>Complexity</label>
+                <div className="flex gap-2">
+                  {COMPLEXITY_LEVELS.map(c => (
+                    <button key={c.key} type="button" onClick={() => setAiForm(f => ({ ...f, complexity: c.key }))}
+                      className="flex-1 py-1.5 rounded-xl text-sm font-semibold border-2 transition-colors"
+                      style={{
+                        borderColor: aiForm.complexity === c.key ? '#10b981' : 'var(--card-border)',
+                        background: aiForm.complexity === c.key ? 'rgba(16,185,129,0.12)' : 'transparent',
+                        color: aiForm.complexity === c.key ? '#10b981' : 'var(--text-secondary)',
+                      }}>{c.label}</button>
+                  ))}
+                </div>
+              </div>
+              <button type="button" onClick={handleGenerate} disabled={generating}
+                className="btn-primary w-full flex items-center justify-center gap-2">
+                {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                {generating ? 'Searching sources and drafting…' : `Generate ${aiQuestionTotal || ''} Question${aiQuestionTotal !== 1 ? 's' : ''}`}
+              </button>
+              <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                Powered by Google's free Gemini API. It drafts questions from its own subject knowledge plus anything you paste into References above — it doesn't browse the web live, so for the most accurate results paste in key facts, definitions, or links yourself. Review and edit everything on the Manual Creation tab before saving — nothing is saved automatically.
+              </p>
+            </div>
+          )}
+
+          {builderMode === 'manual' && locked && (
             <div className="p-3 rounded-xl text-sm flex items-start gap-2"
               style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)' }}>
               <Lock className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
@@ -151,6 +289,36 @@ export default function QuizBuilderModal({ assessment, onClose, onSaved }) {
             </div>
           )}
 
+          {builderMode === 'manual' && (
+          <>
+          {justGenerated && !locked && (
+            <div className="p-3 rounded-xl text-sm flex flex-wrap items-center gap-2"
+              style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)' }}>
+              <Sparkles className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--text-secondary)' }} />
+              <span style={{ color: 'var(--text-secondary)' }}>Set marks for every generated question at once:</span>
+              <input
+                type="number" min="0.5" step="0.5"
+                value={bulkMarks}
+                onChange={e => setBulkMarks(e.target.value)}
+                className="chat-form-field text-sm py-1 px-2 w-20"
+              />
+              <button type="button"
+                onClick={() => {
+                  const m = Number(bulkMarks);
+                  if (!m || m <= 0) return toast.error('Enter a mark value greater than 0.');
+                  setQuestions(qs => qs.map(q => ({ ...q, marks: m })));
+                  toast.success(`Set ${m} mark${m !== 1 ? 's' : ''} on every question.`);
+                }}
+                className="btn-secondary text-sm py-1 px-3"
+              >
+                Apply to all
+              </button>
+              <button type="button" onClick={() => setJustGenerated(false)}
+                className="ml-auto text-xs underline" style={{ color: 'var(--text-secondary)' }}>
+                Dismiss
+              </button>
+            </div>
+          )}
           <div className="flex items-center justify-between text-sm">
             <span style={{ color: 'var(--text-secondary)' }}>{questions.length} question{questions.length !== 1 ? 's' : ''}</span>
             <span className="font-semibold flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
@@ -308,10 +476,12 @@ export default function QuizBuilderModal({ assessment, onClose, onSaved }) {
               <Plus className="w-4 h-4" /> Add question
             </button>
           </fieldset>
+          </>
+          )}
 
           <div className="flex justify-end gap-2 pt-2">
             <button onClick={onClose} className="btn-secondary">Cancel</button>
-            {!locked && (
+            {!locked && builderMode === 'manual' && (
               <button onClick={handleSave} disabled={saving} className="btn-primary flex items-center gap-2">
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                 Save Questions
