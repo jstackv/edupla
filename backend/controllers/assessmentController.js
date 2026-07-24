@@ -508,9 +508,14 @@ exports.teacherGetAssessments = async (req, res) => {
     if (course_id) filter.course_id = course_id;
     if (class_id) filter.class_id = class_id;
     // Marks Recording and the independent online-Assessments page each only
-    // ever see their own records. Default to 'marks' for backward compatibility
-    // with the existing Marks Recording page, which never sends this param.
-    filter.mode = mode === 'quiz' ? 'quiz' : 'marks';
+    // ever see their own records. "marks" isn't just an explicit value here —
+    // assessments created before the online-quiz feature (and this `mode`
+    // field) existed have no `mode` stored at all, and Mongo's query engine
+    // (unlike Mongoose's in-memory schema default) does NOT treat a missing
+    // field as equal to 'marks'. $ne: 'quiz' matches mode:'marks', mode:null,
+    // AND a missing field alike, so those legacy records aren't silently
+    // hidden — quiz is the only mode that ever needs to be excluded here.
+    filter.mode = mode === 'quiz' ? 'quiz' : { $ne: 'quiz' };
 
     const assessments = await Assessment.find(filter)
       .populate('course_id', 'name code class_id class_ids total_marks category')
@@ -1172,7 +1177,16 @@ exports.adminListSubmissions = async (req, res) => {
     const courses = await Course.find({ created_by: req.user.id }, '_id').lean();
     const courseIds = courses.map(c => c._id);
 
-    const assessments = await Assessment.find({ course_id: { $in: courseIds } })
+    // Only manual "Marks Recording" assessments ever go through the
+    // submit-for-review workflow below — online quiz assessments
+    // (mode: 'quiz') are shared to students and auto-graded instead, and
+    // never get an AssessmentSubmission of their own.
+    // $ne: 'quiz' (not mode: 'marks') is deliberate: assessments created
+    // before the online-quiz feature existed have no `mode` stored at all,
+    // and a straight `mode: 'marks'` filter would silently exclude those
+    // legacy records too, since Mongo's query engine — unlike Mongoose's
+    // in-memory schema default — doesn't treat a missing field as 'marks'.
+    const assessments = await Assessment.find({ course_id: { $in: courseIds }, mode: { $ne: 'quiz' } })
       .populate('course_id', 'name code total_marks class_id class_ids category')
       .populate('class_id', 'name')
       .populate('teacher_id', 'name email')
@@ -1220,7 +1234,7 @@ exports.adminViewSubmission = async (req, res) => {
       .populate('class_id', 'name')
       .populate('teacher_id', 'name email')
       .lean();
-    if (!assessment || !courseIds.includes(assessment.course_id?._id?.toString()))
+    if (!assessment || !courseIds.includes(assessment.course_id?._id?.toString()) || assessment.mode === 'quiz')
       return res.status(404).json({ message: 'Assessment not found' });
 
     /*
@@ -1273,7 +1287,7 @@ exports.adminApproveSubmission = async (req, res) => {
     const courseIds = courses.map(c => c._id.toString());
 
     const assessment = await Assessment.findById(req.params.assessmentId).populate('course_id', '_id').lean();
-    if (!assessment || !courseIds.includes(assessment.course_id?._id?.toString()))
+    if (!assessment || !courseIds.includes(assessment.course_id?._id?.toString()) || assessment.mode === 'quiz')
       return res.status(404).json({ message: 'Assessment not found' });
 
     const submission = await AssessmentSubmission.findOne({ assessment_id: req.params.assessmentId });
@@ -1299,7 +1313,7 @@ exports.adminRejectSubmission = async (req, res) => {
     const courseIds = courses.map(c => c._id.toString());
 
     const assessment = await Assessment.findById(req.params.assessmentId).populate('course_id', '_id').lean();
-    if (!assessment || !courseIds.includes(assessment.course_id?._id?.toString()))
+    if (!assessment || !courseIds.includes(assessment.course_id?._id?.toString()) || assessment.mode === 'quiz')
       return res.status(404).json({ message: 'Assessment not found' });
 
     const submission = await AssessmentSubmission.findOne({ assessment_id: req.params.assessmentId });
