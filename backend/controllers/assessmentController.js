@@ -1689,6 +1689,206 @@ exports.teacherSaveQuestions = async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
+/* ═══════════════════ TEACHER: AI question generation ══════════════════
+   Uses Google's Gemini API (free tier — no billing required) to draft a
+   question set from a topic + optional references, at a chosen mix of
+   types and a chosen difficulty. The result is handed back to the
+   frontend as plain draft data — nothing is written to the database
+   here. The teacher reviews/edits on the Manual Creation tab and only
+   the existing teacherSaveQuestions endpoint ever persists questions,
+   so this route can't be used to bypass validation or the lock check.
+
+   Free-tier note: Gemini's free tier does not reliably include live
+   web-search grounding without a billing account attached, so this
+   draws on the model's own training knowledge plus whatever the
+   teacher pastes into "references" rather than browsing the web. Set
+   GEMINI_API_KEY (get one free, no card required, at
+   https://aistudio.google.com/apikey) in backend/.env to enable this. */
+
+const VALID_AI_TYPES = ['mcq', 'true_false', 'fill_gap', 'matching', 'open'];
+const MAX_AI_QUESTIONS = 40;
+// Google retires/renames free-tier model IDs fairly often, so we try a
+// short list in priority order and fall back automatically if one has
+// been deprecated (a 404 "no longer available" response), rather than
+// hard-failing on a single hardcoded model string.
+const GEMINI_MODEL_CANDIDATES = [
+  'gemini-3.1-flash-lite',
+  'gemini-3.5-flash-lite',
+  'gemini-2.5-flash-lite',
+  'gemini-2.5-flash',
+];
+
+function buildGenerationPrompt({ topic, references, complexity, counts, moduleName }) {
+  const mix = Object.entries(counts)
+    .filter(([, n]) => Number(n) > 0)
+    .map(([type, n]) => `${n} of type "${type}"`)
+    .join(', ');
+
+  return `You are helping a teacher build an assessment question bank for the module "${moduleName || topic}".
+
+Topic to write questions about: ${topic}
+${references ? `Reference material the teacher wants you to ground the questions in — treat this as the source of truth for facts: ${references}` : 'No specific references were given — use accurate, general subject knowledge on this topic.'}
+Difficulty level: ${complexity}
+Exact question mix required: ${mix}
+
+Question type definitions and required JSON shape per type:
+- "mcq": { "type": "mcq", "question_text": string, "marks": number, "options": [{ "key": "A", "text": string }, ...] (2-5 options), "correct_answer": [array of the correct option key(s), e.g. ["B"]] }
+- "true_false": { "type": "true_false", "question_text": string, "marks": number, "correct_answer": "true" or "false" }
+- "fill_gap": { "type": "fill_gap", "question_text": string (use ___ for the blank), "marks": number, "correct_answer": [array of one or more acceptable exact-match answers] }
+- "matching": { "type": "matching", "question_text": string (brief instruction), "marks": number, "pairs": [{ "left": string, "right": string }, ...] (at least 2 pairs) }
+- "open": { "type": "open", "question_text": string, "marks": number, "correct_answer": string (a model answer for the teacher's own reference — not shown to students) }
+
+Rules:
+- Produce exactly the requested count of each type, no more, no fewer.
+- Set "marks" to 1 for every question unless the difficulty clearly warrants more (max 3).
+- Keep wording precise, unambiguous, and appropriate for the "${complexity}" difficulty level.
+- Don't invent facts — stick to well-established knowledge and the references given.
+- Respond with ONLY a raw JSON object of the exact shape { "questions": [ ... ] } and nothing else — no markdown fences, no commentary before or after.`;
+}
+
+exports.teacherGenerateQuestions = async (req, res) => {
+  try {
+    const assessment = await Assessment.findOne({ _id: req.params.id, teacher_id: req.user.id })
+      .populate('course_id', 'name');
+    if (!assessment) return res.status(404).json({ message: 'Assessment not found' });
+
+    const submittedAttempts = await AssessmentAttempt.countDocuments({
+      assessment_id: assessment._id, status: { $ne: 'in_progress' }, voided: { $ne: true },
+    });
+    if (submittedAttempts > 0) {
+      return res.status(400).json({ message: 'Questions are locked — students have already submitted attempts for this assessment.' });
+    }
+
+    const { topic, references, complexity, counts } = req.body;
+    if (!topic || !topic.trim()) return res.status(400).json({ message: 'A topic is required.' });
+    if (!['easy', 'medium', 'advanced'].includes(complexity)) {
+      return res.status(400).json({ message: 'Complexity must be easy, medium, or advanced.' });
+    }
+    if (!counts || typeof counts !== 'object') return res.status(400).json({ message: 'Question counts are required.' });
+
+    const cleanCounts = {};
+    let total = 0;
+    for (const type of VALID_AI_TYPES) {
+      const n = Math.max(0, Math.floor(Number(counts[type]) || 0));
+      cleanCounts[type] = n;
+      total += n;
+    }
+    if (total === 0) return res.status(400).json({ message: 'Set at least one question count.' });
+    if (total > MAX_AI_QUESTIONS) {
+      return res.status(400).json({ message: `Generate at most ${MAX_AI_QUESTIONS} questions at a time.` });
+    }
+
+    if (!process.env.GEMINI_API_KEY) {
+      return res.status(500).json({ message: 'AI generation is not configured on this server — GEMINI_API_KEY is missing. Get a free key at https://aistudio.google.com/apikey' });
+    }
+
+    const prompt = buildGenerationPrompt({
+      topic: topic.trim(),
+      references: (references || '').trim(),
+      complexity,
+      counts: cleanCounts,
+      moduleName: assessment.course_id?.name,
+    });
+
+    let apiRes, usedModel;
+    for (const modelId of GEMINI_MODEL_CANDIDATES) {
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent`;
+      apiRes = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': process.env.GEMINI_API_KEY,
+        },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          generationConfig: {
+            responseMimeType: 'application/json',
+            temperature: 0.6,
+            maxOutputTokens: 8000,
+          },
+        }),
+      });
+      usedModel = modelId;
+      if (apiRes.ok) break;
+      // Only retry the next candidate if this specific model was retired/unknown —
+      // any other error (bad key, rate limit, etc.) applies regardless of model.
+      const bodyText = await apiRes.clone().text();
+      const isRetiredModel = apiRes.status === 404 || /no longer available|not found/i.test(bodyText);
+      if (!isRetiredModel) break;
+      console.warn(`Gemini model "${modelId}" unavailable, trying next candidate...`);
+    }
+
+    if (!apiRes.ok) {
+      const errText = await apiRes.text();
+      console.error('Gemini API error:', usedModel, apiRes.status, errText);
+      const parsedErr = (() => { try { return JSON.parse(errText); } catch { return null; } })();
+      const upstreamMessage = parsedErr?.error?.message || '';
+      let message = 'The AI service failed to respond. Please try again.';
+      if (apiRes.status === 429) message = 'Free-tier rate limit reached for the AI model — wait a minute (or a bit longer if you\'ve hit the daily quota) and try again.';
+      else if (apiRes.status === 400 && /API key/i.test(upstreamMessage)) message = 'The Gemini API key is invalid — check GEMINI_API_KEY in backend/.env.';
+      else if (/no longer available|not found/i.test(upstreamMessage)) message = 'All configured Gemini model IDs are unavailable — Google may have retired them again. Check https://ai.google.dev/gemini-api/docs/models for current free-tier model IDs and update GEMINI_MODEL_CANDIDATES in the backend.';
+      else if (upstreamMessage) message = upstreamMessage;
+      return res.status(502).json({ message });
+    }
+
+    const data = await apiRes.json();
+    console.log(`Gemini generation succeeded using model "${usedModel}".`);
+    const finishReason = data.candidates?.[0]?.finishReason;
+    if (finishReason && finishReason !== 'STOP' && finishReason !== 'MAX_TOKENS') {
+      console.error('Gemini generation blocked/incomplete:', finishReason, data.promptFeedback);
+      return res.status(502).json({ message: `The AI could not complete this request (${finishReason}). Try a smaller batch or a different topic wording.` });
+    }
+
+    const textOut = (data.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('\n');
+    const jsonMatch = textOut.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      return res.status(502).json({ message: 'The AI response could not be parsed. Please try again.' });
+    }
+
+    let parsed;
+    try {
+      parsed = JSON.parse(jsonMatch[0]);
+    } catch {
+      return res.status(502).json({ message: 'The AI response was not valid JSON — try a smaller batch (large batches can get cut off on the free tier).' });
+    }
+
+    const rawQuestions = Array.isArray(parsed.questions) ? parsed.questions : [];
+    const questions = rawQuestions
+      .filter(q => q && VALID_AI_TYPES.includes(q.type) && q.question_text && q.question_text.trim())
+      .map(q => ({
+        type: q.type,
+        question_text: String(q.question_text).trim(),
+        marks: Number(q.marks) > 0 ? Number(q.marks) : 1,
+        options: q.type === 'mcq' && Array.isArray(q.options)
+          ? q.options.slice(0, 6).map((o, i) => ({ key: o.key || String.fromCharCode(65 + i), text: String(o.text || '').trim() }))
+          : undefined,
+        pairs: q.type === 'matching' && Array.isArray(q.pairs)
+          ? q.pairs.map(p => ({ left: String(p.left || '').trim(), right: String(p.right || '').trim() }))
+          : undefined,
+        correct_answer: q.correct_answer,
+      }));
+
+    if (!questions.length) {
+      return res.status(502).json({ message: 'The AI did not return any usable questions. Try adjusting the topic or mix and generate again.' });
+    }
+
+    res.json({ questions, generated_count: questions.length });
+  } catch (err) {
+    console.error('teacherGenerateQuestions error:', err);
+    if (err.cause) console.error('  underlying cause:', err.cause);
+    const causeCode = err.cause?.code;
+    let message = err.message;
+    if (message === 'fetch failed') {
+      if (causeCode === 'ENOTFOUND') message = 'Could not resolve generativelanguage.googleapis.com — check the server\'s internet/DNS connection.';
+      else if (causeCode === 'ECONNREFUSED') message = 'Connection to the Gemini API was refused — check firewall or proxy settings.';
+      else if (causeCode === 'ETIMEDOUT' || causeCode === 'UND_ERR_CONNECT_TIMEOUT') message = 'Connection to the Gemini API timed out — check the server\'s internet connection or proxy.';
+      else if (/certificate|SELF_SIGNED|CERT_/.test(causeCode || '')) message = 'A TLS/certificate error blocked the connection to the Gemini API — check antivirus/corporate proxy SSL inspection.';
+      else message = `Could not reach the AI service (${causeCode || 'network error'}). Check this server's internet connection.`;
+    }
+    res.status(500).json({ message });
+  }
+};
+
 /* ═══════════════════════ TEACHER: Share / unshare ═════════════════════ */
 
 exports.teacherShareAssessment = async (req, res) => {
