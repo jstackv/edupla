@@ -60,15 +60,14 @@ app.use('/api/notifications',     require('./routes/notifications'));
 const { isAuthenticated, isTeacher } = require('./middleware/auth');
 
 app.get('/api/analytics', isAuthenticated, isTeacher, async (req, res) => {
-  const { Class, Document, Assignment, Submission, Announcement, Assessment, Mark, Course, AssessmentSubmission, Attendance, DiscussionGroup } = require('./models/db');
+  const { Class, Document, Announcement, Assessment, Mark, Course, AssessmentSubmission, AssessmentAttempt, Attendance, DiscussionGroup } = require('./models/db');
   const mongoose = require('mongoose');
   const teacherId = new mongoose.Types.ObjectId(req.user.id);
 
   try {
-    const [classes, docs, assignments, announcements, assessments, modules, attendanceSessions, groups, onlineAssessments] = await Promise.all([
+    const [classes, docs, announcements, assessments, modules, attendanceSessions, groups, onlineAssessments] = await Promise.all([
       Class.countDocuments({ $or: [{ teacher_id: teacherId }, { extra_teachers: teacherId }] }),
       Document.countDocuments({ teacher_id: teacherId }),
-      Assignment.countDocuments({ teacher_id: teacherId }),
       Announcement.countDocuments({ teacher_id: teacherId }),
       Assessment.countDocuments({ teacher_id: teacherId }),
       Course.countDocuments({ teacher_id: teacherId }),
@@ -85,57 +84,118 @@ app.get('/api/analytics', isAuthenticated, isTeacher, async (req, res) => {
     teacherClasses.forEach(c => c.students.forEach(s => studentSet.add(s.toString())));
     const students = studentSet.size;
 
-    const counts = { classes, students, documents: docs, assignments, announcements, assessments, modules, attendanceSessions, groups, onlineAssessments };
+    const counts = { classes, students, documents: docs, announcements, assessments, modules, attendanceSessions, groups, onlineAssessments };
 
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const assignmentIds = (await Assignment.find({ teacher_id: teacherId }, '_id')).map(a => a._id);
 
-    const submissionTrend = await Submission.aggregate([
-      { $match: { assignment_id: { $in: assignmentIds }, submitted_at: { $gte: thirtyDaysAgo } } },
-      { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$submitted_at' } }, count: { $sum: 1 } } },
-      { $sort: { _id: 1 } },
-      { $project: { date: '$_id', count: 1, _id: 0 } },
-    ]);
+    // ── Assessment performance — covers BOTH manually-entered marks AND
+    // online quizzes (a graded quiz attempt's best score is auto-copied into
+    // Mark by the quiz grading flow), so this one source covers "assessment
+    // marks recorded by teacher" and "student's online assessment attempts"
+    // at once. `marks` (not `approved_marks`) is used here — the teacher's
+    // own dashboard should reflect the latest recorded/computed score, not
+    // just the subset that's already been through admin approval.
+    const myAssessments = await Assessment.find({ teacher_id: teacherId })
+      .select('_id title type term academic_year max_marks mode class_id course_id')
+      .populate('class_id', 'name')
+      .populate('course_id', 'name')
+      .lean();
+    const myAssessmentIds = myAssessments.map(a => a._id);
+    const assessmentById = {};
+    myAssessments.forEach(a => { assessmentById[a._id.toString()] = a; });
 
-    const gradedSubs = await Submission.find({ assignment_id: { $in: assignmentIds }, score: { $ne: null } }, 'score');
-    const gradeDistribution = { excellent: 0, good: 0, average: 0, poor: 0 };
-    gradedSubs.forEach(s => {
-      if (s.score >= 90) gradeDistribution.excellent++;
-      else if (s.score >= 70) gradeDistribution.good++;
-      else if (s.score >= 50) gradeDistribution.average++;
-      else gradeDistribution.poor++;
-    });
+    const allAssessmentMarks = await Mark.find({ assessment_id: { $in: myAssessmentIds }, marks: { $ne: null } })
+      .populate('student_id', 'name')
+      .lean();
 
-    const topStudents = await Submission.aggregate([
-      { $match: { assignment_id: { $in: assignmentIds }, score: { $ne: null } } },
-      { $group: { _id: '$student_id', submissions: { $sum: 1 }, avg_score: { $avg: '$score' } } },
-      { $sort: { avg_score: -1 } },
-      { $limit: 5 },
-      { $lookup: { from: 'users', localField: '_id', foreignField: '_id', as: 'user' } },
-      { $unwind: '$user' },
-      { $project: { id: '$_id', name: '$user.name', submissions: 1, avg_score: 1, _id: 0 } },
-    ]);
-
-    // Assessment (marks) grade distribution across all my assessments
-    const myAssessmentIds = (await Assessment.find({ teacher_id: teacherId }, '_id')).map(a => a._id);
-    const myMarks = await Mark.find({ assessment_id: { $in: myAssessmentIds }, marks_obtained: { $ne: null } })
-      .populate('assessment_id', 'total_marks').lean();
+    // Grade-band distribution across every assessment (marks-mode + quiz-mode alike)
     const assessmentGradeDistribution = { excellent: 0, good: 0, average: 0, poor: 0 };
-    myMarks.forEach(m => {
-      const total = m.assessment_id?.total_marks || 100;
-      const pct = (m.marks_obtained / total) * 100;
+    allAssessmentMarks.forEach(m => {
+      const a = assessmentById[m.assessment_id.toString()];
+      if (!a || !a.max_marks) return;
+      const pct = (m.marks / a.max_marks) * 100;
       if (pct >= 75) assessmentGradeDistribution.excellent++;
       else if (pct >= 60) assessmentGradeDistribution.good++;
       else if (pct >= 40) assessmentGradeDistribution.average++;
       else assessmentGradeDistribution.poor++;
     });
 
-    // Recent assessments by this teacher
+    // Top scorers across all assessments — average percentage per student
+    // over every assessment they have a recorded mark for.
+    const studentAgg = {};
+    allAssessmentMarks.forEach(m => {
+      const a = assessmentById[m.assessment_id.toString()];
+      if (!a || !a.max_marks || !m.student_id) return;
+      const sid = m.student_id._id.toString();
+      if (!studentAgg[sid]) studentAgg[sid] = { id: sid, name: m.student_id.name, obtained: 0, max: 0, count: 0 };
+      studentAgg[sid].obtained += m.marks;
+      studentAgg[sid].max += a.max_marks;
+      studentAgg[sid].count += 1;
+    });
+    const assessmentTopStudents = Object.values(studentAgg)
+      .map(s => ({ id: s.id, name: s.name, assessments_taken: s.count, avg_score: s.max > 0 ? Math.round((s.obtained / s.max) * 100) : 0 }))
+      .sort((a, b) => b.avg_score - a.avg_score)
+      .slice(0, 5);
+
+    // Top class performance — average percentage per class across all of
+    // this teacher's assessments for that class.
+    const classAgg = {};
+    allAssessmentMarks.forEach(m => {
+      const a = assessmentById[m.assessment_id.toString()];
+      if (!a || !a.max_marks || !a.class_id) return;
+      const cid = a.class_id._id.toString();
+      if (!classAgg[cid]) classAgg[cid] = { id: cid, name: a.class_id.name, obtained: 0, max: 0, students: new Set() };
+      classAgg[cid].obtained += m.marks;
+      classAgg[cid].max += a.max_marks;
+      if (m.student_id) classAgg[cid].students.add(m.student_id._id.toString());
+    });
+    const classPerformance = Object.values(classAgg)
+      .map(c => ({ id: c.id, name: c.name, avg_score: c.max > 0 ? Math.round((c.obtained / c.max) * 100) : 0, students_graded: c.students.size }))
+      .sort((a, b) => b.avg_score - a.avg_score);
+
+    // Online quiz participation — how many students have actually attempted
+    // the online assessments this teacher has shared, separate from marks
+    // that were typed in manually.
+    const quizAssessmentIds = myAssessments.filter(a => a.mode === 'quiz').map(a => a._id);
+    const [totalAttempts, gradedAttempts, needsManualGrading, inProgressAttempts, attemptedStudentIds] = await Promise.all([
+      AssessmentAttempt.countDocuments({ assessment_id: { $in: quizAssessmentIds }, voided: { $ne: true } }),
+      AssessmentAttempt.countDocuments({ assessment_id: { $in: quizAssessmentIds }, status: 'graded', voided: { $ne: true } }),
+      AssessmentAttempt.countDocuments({ assessment_id: { $in: quizAssessmentIds }, needs_manual_grading: true, status: { $ne: 'graded' }, voided: { $ne: true } }),
+      AssessmentAttempt.countDocuments({ assessment_id: { $in: quizAssessmentIds }, status: 'in_progress', voided: { $ne: true } }),
+      AssessmentAttempt.distinct('student_id', { assessment_id: { $in: quizAssessmentIds }, voided: { $ne: true } }),
+    ]);
+    const onlineQuizStats = {
+      quizAssessments: quizAssessmentIds.length,
+      totalAttempts,
+      gradedAttempts,
+      needsManualGrading,
+      inProgress: inProgressAttempts,
+      studentsAttempted: attemptedStudentIds.length,
+    };
+
+    // Assessment activity trend (last 30 days) — every recorded Mark, which
+    // covers a manually-entered mark AND an online quiz attempt's score
+    // being copied in once graded, so this is a single trend line for all
+    // assessment activity, with no assignment data mixed in.
+    const assessmentTrend = await Mark.aggregate([
+      { $match: { assessment_id: { $in: myAssessmentIds }, marks: { $ne: null }, created_at: { $gte: thirtyDaysAgo } } },
+      { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$created_at' } }, count: { $sum: 1 } } },
+      { $sort: { _id: 1 } },
+      { $project: { date: '$_id', count: 1, _id: 0 } },
+    ]);
+
+    // Recent assessments by this teacher, with their real review status
     const recentAssessments = await Assessment.find({ teacher_id: teacherId })
       .sort({ created_at: -1 }).limit(5)
       .populate('course_id', 'name')
       .populate('class_id', 'name')
       .lean();
+    const recentAssessmentIds = recentAssessments.map(a => a._id);
+    const recentStatuses = await AssessmentSubmission.find(
+      { assessment_id: { $in: recentAssessmentIds } }, 'assessment_id status'
+    ).lean();
+    const statusByAssessment = {};
+    recentStatuses.forEach(s => { statusByAssessment[s.assessment_id.toString()] = s.status; });
 
     // Assessment submission statuses
     const pendingAssessments = await AssessmentSubmission.countDocuments({
@@ -159,10 +219,11 @@ app.get('/api/analytics', isAuthenticated, isTeacher, async (req, res) => {
 
     res.json({
       counts,
-      submissionTrend,
-      gradeDistribution,
-      topStudents,
+      assessmentTrend,
       assessmentGradeDistribution,
+      assessmentTopStudents,
+      classPerformance,
+      onlineQuizStats,
       recentAssessments: recentAssessments.map(a => ({
         id: a._id,
         type: a.type,
@@ -170,8 +231,8 @@ app.get('/api/analytics', isAuthenticated, isTeacher, async (req, res) => {
         academic_year: a.academic_year,
         course_name: a.course_id?.name,
         class_name: a.class_id?.name,
-        total_marks: a.total_marks,
-        status: a.status,
+        max_marks: a.max_marks,
+        status: statusByAssessment[a._id.toString()] || 'draft',
         created_at: a.created_at,
       })),
       assessmentStats: { pending: pendingAssessments, approved: approvedAssessments },
@@ -179,6 +240,7 @@ app.get('/api/analytics', isAuthenticated, isTeacher, async (req, res) => {
     });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
+
 
 // ── Admin Analytics — handled in routes/admin.js ──────────────────────────
 // (kept as a no-op placeholder; real handler lives in the admin router)
