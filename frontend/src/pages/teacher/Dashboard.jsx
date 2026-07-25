@@ -7,11 +7,11 @@ import {
   TrendingUp, Award, ChevronRight, BarChart2, Layers,
   BookMarked, ArrowUpRight, Flame, Target, Zap,
   GraduationCap, Bell, CheckCircle2,
-  UserCheck, MessageSquare, Timer, Radar as RadarIcon, Sparkles,
+  UserCheck, MessageSquare, Timer, Sparkles,
+  Trophy, Building2, Laptop, Hourglass, PenSquare,
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Legend,
 } from 'recharts';
 
 /* Names are stored "SURNAME Givenname" — greet by the name people go by. */
@@ -237,7 +237,6 @@ export default function TeacherDashboard() {
   const [analytics, setAnalytics]           = useState(null);
   const [announcements, setAnnouncements]   = useState([]);
   const [loading, setLoading]               = useState(true);
-  const [gradeTab, setGradeTab]             = useState('assignments');
   const [visible, setVisible]               = useState(false);
 
   /* hero pointer-driven spotlight + parallax, mirrors/extends the student hero */
@@ -274,9 +273,10 @@ export default function TeacherDashboard() {
   const c = analytics?.counts || {};
   const as = analytics?.assessmentStats || {};
 
-  const gradeData = gradeTab === 'assignments'
-    ? analytics?.gradeDistribution || {}
-    : analytics?.assessmentGradeDistribution || {};
+  /* ── Grade distribution is assessment-only: covers both manually-recorded
+     marks and online quiz results (a quiz's best graded attempt is copied
+     into the same Mark records), so there's nothing to toggle anymore. ── */
+  const gradeData = analytics?.assessmentGradeDistribution || {};
 
   const gradeSections = [
     { label: 'Excellent ≥75%', value: gradeData.excellent || 0, color: '#34d399' },
@@ -292,30 +292,19 @@ export default function TeacherDashboard() {
   const totalAssess = c.assessments || 0;
   const approvalRate = totalAssess ? Math.round((approvedCount / totalAssess) * 100) : 0;
 
-  /* ── Submission trend → smooth area chart data ── */
-  const trendData = useMemo(() => (analytics?.submissionTrend || []).map((d, i) => ({
-    label: d.date ? new Date(d.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : `Day ${i + 1}`,
-    Submissions: d.count || 0,
-  })), [analytics]);
-  const trendTotal = trendData.reduce((s, d) => s + d.Submissions, 0);
+  /* ── Top performers: assessment marks recorded by the teacher AND online
+     quiz results, unified — no assignment data mixed in. ── */
+  const performers = analytics?.assessmentTopStudents || [];
+  const classPerformance = analytics?.classPerformance || [];
+  const quizStats = analytics?.onlineQuizStats || {};
 
-  /* ── Assignments vs Assessments grade radar — a comparison the student
-     dashboard doesn't have, since only teachers see both distributions. ── */
-  const radarData = useMemo(() => {
-    const gA = analytics?.gradeDistribution || {};
-    const gQ = analytics?.assessmentGradeDistribution || {};
-    const totalA = (gA.excellent || 0) + (gA.good || 0) + (gA.average || 0) + (gA.poor || 0);
-    const totalQ = (gQ.excellent || 0) + (gQ.good || 0) + (gQ.average || 0) + (gQ.poor || 0);
-    return {
-      hasData: totalA > 0 || totalQ > 0,
-      points: [
-        { metric: 'Excellent', Assignments: totalA ? Math.round((gA.excellent || 0) / totalA * 100) : 0, Assessments: totalQ ? Math.round((gQ.excellent || 0) / totalQ * 100) : 0 },
-        { metric: 'Good',      Assignments: totalA ? Math.round((gA.good || 0) / totalA * 100) : 0,      Assessments: totalQ ? Math.round((gQ.good || 0) / totalQ * 100) : 0 },
-        { metric: 'Average',   Assignments: totalA ? Math.round((gA.average || 0) / totalA * 100) : 0,   Assessments: totalQ ? Math.round((gQ.average || 0) / totalQ * 100) : 0 },
-        { metric: 'Below 40%', Assignments: totalA ? Math.round((gA.poor || 0) / totalA * 100) : 0,      Assessments: totalQ ? Math.round((gQ.poor || 0) / totalQ * 100) : 0 },
-      ],
-    };
-  }, [analytics]);
+  /* ── Assessment activity trend → smooth area chart data. Every point is a
+     recorded Mark (manual entry or a graded quiz attempt's score). ── */
+  const trendData = useMemo(() => (analytics?.assessmentTrend || []).map((d, i) => ({
+    label: d.date ? new Date(d.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : `Day ${i + 1}`,
+    Recorded: d.count || 0,
+  })), [analytics]);
+  const trendTotal = trendData.reduce((s, d) => s + d.Recorded, 0);
 
   if (loading) return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '100px 0', gap: 16 }}>
@@ -465,12 +454,14 @@ export default function TeacherDashboard() {
       {/* ── Charts Row ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 12 }}>
 
-        {/* Submission Trend — now a real animated area chart */}
+        {/* Assessment Activity Trend — real animated area chart. Every point
+            is a recorded Mark: a manually-entered assessment mark, or an
+            online quiz attempt's score once it's graded. No assignment data. */}
         <div className="card" style={{ ...cardStyle, transitionDelay: '0.12s' }}>
-          <SectionHeader title="Assignment Submissions" />
-          <p style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: -10, marginBottom: 6, opacity: 0.7 }}>Last 30 days · daily activity</p>
+          <SectionHeader title="Assessment Activity" to="/teacher/assessments-grade" />
+          <p style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: -10, marginBottom: 6, opacity: 0.7 }}>Last 30 days · marks &amp; quiz results recorded</p>
           {trendData.length === 0 ? (
-            <EmptyState icon={TrendingUp} msg="No submissions yet" />
+            <EmptyState icon={TrendingUp} msg="No assessment activity yet" />
           ) : (
             <>
               <div style={{ width: '100%', height: 150 }}>
@@ -485,8 +476,8 @@ export default function TeacherDashboard() {
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--card-border)" />
                     <XAxis dataKey="label" tick={{ fontSize: 10, fill: 'var(--text-secondary)' }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
                     <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: 'var(--text-secondary)' }} axisLine={false} tickLine={false} width={22} />
-                    <Tooltip content={<ChartTooltip unit=" subs" />} />
-                    <Area type="monotone" dataKey="Submissions" stroke="#818cf8" strokeWidth={2.5}
+                    <Tooltip content={<ChartTooltip unit=" recorded" />} />
+                    <Area type="monotone" dataKey="Recorded" stroke="#818cf8" strokeWidth={2.5}
                       fill="url(#teacherTrendFill)" dot={false}
                       activeDot={{ r: 5, fill: '#818cf8', stroke: '#fff', strokeWidth: 2 }} animationDuration={1100} />
                   </AreaChart>
@@ -500,23 +491,13 @@ export default function TeacherDashboard() {
           )}
         </div>
 
-        {/* Grade Distribution */}
+        {/* Grade Distribution — assessment marks + online quiz results, unified */}
         <div className="card" style={{ ...cardStyle, transitionDelay: '0.16s' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 14 }}>
             <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Grade Distribution</h3>
-            <div style={{ display: 'flex', gap: 2, background: 'rgba(129,140,248,0.08)', borderRadius: 8, padding: 2 }}>
-              {['assignments','assessments'].map(tab => (
-                <button key={tab} onClick={() => setGradeTab(tab)} style={{
-                  padding: '4px 10px', borderRadius: 6, fontSize: 10, fontWeight: 600, border: 'none', cursor: 'pointer',
-                  background: gradeTab === tab ? '#818cf8' : 'transparent',
-                  color: gradeTab === tab ? '#fff' : 'var(--text-secondary)',
-                  transition: 'all 0.2s ease', textTransform: 'capitalize',
-                }}>{tab}</button>
-              ))}
-            </div>
           </div>
           {gradeTotal === 0
-            ? <EmptyState icon={BarChart2} msg="No graded work yet" />
+            ? <EmptyState icon={BarChart2} msg="No graded assessments yet" />
             : (
               <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                 <div style={{ position: 'relative', flexShrink: 0 }}>
@@ -551,33 +532,8 @@ export default function TeacherDashboard() {
               </div>
             )}
         </div>
-
-        {/* NEW — Assignments vs Assessments radar comparison */}
-        <div className="card" style={{ ...cardStyle, transitionDelay: '0.2s' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 6 }}>
-            <RadarIcon size={14} style={{ color: '#22d3ee' }} />
-            <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Assignments vs Assessments</h3>
-          </div>
-          <p style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 6, opacity: 0.7 }}>Grade-band shape, side by side</p>
-          {!radarData.hasData ? (
-            <EmptyState icon={RadarIcon} msg="Grade both to compare" />
-          ) : (
-            <div style={{ width: '100%', height: 190 }}>
-              <ResponsiveContainer>
-                <RadarChart data={radarData.points} outerRadius="70%">
-                  <PolarGrid stroke="var(--card-border)" />
-                  <PolarAngleAxis dataKey="metric" tick={{ fontSize: 10, fill: 'var(--text-secondary)' }} />
-                  <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fontSize: 8, fill: 'var(--text-secondary)' }} tickCount={3} />
-                  <Radar name="Assignments" dataKey="Assignments" stroke="#818cf8" fill="#818cf8" fillOpacity={0.28} strokeWidth={2} animationDuration={1000} />
-                  <Radar name="Assessments" dataKey="Assessments" stroke="#22d3ee" fill="#22d3ee" fillOpacity={0.22} strokeWidth={2} animationDuration={1000} />
-                  <Legend wrapperStyle={{ fontSize: 10 }} />
-                  <Tooltip content={<ChartTooltip unit="%" />} />
-                </RadarChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </div>
       </div>
+
 
       {/* ── Performance overview row ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
@@ -600,7 +556,7 @@ export default function TeacherDashboard() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
             {[
               { label: 'Pending Review', val: pendingCount, color: '#fbbf24' },
-              { label: 'Ungraded Work', val: (c.assignments || 0), color: '#f87171' },
+              { label: 'Needs Manual Grading', val: (quizStats.needsManualGrading || 0), color: '#f87171' },
             ].map(item => (
               <div key={item.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', borderRadius: 10, background: `${item.color}0f`, transition: 'background 0.2s' }}
                 onMouseEnter={e => e.currentTarget.style.background = `${item.color}1c`}
@@ -703,17 +659,17 @@ export default function TeacherDashboard() {
       {/* ── Top Students + Announcements ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 12 }}>
 
-        {/* Top Performers */}
+        {/* Top Performers — assessment marks + online quiz results, unified */}
         <div className="card" style={{ ...cardStyle, transitionDelay: '0.44s' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 14 }}>
             <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Top Performers</h3>
-            <Award size={14} style={{ color: '#fbbf24' }} />
+            <Trophy size={13} style={{ color: '#fbbf24', opacity: 0.8 }} />
           </div>
-          {!analytics?.topStudents?.length
-            ? <EmptyState icon={Award} msg="No graded submissions yet" />
+          {!performers.length
+            ? <EmptyState icon={Award} msg="No assessment marks recorded yet" />
             : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-                {analytics.topStudents.map((s, i) => {
+                {performers.map((s, i) => {
                   const medalColors = [
                     'linear-gradient(135deg,#fbbf24,#f59e0b)',
                     'linear-gradient(135deg,#94a3b8,#64748b)',
@@ -721,7 +677,8 @@ export default function TeacherDashboard() {
                     'linear-gradient(135deg,#818cf8,#6366f1)',
                     'linear-gradient(135deg,#34d399,#10b981)',
                   ];
-                  const scoreColor = s.avg_score >= 75 ? '#34d399' : s.avg_score >= 60 ? '#818cf8' : '#fbbf24';
+                  const score = s.avg_score;
+                  const scoreColor = score >= 75 ? '#34d399' : score >= 60 ? '#818cf8' : '#fbbf24';
                   return (
                     <div key={i} className="top-performer-row" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 6px', borderRadius: 10, transition: 'background 0.18s, transform 0.18s' }}>
                       <div style={{ width: 26, height: 26, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: '#fff', flexShrink: 0, background: medalColors[i] }}>
@@ -731,10 +688,13 @@ export default function TeacherDashboard() {
                         <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.name}</p>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
                           <div style={{ flex: 1, height: 3, borderRadius: 3, background: 'rgba(129,140,248,0.1)', overflow: 'hidden' }}>
-                            <div style={{ height: '100%', width: `${Math.round(s.avg_score)}%`, borderRadius: 3, background: scoreColor, transition: `width 1s cubic-bezier(.34,1.56,.64,1) ${i * 80}ms` }} />
+                            <div style={{ height: '100%', width: `${Math.round(score)}%`, borderRadius: 3, background: scoreColor, transition: `width 1s cubic-bezier(.34,1.56,.64,1) ${i * 80}ms` }} />
                           </div>
-                          <span style={{ fontSize: 11, fontWeight: 800, color: scoreColor, flexShrink: 0, minWidth: 32, textAlign: 'right' }}>{Math.round(s.avg_score)}%</span>
+                          <span style={{ fontSize: 11, fontWeight: 800, color: scoreColor, flexShrink: 0, minWidth: 32, textAlign: 'right' }}>{Math.round(score)}%</span>
                         </div>
+                        <p style={{ fontSize: 9.5, color: 'var(--text-secondary)', opacity: 0.7, marginTop: 2 }}>
+                          {s.assessments_taken} assessment{s.assessments_taken === 1 ? '' : 's'}
+                        </p>
                       </div>
                     </div>
                   );
@@ -771,8 +731,78 @@ export default function TeacherDashboard() {
         </div>
       </div>
 
+      {/* ── Class Performance + Online Assessment Activity ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 12 }}>
+
+        {/* Top Class Performance */}
+        <div className="card" style={{ ...cardStyle, transitionDelay: '0.52s' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+            <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Class Performance</h3>
+            <Building2 size={14} style={{ color: '#34d399' }} />
+          </div>
+          {!classPerformance.length
+            ? <EmptyState icon={Building2} msg="No assessment marks recorded yet" />
+            : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {classPerformance.map((cl, i) => {
+                  const color = cl.avg_score >= 75 ? '#34d399' : cl.avg_score >= 60 ? '#818cf8' : cl.avg_score >= 40 ? '#fbbf24' : '#f87171';
+                  return (
+                    <div key={cl.id || i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 6px' }}>
+                      <div style={{ width: 26, height: 26, borderRadius: 7, flexShrink: 0, background: `${color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Trophy size={12} style={{ color }} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cl.name}</span>
+                          <span style={{ fontSize: 11, fontWeight: 800, color, flexShrink: 0 }}>{cl.avg_score}%</span>
+                        </div>
+                        <div style={{ height: 3, borderRadius: 3, background: 'rgba(129,140,248,0.1)', overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${cl.avg_score}%`, borderRadius: 3, background: color, transition: `width 1s cubic-bezier(.34,1.56,.64,1) ${i * 90}ms` }} />
+                        </div>
+                        <p style={{ fontSize: 9.5, color: 'var(--text-secondary)', opacity: 0.7, marginTop: 3 }}>{cl.students_graded} student{cl.students_graded === 1 ? '' : 's'} graded</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+        </div>
+
+        {/* Online Assessment Activity */}
+        <div className="card" style={{ ...cardStyle, transitionDelay: '0.56s' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 14 }}>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(139,92,246,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Laptop size={13} style={{ color: '#8b5cf6' }} />
+            </div>
+            <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>Online Assessment Activity</p>
+          </div>
+          {!quizStats.quizAssessments
+            ? <EmptyState icon={Laptop} msg="No online quizzes shared yet" action="Build one" actionTo="/teacher/assessments" />
+            : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                {[
+                  { label: 'Students attempted', val: quizStats.studentsAttempted || 0, color: '#34d399', icon: Users },
+                  { label: 'Total attempts',     val: quizStats.totalAttempts || 0,     color: '#818cf8', icon: ClipboardList },
+                  { label: 'Needs manual grading', val: quizStats.needsManualGrading || 0, color: '#f87171', icon: PenSquare },
+                  { label: 'In progress',        val: quizStats.inProgress || 0,        color: '#fbbf24', icon: Hourglass },
+                ].map(item => (
+                  <div key={item.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', borderRadius: 10, background: `${item.color}0f`, transition: 'background 0.2s' }}
+                    onMouseEnter={e => e.currentTarget.style.background = `${item.color}1c`}
+                    onMouseLeave={e => e.currentTarget.style.background = `${item.color}0f`}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11, color: 'var(--text-secondary)' }}>
+                      <item.icon size={12} style={{ color: item.color, opacity: 0.8 }} />
+                      {item.label}
+                    </span>
+                    <span style={{ fontSize: 14, fontWeight: 800, color: item.color, fontVariantNumeric: 'tabular-nums' }}>{item.val}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+        </div>
+      </div>
+
       {/* ── Quick Actions ── */}
-      <div className="card" style={{ ...cardStyle, transitionDelay: '0.52s' }}>
+      <div className="card" style={{ ...cardStyle, transitionDelay: '0.6s' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
           <Zap size={14} style={{ color: '#fbbf24' }} />
           <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Quick Actions</h3>

@@ -85,7 +85,18 @@ function AdminProfile({ user, dark }) {
   const R = 42, CIRC = 2 * Math.PI * R;
   const dashOffset = CIRC * (1 - clearance / 100);
 
-  const panelBg = dark ? '#07070a' : '#0a0a14';
+  // ── Console surface tokens: react to light/dark instead of staying near-black ──
+  const panelBg       = dark ? '#07070a' : '#ffffff';
+  const panelBorder   = dark ? `${accentB}26` : `${accentB}35`;
+  const textHead      = dark ? '#f8fafc' : '#0f1420';
+  const textPrimary   = dark ? '#e2e8f0' : '#1a2030';
+  const textMuted     = dark ? '#7d8aa3' : '#5b6478';
+  const fieldBg       = dark ? '#ffffff08' : `${accentB}0a`;
+  const fieldText     = dark ? '#f1f5f9' : '#0f1420';
+  const placeholder   = dark ? '#ffffff30' : '#00000035';
+  const lockedFg      = dark ? '#565f75' : '#a3aabb';
+  const lockedBg      = dark ? '#ffffff05' : '#00000004';
+  const lockedBorder  = dark ? '#ffffff12' : '#00000010';
 
   return (
     <div style={{ maxWidth: 860, margin: '0 auto' }}>
@@ -100,16 +111,17 @@ function AdminProfile({ user, dark }) {
         @keyframes spin { to { transform: rotate(360deg) } }
         .cns-panel {
           background: ${panelBg};
-          border: 1px solid ${accentB}26;
+          border: 1px solid ${panelBorder};
           border-radius: 6px;
           position: relative;
           overflow: hidden;
           margin-bottom: 14px;
+          box-shadow: ${dark ? 'none' : `0 1px 3px ${accentB}12`};
         }
         .cns-eyebrow {
           font-family: 'Space Grotesk', 'DM Sans', sans-serif;
           font-size: 10.5px; letter-spacing: 0.22em; text-transform: uppercase;
-          color: ${accentA}b0; font-weight: 600;
+          color: ${accentA}${dark ? 'b0' : 'e0'}; font-weight: 600;
         }
         .cns-mono { font-family: 'Space Grotesk', 'DM Sans', monospace; }
         .cns-btn {
@@ -120,25 +132,25 @@ function AdminProfile({ user, dark }) {
           cursor: pointer; transition: all 0.15s;
           letter-spacing: 0.06em;
         }
-        .cns-btn-primary { background: linear-gradient(120deg, ${accentA}, ${accentB}); border: none; color: #05050a; }
+        .cns-btn-primary { background: linear-gradient(120deg, ${accentA}, ${accentB}); border: none; color: ${dark ? '#05050a' : '#ffffff'}; }
         .cns-btn-primary:hover { filter: brightness(1.12); }
-        .cns-btn-ghost { background: transparent; border: 1px solid ${accentB}55; color: ${accentA}; }
+        .cns-btn-ghost { background: transparent; border: 1px solid ${accentB}55; color: ${dark ? accentA : accentDim}; }
         .cns-btn-ghost:hover { border-color: ${accentA}; background: ${accentB}12; }
         .cns-field {
           width: 100%; padding: 10px 14px;
-          background: #ffffff08; border: 1px solid ${accentB}30;
-          border-radius: 4px; color: #f1f5f9;
+          background: ${fieldBg}; border: 1px solid ${accentB}30;
+          border-radius: 4px; color: ${fieldText};
           font-family: 'DM Sans', sans-serif; font-size: 13px; outline: none;
           transition: border-color 0.15s, box-shadow 0.15s;
         }
         .cns-field:focus { border-color: ${accentA}; box-shadow: 0 0 0 3px ${accentB}18; }
-        .cns-field::placeholder { color: #ffffff30; }
+        .cns-field::placeholder { color: ${placeholder}; }
         .cns-mod {
           display: flex; align-items: center; gap: 10px;
           padding: 12px 14px; border-radius: 5px;
           animation: cns-rise 0.4s ease both;
         }
-        .cns-row { display: flex; justify-content: space-between; align-items: center; padding: 13px 0; border-bottom: 1px solid ${accentB}12; }
+        .cns-row { display: flex; justify-content: space-between; align-items: center; padding: 13px 0; border-bottom: 1px solid ${accentB}${dark ? '12' : '18'}; }
         .cns-row:last-child { border-bottom: none; }
       `}</style>
 
@@ -212,14 +224,14 @@ function AdminProfile({ user, dark }) {
                 <h1 className="cns-mono" style={{
                   margin: 0, fontSize: 34, fontWeight: 700,
                   lineHeight: 1.05, letterSpacing: '-0.02em',
-                  backgroundImage: `linear-gradient(100deg, #f8fafc, ${accentA}, ${accentGold}, #f8fafc)`,
+                  backgroundImage: `linear-gradient(100deg, ${textHead}, ${accentA}, ${accentGold}, ${textHead})`,
                   backgroundSize: '250% 100%',
                   WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent',
                   animation: 'cns-holo 7s ease-in-out infinite',
                 }}>
                   {user?.name}
                 </h1>
-                <p style={{ margin: '8px 0 0', fontSize: 13, color: '#7d8aa3' }}>{user?.email}</p>
+                <p style={{ margin: '8px 0 0', fontSize: 13, color: textMuted }}>{user?.email}</p>
               </div>
 
               {/* Clearance gauge */}
@@ -231,8 +243,8 @@ function AdminProfile({ user, dark }) {
                     transform="rotate(-90 52 52)" style={{ transition: 'stroke-dashoffset 0.6s ease' }} />
                 </svg>
                 <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                  <span className="cns-mono" style={{ fontSize: 20, fontWeight: 700, color: '#f1f5f9' }}>{clearance}%</span>
-                  <span style={{ fontSize: 8.5, letterSpacing: '0.1em', color: '#7d8aa3', textTransform: 'uppercase' }}>Access</span>
+                  <span className="cns-mono" style={{ fontSize: 20, fontWeight: 700, color: textHead }}>{clearance}%</span>
+                  <span style={{ fontSize: 8.5, letterSpacing: '0.1em', color: textMuted, textTransform: 'uppercase' }}>Access</span>
                 </div>
               </div>
 
@@ -248,13 +260,13 @@ function AdminProfile({ user, dark }) {
                 { k: 'Status',   v: isActive ? 'Active' : 'Inactive', dot: isActive ? '#10b981' : '#ef4444', icon: Activity },
                 { k: 'Rank',     v: isSuperAdmin ? 'Super Admin' : 'Admin', dot: accentA, icon: SealIcon },
                 { k: 'Session',  v: now.toLocaleTimeString(), dot: accentGold, icon: Fingerprint, mono: true },
-                { k: 'Enrolled', v: joined || 'Unknown', dot: '#7d8aa3', icon: Star },
+                { k: 'Enrolled', v: joined || 'Unknown', dot: textMuted, icon: Star },
               ].map(({ k, v, dot, icon: Icon, mono }) => (
                 <div key={k} style={{ padding: '13px 14px', background: panelBg, textAlign: 'left' }}>
                   <span className="cns-eyebrow" style={{ display: 'block', marginBottom: 6, fontSize: 9.5 }}>{k}</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <Icon size={12} color={dot} style={{ flexShrink: 0 }} />
-                    <span className={mono ? 'cns-mono' : ''} style={{ fontSize: 12.5, fontWeight: 700, color: '#e2e8f0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{v}</span>
+                    <span className={mono ? 'cns-mono' : ''} style={{ fontSize: 12.5, fontWeight: 700, color: textPrimary, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{v}</span>
                   </div>
                 </div>
               ))}
@@ -280,7 +292,7 @@ function AdminProfile({ user, dark }) {
               <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
                 <button type="button" className="cns-btn cns-btn-ghost" onClick={() => setEditMode(false)}>Discard</button>
                 <button type="submit" className="cns-btn cns-btn-primary" disabled={saving}>
-                  {saving ? <div style={{ width: 12, height: 12, border: '2px solid #00000040', borderTopColor: '#000', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> : <Save size={12} />}
+                  {saving ? <div style={{ width: 12, height: 12, border: `2px solid ${dark ? '#00000040' : '#ffffff50'}`, borderTopColor: dark ? '#000' : '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> : <Save size={12} />}
                   {saving ? 'Writing…' : 'Commit Changes'}
                 </button>
               </div>
@@ -299,21 +311,21 @@ function AdminProfile({ user, dark }) {
               const unlocked = !superOnly || isSuperAdmin;
               return (
                 <div key={key} className="cns-mod" style={{
-                  background: unlocked ? `${accentB}0f` : '#ffffff05',
-                  border: `1px solid ${unlocked ? accentB + '35' : '#ffffff12'}`,
+                  background: unlocked ? `${accentB}0f` : lockedBg,
+                  border: `1px solid ${unlocked ? accentB + '35' : lockedBorder}`,
                   animationDelay: `${i * 0.05}s`,
                 }}>
                   <div style={{
                     width: 32, height: 32, borderRadius: 4, flexShrink: 0,
                     background: unlocked ? `${accentA}20` : 'transparent',
-                    border: `1px solid ${unlocked ? accentA + '50' : '#ffffff18'}`,
+                    border: `1px solid ${unlocked ? accentA + '50' : lockedBorder}`,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}>
-                    {unlocked ? <Icon size={15} color={accentA} /> : <Lock size={13} color="#565f75" />}
+                    {unlocked ? <Icon size={15} color={accentA} /> : <Lock size={13} color={lockedFg} />}
                   </div>
-                  <span style={{ fontSize: 12.5, fontWeight: 600, color: unlocked ? '#e2e8f0' : '#565f75' }}>{label}</span>
+                  <span style={{ fontSize: 12.5, fontWeight: 600, color: unlocked ? textPrimary : lockedFg }}>{label}</span>
                   {superOnly && (
-                    <span className="cns-mono" style={{ marginLeft: 'auto', fontSize: 9, letterSpacing: '0.05em', color: unlocked ? accentGold : '#565f75', textTransform: 'uppercase' }}>
+                    <span className="cns-mono" style={{ marginLeft: 'auto', fontSize: 9, letterSpacing: '0.05em', color: unlocked ? accentGold : lockedFg, textTransform: 'uppercase' }}>
                       {unlocked ? 'Sovereign' : 'Locked'}
                     </span>
                   )}
@@ -339,8 +351,8 @@ function AdminProfile({ user, dark }) {
             ['Joined',        joined || '—'],
           ].map(([k, v]) => (
             <div key={k} className="cns-row">
-              <span style={{ fontSize: 12, color: '#7d8aa3', fontWeight: 500 }}>{k}</span>
-              <span className="cns-mono" style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}>{v}</span>
+              <span style={{ fontSize: 12, color: textMuted, fontWeight: 500 }}>{k}</span>
+              <span className="cns-mono" style={{ fontSize: 13, fontWeight: 600, color: textPrimary }}>{v}</span>
             </div>
           ))}
         </div>
