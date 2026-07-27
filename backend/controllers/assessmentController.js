@@ -1,6 +1,7 @@
 const { Course, Assessment, Mark, Class, User, AssessmentSubmission, AssessmentQuestion, AssessmentAttempt } = require('../models/db');
 const mongoose = require('mongoose');
 const XLSX = require('xlsx');
+const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
 const { createInAppNotification, getStudentEmails, getTeacherEmail } = require('../services/notificationHelpers');
 const { notifyAssessmentShared } = require('../services/emailService');
@@ -914,46 +915,246 @@ exports.teacherDownloadMarksTemplate = async (req, res) => {
     }
 
     const maxMarks = assessment.course_id?.total_marks || assessment.max_marks || 100;
+    const marksHeader = `Marks (out of ${maxMarks})`;
 
-    const header = ['Student ID', 'No.', 'Student Name', 'Email', `Marks (out of ${maxMarks})`];
-    const rows = students.map((s, i) => [
-      String(s._id),
-      i + 1,
-      s.name || '',
-      s.email || '',
-      markMap[s._id.toString()]?.marks ?? '',
-    ]);
+    /*
+     * Column layout (Email intentionally dropped — the teacher typing
+     * marks only needs to see who they're marking, not contact info):
+     *   A  Student ID   — hidden, used only to match rows back on upload
+     *   B  No.
+     *   C  Student Name
+     *   D  Marks (out of N)
+     */
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'Edupla';
+    wb.created = new Date();
 
-    const title = `${assessment.title} — ${assessment.course_id?.name || ''} — ${assessment.class_id?.name || ''} — ${assessment.term} ${assessment.academic_year}`;
-    const instructions = `Enter marks in the last column only (0–${maxMarks}). Do not edit the Student ID, No., Name, or Email columns — they are used to match rows back to students on upload. Do not add or remove rows.`;
+    const ws = wb.addWorksheet('Marks', {
+      pageSetup: { fitToPage: true, fitToWidth: 1, orientation: 'landscape' },
+    });
 
-    const sheetData = [[title], [instructions], [], header, ...rows];
-    const ws = XLSX.utils.aoa_to_sheet(sheetData);
-
-    // Merge the title/instruction rows across all columns for readability.
-    ws['!merges'] = [
-      { s: { r: 0, c: 0 }, e: { r: 0, c: header.length - 1 } },
-      { s: { r: 1, c: 0 }, e: { r: 1, c: header.length - 1 } },
+    ws.columns = [
+      { key: 'id', width: 26 },
+      { key: 'no', width: 11 },
+      { key: 'name', width: 48 },
+      { key: 'marks', width: 32 },
     ];
-    ws['!cols'] = [
-      { wch: 26 }, // Student ID
-      { wch: 6 },  // No.
-      { wch: 28 }, // Name
-      { wch: 30 }, // Email
-      { wch: 20 }, // Marks
-    ];
-    // Hide the Student ID column — teachers don't need to see/touch it.
-    ws['!cols'][0].hidden = true;
 
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Marks');
+    // ── Palette — deep jewel violet/indigo with a metallic-gold accent,
+    // a step up from the plain violet-to-indigo used before but still
+    // clearly the same Edupla family. ─────────────────────────────────
+    const MIDNIGHT    = 'FF060606'; // true neutral near-black — brand strip
+    const VIOLET       = 'FF1E1E1E'; // charcoal grey, gradient start
+    const INDIGO       = 'FF0A0A0A'; // near-black grey, gradient end
+    const INDIGO_SOFT  = 'FF141414'; // subtitle band — matching grey family
+    const GOLD          = 'FFD4AF37'; // metallic gold accent
+    const GOLD_SOFT      = 'FFF4E4B8'; // pale gold accent strip
+    const SOFT_BG      = 'FFF7F7F7'; // neutral pale grey — instructions / footer
+    const STRIPE       = 'FFFCFCFC'; // near-white zebra stripe
+    const BORDER       = 'FFE5E5E5';
+    const TEXT_DARK    = 'FF262626'; // neutral dark charcoal for body text
+    const GREY_TEXT    = 'FF6B7280';
+    const LAVENDER_TXT = 'FFC9C9C9'; // muted grey for brand-strip tagline
+    const MARK_BG      = 'FFF2F2F2'; // highlighted marks column
+    const MARK_BORDER  = 'FFD4AF37'; // gold border makes the editable cell pop
+    const WHITE         = 'FFFFFFFF';
 
-    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    const thinBorder   = { style: 'thin', color: { argb: BORDER } };
+    const fullBorder   = { top: thinBorder, left: thinBorder, bottom: thinBorder, right: thinBorder };
+    const markBorder   = { style: 'medium', color: { argb: MARK_BORDER } };
+    const markBorderLt = { style: 'thin', color: { argb: GOLD_SOFT } };
+    const bevelMarkBorder = { top: markBorder, left: markBorder, bottom: markBorderLt, right: markBorderLt };
+    const heroGradient = {
+      type: 'gradient', gradient: 'angle', degree: 0,
+      stops: [{ position: 0, color: { argb: VIOLET } }, { position: 1, color: { argb: INDIGO } }],
+    };
+
+    // Zoom in slightly so the bigger type reads comfortably on open.
+    ws.views = [{ showGridLines: false, zoomScale: 115 }];
+
+    // ── Row 1: EDUPLA brand strip ───────────────────────────────────────
+    ws.mergeCells('A1:D1');
+    const brandCell = ws.getCell('A1');
+    brandCell.value = {
+      richText: [
+        { font: { name: 'Calibri', size: 11, color: { argb: GOLD } }, text: '  ◆  ' },
+        { font: { name: 'Calibri', size: 12, bold: true, color: { argb: GOLD } }, text: 'E D U P L A' },
+        { font: { name: 'Calibri', size: 10, italic: true, color: { argb: LAVENDER_TXT } }, text: '   ·   School Management Platform' },
+      ],
+    };
+    brandCell.alignment = { vertical: 'middle', horizontal: 'left' };
+    brandCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: MIDNIGHT } };
+    ws.getRow(1).height = 22;
+
+    // ── Row 2: gradient hero banner — assessment title ─────────────────
+    ws.mergeCells('A2:D2');
+    const titleCell = ws.getCell('A2');
+    titleCell.value = `  ${assessment.title || 'Assessment'}`;
+    titleCell.font = { name: 'Calibri', size: 24, bold: true, color: { argb: WHITE } };
+    titleCell.alignment = { vertical: 'middle', horizontal: 'left' };
+    titleCell.fill = heroGradient;
+    ws.getRow(2).height = 42;
+
+    // ── Row 3: module / class / term subtitle, same banner family ─────
+    ws.mergeCells('A3:D3');
+    const subtitleCell = ws.getCell('A3');
+    const subtitleParts = [assessment.course_id?.name, assessment.class_id?.name, `${assessment.term} · ${assessment.academic_year}`].filter(Boolean);
+    subtitleCell.value = `  ${subtitleParts.join('   |   ')}`;
+    subtitleCell.font = { name: 'Calibri', size: 13, color: { argb: WHITE }, italic: true };
+    subtitleCell.alignment = { vertical: 'middle', horizontal: 'left' };
+    subtitleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: INDIGO_SOFT } };
+    ws.getRow(3).height = 26;
+
+    // ── Row 4: thin gold accent strip closing the banner ───────────────
+    ws.mergeCells('A4:D4');
+    ws.getCell('A4').fill = {
+      type: 'gradient', gradient: 'angle', degree: 0,
+      stops: [{ position: 0, color: { argb: GOLD } }, { position: 1, color: { argb: GOLD_SOFT } }],
+    };
+    ws.getRow(4).height = 5;
+
+    // ── Row 5: breathing room before the instructions card ────────────
+    ws.getRow(5).height = 14;
+
+    // ── Rows 6-9: instructions card, bigger type + generous padding ───
+    ws.mergeCells('A6:D6');
+    const instrTitle = ws.getCell('A6');
+    instrTitle.value = '  📋  HOW TO FILL THIS IN';
+    instrTitle.font = { name: 'Calibri', size: 13, bold: true, color: { argb: INDIGO } };
+    instrTitle.alignment = { vertical: 'middle', horizontal: 'left' };
+    instrTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: SOFT_BG } };
+    instrTitle.border = { top: thinBorder, left: { style: 'medium', color: { argb: GOLD } }, right: thinBorder, bottom: { style: 'hair', color: { argb: GOLD_SOFT } } };
+    ws.getRow(6).height = 26;
+
+    ws.mergeCells('A7:D9');
+    const instrCell = ws.getCell('A7');
+    instrCell.value =
+      `•  Type marks only in the "${marksHeader}" column, between 0 and ${maxMarks}.\n\n` +
+      `•  Do not edit the Student Name or No. columns, add/remove rows, or reorder students — this breaks the upload.\n\n` +
+      `•  Leave a cell blank for a student who has no mark yet.`;
+    instrCell.font = { name: 'Calibri', size: 12, color: { argb: TEXT_DARK } };
+    instrCell.alignment = { wrapText: true, vertical: 'top', horizontal: 'left', indent: 1 };
+    instrCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: SOFT_BG } };
+    instrCell.border = { left: { style: 'medium', color: { argb: GOLD } }, right: thinBorder, bottom: thinBorder };
+    ws.getRow(7).height = 24;
+    ws.getRow(8).height = 24;
+    ws.getRow(9).height = 24;
+
+    // ── Row 10: spacer before the table ─────────────────────────────────
+    ws.getRow(10).height = 16;
+
+    // ── Row 11: table header — bold, roomy, gradient-filled ─────────────
+    const headerRowIdx = 11;
+    const headerRow = ws.getRow(headerRowIdx);
+    headerRow.values = { id: 'Student ID', no: 'No.', name: 'Student Name', marks: marksHeader };
+    headerRow.height = 32;
+    headerRow.eachCell((cell) => {
+      cell.font = { name: 'Calibri', bold: true, color: { argb: WHITE }, size: 13 };
+      cell.fill = heroGradient;
+      cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      cell.border = { top: thinBorder, left: thinBorder, right: thinBorder, bottom: { style: 'double', color: { argb: GOLD } } };
+    });
+
+    // ── Student rows — bigger type, generous height, highlighted marks ─
+    const firstDataRow = headerRowIdx + 1;
+    students.forEach((s, i) => {
+      const row = ws.getRow(firstDataRow + i);
+      row.values = {
+        id: String(s._id),
+        no: i + 1,
+        name: s.name || '',
+        marks: markMap[s._id.toString()]?.marks ?? null,
+      };
+      row.height = 28;
+      const isStripe = i % 2 === 1;
+      row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+        cell.border = fullBorder;
+        if (isStripe) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: STRIPE } };
+        if (colNumber === 2) cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        else cell.alignment = { vertical: 'middle', horizontal: 'left', indent: colNumber === 3 ? 1 : 0 };
+      });
+      // No. — bold, colored, centered like a little badge.
+      const noCell = row.getCell('no');
+      noCell.font = { name: 'Calibri', bold: true, size: 12, color: { argb: INDIGO } };
+      // Student name — larger, clearly readable.
+      const nameCell = row.getCell('name');
+      nameCell.font = { name: 'Calibri', size: 13, color: { argb: TEXT_DARK } };
+      // Marks — the editable focal point: highlighted fill, thicker border, big bold number.
+      const marksCell = row.getCell('marks');
+      marksCell.font = { name: 'Calibri', bold: true, size: 14, color: { argb: INDIGO } };
+      marksCell.alignment = { vertical: 'middle', horizontal: 'center' };
+      marksCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: MARK_BG } };
+      marksCell.border = bevelMarkBorder;
+      marksCell.numFmt = '0.##';
+    });
+
+    const lastDataRow = firstDataRow + students.length - 1;
+
+    // ── A crisp gold outer frame around the whole table block, tying
+    // header and data rows together as one designed unit ────────────
+    const outerGold = { style: 'medium', color: { argb: GOLD } };
+    for (let r = headerRowIdx; r <= lastDataRow; r++) {
+      const leftCell = ws.getCell(`B${r}`);
+      const rightCell = ws.getCell(`D${r}`);
+      leftCell.border = { ...leftCell.border, left: outerGold };
+      rightCell.border = { ...rightCell.border, right: outerGold };
+    }
+    ['B', 'C', 'D'].forEach((col) => {
+      const cell = ws.getCell(`${col}${lastDataRow}`);
+      cell.border = { ...cell.border, bottom: outerGold };
+    });
+
+    // ── Data validation: marks column only accepts 0–maxMarks ────────
+    for (let r = firstDataRow; r <= lastDataRow; r++) {
+      ws.getCell(`D${r}`).dataValidation = {
+        type: 'decimal',
+        operator: 'between',
+        formulae: [0, maxMarks],
+        showErrorMessage: true,
+        errorStyle: 'stop',
+        errorTitle: 'Invalid mark',
+        error: `Marks must be a number between 0 and ${maxMarks}.`,
+        showInputMessage: true,
+        promptTitle: 'Enter mark',
+        prompt: `0–${maxMarks}`,
+      };
+      // Belt-and-braces visual warning if a value somehow ends up out of range.
+      ws.addConditionalFormatting({
+        ref: `D${r}`,
+        rules: [{
+          type: 'expression',
+          formulae: [`D${r}>${maxMarks}`],
+          style: { font: { color: { argb: 'FF991B1B' }, bold: true }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } } },
+        }],
+      });
+    }
+
+    // ── Footer — quick summary strip beneath the table ─────────────────
+    const spacerRowIdx = lastDataRow + 1;
+    ws.getRow(spacerRowIdx).height = 10;
+
+    const footerRowIdx = spacerRowIdx + 1;
+    ws.mergeCells(`A${footerRowIdx}:D${footerRowIdx}`);
+    const footerCell = ws.getCell(`A${footerRowIdx}`);
+    footerCell.value = `  ${students.length} student${students.length === 1 ? '' : 's'}  ·  marks scored out of ${maxMarks}`;
+    footerCell.font = { name: 'Calibri', size: 11, italic: true, color: { argb: GREY_TEXT } };
+    footerCell.alignment = { vertical: 'middle', horizontal: 'left' };
+    footerCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: SOFT_BG } };
+    ws.getRow(footerRowIdx).height = 22;
+
+    // Hide the Student ID column — teachers don't need to see/touch it,
+    // it's only there so the upload can match rows back to students.
+    ws.getColumn('id').hidden = true;
+
+    // Freeze header row area and keep it visible while scrolling.
+    ws.views = [{ showGridLines: false, zoomScale: 115 }];
+
+    const buffer = await wb.xlsx.writeBuffer();
     const filename = `marks-template-${assessment.type}-${(assessment.class_id?.name || 'class').replace(/[^a-z0-9]+/gi, '-')}.xlsx`;
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.send(buffer);
+    res.send(Buffer.from(buffer));
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
@@ -995,18 +1196,23 @@ exports.teacherUploadMarks = async (req, res) => {
 
     // Find the header row (contains 'Student ID') instead of assuming a
     // fixed row number, so minor edits (extra blank rows, etc.) still work.
-    const headerRowIdx = rows.findIndex(r => r.some(cell => String(cell).trim() === 'Student ID'));
+    const headerRowIdx = rows.findIndex(r => r.some(cell => String(cell).trim().toLowerCase() === 'student id'));
     if (headerRowIdx === -1) {
       return res.status(400).json({ message: 'This does not look like the marks template — the "Student ID" column header was not found. Please use the downloaded template.' });
     }
     const headerRow = rows[headerRowIdx].map(c => String(c).trim());
-    const idCol    = headerRow.indexOf('Student ID');
-    const marksCol = headerRow.findIndex(c => c.startsWith('Marks'));
+    const idCol    = headerRow.findIndex(c => c.toLowerCase() === 'student id');
+    const nameCol  = headerRow.findIndex(c => c.toLowerCase() === 'student name');
+    const marksCol = headerRow.findIndex(c => c.toLowerCase().startsWith('marks'));
     if (idCol === -1 || marksCol === -1) {
       return res.status(400).json({ message: 'The template is missing required columns. Please use the downloaded template.' });
     }
 
-    const dataRows = rows.slice(headerRowIdx + 1).filter(r => r.some(c => String(c).trim() !== ''));
+    // A row only counts as real student data if it has a name — this
+    // correctly skips the trailing summary/footer row, whose merged text
+    // otherwise lands in this same column index as the hidden Student ID
+    // and would be misread as a bogus student row.
+    const dataRows = rows.slice(headerRowIdx + 1).filter(r => String(r[nameCol] ?? '').trim() !== '');
 
     // Roster for this assessment's class, so we only accept marks for
     // students who actually belong to it.
@@ -1020,16 +1226,28 @@ exports.teacherUploadMarks = async (req, res) => {
 
     const maxAllowed = assessment.course_id?.total_marks || assessment.max_marks || 100;
 
+    /*
+     * All-or-nothing validation: a filled sheet is only ever applied in
+     * full. If ANY row is out of range, non-numeric, or belongs to a
+     * student outside this class, the whole upload is rejected and NOT a
+     * single mark is written — partially applying a sheet that was filled
+     * in wrong just hides the mistake instead of forcing the teacher to
+     * fix it. Blank cells (no mark yet) are always fine and don't count
+     * as an error.
+     */
     const ops = [];
     const errors = [];
     dataRows.forEach((row, i) => {
       const rowNum = headerRowIdx + 2 + i; // 1-indexed, +1 for header row itself
       const studentId = String(row[idCol] ?? '').trim();
+      const studentName = String(row[nameCol] ?? '').trim();
+      const who = studentName ? `${studentName} (row ${rowNum})` : `row ${rowNum}`;
       const rawMarks  = row[marksCol];
 
       if (!studentId) return; // blank ID cell on an otherwise blank-ish row; skip quietly
+
       if (!validStudentIds.has(studentId)) {
-        errors.push(`Row ${rowNum}: unrecognised student — this row was not modified.`);
+        errors.push(`${who}: this student does not belong to this class/assessment.`);
         return;
       }
 
@@ -1040,16 +1258,23 @@ exports.teacherUploadMarks = async (req, res) => {
 
       const num = Number(rawMarks);
       if (Number.isNaN(num)) {
-        errors.push(`Row ${rowNum}: "${rawMarks}" is not a valid number — this row was skipped.`);
+        errors.push(`${who}: "${rawMarks}" is not a valid number.`);
         return;
       }
       if (num < 0 || num > maxAllowed) {
-        errors.push(`Row ${rowNum}: ${num} is outside the allowed range (0–${maxAllowed}) — this row was skipped.`);
+        errors.push(`${who}: ${num} is above the maximum allowed mark of ${maxAllowed}.`);
         return;
       }
 
       ops.push({ student_id: studentId, marks: num });
     });
+
+    if (errors.length > 0) {
+      return res.status(400).json({
+        message: `Marks upload failed — the Excel file was filled in incorrectly (${errors.length} student${errors.length === 1 ? '' : 's'} with an invalid mark). Nothing was saved. Please correct these entries and re-upload.`,
+        errors,
+      });
+    }
 
     if (ops.length > 0) {
       await Mark.bulkWrite(ops.map(m => ({
