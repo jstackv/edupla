@@ -11,7 +11,7 @@ import {
   Trophy, Building2, Laptop, Hourglass, PenSquare,
 } from 'lucide-react';
 import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell,
 } from 'recharts';
 
 /* Names are stored "SURNAME Givenname" — greet by the name people go by. */
@@ -306,6 +306,16 @@ export default function TeacherDashboard() {
   })), [analytics]);
   const trendTotal = trendData.reduce((s, d) => s + d.Recorded, 0);
 
+  /* Overall class average across every class this teacher has graded
+     assessments for — weighted by how many students were graded, so a
+     class with more marks recorded counts proportionally more. */
+  const heroClassAvg = useMemo(() => {
+    if (!classPerformance.length) return null;
+    const totalWeight = classPerformance.reduce((s, c) => s + (c.students_graded || 1), 0);
+    const weighted = classPerformance.reduce((s, c) => s + c.avg_score * (c.students_graded || 1), 0);
+    return totalWeight ? Math.round(weighted / totalWeight) : null;
+  }, [classPerformance]);
+
   if (loading) return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '100px 0', gap: 16 }}>
       <div style={{ position: 'relative', width: 48, height: 48 }}>
@@ -379,6 +389,27 @@ export default function TeacherDashboard() {
             <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', lineHeight: 1.7 }}>
               {c.classes || 0} classes &nbsp;·&nbsp; {c.students || 0} students &nbsp;·&nbsp; {c.modules || 0} modules
             </p>
+            {trendData.length > 1 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+                <div style={{ width: 84, height: 26 }}>
+                  <ResponsiveContainer>
+                    <AreaChart data={trendData} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="heroSparkFill" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#a5b4fc" stopOpacity={0.5} />
+                          <stop offset="100%" stopColor="#a5b4fc" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <Area type="monotone" dataKey="Recorded" stroke="#c7d2fe" strokeWidth={1.5}
+                        fill="url(#heroSparkFill)" dot={false} isAnimationActive={false} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+                <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', fontWeight: 600, letterSpacing: '0.03em' }}>
+                  {trendTotal} recorded, last 30 days
+                </span>
+              </div>
+            )}
           </div>
 
           {/* hero stat pills */}
@@ -387,7 +418,8 @@ export default function TeacherDashboard() {
               { label: 'Assessments',    val: totalAssess,    color: '#a5b4fc', icon: ClipboardList },
               { label: 'Pending Review', val: pendingCount,   color: '#fcd34d', icon: Flame },
               { label: 'Approved',       val: approvedCount,  color: '#6ee7b7', icon: CheckCircle2 },
-            ].map(({ label, val, color, icon: Icon }) => (
+              ...(heroClassAvg !== null ? [{ label: 'Class Avg', val: heroClassAvg, suffix: '%', color: '#f0abfc', icon: Trophy }] : []),
+            ].map(({ label, val, color, icon: Icon, suffix }) => (
               <div key={label} className="hero-pill-t" style={{
                 padding: '10px 16px', borderRadius: 14, textAlign: 'center',
                 background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)',
@@ -395,7 +427,7 @@ export default function TeacherDashboard() {
               }}>
                 <Icon size={13} style={{ color, marginBottom: 4, display: 'block', margin: '0 auto 4px' }} />
                 <p style={{ fontSize: 20, fontWeight: 800, color: '#fff', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
-                  <AnimatedNumber value={val} />
+                  <AnimatedNumber value={val} />{suffix || ''}
                 </p>
                 <p style={{ fontSize: 10, color, marginTop: 3, fontWeight: 600, letterSpacing: '0.04em' }}>{label}</p>
               </div>
@@ -743,7 +775,22 @@ export default function TeacherDashboard() {
           {!classPerformance.length
             ? <EmptyState icon={Building2} msg="No assessment marks recorded yet" />
             : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <>
+                <div style={{ width: '100%', height: Math.max(classPerformance.length * 34, 90) }}>
+                  <ResponsiveContainer>
+                    <BarChart data={classPerformance} layout="vertical" margin={{ top: 0, right: 16, left: 0, bottom: 0 }} barCategoryGap="28%">
+                      <XAxis type="number" domain={[0, 100]} hide />
+                      <YAxis type="category" dataKey="name" width={78} tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} axisLine={false} tickLine={false} />
+                      <Tooltip content={<ChartTooltip unit="%" />} cursor={{ fill: 'rgba(129,140,248,0.06)' }} />
+                      <Bar dataKey="avg_score" name="Class average" radius={[0, 8, 8, 0]} animationDuration={1000} maxBarSize={16}>
+                        {classPerformance.map((cl, i) => (
+                          <Cell key={cl.id || i} fill={cl.avg_score >= 75 ? '#34d399' : cl.avg_score >= 60 ? '#818cf8' : cl.avg_score >= 40 ? '#fbbf24' : '#f87171'} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}>
                 {classPerformance.map((cl, i) => {
                   const color = cl.avg_score >= 75 ? '#34d399' : cl.avg_score >= 60 ? '#818cf8' : cl.avg_score >= 40 ? '#fbbf24' : '#f87171';
                   return (
@@ -764,7 +811,8 @@ export default function TeacherDashboard() {
                     </div>
                   );
                 })}
-              </div>
+                </div>
+              </>
             )}
         </div>
 

@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, RadialBarChart, RadialBar,
+  PieChart, Pie, Cell, RadialBarChart, RadialBar, BarChart, Bar,
 } from 'recharts';
 
 /* ── Helpers ── */
@@ -266,12 +266,16 @@ export default function StudentDashboard() {
   const gradedQuizzes = conductedQuizzes.filter(q => q.best_score !== null && q.best_score !== undefined);
   const passedQuizzes = gradedQuizzes.filter(q => quizPct(q) >= PASS_MARK);
   const pendingGradingQuizzes = conductedQuizzes.filter(q => q.has_pending_grading);
+  /* Assessments shared with the student that haven't been attempted at
+     all yet — this is the assessment-based equivalent of "pending work",
+     used in the hero and stat cards instead of assignment status. */
+  const pendingAssessments = (data?.quizzes || []).filter(q => q.can_start && (q.attempts_used || 0) === 0);
 
-  const completionPercent = useMemo(() => {
-    const total = data?.totalAssignments || 0;
+  const quizCompletionPercent = useMemo(() => {
+    const total = data?.quizzes?.length || 0;
     if (!total) return 0;
-    return Math.round((submitted.length / total) * 100);
-  }, [data, submitted.length]);
+    return Math.round((conductedQuizzes.length / total) * 100);
+  }, [data, conductedQuizzes.length]);
 
   /* Average score is the mean percentage across graded online assessments. */
   const averageScore = gradedQuizzes.length
@@ -323,17 +327,17 @@ export default function StudentDashboard() {
       return d;
     });
     return days.map(d => {
-      const count = submitted.filter(a => {
-        const sd = new Date(a.submitted_at || a.updated_at || 0);
+      const count = conductedQuizzes.filter(q => {
+        const sd = new Date(q.submitted_at || q.updated_at || 0);
         return sd.toDateString() === d.toDateString();
       }).length;
       return {
         day: d.toLocaleDateString(undefined, { weekday: 'short' }),
         full: d.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' }),
-        submissions: count,
+        attempts: count,
       };
     });
-  }, [submitted]);
+  }, [conductedQuizzes]);
 
   const scoreTrend = useMemo(() => {
     const sorted = [...gradedQuizzes]
@@ -348,7 +352,41 @@ export default function StudentDashboard() {
     { name: 'Pending review', value: pendingGradingQuizzes.length, color: '#f59e0b' },
   ].filter(d => d.value > 0)), [passedQuizzes.length, gradedQuizzes.length, pendingGradingQuizzes.length]);
 
-  const hasChartData = weeklyActivity.some(d => d.submissions > 0) || breakdownData.length > 0 || scoreTrend.length > 1;
+  /* Average score per module — surfaces which subjects need attention,
+     something the previous single-line score trend couldn't show. */
+  const moduleScores = useMemo(() => {
+    const map = {};
+    gradedQuizzes.forEach(q => {
+      const name = q.module_name || 'Other';
+      if (!map[name]) map[name] = { name, total: 0, count: 0 };
+      map[name].total += quizPct(q);
+      map[name].count += 1;
+    });
+    return Object.values(map)
+      .map(m => ({ name: m.name, avg: Math.round(m.total / m.count), fill: scoreColor(Math.round(m.total / m.count)) }))
+      .sort((a, b) => b.avg - a.avg)
+      .slice(0, 8);
+  }, [gradedQuizzes]);
+
+  const hasChartData = weeklyActivity.some(d => d.attempts > 0) || breakdownData.length > 0 || scoreTrend.length > 1;
+
+  /* Performance figures are computed across every shared assessment, which
+     normally all sit in one active term — surface that term/year so the
+     numbers aren't mistaken for an all-time record. Falls back to the most
+     common term if assessments somehow span more than one. */
+  const performanceTerm = useMemo(() => {
+    const counts = {};
+    (data?.quizzes || []).forEach(q => {
+      if (!q.term || !q.academic_year) return;
+      const key = `${q.term}|${q.academic_year}`;
+      counts[key] = (counts[key] || 0) + 1;
+    });
+    const entries = Object.entries(counts);
+    if (!entries.length) return null;
+    const [topKey] = entries.sort((a, b) => b[1] - a[1])[0];
+    const [term, academic_year] = topKey.split('|');
+    return { term, academic_year };
+  }, [data]);
 
   if (loading) return (
     <div className="flex flex-col items-center justify-center py-24 gap-4">
@@ -497,7 +535,7 @@ export default function StudentDashboard() {
 
                 {/* Status pills */}
                 <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-                  {pending.length === 0 ? (
+                  {pendingAssessments.length === 0 ? (
                     <div className="hero-pill" style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.15)', borderRadius: 30, padding: '6px 14px', backdropFilter: 'blur(8px)' }}>
                       <Sparkles style={{ width: 14, height: 14, color: '#fcd34d' }} />
                       <span style={{ fontSize: 12, fontWeight: 600, color: '#fff' }}>All caught up — great work!</span>
@@ -506,7 +544,7 @@ export default function StudentDashboard() {
                     <div className="hero-pill" style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.15)', borderRadius: 30, padding: '6px 14px', backdropFilter: 'blur(8px)' }}>
                       <Flame style={{ width: 14, height: 14, color: '#fcd34d' }} />
                       <span style={{ fontSize: 12, fontWeight: 600, color: '#fff' }}>
-                        {pending.length} assignment{pending.length !== 1 ? 's' : ''} need your attention
+                        {pendingAssessments.length} assessment{pendingAssessments.length !== 1 ? 's' : ''} need your attention
                       </span>
                     </div>
                   )}
@@ -546,9 +584,9 @@ export default function StudentDashboard() {
             {/* Right: dual ring cluster — assignment completion + quiz average */}
             <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexShrink: 0 }}>
               <div className="hero-ring-wrap" style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <ProgressRing percent={ringFilled ? completionPercent : 0} size={88} stroke={8} color="#fff" glow />
+                <ProgressRing percent={ringFilled ? quizCompletionPercent : 0} size={88} stroke={8} color="#fff" glow />
                 <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-                  <span style={{ fontSize: 17, fontWeight: 800, color: '#fff', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{completionPercent}%</span>
+                  <span style={{ fontSize: 17, fontWeight: 800, color: '#fff', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{quizCompletionPercent}%</span>
                   <span style={{ fontSize: 8.5, color: 'rgba(255,255,255,0.55)', fontWeight: 600, letterSpacing: '0.05em' }}>DONE</span>
                 </div>
               </div>
@@ -567,19 +605,19 @@ export default function StudentDashboard() {
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                 <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                  Assignment completion
+                  Quiz completion
                 </span>
                 <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.75)', fontWeight: 700 }}>
-                  {submitted.length} / {data?.totalAssignments || 0}
+                  {conductedQuizzes.length} / {data?.quizzes?.length || 0}
                 </span>
               </div>
               <div style={{ height: 5, borderRadius: 5, background: 'rgba(255,255,255,0.12)', overflow: 'hidden' }}>
                 <div style={{
                   height: '100%', borderRadius: 5,
                   background: 'linear-gradient(90deg, rgba(255,255,255,0.7), rgba(255,255,255,0.95))',
-                  width: `${completionPercent}%`,
+                  width: `${quizCompletionPercent}%`,
                   transition: 'width 1.3s cubic-bezier(0.34,1.56,0.64,1)',
-                  boxShadow: completionPercent > 0 ? '0 0 10px rgba(255,255,255,0.6)' : 'none',
+                  boxShadow: quizCompletionPercent > 0 ? '0 0 10px rgba(255,255,255,0.6)' : 'none',
                 }} />
               </div>
             </div>
@@ -633,12 +671,12 @@ export default function StudentDashboard() {
 
       {/* ── Stat Cards ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3" style={visStyle(0.07)}>
-        <StatCard icon={ClipboardList} label="Pending work" value={pending.length} to="/student/assignments"
+        <StatCard icon={Timer} label="Pending assessments" value={pendingAssessments.length} to="/student/assessments"
           color="text-amber-600" iconBg="bg-amber-100 dark:bg-amber-900/30"
-          sublabel={pending.length ? 'needs attention' : 'all clear ✓'} animateNum />
-        <StatCard icon={CheckCircle2} label="Submitted" value={submitted.length} to="/student/assignments"
+          sublabel={pendingAssessments.length ? 'not attempted' : 'all clear ✓'} animateNum />
+        <StatCard icon={CheckCircle2} label="Assessments taken" value={conductedQuizzes.length} to="/student/assessments"
           color="text-emerald-600" iconBg="bg-emerald-100 dark:bg-emerald-900/30"
-          sublabel={`of ${data?.totalAssignments || 0} total`} animateNum />
+          sublabel={`of ${data?.quizzes?.length || 0} total`} animateNum />
         <StatCard icon={Award} label="Avg score" value={averageScore !== null ? averageScore : '—'} suffix={averageScore !== null ? '%' : ''}
           to="/student/assessments" color="text-violet-600" iconBg="bg-violet-100 dark:bg-violet-900/30"
           sublabel={gradeLabel?.label || 'from quizzes'} animateNum={averageScore !== null} />
@@ -655,39 +693,6 @@ export default function StudentDashboard() {
         <StatCard icon={MessageSquare} label="Groups" value={data?.groups?.length || 0} to="/student/groups"
           color="text-orange-600" iconBg="bg-orange-100 dark:bg-orange-900/30"
           sublabel="discussion & chat" animateNum />
-      </div>
-
-      {/* ── Quick Actions ── */}
-      <div className="card" style={visStyle(0.09)}>
-        <div className="flex items-center gap-2 mb-4">
-          <Zap style={{ width: 14, height: 14, color: '#fbbf24' }} />
-          <h3 className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>Quick Actions</h3>
-        </div>
-        <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 9 }}>
-          {[
-            { label: 'Assignments',  to: '/student/assignments',  icon: ClipboardList, color: '#fbbf24', bg: 'rgba(251,191,36,0.1)' },
-            { label: 'Assessments',  to: '/student/assessments',  icon: Timer,         color: '#8b5cf6', bg: 'rgba(139,92,246,0.1)' },
-            { label: 'Attendance',   to: '/student/attendance',   icon: UserCheck,     color: '#14b8a6', bg: 'rgba(20,184,166,0.1)' },
-            { label: 'Documents',    to: '/student/documents',    icon: FileText,      color: '#f472b6', bg: 'rgba(244,114,182,0.1)' },
-            { label: 'Groups & DMs', to: '/student/groups',       icon: MessageSquare, color: '#f97316', bg: 'rgba(249,115,22,0.1)' },
-            { label: 'Announce',     to: '/student/announcements', icon: Megaphone,    color: '#22d3ee', bg: 'rgba(34,211,238,0.1)' },
-            { label: 'My Classes',   to: '/student/classes',      icon: BookOpen,      color: '#34d399', bg: 'rgba(52,211,153,0.1)' },
-          ].map(a => (
-            <Link key={a.to} to={a.to} style={{ textDecoration: 'none' }}>
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: 9, padding: '11px 13px',
-                borderRadius: 13, background: a.bg, border: `1px solid ${a.color}20`,
-                transition: 'transform 0.2s cubic-bezier(.34,1.56,.64,1), box-shadow 0.2s ease',
-                cursor: 'pointer',
-              }}
-                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = `0 6px 16px ${a.color}22`; }}
-                onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}>
-                <a.icon size={14} style={{ color: a.color, flexShrink: 0 }} />
-                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.2 }}>{a.label}</span>
-              </div>
-            </Link>
-          ))}
-        </div>
       </div>
 
       {/* ── Available Online Quizzes ── */}
@@ -730,16 +735,25 @@ export default function StudentDashboard() {
 
       {/* ── Analytics: weekly activity + score trend + breakdown donut ── */}
       {hasChartData && (
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4" style={visStyle(0.11)}>
+        <div style={visStyle(0.105)}>
+          {performanceTerm && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, paddingLeft: 2 }}>
+              <Calendar style={{ width: 12, height: 12, color: 'var(--text-secondary)', opacity: 0.7 }} />
+              <span style={{ fontSize: 11, color: 'var(--text-secondary)', opacity: 0.8 }}>
+                Performance shown for <strong style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{performanceTerm.term} · {performanceTerm.academic_year}</strong>
+              </span>
+            </div>
+          )}
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
 
-          {/* Weekly submission activity */}
+          {/* Weekly assessment activity */}
           <div className="card lg:col-span-3">
             <div className="flex items-center justify-between mb-2">
               <h3 className="font-semibold text-sm flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
                 <Activity style={{ width: 14, height: 14, color: '#10b981' }} />
-                Weekly submission activity
+                Weekly assessment activity
               </h3>
-              <span className="text-xs text-muted">{submitted.length} total this period</span>
+              <span className="text-xs text-muted">{conductedQuizzes.length} total this period</span>
             </div>
             <div style={{ width: '100%', height: 190 }}>
               <ResponsiveContainer>
@@ -753,8 +767,8 @@ export default function StudentDashboard() {
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--card-border)" />
                   <XAxis dataKey="day" tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} axisLine={false} tickLine={false} />
                   <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} axisLine={false} tickLine={false} width={24} />
-                  <Tooltip content={<ChartTooltip unit=" submitted" />} labelFormatter={(l, p) => p?.[0]?.payload?.full || l} />
-                  <Area type="monotone" dataKey="submissions" name="Submissions" stroke="#10b981" strokeWidth={2.5}
+                  <Tooltip content={<ChartTooltip unit=" attempted" />} labelFormatter={(l, p) => p?.[0]?.payload?.full || l} />
+                  <Area type="monotone" dataKey="attempts" name="Assessments" stroke="#10b981" strokeWidth={2.5}
                     fill="url(#submissionsFill)" dot={{ r: 3, fill: '#10b981', strokeWidth: 0 }}
                     activeDot={{ r: 5, fill: '#10b981', stroke: '#fff', strokeWidth: 2 }} animationDuration={1100} />
                 </AreaChart>
@@ -833,6 +847,34 @@ export default function StudentDashboard() {
               </div>
             </div>
           )}
+
+          {/* Performance by module — new: shows which subjects are strongest/weakest */}
+          {moduleScores.length > 0 && (
+            <div className="card lg:col-span-5">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-semibold text-sm flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+                  <BarChart3 style={{ width: 14, height: 14, color: '#6366f1' }} />
+                  Performance by module
+                </h3>
+                <span className="text-xs text-muted">average score, graded assessments</span>
+              </div>
+              <div style={{ width: '100%', height: 200 }}>
+                <ResponsiveContainer>
+                  <BarChart data={moduleScores} margin={{ top: 12, right: 8, left: -22, bottom: 0 }} barCategoryGap="28%">
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--card-border)" />
+                    <XAxis dataKey="name" tick={{ fontSize: 10, fill: 'var(--text-secondary)' }} axisLine={false} tickLine={false}
+                      interval={0} angle={moduleScores.length > 4 ? -18 : 0} textAnchor={moduleScores.length > 4 ? 'end' : 'middle'} height={moduleScores.length > 4 ? 44 : 24} />
+                    <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} axisLine={false} tickLine={false} width={30} />
+                    <Tooltip content={<ChartTooltip unit="%" />} />
+                    <Bar dataKey="avg" name="Average score" radius={[8, 8, 0, 0]} animationDuration={1000}>
+                      {moduleScores.map((m, i) => <Cell key={i} fill={m.fill} />)}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+          </div>
         </div>
       )}
 
@@ -842,10 +884,17 @@ export default function StudentDashboard() {
         {/* Performance card (2 cols) */}
         <div className="card lg:col-span-2" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
-              <BarChart3 style={{ display: 'inline', width: 14, height: 14, marginRight: 6, color: '#6366f1', verticalAlign: 'middle' }} />
-              Performance
-            </h3>
+            <div>
+              <h3 className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
+                <BarChart3 style={{ display: 'inline', width: 14, height: 14, marginRight: 6, color: '#6366f1', verticalAlign: 'middle' }} />
+                Performance
+              </h3>
+              {performanceTerm && (
+                <p style={{ fontSize: 10, color: 'var(--text-secondary)', opacity: 0.7, marginTop: 2, marginLeft: 20 }}>
+                  {performanceTerm.term} · {performanceTerm.academic_year}
+                </p>
+              )}
+            </div>
             {gradeLabel && (
               <span className="badge text-xs" style={{ background: `${gradeLabel.color}18`, color: gradeLabel.color, fontWeight: 700 }}>
                 {gradeLabel.label}
@@ -1197,6 +1246,39 @@ export default function StudentDashboard() {
           </div>
         </div>
       )}
+
+      {/* ── Quick Actions ── */}
+      <div className="card" style={visStyle(0.34)}>
+        <div className="flex items-center gap-2 mb-4">
+          <Zap style={{ width: 14, height: 14, color: '#fbbf24' }} />
+          <h3 className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>Quick Actions</h3>
+        </div>
+        <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 9 }}>
+          {[
+            { label: 'Assignments',  to: '/student/assignments',  icon: ClipboardList, color: '#fbbf24', bg: 'rgba(251,191,36,0.1)' },
+            { label: 'Assessments',  to: '/student/assessments',  icon: Timer,         color: '#8b5cf6', bg: 'rgba(139,92,246,0.1)' },
+            { label: 'Attendance',   to: '/student/attendance',   icon: UserCheck,     color: '#14b8a6', bg: 'rgba(20,184,166,0.1)' },
+            { label: 'Documents',    to: '/student/documents',    icon: FileText,      color: '#f472b6', bg: 'rgba(244,114,182,0.1)' },
+            { label: 'Groups & DMs', to: '/student/groups',       icon: MessageSquare, color: '#f97316', bg: 'rgba(249,115,22,0.1)' },
+            { label: 'Announce',     to: '/student/announcements', icon: Megaphone,    color: '#22d3ee', bg: 'rgba(34,211,238,0.1)' },
+            { label: 'My Classes',   to: '/student/classes',      icon: BookOpen,      color: '#34d399', bg: 'rgba(52,211,153,0.1)' },
+          ].map(a => (
+            <Link key={a.to} to={a.to} style={{ textDecoration: 'none' }}>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 9, padding: '11px 13px',
+                borderRadius: 13, background: a.bg, border: `1px solid ${a.color}20`,
+                transition: 'transform 0.2s cubic-bezier(.34,1.56,.64,1), box-shadow 0.2s ease',
+                cursor: 'pointer',
+              }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = `0 6px 16px ${a.color}22`; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}>
+                <a.icon size={14} style={{ color: a.color, flexShrink: 0 }} />
+                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.2 }}>{a.label}</span>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
 
       <style>{`
         @keyframes fadeSlide {
