@@ -645,22 +645,28 @@ export default function TeacherAssessments() {
         formData,
         { headers: { 'Content-Type': 'multipart/form-data' } }
       );
-      const { students, errors, updated, message } = res.data;
+      const { students, updated, message } = res.data;
 
       const newMarks = {};
       students.forEach(s => { newMarks[s.student_id] = s.marks ?? ''; });
       setMarksData(newMarks);
       setMarksModal(prev => ({ ...prev, students }));
       setSortedByPerformance(true);
-
-      if (errors && errors.length > 0) {
-        toast.error(`${message} (${updated} mark${updated === 1 ? '' : 's'} applied)`, { duration: 6000 });
-        console.warn('Marks upload issues:', errors);
-      } else {
-        toast.success(`${message} — ${updated} mark${updated === 1 ? '' : 's'} applied`);
-      }
+      toast.success(`${message} — ${updated} mark${updated === 1 ? '' : 's'} applied`);
     } catch (e2) {
-      toast.error(e2.response?.data?.message || 'Failed to upload marks');
+      // Whole-file rejection (e.g. marks above the maximum, unknown
+      // students): nothing was saved, so the on-screen table is left
+      // untouched. Show exactly which rows caused the problem.
+      const data = e2.response?.data;
+      const baseMessage = data?.message || 'Failed to upload marks';
+      if (data?.errors?.length > 0) {
+        toast.error(
+          `${baseMessage}\n${data.errors.slice(0, 5).join('\n')}${data.errors.length > 5 ? `\n…and ${data.errors.length - 5} more` : ''}`,
+          { duration: 9000, style: { whiteSpace: 'pre-line', textAlign: 'left' } }
+        );
+      } else {
+        toast.error(baseMessage);
+      }
     } finally {
       setMarksUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
