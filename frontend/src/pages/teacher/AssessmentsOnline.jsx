@@ -30,7 +30,8 @@
  *   POST /assessment/teacher/assessments/:id/unshare                    -> unshare + void submissions, unlocks questions
  *   POST /assessment/teacher/assessments/:id/attempts/add               -> add attempt(s), optionally with new duration/expiry
  */
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import Modal from '../../components/common/Modal';
@@ -98,11 +99,122 @@ function AssessmentOverviewStrip({ assessments }) {
   );
 }
 
+/* ── helpers ─────────────────────────────────────────────────────── */
+function timeAgo(dateStr) {
+  const diff = (Date.now() - new Date(dateStr).getTime()) / 1000;
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
+  return new Date(dateStr).toLocaleDateString();
+}
+
+function initials(name) {
+  return (name || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+}
+
+/* One-line human sentence summarizing who has submitted, e.g.:
+   "Hakizimana Xavin has submitted assessment"
+   "Hakizimana Xavin's assessment was submitted" (auto-submitted)
+   "Hakizimana Xavin and 5 others have submitted" */
+function submittersSummary(submitters, submittedCount) {
+  if (submittedCount === 0) return null;
+  const [first] = submitters;
+  if (submittedCount === 1) {
+    return first.auto_submitted
+      ? `${first.name}'s assessment was submitted`
+      : `${first.name} has submitted assessment`;
+  }
+  const others = submittedCount - 1;
+  return `${first.name} and ${others} other${others > 1 ? 's' : ''} have submitted`;
+}
+
+/* Hover-triggered preview of recent submitters, portal-rendered to
+   document.body with a fixed position anchored under the badge — the card
+   it lives on has `overflow: hidden` for its corner-glow decoration, so
+   rendering in-place would get clipped. Clicking anywhere on the card jumps
+   straight to that assessment's results, where ungraded submissions can be
+   marked. */
+function SubmittersTooltip({ submitters, submittedCount, pos, onMouseEnter, onMouseLeave, onOpenResults }) {
+  const summary = submittersSummary(submitters, submittedCount);
+  if (!summary || !pos) return null;
+
+  return createPortal(
+    <div
+      className="assessment-submitters-tooltip fixed w-80 rounded-2xl p-0 z-[70] cursor-pointer overflow-hidden"
+      style={{ top: pos.top, left: pos.left }}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      onClick={onOpenResults}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onOpenResults?.(); }}
+    >
+      <div className="assessment-tooltip-inner p-3.5">
+        <p className="text-xs font-semibold flex items-center gap-1.5 mb-3" style={{ color: 'var(--text-primary)' }}>
+          <span className="assessment-tooltip-icon-dot">
+            <Users className="w-3.5 h-3.5" style={{ color: '#6366f1' }} />
+          </span>
+          {summary}
+        </p>
+        <div className="space-y-2">
+          {submitters.slice(0, 3).map((s, si) => (
+            <div key={si} style={{ '--si': si }} className="assessment-submitter-row flex items-center gap-2.5">
+              <div className="assessment-submitter-avatar w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0">
+                {initials(s.name)}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-medium truncate" style={{ color: 'var(--text-primary)' }}>{s.name}</p>
+                <p className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>
+                  {s.auto_submitted ? 'Auto-submitted' : 'Submitted'} · {timeAgo(s.submitted_at)}
+                </p>
+              </div>
+              {!s.auto_submitted && <span className="assessment-submitter-pulse" />}
+            </div>
+          ))}
+        </div>
+        {submittedCount > 3 && (
+          <p className="text-[10px] mt-2.5 pt-2" style={{ color: 'var(--text-secondary)', borderTop: '1px solid var(--card-border)' }}>
+            +{submittedCount - 3} more have submitted
+          </p>
+        )}
+      </div>
+      <div className="assessment-tooltip-cta">
+        <BarChart3 className="w-3.5 h-3.5" />
+        Open results to grade
+        <ChevronRight className="w-3.5 h-3.5 assessment-tooltip-cta-arrow" />
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 /* One assessment's card — ambient status glow + a clear read on where its
    marks currently stand (auto-computed max, capped by the module weight). */
-function AssessmentCard({ a, i, onQuestions, onShare, onAddAttempt, onEdit, onDelete, onUnshare }) {
+function AssessmentCard({ a, i, onQuestions, onShare, onAddAttempt, onEdit, onDelete, onUnshare, onViewResults }) {
+  const [showSubmitters, setShowSubmitters] = useState(false);
+  const [tooltipPos, setTooltipPos] = useState(null);
+  const badgeRef = useRef(null);
+  const closeTimer = useRef(null);
   const statusColor = a.is_shared ? '#10b981' : '#9ca3af';
   const hasQuestions = (a.max_marks || 0) > 0;
+  const submittedCount = a.submitted_count || 0;
+  const recentSubmitters = a.recent_submitters || [];
+
+  // A small delay before closing lets the cursor travel from the badge down
+  // into the portal-rendered tooltip without it flickering shut mid-move.
+  const openTooltip = () => {
+    clearTimeout(closeTimer.current);
+    if (badgeRef.current) {
+      const rect = badgeRef.current.getBoundingClientRect();
+      setTooltipPos({ top: rect.bottom + 8, left: rect.left });
+    }
+    setShowSubmitters(true);
+  };
+  const scheduleClose = () => {
+    closeTimer.current = setTimeout(() => setShowSubmitters(false), 120);
+  };
+  useEffect(() => () => clearTimeout(closeTimer.current), []);
 
   return (
     <div
@@ -126,18 +238,42 @@ function AssessmentCard({ a, i, onQuestions, onShare, onAddAttempt, onEdit, onDe
         </div>
 
         <div className="flex items-center gap-2 flex-wrap text-xs relative">
-          <span className="flex items-center gap-1 px-2 py-0.5 rounded-full" style={{ background: 'var(--surface-100)', color: 'var(--text-secondary)' }}>
-            <Scale className="w-3 h-3" />
+          <span className="assessment-stat-badge" style={{ '--stat-color': '#6366f1' }}>
+            <Scale className="w-3.5 h-3.5" />
             {hasQuestions ? `${a.max_marks} / ${a.course_id?.total_marks || 100} MW` : `Awaiting questions (MW ${a.course_id?.total_marks || 100})`}
           </span>
           {a.is_shared && (
-            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full" style={{ background: 'var(--surface-100)', color: 'var(--text-secondary)' }}>
-              <Users className="w-3 h-3" /> {a.max_attempts} attempt{a.max_attempts > 1 ? 's' : ''}
+            <span className="assessment-stat-badge" style={{ '--stat-color': '#8b5cf6' }}>
+              <Users className="w-3.5 h-3.5" /> {a.max_attempts} attempt{a.max_attempts > 1 ? 's' : ''}
+            </span>
+          )}
+          {a.is_shared && a.student_count > 0 && (
+            <span
+              ref={badgeRef}
+              className={`assessment-stat-badge assessment-stat-badge-interactive ${submittedCount > 0 ? 'assessment-stat-badge-active' : ''}`}
+              style={{ '--stat-color': '#10b981' }}
+              onMouseEnter={openTooltip}
+              onMouseLeave={scheduleClose}
+              onClick={() => submittedCount > 0 && onViewResults?.(a)}
+              role={submittedCount > 0 ? 'button' : undefined}
+              tabIndex={submittedCount > 0 ? 0 : undefined}
+            >
+              <ClipboardCheck className="w-3.5 h-3.5" /> {submittedCount}/{a.student_count} submissions
+              {showSubmitters && submittedCount > 0 && (
+                <SubmittersTooltip
+                  submitters={recentSubmitters}
+                  submittedCount={submittedCount}
+                  pos={tooltipPos}
+                  onMouseEnter={() => clearTimeout(closeTimer.current)}
+                  onMouseLeave={scheduleClose}
+                  onOpenResults={() => { setShowSubmitters(false); onViewResults?.(a); }}
+                />
+              )}
             </span>
           )}
           {a.student_count > 0 && (
-            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full" style={{ background: 'var(--surface-100)', color: 'var(--text-secondary)' }}>
-              <Award className="w-3 h-3" /> {a.marked_count}/{a.student_count} marked
+            <span className="assessment-stat-badge" style={{ '--stat-color': '#f59e0b' }}>
+              <Award className="w-3.5 h-3.5" /> {a.marked_count}/{a.student_count} marked
             </span>
           )}
         </div>
@@ -398,6 +534,18 @@ export default function AssessmentsOnline() {
     setFormModal({ editing: a });
   };
 
+  /* Fired when a teacher clicks the submissions badge/tooltip on a card —
+     jumps straight into that assessment's results view, where grading
+     (manual marking of ungraded submissions) happens. A short toast
+     confirms the jump, matching the vocabulary of the destination screen. */
+  const handleViewResults = (a) => {
+    setAttemptsModal(a);
+    toast.success(`Opening results for ${a.title}`, {
+      icon: '📊',
+      className: 'assessment-toast-live',
+    });
+  };
+
   const step = !selectedClass ? 'classes' : !selectedCourse ? 'modules' : 'assessments';
 
   return (
@@ -515,6 +663,7 @@ export default function AssessmentsOnline() {
                     onEdit={handleEditClick}
                     onDelete={handleDelete}
                     onUnshare={handleUnshare}
+                    onViewResults={handleViewResults}
                   />
                 ))}
               </div>

@@ -7,7 +7,7 @@ import {
   TrendingUp, Award, ChevronRight, BarChart2, Layers,
   BookMarked, ArrowUpRight, Flame, Target, Zap,
   GraduationCap, Bell, CheckCircle2,
-  UserCheck, MessageSquare, Timer, Sparkles,
+  MessageSquare, Timer, Sparkles,
   Trophy, Building2, Laptop, Hourglass, PenSquare,
 } from 'lucide-react';
 import {
@@ -505,7 +505,6 @@ export default function TeacherDashboard() {
         <StatCard icon={Layers}        label="Modules"             value={c.modules || 0}       color="#a78bfa" bg="rgba(167,139,250,0.1)" to="/teacher/assessments-grade" sub="assigned courses" />
         <StatCard icon={ClipboardList} label="Assessments"         value={c.assessments || 0}   color="#fbbf24" bg="rgba(251,191,36,0.1)"  to="/teacher/assessments-grade" />
         <StatCard icon={BookMarked}    label="Documents"           value={c.documents || 0}     color="#f472b6" bg="rgba(244,114,182,0.1)" to="/teacher/documents" />
-        <StatCard icon={UserCheck}     label="Attendance Sessions" value={c.attendanceSessions || 0} color="#14b8a6" bg="rgba(20,184,166,0.1)" to="/teacher/attendance" />
         <StatCard icon={Timer}         label="Online Quizzes"      value={c.onlineAssessments || 0} color="#8b5cf6" bg="rgba(139,92,246,0.1)" to="/teacher/assessments" sub="shared with students" />
       </div>
 
@@ -1025,7 +1024,6 @@ export default function TeacherDashboard() {
           {[
             { label: 'New Assignment', to: '/teacher/assignments',       icon: ClipboardList, color: '#fbbf24', bg: 'rgba(251,191,36,0.1)' },
             { label: 'Grade Work',     to: '/teacher/assessments-grade', icon: BarChart2,     color: '#818cf8', bg: 'rgba(129,140,248,0.1)' },
-            { label: 'Take Attendance', to: '/teacher/attendance',       icon: UserCheck,     color: '#14b8a6', bg: 'rgba(20,184,166,0.1)' },
             { label: 'Online Quiz',    to: '/teacher/assessments',       icon: Timer,         color: '#8b5cf6', bg: 'rgba(139,92,246,0.1)' },
             { label: 'Documents',      to: '/teacher/documents',         icon: FileText,      color: '#f472b6', bg: 'rgba(244,114,182,0.1)' },
             { label: 'Announce',       to: '/teacher/announcements',     icon: Megaphone,     color: '#22d3ee', bg: 'rgba(34,211,238,0.1)' },

@@ -8,7 +8,7 @@ import {
   Award, Calendar, Flame, Sparkles, GraduationCap, Mail,
   TrendingUp, Star, Zap, BookOpen, Target, ArrowUpRight,
   BarChart3, Trophy, Bell, ChevronDown,
-  UserCheck, MessageSquare, Timer, Sun, Moon, Sunset, Activity,
+  MessageSquare, Timer, Sun, Moon, Sunset, Activity,
   Hourglass, Lock,
 } from 'lucide-react';
 import {
@@ -294,13 +294,12 @@ export default function StudentDashboard() {
     (async () => {
       setLoading(true);
       try {
-        const [classesRes, assignmentsRes, announcementsRes, docsRes, coursesRes, attendanceRes, quizzesRes, groupsRes] = await Promise.all([
+        const [classesRes, assignmentsRes, announcementsRes, docsRes, coursesRes, quizzesRes, groupsRes] = await Promise.all([
           api.get('/classes/my').catch(() => ({ data: { classes: [] } })),
           api.get('/assignments?limit=20').catch(() => ({ data: { assignments: [], total: 0 } })),
           api.get('/announcements?limit=5').catch(() => ({ data: { announcements: [] } })),
           api.get('/documents?limit=6').catch(() => ({ data: { documents: [] } })),
           api.get('/assessment/student/courses').catch(() => ({ data: { courses: [] } })),
-          api.get('/attendance/my').catch(() => ({ data: { counts: {}, attendance_rate: null, history: [] } })),
           api.get('/assessment/student/assessments').catch(() => ({ data: { assessments: [] } })),
           api.get('/group-discussions/my/groups').catch(() => ({ data: { groups: [] } })),
         ]);
@@ -311,8 +310,6 @@ export default function StudentDashboard() {
           announcements: announcementsRes.data.announcements || [],
           documents: docsRes.data.documents || [],
           courses: coursesRes.data.courses || [],
-          attendanceRate: attendanceRes.data.attendance_rate,
-          attendanceCounts: attendanceRes.data.counts || {},
           quizzes: quizzesRes.data.assessments || [],
           groups: groupsRes.data.groups || [],
         });
@@ -781,10 +778,6 @@ export default function StudentDashboard() {
         <StatCard icon={Timer} label="Assessments" value={availableQuizzes.length} to="/student/assessments"
           color="text-purple-600" iconBg="bg-purple-100 dark:bg-purple-900/30"
           sublabel={availableQuizzes.length ? 'ready to attempt' : 'none open'} animateNum />
-        <StatCard icon={UserCheck} label="Attendance" value={data?.attendanceRate !== null && data?.attendanceRate !== undefined ? data.attendanceRate : '—'}
-          suffix={data?.attendanceRate !== null && data?.attendanceRate !== undefined ? '%' : ''}
-          to="/student/attendance" color="text-teal-600" iconBg="bg-teal-100 dark:bg-teal-900/30"
-          sublabel="present rate" animateNum={data?.attendanceRate !== null && data?.attendanceRate !== undefined} />
         <StatCard icon={MessageSquare} label="Groups" value={data?.groups?.length || 0} to="/student/groups"
           color="text-orange-600" iconBg="bg-orange-100 dark:bg-orange-900/30"
           sublabel="discussion & chat" animateNum />
@@ -1387,7 +1380,6 @@ export default function StudentDashboard() {
           {[
             { label: 'Assignments',  to: '/student/assignments',  icon: ClipboardList, color: '#fbbf24', bg: 'rgba(251,191,36,0.1)' },
             { label: 'Assessments',  to: '/student/assessments',  icon: Timer,         color: '#8b5cf6', bg: 'rgba(139,92,246,0.1)' },
-            { label: 'Attendance',   to: '/student/attendance',   icon: UserCheck,     color: '#14b8a6', bg: 'rgba(20,184,166,0.1)' },
             { label: 'Documents',    to: '/student/documents',    icon: FileText,      color: '#f472b6', bg: 'rgba(244,114,182,0.1)' },
             { label: 'Groups & DMs', to: '/student/groups',       icon: MessageSquare, color: '#f97316', bg: 'rgba(249,115,22,0.1)' },
             { label: 'Announce',     to: '/student/announcements', icon: Megaphone,    color: '#22d3ee', bg: 'rgba(34,211,238,0.1)' },

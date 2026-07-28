@@ -3,13 +3,19 @@
  *
  * The teacher's "results" view for a shared quiz assessment:
  *  - a mark-sheet style table (best score per student, attempts used, status)
- *  - an expandable per-student list of every individual attempt, each with a
- *    "View answers" action so the teacher can see exactly what the student
- *    answered on every question — not only the ones still awaiting manual
- *    grading
- *  - a per-attempt grading view for open questions: ungraded questions get a
- *    score input right away, and already-graded ones can be reopened via a
- *    "Regrade" button in case the teacher scored something incorrectly
+ *  - a live per-student "trend" sparkline showing every attempt's score, so
+ *    a teacher can see retake improvement at a glance without expanding
+ *  - a summary stat strip (students, class average, top score, needs
+ *    grading, total attempts submitted) mirroring the overall mark sheet
+ *  - search, "needs grading only" and "improved on retry" filters, and
+ *    sortable columns
+ *  - an expandable per-student list of every individual attempt, each with
+ *    a "View answers" action so the teacher can see exactly what the
+ *    student answered on every question — not only the ones still
+ *    awaiting manual grading
+ *  - a per-attempt grading view for open questions: ungraded questions get
+ *    a score input right away, and already-graded ones can be reopened via
+ *    a "Regrade" button in case the teacher scored something incorrectly
  *  - Excel / PDF mark-sheet downloads
  *
  * API contract:
@@ -19,7 +25,7 @@
  *   GET  /assessment/teacher/assessments/:id/attempts/excel   -> file download
  *   GET  /assessment/teacher/assessments/:id/attempts/pdf     -> file download
  */
-import { useState, useEffect, Fragment } from 'react';
+import { useState, useEffect, useMemo, Fragment } from 'react';
 import Modal from './Modal';
 import ConfirmModal from './ConfirmModal';
 import api from '../../utils/api';
@@ -27,7 +33,8 @@ import toast from 'react-hot-toast';
 import {
   Loader2, FileSpreadsheet, FileText, ArrowLeft,
   CheckCircle2, AlertCircle, Save, ChevronDown, ChevronUp, Eye, ShieldAlert,
-  Pencil, X as XIcon,
+  Pencil, X as XIcon, Search, X, Users, TrendingUp, Trophy, AlertTriangle,
+  Repeat, Medal, ArrowUpDown, ArrowUp, ArrowDown, ArrowUpCircle, Minus, Star,
 } from 'lucide-react';
 
 const STATUS_STYLE = {
@@ -37,20 +44,121 @@ const STATUS_STYLE = {
   not_attempted:  { label: 'Not attempted',   color: '#9ca3af', bg: 'rgba(156,163,175,0.12)' },
 };
 
-// Shared column template for the mark-sheet "grid table" — used verbatim by
-// both the header row and every data row so columns can never drift out of
-// alignment (unlike an HTML <table>, whose layout algorithm can redistribute
-// column widths based on content/container in surprising ways). Student gets
-// a flexible track (minmax + 1fr) so full names get the remaining space
-// instead of being squeezed into a fixed width.
-const GRID_COLS = '44px minmax(150px,1fr) 90px 110px 70px 110px 90px 150px';
-const GRID_MIN_WIDTH = 44 + 150 + 90 + 110 + 70 + 110 + 90 + 150; // fixed parts + Student floor
-
 const ATTEMPT_STATUS_STYLE = {
   graded:       { label: 'Graded',      color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
   submitted:    { label: 'Submitted',   color: '#6366f1', bg: 'rgba(99,102,241,0.12)' },
   in_progress:  { label: 'In progress', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
 };
+
+const RANK_STYLE = {
+  1: { color: '#eab308', label: '1st' },
+  2: { color: '#94a3b8', label: '2nd' },
+  3: { color: '#d97706', label: '3rd' },
+};
+
+// Column widths — named constants so the sticky-column left offsets below
+// always agree with the grid template itself.
+const COL_NO = 40;
+const COL_STUDENT = 200;
+const COL_ATTEMPTS = 90;
+const COL_TREND = 150;
+const COL_BEST = 130;
+const COL_PCT = 130;
+const COL_MW = 100;
+const COL_DECISION = 100;
+const COL_STATUS = 150;
+
+const GRID_COLS = `${COL_NO}px ${COL_STUDENT}px ${COL_ATTEMPTS}px ${COL_TREND}px ${COL_BEST}px ${COL_PCT}px ${COL_MW}px ${COL_DECISION}px ${COL_STATUS}px`;
+const GRID_MIN_WIDTH = COL_NO + COL_STUDENT + COL_ATTEMPTS + COL_TREND + COL_BEST + COL_PCT + COL_MW + COL_DECISION + COL_STATUS;
+
+const vDivider = { borderRight: '1px solid var(--card-border)' };
+
+// Round to the nearest whole number for display; leaves null/undefined as-is.
+const roundNum = (v) => (v == null ? v : Math.round(v));
+
+// Performance color scale used for the percentage bar + text + sparkline.
+function perfColor(pct) {
+  if (pct == null) return '#9ca3af';
+  if (pct >= 80) return '#10b981';
+  if (pct >= 60) return '#6366f1';
+  if (pct >= 40) return '#f59e0b';
+  return '#ef4444';
+}
+
+function SortHeader({ label, active, dir, onClick, style, className = '' }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`py-2.5 px-3 flex items-center gap-1 text-left w-full transition-colors duration-150 hover:text-[var(--text-primary)] ${className}`}
+      style={style}
+    >
+      {label}
+      {active ? (dir === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />) : <ArrowUpDown className="w-3 h-3 opacity-30" />}
+    </button>
+  );
+}
+
+/* Compact per-student sparkline: one bar per attempt, scaled to that
+   attempt's percentage of max marks. The best attempt is drawn in full
+   performance color; every other attempt is a muted version of it, so the
+   bar that actually counts toward the student's result is unmistakable at
+   a glance — no need to expand the row to see whether a retake helped. */
+function AttemptTrend({ attempts, maxMarks, bestScore }) {
+  const scored = (attempts || []).filter(a => a.total_score != null);
+  if (scored.length === 0) {
+    return <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>—</span>;
+  }
+  const w = 12, gap = 5, h = 26;
+  const svgWidth = scored.length * w + (scored.length - 1) * gap;
+  return (
+    <div className="flex items-center gap-2">
+      <svg width={svgWidth} height={h} style={{ flexShrink: 0 }}>
+        {scored.map((a, i) => {
+          const pct = maxMarks ? Math.min(100, (a.total_score / maxMarks) * 100) : 0;
+          const barH = Math.max(2, (pct / 100) * h);
+          const isBest = a.total_score === bestScore;
+          const color = perfColor(pct);
+          return (
+            <rect
+              key={a.id ?? i}
+              x={i * (w + gap)}
+              y={h - barH}
+              width={w}
+              height={barH}
+              rx={2}
+              fill={color}
+              opacity={isBest ? 1 : 0.32}
+            >
+              <title>{`Attempt ${a.attempt_number}: ${a.total_score} / ${maxMarks} (${Math.round(pct)}%)`}</title>
+            </rect>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
+// Delta badge comparing the first scored attempt to the best one — the
+// clearest, single-glance answer to "did retaking this help?".
+function RetakeDelta({ attempts }) {
+  const scored = (attempts || []).filter(a => a.total_score != null);
+  if (scored.length < 2) return null;
+  const first = scored[0].total_score;
+  const best = Math.max(...scored.map(a => a.total_score));
+  const delta = best - first;
+  if (delta === 0) {
+    return (
+      <span className="text-xs flex items-center gap-0.5" style={{ color: 'var(--text-secondary)' }}>
+        <Minus className="w-3 h-3" /> No change
+      </span>
+    );
+  }
+  return (
+    <span className="text-xs font-semibold flex items-center gap-0.5" style={{ color: '#10b981' }}>
+      <ArrowUpCircle className="w-3 h-3" /> +{roundNum(delta)} on retry
+    </span>
+  );
+}
 
 /* Shows every answer on an attempt. Ungraded open questions get an editable
    score input right away; already-graded open questions are shown read-only
@@ -125,6 +233,9 @@ function GradingView({ attemptId, onClose, onGraded }) {
   const pendingOpenIds = Object.keys(scores);
   const hasPendingGrading = pendingOpenIds.length > 0;
   const blankCount = Object.values(scores).filter(v => v === '' || v == null).length;
+  const maxTotal = data.answers.reduce((s, a) => s + (a.marks || 0), 0);
+  const scorePct = data.attempt.total_score != null && maxTotal ? (data.attempt.total_score / maxTotal) * 100 : null;
+  const pColor = perfColor(scorePct);
 
   return (
     <div className="space-y-4">
@@ -132,12 +243,21 @@ function GradingView({ attemptId, onClose, onGraded }) {
         <ArrowLeft className="w-4 h-4" /> Back to mark sheet
       </button>
 
-      <div className="flex items-center justify-between">
+      <div className="card assessment-card p-3.5 flex items-center justify-between gap-3 relative overflow-hidden">
+        <div className="pointer-events-none absolute top-0 right-0 w-20 h-20" style={{ background: `radial-gradient(circle at top right, ${pColor}20 0%, transparent 70%)` }} />
         <div>
           <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>{data.attempt.student?.name}</p>
+          <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Attempt {data.attempt.attempt_number}</p>
         </div>
         {data.attempt.total_score != null ? (
-          <span className="font-mono font-bold text-lg" style={{ color: 'var(--text-primary)' }}>{data.attempt.total_score} pts</span>
+          <div className="flex flex-col items-end gap-1">
+            <span className="font-mono font-bold text-lg" style={{ color: pColor }}>{data.attempt.total_score} / {maxTotal}</span>
+            {scorePct != null && (
+              <div className="assessment-progress-track" style={{ width: 96 }}>
+                <div className="assessment-progress-fill" style={{ width: `${Math.min(100, scorePct)}%`, background: pColor }} />
+              </div>
+            )}
+          </div>
         ) : (
           <span className="badge text-xs flex items-center gap-1" style={{ background: 'rgba(245,158,11,0.12)', color: '#f59e0b' }}>
             <ShieldAlert className="w-3.5 h-3.5" /> Awaiting grading
@@ -236,15 +356,30 @@ function GradingView({ attemptId, onClose, onGraded }) {
 }
 
 function AttemptsList({ attempts, onViewAttempt }) {
+  const scored = attempts.filter(a => a.total_score != null);
+  const bestScore = scored.length ? Math.max(...scored.map(a => a.total_score)) : null;
   return (
     <div className="mt-2 space-y-1.5 pl-1">
-      {attempts.map(att => {
+      {attempts.map((att, idx) => {
         const st = ATTEMPT_STATUS_STYLE[att.status] || ATTEMPT_STATUS_STYLE.submitted;
+        const isBest = att.total_score != null && att.total_score === bestScore && scored.length > 1;
+        const prevScored = scored.filter(a => a.attempt_number < att.attempt_number);
+        const prevBest = prevScored.length ? Math.max(...prevScored.map(a => a.total_score)) : null;
+        const delta = (att.total_score != null && prevBest != null) ? att.total_score - prevBest : null;
         return (
-          <div key={att.id} className="results-attempt-chip flex items-center justify-between gap-2 text-xs px-3 py-2 rounded-lg" style={{ background: 'var(--surface-100)' }}>
+          <div
+            key={att.id}
+            className="results-attempt-chip flex items-center justify-between gap-2 text-xs px-3 py-2 rounded-lg"
+            style={{ background: 'var(--surface-100)', outline: isBest ? '1px solid rgba(16,185,129,0.35)' : 'none' }}
+          >
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>Attempt {att.attempt_number}</span>
               <span className="badge" style={{ background: st.bg, color: st.color }}>{st.label}</span>
+              {isBest && (
+                <span className="badge flex items-center gap-1" style={{ background: 'rgba(16,185,129,0.14)', color: '#10b981' }}>
+                  <Star className="w-3 h-3" /> Best
+                </span>
+              )}
               {att.needs_manual_grading && att.status === 'submitted' && (
                 <span className="badge" style={{ background: 'rgba(245,158,11,0.12)', color: '#f59e0b' }}>Open Qs pending</span>
               )}
@@ -253,6 +388,12 @@ function AttemptsList({ attempts, onViewAttempt }) {
               )}
             </div>
             <div className="flex items-center gap-3 flex-shrink-0">
+              {delta != null && delta !== 0 && (
+                <span className="font-semibold flex items-center gap-0.5" style={{ color: delta > 0 ? '#10b981' : '#ef4444' }}>
+                  {delta > 0 ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
+                  {delta > 0 ? '+' : ''}{roundNum(delta)}
+                </span>
+              )}
               {att.total_score != null && <span className="font-mono font-semibold" style={{ color: 'var(--text-primary)' }}>{att.total_score} pts</span>}
               {att.status !== 'in_progress' && (
                 <button onClick={() => onViewAttempt(att.id)} className="font-semibold flex items-center gap-1 transition-colors duration-150 hover:opacity-80" style={{ color: '#6366f1' }}>
@@ -273,6 +414,11 @@ export default function AssessmentAttemptsModal({ assessment, onClose }) {
   const [expandedStudentId, setExpandedStudentId] = useState(null);
   const [gradingAttemptId, setGradingAttemptId] = useState(null);
   const [downloading, setDownloading] = useState(null);
+  const [search, setSearch] = useState('');
+  const [needsGradingOnly, setNeedsGradingOnly] = useState(false);
+  const [improvedOnly, setImprovedOnly] = useState(false);
+  const [sortKey, setSortKey] = useState('no'); // 'no' | 'name' | 'attempts' | 'best' | 'percentage'
+  const [sortDir, setSortDir] = useState('asc');
 
   const load = async () => {
     setLoading(true);
@@ -305,8 +451,63 @@ export default function AssessmentAttemptsModal({ assessment, onClose }) {
     }
   };
 
+  const toggleSort = (key) => {
+    if (sortKey === key) setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
+    else { setSortKey(key); setSortDir(key === 'name' ? 'asc' : 'desc'); }
+  };
+
+  // Rank computed from the full, unfiltered/unsorted dataset so a student's
+  // medal never shifts just because of a search, filter, or sort change.
+  const rankByStudent = useMemo(() => {
+    const withPct = rows.filter(r => r.percentage != null).sort((a, b) => b.percentage - a.percentage);
+    const map = {};
+    withPct.forEach((r, idx) => { map[r.student_id] = idx + 1; });
+    return map;
+  }, [rows]);
+
+  const improvedStudentIds = useMemo(() => {
+    const set = new Set();
+    rows.forEach(r => {
+      const scored = (r.attempts || []).filter(a => a.total_score != null);
+      if (scored.length < 2) return;
+      const first = scored[0].total_score;
+      const best = Math.max(...scored.map(a => a.total_score));
+      if (best > first) set.add(r.student_id);
+    });
+    return set;
+  }, [rows]);
+
+  const stats = useMemo(() => {
+    const withPct = rows.filter(r => r.percentage != null);
+    const avg = withPct.length ? withPct.reduce((s, r) => s + r.percentage, 0) / withPct.length : null;
+    const highest = withPct.length ? Math.max(...withPct.map(r => r.percentage)) : null;
+    const needsGrading = rows.filter(r => r.status === 'needs_grading').length;
+    const totalAttempts = rows.reduce((s, r) => s + (r.attempts_used || 0), 0);
+    return { avg, highest, needsGrading, totalAttempts, total: rows.length };
+  }, [rows]);
+
+  const visibleRows = useMemo(() => {
+    let list = rows;
+    if (needsGradingOnly) list = list.filter(r => r.status === 'needs_grading');
+    if (improvedOnly) list = list.filter(r => improvedStudentIds.has(r.student_id));
+    const q = search.trim().toLowerCase();
+    if (q) list = list.filter(r => r.student_name.toLowerCase().includes(q));
+    if (sortKey === 'no') return list;
+    const sorted = [...list].sort((a, b) => {
+      let av, bv;
+      if (sortKey === 'name') { av = a.student_name.toLowerCase(); bv = b.student_name.toLowerCase(); }
+      else if (sortKey === 'attempts') { av = a.attempts_used ?? -1; bv = b.attempts_used ?? -1; }
+      else if (sortKey === 'best') { av = a.best_score ?? -1; bv = b.best_score ?? -1; }
+      else { av = a.percentage ?? -1; bv = b.percentage ?? -1; }
+      if (av < bv) return sortDir === 'asc' ? -1 : 1;
+      if (av > bv) return sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+    return sorted;
+  }, [rows, search, needsGradingOnly, improvedOnly, improvedStudentIds, sortKey, sortDir]);
+
   return (
-    <Modal isOpen={true} onClose={onClose} title={`Results — ${assessment.title}`} size="2xl">
+    <Modal isOpen={true} onClose={onClose} title={`Results — ${assessment.title}`} size="full">
       {gradingAttemptId ? (
         <GradingView
           attemptId={gradingAttemptId}
@@ -326,58 +527,139 @@ export default function AssessmentAttemptsModal({ assessment, onClose }) {
             </button>
           </div>
 
+          {/* Summary stat strip */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 assessment-stagger">
+            {[
+              { label: 'Students', value: stats.total, color: '#6366f1', icon: Users },
+              { label: 'Class average', value: stats.avg != null ? `${roundNum(stats.avg)}%` : '—', color: perfColor(stats.avg), icon: TrendingUp },
+              { label: 'Top score', value: stats.highest != null ? `${roundNum(stats.highest)}%` : '—', color: '#eab308', icon: Trophy },
+              { label: 'Needs grading', value: stats.needsGrading, color: '#f59e0b', icon: AlertTriangle },
+              { label: 'Attempts submitted', value: stats.totalAttempts, color: '#8b5cf6', icon: Repeat },
+            ].map((it, i) => (
+              <div key={it.label} style={{ '--i': i }} className="card assessment-card p-3.5 flex items-center gap-3 relative overflow-hidden">
+                <div className="pointer-events-none absolute top-0 right-0 w-16 h-16" style={{ background: `radial-gradient(circle at top right, ${it.color}20 0%, transparent 70%)` }} />
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `${it.color}1f` }}>
+                  <it.icon className="w-4.5 h-4.5" style={{ color: it.color }} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-lg font-bold leading-none" style={{ color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>{it.value}</p>
+                  <p className="text-xs truncate" style={{ color: 'var(--text-secondary)' }}>{it.label}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
           <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>The best score across all of a student's attempts is what counts towards their result. Expand a student to see their individual attempts and every answer they gave.</p>
 
-          <div className="overflow-x-auto">
+          {/* Toolbar: search + filter chips */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative flex-1 min-w-[200px] max-w-xs">
+              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-secondary)' }} />
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search student..."
+                className="chat-form-field w-full text-sm pl-8 pr-8"
+              />
+              {search && (
+                <button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-secondary)' }}>
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+            <button
+              onClick={() => setNeedsGradingOnly(v => !v)}
+              className={`filter-pill flex items-center gap-1.5 ${needsGradingOnly ? 'active' : ''}`}
+            >
+              <AlertTriangle className="w-3.5 h-3.5" /> Needs grading only
+            </button>
+            <button
+              onClick={() => setImprovedOnly(v => !v)}
+              className={`filter-pill flex items-center gap-1.5 ${improvedOnly ? 'active' : ''}`}
+            >
+              <ArrowUpCircle className="w-3.5 h-3.5" /> Improved on retry
+            </button>
+            {(search || needsGradingOnly || improvedOnly) && (
+              <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                Showing {visibleRows.length} of {rows.length} student{rows.length !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+
+          <div className="overflow-auto rounded-xl" style={{ border: '1px solid var(--card-border)', maxHeight: '58vh' }}>
             <div style={{ minWidth: GRID_MIN_WIDTH }}>
               {/* Header row */}
               <div
-                className="grid text-xs uppercase tracking-wide"
-                style={{ gridTemplateColumns: GRID_COLS, color: 'var(--text-secondary)' }}
+                className="results-header-row grid text-xs uppercase tracking-wide sticky top-0 z-10"
+                style={{ gridTemplateColumns: GRID_COLS, color: 'var(--text-secondary)', borderBottom: '1px solid var(--card-border)', background: 'var(--card-bg)' }}
               >
-                <div className="py-2 px-3 min-w-0 truncate">No.</div>
-                <div className="py-2 px-3 min-w-0 truncate">Student</div>
-                <div className="py-2 px-3 min-w-0 truncate">Attempts</div>
-                <div className="py-2 px-3 min-w-0 truncate">Best Score</div>
-                <div className="py-2 px-3 min-w-0 truncate">%</div>
-                <div className="py-2 px-3 min-w-0 truncate">MW</div>
-                <div className="py-2 px-3 min-w-0 truncate">Decision</div>
-                <div className="py-2 px-3 min-w-0 truncate">Status</div>
+                <div className="results-sticky-col py-2.5 px-2 flex items-center" style={{ left: 0, ...vDivider }}>No.</div>
+                <SortHeader
+                  label="Student" active={sortKey === 'name'} dir={sortDir}
+                  onClick={() => toggleSort('name')}
+                  className="results-sticky-col"
+                  style={{ left: COL_NO, ...vDivider, background: 'var(--card-bg)' }}
+                />
+                <SortHeader label="Attempts" active={sortKey === 'attempts'} dir={sortDir} onClick={() => toggleSort('attempts')} style={vDivider} />
+                <div className="py-2.5 px-3 flex items-center" style={vDivider}>Trend</div>
+                <SortHeader label="Best Score" active={sortKey === 'best'} dir={sortDir} onClick={() => toggleSort('best')} style={vDivider} />
+                <SortHeader label="%" active={sortKey === 'percentage'} dir={sortDir} onClick={() => toggleSort('percentage')} style={vDivider} />
+                <div className="py-2.5 px-3 flex items-center" style={vDivider}>MW</div>
+                <div className="py-2.5 px-3 flex items-center" style={vDivider}>Decision</div>
+                <div className="py-2.5 px-3 flex items-center">Status</div>
               </div>
 
-              {rows.map((row, i) => {
+              {visibleRows.map((row, i) => {
                 const st = STATUS_STYLE[row.status] || STATUS_STYLE.not_attempted;
                 const expanded = expandedStudentId === row.student_id;
                 const canExpand = row.attempts_used > 0;
+                const rank = rankByStudent[row.student_id];
+                const rankStyle = rank ? RANK_STYLE[rank] : null;
+                const pColor = perfColor(row.percentage);
                 return (
                   <Fragment key={row.student_id}>
                     <div
                       className="results-row grid items-center"
-                      style={{ gridTemplateColumns: GRID_COLS, borderTop: '1px solid var(--card-border)', '--i': i }}
+                      style={{ gridTemplateColumns: GRID_COLS, borderTop: i === 0 ? 'none' : '1px solid var(--card-border)', '--i': i }}
                     >
-                      <div className="py-2.5 px-3 min-w-0 truncate" style={{ color: 'var(--text-secondary)' }}>{i + 1}</div>
-                      <div className="py-2.5 px-3 min-w-0 truncate font-medium" style={{ color: 'var(--text-primary)' }}>
-                        {row.student_name}
+                      <div className="results-sticky-col py-2.5 px-2" style={{ left: 0, color: 'var(--text-secondary)', ...vDivider }}>{i + 1}</div>
+                      <div className="results-sticky-col py-2.5 px-3 font-medium truncate flex items-center gap-1.5" style={{ left: COL_NO, color: 'var(--text-primary)', ...vDivider }} title={row.student_name}>
+                        {rankStyle && <Medal className="w-3.5 h-3.5 flex-shrink-0" style={{ color: rankStyle.color }} title={`Rank ${rankStyle.label}`} />}
+                        <span className="truncate">{row.student_name}</span>
                       </div>
-                      <div className="py-2.5 px-3 min-w-0 truncate" style={{ color: 'var(--text-secondary)' }}>{row.attempts_used}</div>
-                      <div className="py-2.5 px-3 min-w-0 truncate font-mono" style={{ color: 'var(--text-primary)' }}>
-                        {row.best_score != null ? `${row.best_score} / ${row.max_marks}` : '—'}
+                      <div className="py-2.5 px-3 min-w-0 truncate" style={{ color: 'var(--text-secondary)', ...vDivider }}>{row.attempts_used}</div>
+                      <div className="py-2 px-3 min-w-0" style={vDivider}>
+                        <AttemptTrend attempts={row.attempts} maxMarks={row.max_marks} bestScore={row.best_score} />
                       </div>
-                      <div className="py-2.5 px-3 min-w-0 truncate" style={{ color: 'var(--text-secondary)' }}>
-                        {row.percentage != null ? `${row.percentage}%` : '—'}
+                      <div className="py-2.5 px-3 min-w-0" style={vDivider}>
+                        <div className="font-mono font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
+                          {row.best_score != null ? `${row.best_score} / ${row.max_marks}` : '—'}
+                        </div>
+                        <RetakeDelta attempts={row.attempts} />
                       </div>
-                      <div className="py-2.5 px-3 min-w-0 truncate font-mono" style={{ color: 'var(--text-secondary)' }}>
+                      <div className="py-2.5 px-3 min-w-0" style={vDivider}>
+                        {row.percentage != null ? (
+                          <div className="flex flex-col gap-1">
+                            <span className="text-xs font-semibold" style={{ color: pColor }}>{roundNum(row.percentage)}%</span>
+                            <div className="assessment-progress-track" style={{ width: 72 }}>
+                              <div className="assessment-progress-fill" style={{ width: `${Math.min(100, row.percentage)}%`, background: pColor }} />
+                            </div>
+                          </div>
+                        ) : <span style={{ color: 'var(--text-secondary)' }}>—</span>}
+                      </div>
+                      <div className="py-2.5 px-3 min-w-0 truncate font-mono" style={{ color: 'var(--text-secondary)', ...vDivider }}>
                         {row.marks_on_mw != null ? `${row.marks_on_mw} / ${row.module_weight}` : (row.module_weight ? `— / ${row.module_weight}` : '—')}
                       </div>
-                      <div className="py-2.5 px-3 min-w-0 truncate">
+                      <div className="py-2.5 px-3 min-w-0 truncate" style={vDivider}>
                         {row.decision ? (
                           <span
-                            className="results-decision-badge text-xs font-bold px-2 py-0.5 rounded-full"
+                            className="results-decision-badge text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-1 w-fit"
                             style={{
                               background: row.decision === 'C' ? 'rgba(16,185,129,0.14)' : 'rgba(239,68,68,0.14)',
                               color: row.decision === 'C' ? '#10b981' : '#ef4444',
                             }}
                           >
+                            {row.decision === 'C' ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
                             {row.decision}
                           </span>
                         ) : '—'}
@@ -397,15 +679,18 @@ export default function AssessmentAttemptsModal({ assessment, onClose }) {
                       </div>
                     </div>
                     {expanded && (
-                      <div className="results-expand-panel pb-3 px-3">
+                      <div className="results-expand-panel pb-3 px-3" style={{ borderTop: 'none' }}>
                         <AttemptsList attempts={row.attempts} onViewAttempt={setGradingAttemptId} />
                       </div>
                     )}
                   </Fragment>
                 );
               })}
-              {rows.length === 0 && (
-                <div className="py-8 text-center" style={{ color: 'var(--text-secondary)' }}>No students in this class yet.</div>
+              {visibleRows.length === 0 && (
+                <div className="py-10 text-center flex flex-col items-center gap-2" style={{ color: 'var(--text-secondary)' }}>
+                  <Search className="w-6 h-6 opacity-50" />
+                  <p className="text-sm">{rows.length === 0 ? 'No students in this class yet.' : 'No students match your filters.'}</p>
+                </div>
               )}
             </div>
           </div>

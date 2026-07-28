@@ -48,7 +48,6 @@ app.use('/api/classes',       require('./routes/classes'));
 app.use('/api/students',      require('./routes/students'));
 app.use('/api/documents',     require('./routes/documents'));
 app.use('/api/assignments',   require('./routes/assignments'));
-app.use('/api/attendance',    require('./routes/attendance'));
 app.use('/api/assessment',   require('./routes/assessments_new'));
 app.use('/api/announcements', require('./routes/announcements'));
 app.use('/api/group-discussions', require('./routes/groupDiscussions'));
@@ -60,18 +59,17 @@ app.use('/api/notifications',     require('./routes/notifications'));
 const { isAuthenticated, isTeacher } = require('./middleware/auth');
 
 app.get('/api/analytics', isAuthenticated, isTeacher, async (req, res) => {
-  const { Class, Document, Announcement, Assessment, Mark, Course, AssessmentSubmission, AssessmentAttempt, Attendance, DiscussionGroup } = require('./models/db');
+  const { Class, Document, Announcement, Assessment, Mark, Course, AssessmentSubmission, AssessmentAttempt, DiscussionGroup } = require('./models/db');
   const mongoose = require('mongoose');
   const teacherId = new mongoose.Types.ObjectId(req.user.id);
 
   try {
-    const [classes, docs, announcements, assessments, modules, attendanceSessions, groups, onlineAssessments] = await Promise.all([
+    const [classes, docs, announcements, assessments, modules, groups, onlineAssessments] = await Promise.all([
       Class.countDocuments({ $or: [{ teacher_id: teacherId }, { extra_teachers: teacherId }] }),
       Document.countDocuments({ teacher_id: teacherId }),
       Announcement.countDocuments({ teacher_id: teacherId }),
       Assessment.countDocuments({ teacher_id: teacherId }),
       Course.countDocuments({ teacher_id: teacherId }),
-      Attendance.countDocuments({ teacher_id: teacherId }),
       DiscussionGroup.countDocuments({ teacher_id: teacherId }),
       Assessment.countDocuments({ teacher_id: teacherId, is_shared: true }),
     ]);
@@ -84,7 +82,7 @@ app.get('/api/analytics', isAuthenticated, isTeacher, async (req, res) => {
     teacherClasses.forEach(c => c.students.forEach(s => studentSet.add(s.toString())));
     const students = studentSet.size;
 
-    const counts = { classes, students, documents: docs, announcements, assessments, modules, attendanceSessions, groups, onlineAssessments };
+    const counts = { classes, students, documents: docs, announcements, assessments, modules, groups, onlineAssessments };
 
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 

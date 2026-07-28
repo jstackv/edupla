@@ -21,7 +21,6 @@ const TeacherLinks = [
   { to: '/teacher/students',         icon: Users,           label: 'Students',      section: 'main' },
   { to: '/teacher/documents',        icon: FileText,        label: 'Documents',     section: 'manage' },
   { to: '/teacher/assignments',      icon: ClipboardList,   label: 'Assignments',   section: 'manage' },
-  { to: '/teacher/attendance',       icon: UserCheck,       label: 'Attendance',    section: 'manage' },
   { to: '/teacher/assessments-grade',icon: BookMarked,      label: 'Marks Recording',   section: 'manage' },
   { to: '/teacher/assessments',      icon: ClipboardCheck,  label: 'Assessments',       section: 'manage' },
   { to: '/teacher/announcements',    icon: Megaphone,       label: 'Announcements', section: 'manage' },
@@ -33,7 +32,6 @@ const StudentLinks = [
   { to: '/student/documents',     icon: Notebook,        label: 'Notes & Docs',  section: 'manage' },
   { to: '/student/assignments',   icon: ClipboardList,   label: 'Assignments',   section: 'manage' },
   { to: '/student/assessments',   icon: ClipboardCheck,  label: 'Assessments',   section: 'manage' },
-  { to: '/student/attendance',    icon: UserCheck,       label: 'Attendance',    section: 'manage' },
   { to: '/student/announcements', icon: Megaphone,       label: 'Announcements', section: 'manage' },
   { to: '/student/groups',        icon: Users,           label: 'Groups',      section: 'manage' },
 ];

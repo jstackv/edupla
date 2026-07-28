@@ -809,6 +809,32 @@ html { scroll-behavior: smooth; }
 
 .assessment-timer-urgent { animation: assessmentPulseRing 1.4s ease-out infinite; }
 
+/* Recent-submitters hover tooltip on each assessment card's submissions badge */
+@keyframes assessmentTooltipIn {
+  from { opacity: 0; transform: translateY(4px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.assessment-submitters-tooltip {
+  animation: assessmentTooltipIn 0.16s cubic-bezier(0.16,1,0.3,1) both;
+  box-shadow: 0 16px 40px rgba(15,23,42,0.28), 0 2px 10px rgba(0,0,0,0.12);
+}
+.assessment-submitters-tooltip::before {
+  content: '';
+  position: absolute;
+  top: -5px;
+  left: 20px;
+  width: 10px;
+  height: 10px;
+  transform: rotate(45deg);
+  background: var(--card-bg, #12141f);
+  border-left: 1px solid var(--card-border);
+  border-top: 1px solid var(--card-border);
+}
+.assessment-submitter-row {
+  animation: assessmentRise 0.3s cubic-bezier(0.16,1,0.3,1) both;
+  animation-delay: calc(var(--si, 0) * 60ms);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .assessment-tile, .assessment-card, .assessment-stagger > *,
   .assessment-badge-live::before, .assessment-cta::after,
@@ -893,6 +919,212 @@ html { scroll-behavior: smooth; }
 @media (prefers-reduced-motion: reduce) {
   .results-row, .results-row::before, .results-decision-badge,
   .results-expand-panel, .results-attempt-chip, .results-download-btn {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   AssessmentsOnline — badge / tooltip / toast upgrade
+   Add this to your global stylesheet (or import it directly into
+   AssessmentsOnline.jsx if your build supports CSS imports).
+   ───────────────────────────────────────────────────────────────── */
+
+/* ---------- Stat badges (MW, attempts, submissions, marked) ---------- */
+
+.assessment-stat-badge {
+  --stat-color: #6366f1;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 12.5px;
+  letter-spacing: 0.01em;
+  color: var(--stat-color);
+  background: color-mix(in srgb, var(--stat-color) 12%, var(--surface-100));
+  border: 1px solid color-mix(in srgb, var(--stat-color) 24%, transparent);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--stat-color) 10%, transparent);
+  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 0.22s ease, background 0.22s ease, border-color 0.22s ease;
+}
+
+.assessment-stat-badge svg {
+  color: var(--stat-color);
+  opacity: 0.9;
+}
+
+.assessment-stat-badge:hover {
+  transform: translateY(-1.5px) scale(1.045);
+  background: color-mix(in srgb, var(--stat-color) 18%, var(--surface-100));
+  border-color: color-mix(in srgb, var(--stat-color) 40%, transparent);
+  box-shadow: 0 6px 16px -4px color-mix(in srgb, var(--stat-color) 45%, transparent);
+}
+
+.assessment-stat-badge-interactive {
+  cursor: pointer;
+}
+
+/* Badges that represent live submissions get a gentle ambient breathing
+   glow so the eye is drawn to them without being distracting. */
+.assessment-stat-badge-active {
+  animation: assessment-badge-breathe 2.8s ease-in-out infinite;
+}
+
+@keyframes assessment-badge-breathe {
+  0%, 100% { box-shadow: 0 1px 2px color-mix(in srgb, var(--stat-color) 15%, transparent); }
+  50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--stat-color) 14%, transparent); }
+}
+
+.assessment-stat-badge-active:hover {
+  animation-play-state: paused;
+}
+
+/* Shared/Draft pill */
+.assessment-badge-live {
+  position: relative;
+  padding-left: 20px !important;
+}
+.assessment-badge-live::before {
+  content: '';
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.55);
+  animation: assessment-live-dot-pulse 2s ease-out infinite;
+}
+@keyframes assessment-live-dot-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.55); }
+  70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+/* ---------- Submitters tooltip ---------- */
+
+.assessment-submitters-tooltip {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  box-shadow: 0 18px 40px -12px rgba(0, 0, 0, 0.35), 0 4px 12px -2px rgba(0, 0, 0, 0.2);
+  transform-origin: top left;
+  animation: assessment-tooltip-in 0.26s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.assessment-submitters-tooltip:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 22px 46px -10px rgba(0, 0, 0, 0.4), 0 6px 16px -2px rgba(0, 0, 0, 0.24);
+}
+
+@keyframes assessment-tooltip-in {
+  0% { opacity: 0; transform: translateY(-6px) scale(0.92); }
+  60% { opacity: 1; transform: translateY(1px) scale(1.015); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.assessment-tooltip-inner {
+  position: relative;
+}
+
+.assessment-tooltip-icon-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 8px;
+  background: rgba(99, 102, 241, 0.14);
+}
+
+.assessment-submitter-row {
+  animation: assessment-row-in 0.3s ease both;
+  animation-delay: calc(var(--si, 0) * 60ms);
+}
+
+@keyframes assessment-row-in {
+  from { opacity: 0; transform: translateX(-6px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.assessment-submitter-avatar {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #fff;
+  box-shadow: 0 0 0 2px var(--card-bg), 0 0 0 3px rgba(99, 102, 241, 0.35);
+}
+
+.assessment-submitter-pulse {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10b981;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6);
+  animation: assessment-live-dot-pulse 1.8s ease-out infinite;
+}
+
+.assessment-tooltip-cta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: #fff;
+  background: linear-gradient(90deg, #6366f1, #8b5cf6);
+  transition: filter 0.18s ease, gap 0.18s ease;
+}
+
+.assessment-submitters-tooltip:hover .assessment-tooltip-cta {
+  filter: brightness(1.08);
+  gap: 9px;
+}
+
+.assessment-tooltip-cta-arrow {
+  margin-left: auto;
+  transition: transform 0.18s ease;
+}
+
+.assessment-submitters-tooltip:hover .assessment-tooltip-cta-arrow {
+  transform: translateX(2px);
+}
+
+/* ---------- Toast triggered when jumping into results ---------- */
+/* react-hot-toast renders each toast in a wrapper div; the className
+   passed to toast.success() lands on that wrapper, so we can theme it. */
+
+.assessment-toast-live {
+  border-radius: 14px !important;
+  border: 1px solid rgba(99, 102, 241, 0.35) !important;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.97), rgba(139, 92, 246, 0.97)) !important;
+  color: #fff !important;
+  font-weight: 600 !important;
+  box-shadow: 0 12px 28px -8px rgba(99, 102, 241, 0.55) !important;
+  animation: assessment-toast-pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes assessment-toast-pop {
+  0% { opacity: 0; transform: translateY(-10px) scale(0.9); }
+  60% { opacity: 1; transform: translateY(2px) scale(1.03); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Respect reduced-motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .assessment-stat-badge,
+  .assessment-stat-badge-active,
+  .assessment-badge-live::before,
+  .assessment-submitters-tooltip,
+  .assessment-submitter-row,
+  .assessment-submitter-pulse,
+  .assessment-tooltip-cta,
+  .assessment-tooltip-cta-arrow,
+  .assessment-toast-live {
     animation: none !important;
     transition: none !important;
   }
