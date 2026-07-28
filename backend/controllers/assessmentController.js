@@ -2534,11 +2534,18 @@ exports.teacherDownloadOverallExcel = async (req, res) => {
       r.decision || (r.status === 'not_attempted' ? 'Not attempted' : ''),
     ]);
 
+    const passedCount = result.rows.filter(r => r.decision === 'C').length;
+    const failedCount = result.rows.filter(r => r.decision === 'NYC').length;
+
     const typeLabel = TYPE_TITLES[type] || type;
     const title = `Overall — ${typeLabel} — ${result.course.name} — ${result.class.name} — ${term} ${academic_year}`;
-    const sheetData = [[title], [], header, ...rows];
+    const summary = `Students: ${result.rows.length}   |   Passed: ${passedCount}   |   Failed: ${failedCount}`;
+    const sheetData = [[title], [summary], [], header, ...rows];
     const ws = XLSX.utils.aoa_to_sheet(sheetData);
-    ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: header.length - 1 } }];
+    ws['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: header.length - 1 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: header.length - 1 } },
+    ];
     ws['!cols'] = [{ wch: 6 }, { wch: 28 }, ...result.assessments.map(() => ({ wch: 16 })), { wch: 14 }, { wch: 10 }, { wch: 16 }, { wch: 12 }];
 
     const wb = XLSX.utils.book_new();
@@ -2570,7 +2577,13 @@ exports.teacherDownloadOverallPdf = async (req, res) => {
     doc.fontSize(10).font('Helvetica').fillColor('#555')
       .text(`${result.course.name} — ${result.class.name} — ${term} ${academic_year}`, { align: 'center' })
       .text(`Generated ${new Date().toLocaleString()}`, { align: 'center' });
-    doc.moveDown(1.2);
+    doc.moveDown(0.4);
+
+    const passedCount = result.rows.filter(r => r.decision === 'C').length;
+    const failedCount = result.rows.filter(r => r.decision === 'NYC').length;
+    doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#333')
+      .text(`Students: ${result.rows.length}    Passed: ${passedCount}    Failed: ${failedCount}`, { align: 'center' });
+    doc.moveDown(0.8);
     doc.fillColor('#000');
 
     const usableWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
@@ -2759,10 +2772,17 @@ exports.teacherDownloadAttemptsExcel = async (req, res) => {
       ];
     });
 
+    const passedCount = rows.filter(r => r[5] === 'C').length;
+    const failedCount = rows.filter(r => r[5] === 'NYC').length;
+
     const title = `${assessment.title} — ${assessment.course_id?.name || ''} — ${assessment.class_id?.name || ''}`;
-    const sheetData = [[title], [], header, ...rows];
+    const summary = `Students: ${students.length}   |   Passed: ${passedCount}   |   Failed: ${failedCount}`;
+    const sheetData = [[title], [summary], [], header, ...rows];
     const ws = XLSX.utils.aoa_to_sheet(sheetData);
-    ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: header.length - 1 } }];
+    ws['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: header.length - 1 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: header.length - 1 } },
+    ];
     ws['!cols'] = [{ wch: 6 }, { wch: 30 }, { wch: 16 }, { wch: 10 }, { wch: 16 }, { wch: 14 }];
 
     const wb = XLSX.utils.book_new();
@@ -2807,7 +2827,27 @@ exports.teacherDownloadAttemptsPdf = async (req, res) => {
     doc.fontSize(10).font('Helvetica').fillColor('#555')
       .text(`${assessment.course_id?.name || ''} — ${assessment.class_id?.name || ''}`, { align: 'center' })
       .text(`Generated ${new Date().toLocaleString()}`, { align: 'center' });
-    doc.moveDown(1.2);
+    doc.moveDown(0.4);
+
+    // Passed/failed summary, computed once here so it stays in sync with
+    // the per-row decisions drawn further down.
+    const passedCount = students.filter(s => {
+      const list = byStudent[s._id.toString()] || [];
+      const graded = list.filter(a => a.status === 'graded');
+      const best = [...graded].sort((a, b) => b.total_score - a.total_score)[0];
+      const bestScore = best ? best.total_score : null;
+      return best && computeDecision(rawPercentage(bestScore, maxMarks), category) === 'C';
+    }).length;
+    const failedCount = students.filter(s => {
+      const list = byStudent[s._id.toString()] || [];
+      const graded = list.filter(a => a.status === 'graded');
+      const best = [...graded].sort((a, b) => b.total_score - a.total_score)[0];
+      const bestScore = best ? best.total_score : null;
+      return best && computeDecision(rawPercentage(bestScore, maxMarks), category) === 'NYC';
+    }).length;
+    doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#333')
+      .text(`Students: ${students.length}    Passed: ${passedCount}    Failed: ${failedCount}`, { align: 'center' });
+    doc.moveDown(0.8);
     doc.fillColor('#000');
 
     const cols = [

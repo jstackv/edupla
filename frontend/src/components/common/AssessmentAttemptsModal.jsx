@@ -32,7 +32,7 @@ import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import {
   Loader2, FileSpreadsheet, FileText, ArrowLeft,
-  CheckCircle2, AlertCircle, Save, ChevronDown, ChevronUp, Eye, ShieldAlert,
+  CheckCircle2, XCircle, AlertCircle, Save, ChevronDown, ChevronUp, Eye, ShieldAlert,
   Pencil, X as XIcon, Search, X, Users, TrendingUp, Trophy, AlertTriangle,
   Repeat, Medal, ArrowUpDown, ArrowUp, ArrowDown, ArrowUpCircle, Minus, Star,
 } from 'lucide-react';
@@ -62,14 +62,17 @@ const COL_NO = 40;
 const COL_STUDENT = 200;
 const COL_ATTEMPTS = 90;
 const COL_TREND = 150;
-const COL_BEST = 130;
+const COL_BEST = 100;
 const COL_PCT = 130;
-const COL_MW = 100;
+const COL_MW = 90;
 const COL_DECISION = 100;
-const COL_STATUS = 150;
+const COL_STATUS_MIN = 170;
 
-const GRID_COLS = `${COL_NO}px ${COL_STUDENT}px ${COL_ATTEMPTS}px ${COL_TREND}px ${COL_BEST}px ${COL_PCT}px ${COL_MW}px ${COL_DECISION}px ${COL_STATUS}px`;
-const GRID_MIN_WIDTH = COL_NO + COL_STUDENT + COL_ATTEMPTS + COL_TREND + COL_BEST + COL_PCT + COL_MW + COL_DECISION + COL_STATUS;
+// Status is the only flexible column — like the Overall mark sheet, this
+// lets the table stretch to fill the modal's full width instead of leaving
+// a gap, rather than every column being a hard-coded pixel size.
+const GRID_COLS = `${COL_NO}px ${COL_STUDENT}px ${COL_ATTEMPTS}px ${COL_TREND}px ${COL_BEST}px ${COL_PCT}px ${COL_MW}px ${COL_DECISION}px minmax(${COL_STATUS_MIN}px, 1fr)`;
+const GRID_MIN_WIDTH = COL_NO + COL_STUDENT + COL_ATTEMPTS + COL_TREND + COL_BEST + COL_PCT + COL_MW + COL_DECISION + COL_STATUS_MIN;
 
 const vDivider = { borderRight: '1px solid var(--card-border)' };
 
@@ -483,8 +486,18 @@ export default function AssessmentAttemptsModal({ assessment, onClose }) {
     const highest = withPct.length ? Math.max(...withPct.map(r => r.percentage)) : null;
     const needsGrading = rows.filter(r => r.status === 'needs_grading').length;
     const totalAttempts = rows.reduce((s, r) => s + (r.attempts_used || 0), 0);
-    return { avg, highest, needsGrading, totalAttempts, total: rows.length };
+    // Decision ('C' / 'NYC') is already computed server-side against the
+    // correct passing line (70% specific modules, 50% general/complementary).
+    const passed = rows.filter(r => r.decision === 'C').length;
+    const failed = rows.filter(r => r.decision === 'NYC').length;
+    return { avg, highest, needsGrading, totalAttempts, passed, failed, total: rows.length };
   }, [rows]);
+
+  // Assessment-wide max marks / module weight (same for every row) — used
+  // to label the Best Score / MW columns instead of repeating "34 / 50" on
+  // every single cell.
+  const maxMarks = useMemo(() => rows.find(r => r.max_marks != null)?.max_marks ?? null, [rows]);
+  const moduleWeight = useMemo(() => rows.find(r => r.module_weight != null)?.module_weight ?? null, [rows]);
 
   const visibleRows = useMemo(() => {
     let list = rows;
@@ -528,17 +541,19 @@ export default function AssessmentAttemptsModal({ assessment, onClose }) {
           </div>
 
           {/* Summary stat strip */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 assessment-stagger">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 assessment-stagger">
             {[
               { label: 'Students', value: stats.total, color: '#6366f1', icon: Users },
               { label: 'Class average', value: stats.avg != null ? `${roundNum(stats.avg)}%` : '—', color: perfColor(stats.avg), icon: TrendingUp },
               { label: 'Top score', value: stats.highest != null ? `${roundNum(stats.highest)}%` : '—', color: '#eab308', icon: Trophy },
+              { label: 'Passed', value: stats.passed, color: '#10b981', icon: CheckCircle2 },
+              { label: 'Failed', value: stats.failed, color: '#ef4444', icon: XCircle },
               { label: 'Needs grading', value: stats.needsGrading, color: '#f59e0b', icon: AlertTriangle },
               { label: 'Attempts submitted', value: stats.totalAttempts, color: '#8b5cf6', icon: Repeat },
             ].map((it, i) => (
-              <div key={it.label} style={{ '--i': i }} className="card assessment-card p-3.5 flex items-center gap-3 relative overflow-hidden">
+              <div key={it.label} style={{ '--i': i }} className="card assessment-card results-stat-card p-3.5 flex items-center gap-3 relative overflow-hidden">
                 <div className="pointer-events-none absolute top-0 right-0 w-16 h-16" style={{ background: `radial-gradient(circle at top right, ${it.color}20 0%, transparent 70%)` }} />
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `${it.color}1f` }}>
+                <div className="results-stat-icon w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `${it.color}1f` }}>
                   <it.icon className="w-4.5 h-4.5" style={{ color: it.color }} />
                 </div>
                 <div className="min-w-0">
@@ -586,7 +601,7 @@ export default function AssessmentAttemptsModal({ assessment, onClose }) {
             )}
           </div>
 
-          <div className="overflow-auto rounded-xl" style={{ border: '1px solid var(--card-border)', maxHeight: '58vh' }}>
+          <div className="results-table-shell overflow-auto rounded-xl" style={{ border: '1px solid var(--card-border)', maxHeight: '58vh' }}>
             <div style={{ minWidth: GRID_MIN_WIDTH }}>
               {/* Header row */}
               <div
@@ -602,9 +617,9 @@ export default function AssessmentAttemptsModal({ assessment, onClose }) {
                 />
                 <SortHeader label="Attempts" active={sortKey === 'attempts'} dir={sortDir} onClick={() => toggleSort('attempts')} style={vDivider} />
                 <div className="py-2.5 px-3 flex items-center" style={vDivider}>Trend</div>
-                <SortHeader label="Best Score" active={sortKey === 'best'} dir={sortDir} onClick={() => toggleSort('best')} style={vDivider} />
+                <SortHeader label={`Best Score${maxMarks != null ? ` /${roundNum(maxMarks)}` : ''}`} active={sortKey === 'best'} dir={sortDir} onClick={() => toggleSort('best')} style={vDivider} />
                 <SortHeader label="%" active={sortKey === 'percentage'} dir={sortDir} onClick={() => toggleSort('percentage')} style={vDivider} />
-                <div className="py-2.5 px-3 flex items-center" style={vDivider}>MW</div>
+                <div className="py-2.5 px-3 flex items-center" style={vDivider}>{moduleWeight != null ? `MW /${roundNum(moduleWeight)}` : 'MW'}</div>
                 <div className="py-2.5 px-3 flex items-center" style={vDivider}>Decision</div>
                 <div className="py-2.5 px-3 flex items-center">Status</div>
               </div>
@@ -633,7 +648,7 @@ export default function AssessmentAttemptsModal({ assessment, onClose }) {
                       </div>
                       <div className="py-2.5 px-3 min-w-0" style={vDivider}>
                         <div className="font-mono font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
-                          {row.best_score != null ? `${row.best_score} / ${row.max_marks}` : '—'}
+                          {row.best_score != null ? roundNum(row.best_score) : '—'}
                         </div>
                         <RetakeDelta attempts={row.attempts} />
                       </div>
@@ -648,7 +663,7 @@ export default function AssessmentAttemptsModal({ assessment, onClose }) {
                         ) : <span style={{ color: 'var(--text-secondary)' }}>—</span>}
                       </div>
                       <div className="py-2.5 px-3 min-w-0 truncate font-mono" style={{ color: 'var(--text-secondary)', ...vDivider }}>
-                        {row.marks_on_mw != null ? `${row.marks_on_mw} / ${row.module_weight}` : (row.module_weight ? `— / ${row.module_weight}` : '—')}
+                        {row.marks_on_mw != null ? roundNum(row.marks_on_mw) : '—'}
                       </div>
                       <div className="py-2.5 px-3 min-w-0 truncate" style={vDivider}>
                         {row.decision ? (
