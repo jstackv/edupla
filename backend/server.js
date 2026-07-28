@@ -164,6 +164,92 @@ app.get('/api/analytics', isAuthenticated, isTeacher, async (req, res) => {
       AssessmentAttempt.countDocuments({ assessment_id: { $in: quizAssessmentIds }, status: 'in_progress', voided: { $ne: true } }),
       AssessmentAttempt.distinct('student_id', { assessment_id: { $in: quizAssessmentIds }, voided: { $ne: true } }),
     ]);
+
+    // ── Deeper online-quiz analytics — student attempt behavior and
+    // performance, distinct from the manually-recorded assessment marks
+    // above. Pulled straight from AssessmentAttempt (not Mark), so it can
+    // surface things Mark doesn't carry: completion rate against class size,
+    // auto-submit rate (timeouts / left-screen), and a per-quiz breakdown.
+    const classStudentCount = {};
+    teacherClasses.forEach(c => { classStudentCount[c._id.toString()] = c.students.length; });
+
+    const allQuizAttempts = await AssessmentAttempt.find({ assessment_id: { $in: quizAssessmentIds }, voided: { $ne: true } })
+      .select('assessment_id student_id total_score status submitted_at auto_submitted needs_manual_grading')
+      .lean();
+
+    // Grade-band distribution + overall average, based on each attempt's
+    // total_score against that quiz's max_marks — graded attempts only.
+    const onlineQuizGradeDistribution = { excellent: 0, good: 0, average: 0, poor: 0 };
+    let quizObtainedSum = 0, quizMaxSum = 0;
+    allQuizAttempts.forEach(a => {
+      if (a.status !== 'graded' || a.total_score === null) return;
+      const assess = assessmentById[a.assessment_id.toString()];
+      if (!assess || !assess.max_marks) return;
+      const pct = (a.total_score / assess.max_marks) * 100;
+      quizObtainedSum += a.total_score;
+      quizMaxSum += assess.max_marks;
+      if (pct >= 75) onlineQuizGradeDistribution.excellent++;
+      else if (pct >= 60) onlineQuizGradeDistribution.good++;
+      else if (pct >= 40) onlineQuizGradeDistribution.average++;
+      else onlineQuizGradeDistribution.poor++;
+    });
+    const quizAvgScore = quizMaxSum > 0 ? Math.round((quizObtainedSum / quizMaxSum) * 100) : null;
+
+    // Auto-submit rate: attempts the student didn't consciously submit
+    // themselves (ran out of time, or left the exam screen) — an engagement
+    // red flag that Mark-based analytics can't show.
+    const autoSubmittedCount = allQuizAttempts.filter(a => a.auto_submitted).length;
+    const autoSubmitRate = allQuizAttempts.length ? Math.round((autoSubmittedCount / allQuizAttempts.length) * 100) : 0;
+
+    // Per-quiz breakdown: completion against that quiz's class roster, plus
+    // its own average score — lets a teacher spot which specific quiz is
+    // under-attempted or scoring low, rather than only a blended total.
+    const attemptsByAssessment = {};
+    allQuizAttempts.forEach(a => {
+      const key = a.assessment_id.toString();
+      if (!attemptsByAssessment[key]) attemptsByAssessment[key] = { students: new Set(), scores: [], count: 0, autoSubmitted: 0 };
+      const bucket = attemptsByAssessment[key];
+      bucket.count += 1;
+      bucket.students.add(a.student_id.toString());
+      if (a.auto_submitted) bucket.autoSubmitted += 1;
+      if (a.status === 'graded' && a.total_score !== null) bucket.scores.push(a.total_score);
+    });
+
+    let sumEligible = 0, sumAttemptedStudents = 0;
+    const onlineQuizPerAssessment = quizAssessmentIds.map(id => {
+      const key = id.toString();
+      const a = assessmentById[key];
+      const bucket = attemptsByAssessment[key] || { students: new Set(), scores: [], count: 0, autoSubmitted: 0 };
+      const eligible = a?.class_id ? (classStudentCount[a.class_id._id.toString()] || 0) : 0;
+      sumEligible += eligible;
+      sumAttemptedStudents += bucket.students.size;
+      const avgScore = (bucket.scores.length && a?.max_marks)
+        ? Math.round(((bucket.scores.reduce((s, v) => s + v, 0) / bucket.scores.length) / a.max_marks) * 100)
+        : null;
+      return {
+        id: key,
+        title: a?.title,
+        class_name: a?.class_id?.name,
+        attempts: bucket.count,
+        studentsAttempted: bucket.students.size,
+        eligible,
+        completionRate: eligible ? Math.round((bucket.students.size / eligible) * 100) : 0,
+        avgScore,
+      };
+    }).sort((x, y) => y.attempts - x.attempts).slice(0, 6);
+
+    const quizCompletionRate = sumEligible ? Math.round((sumAttemptedStudents / sumEligible) * 100) : 0;
+
+    // Online quiz submission trend (last 30 days) — a student actually
+    // finishing an attempt, separate from the assessmentTrend line which
+    // only reflects graded/recorded marks.
+    const onlineQuizTrend = await AssessmentAttempt.aggregate([
+      { $match: { assessment_id: { $in: quizAssessmentIds }, voided: { $ne: true }, submitted_at: { $ne: null, $gte: thirtyDaysAgo } } },
+      { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$submitted_at' } }, count: { $sum: 1 } } },
+      { $sort: { _id: 1 } },
+      { $project: { date: '$_id', count: 1, _id: 0 } },
+    ]);
+
     const onlineQuizStats = {
       quizAssessments: quizAssessmentIds.length,
       totalAttempts,
@@ -171,6 +257,9 @@ app.get('/api/analytics', isAuthenticated, isTeacher, async (req, res) => {
       needsManualGrading,
       inProgress: inProgressAttempts,
       studentsAttempted: attemptedStudentIds.length,
+      avgScore: quizAvgScore,
+      completionRate: quizCompletionRate,
+      autoSubmitRate,
     };
 
     // Assessment activity trend (last 30 days) — every recorded Mark, which
@@ -224,6 +313,9 @@ app.get('/api/analytics', isAuthenticated, isTeacher, async (req, res) => {
       assessmentTopStudents,
       classPerformance,
       onlineQuizStats,
+      onlineQuizGradeDistribution,
+      onlineQuizPerAssessment,
+      onlineQuizTrend,
       recentAssessments: recentAssessments.map(a => ({
         id: a._id,
         type: a.type,

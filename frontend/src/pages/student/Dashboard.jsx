@@ -9,6 +9,7 @@ import {
   TrendingUp, Star, Zap, BookOpen, Target, ArrowUpRight,
   BarChart3, Trophy, Bell, ChevronDown,
   UserCheck, MessageSquare, Timer, Sun, Moon, Sunset, Activity,
+  Hourglass, Lock,
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -101,7 +102,72 @@ function StreakBadge({ count }) {
   );
 }
 
-/* ── Stat card with 3D tilt-on-hover ── */
+/* ── Live countdown to a target date, ticking every second —
+   "2d 5h 12m 30s", "5h 12m 30s", or "12m 30s" once under an hour. ── */
+function useCountdown(targetDate) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    if (!targetDate) return;
+    setNow(Date.now());
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [targetDate]);
+  if (!targetDate) return null;
+  const diff = new Date(targetDate).getTime() - now;
+  if (diff <= 0) return 'opening…';
+  const pad = (n) => String(n).padStart(2, '0');
+  const totalSeconds = Math.floor(diff / 1000);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const mins = Math.floor((totalSeconds % 3600) / 60);
+  const secs = totalSeconds % 60;
+  if (days > 0) return `${days}d ${hours}h ${pad(mins)}m ${pad(secs)}s`;
+  if (hours > 0) return `${hours}h ${pad(mins)}m ${pad(secs)}s`;
+  return `${mins}m ${pad(secs)}s`;
+}
+
+/* ── HERO-ONLY "Ready to start" indicator ── Lives in the hero banner
+   only. Fast, warm, high-energy: a breathing aurora-glass pill, a soft
+   halo glow pulsing behind it, three twinkling sparkle motes, a gently
+   bouncing (never spinning) icon, a light sweep, and shine-swept text.
+   Every motion here is translate / scale / opacity / background-position
+   — deliberately no rotation. ── */
+function ReadyIndicator({ label = 'READY' }) {
+  return (
+    <div className="ready-indicator">
+      <span className="ready-indicator-glow" />
+      <span className="ready-indicator-sweep" />
+      <span className="ready-indicator-sparkle ready-indicator-sparkle-1" />
+      <span className="ready-indicator-sparkle ready-indicator-sparkle-2" />
+      <span className="ready-indicator-sparkle ready-indicator-sparkle-3" />
+      <span className="ready-indicator-dot" />
+      <Zap className="ready-indicator-icon" style={{ width: 14, height: 14 }} />
+      <span className="ready-indicator-label">{label}</span>
+    </div>
+  );
+}
+
+/* ── HERO-ONLY "Posted, not open yet" indicator ── Deliberately the
+   opposite mood: cool, slow, patient. A quiet frosted-glass pill with a
+   gentle breathing glow, a soft expanding ripple (not a spin) behind a
+   slowly bobbing hourglass, and a calm live countdown that ticks down to
+   the second — no shine, no sweep, nothing urgent. ── */
+function ScheduledIndicator({ availableFrom, countLabel }) {
+  const countdown = useCountdown(availableFrom);
+  const text = countLabel
+    ? `${countLabel}${countdown ? ` — next in ${countdown}` : ''}`
+    : (countdown ? `Opens in ${countdown}` : 'Not open yet');
+  return (
+    <div className="scheduled-indicator">
+      <span className="scheduled-indicator-glow" />
+      <span className="scheduled-indicator-ripple" />
+      <Hourglass className="scheduled-indicator-icon" style={{ width: 13, height: 13 }} />
+      <span className="scheduled-indicator-label">{text}</span>
+    </div>
+  );
+}
+
+
 function StatCard({ icon: Icon, label, value, color, iconBg, to, sublabel, animateNum, suffix = '' }) {
   const ref = useRef(null);
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
@@ -194,6 +260,15 @@ export default function StudentDashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [ringFilled, setRingFilled] = useState(false);
+  /* Ticks every second so assessment readiness (below) is derived fresh
+     each render — the moment an assessment's available_from passes, it
+     flips from "scheduled" to "ready" on its own, no refetch or reload
+     needed. */
+  const [liveNow, setLiveNow] = useState(Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setLiveNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
   const [visible, setVisible] = useState(false);
   const [expandModules, setExpandModules] = useState(false);
   const [expandClasses, setExpandClasses] = useState(false);
@@ -254,7 +329,27 @@ export default function StudentDashboard() {
 
   const pending = data?.assignments?.filter(a => !a.submission_id) || [];
   const submitted = data?.assignments?.filter(a => a.submission_id) || [];
-  const availableQuizzes = (data?.quizzes || []).filter(q => q.can_start);
+
+  /* Readiness recomputed against `liveNow` (not the one-time `can_start`
+     snapshot from the fetch) — this is what makes an assessment flip from
+     "scheduled" to "ready" on its own, the instant its available_from
+     passes, with no refetch or page reload. */
+  const isQuizReady = useCallback((q) => {
+    if (!q) return false;
+    const notYetAvailable = q.available_from ? liveNow < new Date(q.available_from).getTime() : false;
+    const expired = q.expires_at ? liveNow > new Date(q.expires_at).getTime() : !!q.expired;
+    const attemptsLeft = q.attempts_left != null ? q.attempts_left : (q.max_attempts || 1) - (q.attempts_used || 0);
+    return !expired && !notYetAvailable && attemptsLeft > 0;
+  }, [liveNow]);
+
+  const availableQuizzes = useMemo(() => (data?.quizzes || []).filter(isQuizReady), [data, isQuizReady]);
+  /* Posted and visible to the student, but the teacher's start time
+     (available_from) hasn't arrived yet — distinct from "ready". Sorted
+     soonest-first so the hero countdown always leads with what's coming
+     up next, and drops out of this list the instant isQuizReady flips. */
+  const scheduledQuizzes = useMemo(() => (data?.quizzes || [])
+    .filter(q => q.available_from && liveNow < new Date(q.available_from).getTime() && !isQuizReady(q) && !(q.expires_at ? liveNow > new Date(q.expires_at).getTime() : q.expired))
+    .sort((a, b) => new Date(a.available_from) - new Date(b.available_from)), [data, liveNow, isQuizReady]);
 
   const PASS_MARK = 50; // percentage line used across the app's reports
   const quizPct = (q) => Math.round(((q.best_score || 0) / (q.max_marks || 100)) * 100);
@@ -551,13 +646,13 @@ export default function StudentDashboard() {
                   {streak > 1 && <StreakBadge count={streak} />}
                   {availableQuizzes.length > 0 && (
                     <Link to="/student/assessments" style={{ textDecoration: 'none' }}>
-                      <div className="hero-pill" style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(139,92,246,0.28)', border: '1px solid rgba(139,92,246,0.4)', borderRadius: 30, padding: '6px 14px', backdropFilter: 'blur(8px)' }}>
-                        <Timer style={{ width: 14, height: 14, color: '#e9d5ff' }} />
-                        <span style={{ fontSize: 12, fontWeight: 600, color: '#fff' }}>
-                          {availableQuizzes.length} Assessment{availableQuizzes.length !== 1 ? 's' : ''} ready →
-                        </span>
-                      </div>
+                      <ReadyIndicator label={`${availableQuizzes.length} Assessment${availableQuizzes.length !== 1 ? 's' : ''} ready →`} />
                     </Link>
+                  )}
+                  {scheduledQuizzes.length > 0 && (
+                    <ScheduledIndicator
+                      availableFrom={scheduledQuizzes[0]?.available_from}
+                      countLabel={`${scheduledQuizzes.length} opening soon`} />
                   )}
                 </div>
 
@@ -728,6 +823,41 @@ export default function StudentDashboard() {
                   <ChevronRight style={{ width: 14, height: 14, color: 'var(--text-secondary)', opacity: 0.4, flexShrink: 0 }} />
                 </div>
               </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Assessments Opening Soon — posted by the teacher but the start
+          time hasn't arrived yet. Plain, quiet presentation here; the live
+          countdown/animated indicator lives only in the hero banner. ── */}
+      {scheduledQuizzes.length > 0 && (
+        <div className="card" style={visStyle(0.11)}>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-sm flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+              <Lock style={{ width: 13, height: 13, color: '#6366f1' }} />
+              Assessments opening soon
+              <span className="badge text-xs bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">{scheduledQuizzes.length}</span>
+            </h3>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {scheduledQuizzes.slice(0, 4).map((q, i) => (
+              <div key={q.id} style={{
+                display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 12,
+                background: 'var(--card-border)',
+                animation: `fadeSlide 0.35s ease ${i * 0.06}s both`,
+              }}>
+                <div style={{ width: 34, height: 34, borderRadius: 9, background: 'rgba(99,102,241,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Hourglass style={{ width: 15, height: 15, color: '#6366f1' }} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{q.title}</p>
+                  <p className="text-xs text-muted truncate">{q.module_name}{q.duration_minutes ? ` · ${q.duration_minutes} min` : ''}</p>
+                </div>
+                <span className="text-xs text-muted flex-shrink-0" style={{ opacity: 0.75 }}>
+                  {q.available_from ? new Date(q.available_from).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''}
+                </span>
+              </div>
             ))}
           </div>
         </div>
@@ -1286,6 +1416,141 @@ export default function StudentDashboard() {
           to   { opacity: 1; transform: translateY(0); }
         }
         @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ══ Hero "Ready" indicator — fast, warm, high-energy. Aurora-glass
+           pill, a breathing halo glow, twinkling sparkle motes, a gently
+           bouncing icon, a light sweep, shine-swept text. No rotation —
+           every motion is translate / scale / opacity / background-position. ══ */
+        .ready-indicator {
+          position: relative; display: inline-flex; align-items: center; gap: 7px;
+          padding: 8px 16px; border-radius: 30px; overflow: hidden; flex-shrink: 0;
+          background: linear-gradient(135deg, rgba(16,185,129,0.24), rgba(45,212,191,0.16), rgba(139,92,246,0.24));
+          background-size: 220% 220%;
+          border: 1px solid rgba(255,255,255,0.38);
+          backdrop-filter: blur(10px);
+          animation: readyAuroraShift 4.5s ease-in-out infinite, readyGlowBreathe 2.1s ease-in-out infinite;
+          transition: transform 0.25s cubic-bezier(.34,1.56,.64,1);
+          cursor: pointer;
+        }
+        .ready-indicator:hover { transform: translateY(-2px) scale(1.035); }
+        .ready-indicator-glow {
+          position: absolute; inset: -7px; border-radius: 40px; z-index: 0; pointer-events: none;
+          background: radial-gradient(circle, rgba(52,211,153,0.5), transparent 70%);
+          filter: blur(9px); animation: readyGlowPulse 1.9s ease-in-out infinite;
+        }
+        .ready-indicator-dot { position: relative; width: 7px; height: 7px; border-radius: 50%; background: #6ee7b7; flex-shrink: 0; z-index: 1; }
+        .ready-indicator-dot::after {
+          content: ''; position: absolute; inset: -5px; border-radius: 50%;
+          border: 2px solid #6ee7b7; opacity: 0.6; animation: readyPulseRing 1.6s ease-out infinite;
+        }
+        .ready-indicator-sparkle { position: absolute; width: 3px; height: 3px; border-radius: 50%; background: #fff; opacity: 0; pointer-events: none; z-index: 1; }
+        .ready-indicator-sparkle-1 { top: 22%; left: 20%; animation: readySparkle 2.6s ease-in-out infinite 0.1s; }
+        .ready-indicator-sparkle-2 { top: 68%; left: 48%; animation: readySparkle 2.6s ease-in-out infinite 0.95s; }
+        .ready-indicator-sparkle-3 { top: 30%; left: 80%; animation: readySparkle 2.6s ease-in-out infinite 1.7s; }
+        .ready-indicator-sweep { position: absolute; inset: 0; overflow: hidden; pointer-events: none; border-radius: 30px; z-index: 1; }
+        .ready-indicator-sweep::before {
+          content: ''; position: absolute; top: -60%; left: -20%; width: 32%; height: 220%;
+          background: linear-gradient(120deg, transparent, rgba(255,255,255,0.55), transparent);
+          animation: readySweep 2.5s ease-in-out infinite;
+        }
+        .ready-indicator-icon {
+          position: relative; z-index: 1; flex-shrink: 0; color: #fff;
+          filter: drop-shadow(0 0 4px rgba(110,231,183,0.85));
+          animation: readyIconBounce 1.4s ease-in-out infinite;
+        }
+        .ready-indicator-label {
+          position: relative; z-index: 1; font-size: 12.5px; font-weight: 800; letter-spacing: 0.03em; white-space: nowrap;
+          background-image: linear-gradient(90deg, #ffffff, #6ee7b7, #67e8f9, #ffffff);
+          background-size: 280% 100%;
+          -webkit-background-clip: text; background-clip: text; color: transparent;
+          animation: readyTextShine 2.4s linear infinite;
+        }
+        @keyframes readyAuroraShift { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+        @keyframes readyGlowBreathe {
+          0%, 100% { box-shadow: 0 4px 16px rgba(16,185,129,0.22); }
+          50%      { box-shadow: 0 8px 26px rgba(52,211,153,0.48); }
+        }
+        @keyframes readyGlowPulse {
+          0%, 100% { opacity: 0.5; transform: scale(0.92); }
+          50%      { opacity: 1;   transform: scale(1.1); }
+        }
+        @keyframes readyPulseRing {
+          0%   { transform: scale(1); opacity: 0.6; }
+          70%  { transform: scale(2.8); opacity: 0; }
+          100% { transform: scale(2.8); opacity: 0; }
+        }
+        @keyframes readySparkle {
+          0%, 100% { opacity: 0; transform: scale(0.4); }
+          50%      { opacity: 1; transform: scale(1.5); }
+        }
+        @keyframes readySweep {
+          0%   { transform: translateX(0%) skewX(-15deg); }
+          100% { transform: translateX(440%) skewX(-15deg); }
+        }
+        @keyframes readyTextShine { 0% { background-position: 0% 50%; } 100% { background-position: 280% 50%; } }
+        @keyframes readyIconBounce {
+          0%, 100% { transform: translateY(0); }
+          50%      { transform: translateY(-2.5px); }
+        }
+
+        /* ══ Hero "Scheduled" indicator — deliberately the opposite mood:
+           slow, cool, patient. Frosted-glass pill, a gentle breathing glow,
+           a soft expanding ripple behind a slowly bobbing hourglass, a calm
+           steady countdown. No shine, no sweep, no rotation. ══ */
+        .scheduled-indicator {
+          position: relative; display: inline-flex; align-items: center; gap: 8px;
+          padding: 8px 16px; border-radius: 30px; overflow: hidden; flex-shrink: 0;
+          background: linear-gradient(135deg, rgba(99,102,241,0.18), rgba(56,189,248,0.1));
+          border: 1px solid rgba(199,210,254,0.42);
+          backdrop-filter: blur(10px);
+          animation: scheduledGlowBreathe 3.6s ease-in-out infinite;
+          transition: transform 0.25s cubic-bezier(.34,1.56,.64,1);
+        }
+        .scheduled-indicator:hover { transform: translateY(-2px); }
+        .scheduled-indicator-glow {
+          position: absolute; inset: -7px; border-radius: 40px; z-index: 0; pointer-events: none;
+          background: radial-gradient(circle, rgba(129,140,248,0.38), transparent 70%);
+          filter: blur(10px); animation: scheduledGlowPulse 3.4s ease-in-out infinite;
+        }
+        .scheduled-indicator-ripple {
+          position: absolute; left: 15px; top: 50%; width: 11px; height: 11px; margin-top: -5.5px;
+          border-radius: 50%; border: 1.5px solid rgba(199,210,254,0.75); opacity: 0; z-index: 0;
+          animation: scheduledRipple 3.2s ease-out infinite;
+        }
+        .scheduled-indicator-icon {
+          position: relative; z-index: 1; flex-shrink: 0; color: #c7d2fe;
+          filter: drop-shadow(0 0 3px rgba(165,180,252,0.7));
+          animation: scheduledIconBob 3.1s ease-in-out infinite;
+        }
+        .scheduled-indicator-label {
+          position: relative; z-index: 1; font-size: 12px; font-weight: 700; letter-spacing: 0.02em; color: #e0e7ff;
+          white-space: nowrap; text-shadow: 0 0 10px rgba(165,180,252,0.4);
+        }
+        @keyframes scheduledGlowBreathe {
+          0%, 100% { box-shadow: 0 4px 14px rgba(99,102,241,0.16); }
+          50%      { box-shadow: 0 8px 22px rgba(129,140,248,0.36); }
+        }
+        @keyframes scheduledGlowPulse {
+          0%, 100% { opacity: 0.35; transform: scale(0.94); }
+          50%      { opacity: 0.7;  transform: scale(1.06); }
+        }
+        @keyframes scheduledRipple {
+          0%   { transform: scale(0.6); opacity: 0.6; }
+          70%  { transform: scale(2.4); opacity: 0; }
+          100% { transform: scale(2.4); opacity: 0; }
+        }
+        @keyframes scheduledIconBob {
+          0%, 100% { transform: translateY(0); }
+          50%      { transform: translateY(2.5px); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .ready-indicator, .ready-indicator-glow, .ready-indicator-dot::after,
+          .ready-indicator-sparkle, .ready-indicator-sweep::before, .ready-indicator-label, .ready-indicator-icon,
+          .scheduled-indicator, .scheduled-indicator-glow, .scheduled-indicator-ripple, .scheduled-indicator-icon {
+            animation: none !important;
+          }
+        }
       `}</style>
     </div>
   );
