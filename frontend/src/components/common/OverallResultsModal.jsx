@@ -169,8 +169,9 @@ export default function OverallResultsModal({ courseId, classId, type, term, aca
     const avg = withPct.length ? withPct.reduce((s, r) => s + r.percentage, 0) / withPct.length : null;
     const highest = withPct.length ? Math.max(...withPct.map(r => r.percentage)) : null;
     const passCount = data.rows.filter(r => r.decision === 'C').length;
+    const failCount = data.rows.filter(r => r.decision === 'NYC').length;
     const needsGrading = data.rows.filter(r => r.status === 'needs_grading').length;
-    return { avg, highest, passCount, needsGrading, total: data.rows.length };
+    return { avg, highest, passCount, failCount, needsGrading, total: data.rows.length };
   }, [data]);
 
   const visibleRows = useMemo(() => {
@@ -219,16 +220,18 @@ export default function OverallResultsModal({ courseId, classId, type, term, aca
 
           {/* Summary stat strip */}
           {stats && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 assessment-stagger">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 assessment-stagger">
               {[
                 { label: 'Students', value: stats.total, color: '#6366f1', icon: Users },
                 { label: 'Class average', value: stats.avg != null ? `${roundNum(stats.avg)}%` : '—', color: perfColor(stats.avg), icon: TrendingUp },
                 { label: 'Top score', value: stats.highest != null ? `${roundNum(stats.highest)}%` : '—', color: '#eab308', icon: Trophy },
+                { label: 'Passed', value: stats.passCount, color: '#10b981', icon: CheckCircle2 },
+                { label: 'Failed', value: stats.failCount, color: '#ef4444', icon: XCircle },
                 { label: 'Needs grading', value: stats.needsGrading, color: '#f59e0b', icon: AlertTriangle },
               ].map((it, i) => (
-                <div key={it.label} style={{ '--i': i }} className="card assessment-card p-3.5 flex items-center gap-3 relative overflow-hidden">
+                <div key={it.label} style={{ '--i': i }} className="card assessment-card results-stat-card p-3.5 flex items-center gap-3 relative overflow-hidden">
                   <div className="pointer-events-none absolute top-0 right-0 w-16 h-16" style={{ background: `radial-gradient(circle at top right, ${it.color}20 0%, transparent 70%)` }} />
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `${it.color}1f` }}>
+                  <div className="results-stat-icon w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `${it.color}1f` }}>
                     <it.icon className="w-4.5 h-4.5" style={{ color: it.color }} />
                   </div>
                   <div className="min-w-0">
@@ -258,7 +261,6 @@ export default function OverallResultsModal({ courseId, classId, type, term, aca
             </div>
             <button
               onClick={() => setNeedsGradingOnly(v => !v)}
-              className="filter-pill flex items-center gap-1.5"
               className={`filter-pill flex items-center gap-1.5 ${needsGradingOnly ? 'active' : ''}`}
             >
               <AlertTriangle className="w-3.5 h-3.5" /> Needs grading only
@@ -276,7 +278,7 @@ export default function OverallResultsModal({ courseId, classId, type, term, aca
             </p>
           )}
 
-          <div className="overflow-auto rounded-xl" style={{ border: '1px solid var(--card-border)', maxHeight: '58vh' }}>
+          <div className="results-table-shell overflow-auto rounded-xl" style={{ border: '1px solid var(--card-border)', maxHeight: '58vh' }}>
             <div style={{ minWidth }}>
               {/* Header row */}
               <div
