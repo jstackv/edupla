@@ -529,6 +529,37 @@ exports.teacherGetAssessments = async (req, res) => {
     const subMap = {};
     submissions.forEach(s => { subMap[s.assessment_id.toString()] = s; });
 
+    // ── Student attempt/submission activity, for the "X/Y submissions" badge
+    // and the recent-submitters hover preview on each quiz-mode card. Only
+    // counts real student attempts (AssessmentAttempt), never the teacher's
+    // own marks-review submission tracked above — that's a separate concept.
+    // One student can submit more than once (re-attempts) — only their most
+    // recent submission counts, so results are sorted newest-first and the
+    // first occurrence per student is kept.
+    const attempts = await AssessmentAttempt.find(
+      { assessment_id: { $in: assessmentIds }, status: { $in: ['submitted', 'graded'] }, voided: { $ne: true } },
+      'assessment_id student_id auto_submitted submitted_at'
+    ).sort({ submitted_at: -1 }).lean();
+
+    const submitterStudentIds = [...new Set(attempts.map(a => a.student_id.toString()))];
+    const submitterNames = {};
+    (await User.find({ _id: { $in: submitterStudentIds } }, 'name').lean())
+      .forEach(u => { submitterNames[u._id.toString()] = u.name; });
+
+    const submittersByAssessment = {};
+    attempts.forEach(a => {
+      const aid = a.assessment_id.toString();
+      const sid = a.student_id.toString();
+      const bucket = submittersByAssessment[aid] || (submittersByAssessment[aid] = new Map());
+      if (!bucket.has(sid)) {
+        bucket.set(sid, {
+          student_name: submitterNames[sid] || 'A student',
+          auto_submitted: a.auto_submitted,
+          submitted_at: a.submitted_at,
+        });
+      }
+    });
+
     const enriched = await Promise.all(assessments.map(async a => {
       /*
        * Student/marked counts are scoped to THIS assessment's own class —
@@ -545,10 +576,17 @@ exports.teacherGetAssessments = async (req, res) => {
       }
 
       const sub = subMap[a._id.toString()];
+      const submitters = Array.from(submittersByAssessment[a._id.toString()]?.values() || [])
+        .sort((x, y) => new Date(y.submitted_at) - new Date(x.submitted_at));
+
       return {
         ...a, id: a._id, student_count: studentCount, marked_count: markedCount,
         submission_status: sub?.status || 'draft',
         review_note: sub?.review_note || null,
+        submitted_count: submitters.length,
+        recent_submitters: submitters.slice(0, 5).map(s => ({
+          name: s.student_name, auto_submitted: s.auto_submitted, submitted_at: s.submitted_at,
+        })),
       };
     }));
 

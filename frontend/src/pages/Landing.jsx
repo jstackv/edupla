@@ -8,7 +8,7 @@ import {
   Play, Sparkles, Target, Layers, MessageSquare,
   Rocket, LayoutDashboard, ClipboardList, Megaphone,
   ChevronDown, Mail, Phone, MapPin,
-  Eye, BarChart2, Lock, CheckSquare,
+  Eye, BarChart2, Lock,
   User, ClipboardCheck, Workflow, BadgeCheck, FileBarChart2,
   School, ListChecks, FolderKanban, GitBranch, Boxes,
   FileCheck2, UserCog, SlidersHorizontal, ArrowDown, Mic, Timer
@@ -32,7 +32,6 @@ const FEATURES = [
   { icon: MessageSquare,   color: '#0ea5e9', label: 'Group Collaboration', desc: 'Teacher-led discussion groups with team leaders, plus optional peer-to-peer messaging within a class.' },
   { icon: Shield,          color: '#ef4444', label: 'Enterprise Security', desc: 'Session-based auth, role permissions, encrypted file storage, and full activity audit trails built in.' },
   { icon: Globe,           color: '#6366f1', label: 'Any Device',          desc: 'Fully responsive admin, teacher and student portals — flawless on desktop, tablet, and mobile.' },
-  { icon: CheckSquare,     color: '#06b6d4', label: 'Attendance & At-Risk Alerts', desc: 'Take session-based attendance in seconds, auto-flag students below 75% or on an absence streak, and pull daily, weekly or monthly reports.' },
   { icon: Bell,            color: '#f59e0b', label: 'Real-Time Notifications', desc: 'A dedicated notification center with unread counts, mark-as-read and clear-all, so every grade, message and alert reaches the right person instantly.' },
   { icon: Mic,             color: '#8b5cf6', label: 'Direct Messaging & Voice Notes', desc: 'Private teacher–student threads and peer chat, with voice notes and media sharing built right into every conversation.' }
 ];
@@ -75,7 +74,7 @@ const STEPS = [
 ];
 
 const TESTIMONIALS = [
-  { init: 'SK', name: 'Sarah Kim',     role: 'Principal, Westbridge Academy', text: 'EDUPLA transformed how we run our school. Grading, attendance, and communication — all in one beautiful platform.', stars: 5, color: '#6366f1' },
+  { init: 'SK', name: 'Sarah Kim',     role: 'Principal, Westbridge Academy', text: 'EDUPLA transformed how we run our school. Grading, reporting, and communication — all in one beautiful platform.', stars: 5, color: '#6366f1' },
   { init: 'MR', name: 'Marcus Reid',   role: 'Senior Teacher, Lincoln High',  text: 'I used to spend 3 hours on paperwork every evening. Now I upload notes in 30 seconds and students get them instantly.', stars: 5, color: '#0ea5e9' },
   { init: 'AJ', name: 'Aisha Jabari',  role: 'Student, Grade 11',             text: 'Finally a school app that feels good to use. I can see all my assignments, grades, and announcements in one place.', stars: 5, color: '#10b981' },
   { init: 'DL', name: 'Dr. David Lee', role: 'District Superintendent',       text: 'The admin analytics dashboard gives us real-time visibility across all campuses. Decision-making has never been this fast.', stars: 5, color: '#f59e0b' },

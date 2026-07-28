@@ -8,18 +8,6 @@ const connectDB = async () => {
     });
     console.log('✅ MongoDB connected successfully');
 
-    // The Attendance model's unique index changed from (class_id, date) to
-    // (class_id, date, teacher_id) so each teacher can take attendance
-    // independently. Mongoose won't drop the old index on its own — without
-    // this, a second teacher taking attendance for the same class+date hits
-    // an E11000 duplicate key error against the stale index. syncIndexes()
-    // reconciles the live indexes with the current schema on every boot.
-    try {
-      await Attendance.syncIndexes();
-    } catch (err) {
-      console.error('⚠️  Attendance index sync failed:', err.message);
-    }
-
     // The Assessment model's unique index changed from
     // (course_id, class_id, type, term, academic_year, mode) to
     // (course_id, class_id, term, academic_year, mode, title) so a teacher
@@ -145,7 +133,7 @@ const notificationSchema = new mongoose.Schema({
   // Deep-link target so clicking the notification can jump straight to where
   // the action lives (the document, assignment, announcement, or submission
   // that triggered it), instead of just opening the notification panel.
-  link_type:  { type: String, enum: ['document', 'assignment', 'announcement', 'submission', 'group', 'teacher_dm', 'attendance', 'assessment', null], default: null },
+  link_type:  { type: String, enum: ['document', 'assignment', 'announcement', 'submission', 'group', 'teacher_dm', 'assessment', null], default: null },
   link_id:    { type: mongoose.Schema.Types.ObjectId, default: null },
   course_id:  { type: mongoose.Schema.Types.ObjectId, ref: 'Course', default: null },
   read_by:    [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
@@ -507,30 +495,6 @@ const teacherDmConversationStateSchema = new mongoose.Schema({
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 teacherDmConversationStateSchema.index({ teacher_id: 1, student_id: 1 }, { unique: true });
 
-// ── Attendance — one session per teacher, per class, per calendar day ───
-// A class can be visited by more than one teacher across different periods
-// (e.g. a main teacher plus extra_teachers), so attendance is taken
-// independently per teacher: each teacher's session for a given class+date
-// is its own document and never blocks or overwrites another teacher's.
-// Marking attendance again for the SAME teacher+class+date updates that
-// teacher's own session (upsert) rather than creating a duplicate — enforced
-// by the unique index below. `date` is normalized to midnight (server-local)
-// so multiple marks on the same calendar day always resolve to one session.
-const attendanceRecordSchema = new mongoose.Schema({
-  student_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  status:     { type: String, enum: ['present', 'absent', 'late', 'excused'], default: 'present' },
-  remarks:    { type: String, default: null },
-}, { _id: false });
-
-const attendanceSchema = new mongoose.Schema({
-  class_id:   { type: mongoose.Schema.Types.ObjectId, ref: 'Class', required: true },
-  date:       { type: Date, required: true },
-  teacher_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // who took this specific session
-  records:    [attendanceRecordSchema],
-  created_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-}, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
-attendanceSchema.index({ class_id: 1, date: 1, teacher_id: 1 }, { unique: true });
-
 // ── Models ────────────────────────────────────────────────────────────
 
 const User         = mongoose.model('User',         userSchema);
@@ -556,7 +520,6 @@ const ClassCollaboration = mongoose.model('ClassCollaboration', classCollaborati
 const DirectMessage      = mongoose.model('DirectMessage',      directMessageSchema);
 const TeacherDirectMessage = mongoose.model('TeacherDirectMessage', teacherDirectMessageSchema);
 const TeacherDmConversationState = mongoose.model('TeacherDmConversationState', teacherDmConversationStateSchema);
-const Attendance = mongoose.model('Attendance', attendanceSchema);
 
 module.exports = {
   connectDB,
@@ -569,5 +532,4 @@ module.exports = {
   ClassCollaboration, DirectMessage,
   TeacherDirectMessage,
   TeacherDmConversationState,
-  Attendance,
 };
