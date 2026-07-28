@@ -298,6 +298,32 @@ export default function TeacherDashboard() {
   const classPerformance = analytics?.classPerformance || [];
   const quizStats = analytics?.onlineQuizStats || {};
 
+  /* ── Online quiz activity trend (last 30 days) — a student actually
+     finishing a quiz attempt, independent of when/whether it's been graded
+     into a Mark yet. ── */
+  const quizTrendData = useMemo(() => (analytics?.onlineQuizTrend || []).map((d, i) => ({
+    label: d.date ? new Date(d.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : `Day ${i + 1}`,
+    Submitted: d.count || 0,
+  })), [analytics]);
+  const quizTrendTotal = quizTrendData.reduce((s, d) => s + d.Submitted, 0);
+
+  /* ── Online quiz grade distribution — graded attempts only, scored
+     straight off AssessmentAttempt.total_score, so it reflects quiz
+     performance specifically rather than the blended assessment view. ── */
+  const quizGradeData = analytics?.onlineQuizGradeDistribution || {};
+  const quizGradeSections = [
+    { label: 'Excellent ≥75%', value: quizGradeData.excellent || 0, color: '#34d399' },
+    { label: 'Good ≥60%',      value: quizGradeData.good || 0,      color: '#818cf8' },
+    { label: 'Average ≥40%',   value: quizGradeData.average || 0,   color: '#fbbf24' },
+    { label: 'Below 40%',      value: quizGradeData.poor || 0,      color: '#f87171' },
+  ];
+  const quizGradeTotal = quizGradeSections.reduce((s, i) => s + i.value, 0);
+
+  /* Per-quiz breakdown: completion vs. that quiz's own class roster, plus
+     its own average score — surfaces which specific quiz is lagging rather
+     than only a blended total. */
+  const quizPerAssessment = analytics?.onlineQuizPerAssessment || [];
+
   /* ── Assessment activity trend → smooth area chart data. Every point is a
      recorded Mark (manual entry or a graded quiz attempt's score). ── */
   const trendData = useMemo(() => (analytics?.assessmentTrend || []).map((d, i) => ({
@@ -827,30 +853,170 @@ export default function TeacherDashboard() {
           {!quizStats.quizAssessments
             ? <EmptyState icon={Laptop} msg="No online quizzes shared yet" action="Build one" actionTo="/teacher/assessments" />
             : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-                {[
-                  { label: 'Students attempted', val: quizStats.studentsAttempted || 0, color: '#34d399', icon: Users },
-                  { label: 'Total attempts',     val: quizStats.totalAttempts || 0,     color: '#818cf8', icon: ClipboardList },
-                  { label: 'Needs manual grading', val: quizStats.needsManualGrading || 0, color: '#f87171', icon: PenSquare },
-                  { label: 'In progress',        val: quizStats.inProgress || 0,        color: '#fbbf24', icon: Hourglass },
-                ].map(item => (
-                  <div key={item.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', borderRadius: 10, background: `${item.color}0f`, transition: 'background 0.2s' }}
-                    onMouseEnter={e => e.currentTarget.style.background = `${item.color}1c`}
-                    onMouseLeave={e => e.currentTarget.style.background = `${item.color}0f`}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11, color: 'var(--text-secondary)' }}>
-                      <item.icon size={12} style={{ color: item.color, opacity: 0.8 }} />
-                      {item.label}
-                    </span>
-                    <span style={{ fontSize: 14, fontWeight: 800, color: item.color, fontVariantNumeric: 'tabular-nums' }}>{item.val}</span>
+              <>
+                {/* Performance metrics, straight off student attempts — completion
+                    is measured against the actual class roster for each quiz, and
+                    auto-submit rate flags timeouts / left-screen exits. */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 10 }}>
+                  {[
+                    { label: 'Avg Score',    val: quizStats.avgScore,        color: quizStats.avgScore >= 60 ? '#34d399' : '#fbbf24' },
+                    { label: 'Completion',   val: quizStats.completionRate,  color: '#818cf8' },
+                    { label: 'Auto-submit',  val: quizStats.autoSubmitRate,  color: quizStats.autoSubmitRate > 20 ? '#f87171' : '#34d399' },
+                  ].map(m => (
+                    <div key={m.label} style={{ textAlign: 'center', padding: '8px 4px', borderRadius: 10, background: `${m.color}0f` }}>
+                      <p style={{ fontSize: 15, fontWeight: 800, color: m.color, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+                        {m.val === null || m.val === undefined ? '—' : `${m.val}%`}
+                      </p>
+                      <p style={{ fontSize: 9, color: 'var(--text-secondary)', marginTop: 3, fontWeight: 600, letterSpacing: '0.02em' }}>{m.label}</p>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                  {[
+                    { label: 'Students attempted', val: quizStats.studentsAttempted || 0, color: '#34d399', icon: Users },
+                    { label: 'Total attempts',     val: quizStats.totalAttempts || 0,     color: '#818cf8', icon: ClipboardList },
+                    { label: 'Needs manual grading', val: quizStats.needsManualGrading || 0, color: '#f87171', icon: PenSquare },
+                    { label: 'In progress',        val: quizStats.inProgress || 0,        color: '#fbbf24', icon: Hourglass },
+                  ].map(item => (
+                    <div key={item.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', borderRadius: 10, background: `${item.color}0f`, transition: 'background 0.2s' }}
+                      onMouseEnter={e => e.currentTarget.style.background = `${item.color}1c`}
+                      onMouseLeave={e => e.currentTarget.style.background = `${item.color}0f`}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11, color: 'var(--text-secondary)' }}>
+                        <item.icon size={12} style={{ color: item.color, opacity: 0.8 }} />
+                        {item.label}
+                      </span>
+                      <span style={{ fontSize: 14, fontWeight: 800, color: item.color, fontVariantNumeric: 'tabular-nums' }}>{item.val}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+        </div>
+      </div>
+
+      {/* ── Online Quiz Trend + Grade Distribution ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 12 }}>
+
+        {/* Online Quiz Trend — students actually finishing an attempt, day
+            by day, independent of grading lag. */}
+        <div className="card" style={{ ...cardStyle, transitionDelay: '0.6s' }}>
+          <SectionHeader title="Online Quiz Trend" to="/teacher/assessments" linkLabel="Manage" />
+          <p style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: -10, marginBottom: 6, opacity: 0.7 }}>Last 30 days · quiz attempts submitted by students</p>
+          {quizTrendData.length === 0 ? (
+            <EmptyState icon={Timer} msg="No quiz submissions yet" />
+          ) : (
+            <>
+              <div style={{ width: '100%', height: 150 }}>
+                <ResponsiveContainer>
+                  <AreaChart data={quizTrendData} margin={{ top: 8, right: 6, left: -24, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="quizTrendFill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.45} />
+                        <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.02} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--card-border)" />
+                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: 'var(--text-secondary)' }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+                    <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: 'var(--text-secondary)' }} axisLine={false} tickLine={false} width={22} />
+                    <Tooltip content={<ChartTooltip unit=" submitted" />} />
+                    <Area type="monotone" dataKey="Submitted" stroke="#8b5cf6" strokeWidth={2.5}
+                      fill="url(#quizTrendFill)" dot={false}
+                      activeDot={{ r: 5, fill: '#8b5cf6', stroke: '#fff', strokeWidth: 2 }} animationDuration={1100} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, alignItems: 'center' }}>
+                <span style={{ fontSize: 11, color: 'var(--text-secondary)', opacity: 0.7 }}>{quizTrendTotal} total</span>
+                <Laptop size={14} style={{ color: '#8b5cf6', opacity: 0.7 }} />
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Online Quiz Grade Distribution — graded quiz attempts only, kept
+            separate from the blended assessment view above so a teacher can
+            see how quizzes specifically are landing. */}
+        <div className="card" style={{ ...cardStyle, transitionDelay: '0.64s' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 14 }}>
+            <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Quiz Grade Distribution</h3>
+          </div>
+          {quizGradeTotal === 0
+            ? <EmptyState icon={BarChart2} msg="No graded quiz attempts yet" />
+            : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <div style={{ position: 'relative', flexShrink: 0 }}>
+                  <DonutRing segments={quizGradeSections} size={96} stroke={11} />
+                  <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', textAlign: 'center', pointerEvents: 'none' }}>
+                    <p style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>{quizGradeTotal}</p>
+                    <p style={{ fontSize: 9, color: 'var(--text-secondary)', marginTop: 1 }}>graded</p>
                   </div>
-                ))}
+                </div>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {quizGradeSections.filter(s => s.value > 0).map((s, i) => (
+                    <div key={s.label}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <div style={{ width: 7, height: 7, borderRadius: 2, background: s.color, flexShrink: 0 }} />
+                          <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>{s.label}</span>
+                        </div>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-primary)' }}>
+                          {s.value} <span style={{ fontWeight: 400, color: 'var(--text-secondary)' }}>({Math.round((s.value / quizGradeTotal) * 100)}%)</span>
+                        </span>
+                      </div>
+                      <div style={{ height: 3, borderRadius: 3, background: 'rgba(139,92,246,0.1)', overflow: 'hidden' }}>
+                        <div style={{
+                          height: '100%', borderRadius: 3, background: s.color,
+                          width: `${(s.value / quizGradeTotal) * 100}%`,
+                          transition: `width 1s cubic-bezier(.34,1.56,.64,1) ${i * 100}ms`,
+                        }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
         </div>
       </div>
 
+      {/* ── Quiz Performance by Assessment — completion & score per quiz,
+          so a teacher can spot which specific quiz is under-attempted or
+          scoring low rather than only seeing a blended total. ── */}
+      <div className="card" style={{ ...cardStyle, transitionDelay: '0.68s' }}>
+        <SectionHeader title="Quiz Performance by Assessment" to="/teacher/assessments" linkLabel="Manage" />
+        {!quizPerAssessment.length
+          ? <EmptyState icon={Laptop} msg="No online quizzes shared yet" action="Build one" actionTo="/teacher/assessments" />
+          : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {quizPerAssessment.map((q, i) => {
+                const scoreColor = q.avgScore === null ? 'var(--text-secondary)' : q.avgScore >= 75 ? '#34d399' : q.avgScore >= 60 ? '#818cf8' : q.avgScore >= 40 ? '#fbbf24' : '#f87171';
+                return (
+                  <div key={q.id || i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 11px', borderRadius: 12, background: 'rgba(139,92,246,0.04)', border: '1px solid rgba(139,92,246,0.08)' }}>
+                    <div style={{ width: 30, height: 30, borderRadius: 8, background: `${ACCENT[i % ACCENT.length]}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <Timer size={13} style={{ color: ACCENT[i % ACCENT.length] }} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{q.title}</p>
+                      <p style={{ fontSize: 10, color: 'var(--text-secondary)', opacity: 0.75, marginBottom: 4 }}>{q.class_name} · {q.attempts} attempt{q.attempts === 1 ? '' : 's'}</p>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <div style={{ flex: 1, height: 3, borderRadius: 3, background: 'rgba(129,140,248,0.1)', overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${q.completionRate}%`, borderRadius: 3, background: '#818cf8', transition: `width 1s cubic-bezier(.34,1.56,.64,1) ${i * 90}ms` }} />
+                        </div>
+                        <span style={{ fontSize: 9.5, fontWeight: 700, color: '#818cf8', flexShrink: 0 }}>{q.studentsAttempted}/{q.eligible} done</span>
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                      <p style={{ fontSize: 14, fontWeight: 800, color: scoreColor, fontVariantNumeric: 'tabular-nums' }}>{q.avgScore === null ? '—' : `${q.avgScore}%`}</p>
+                      <p style={{ fontSize: 9, color: 'var(--text-secondary)', opacity: 0.7 }}>avg score</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+      </div>
+
       {/* ── Quick Actions ── */}
-      <div className="card" style={{ ...cardStyle, transitionDelay: '0.6s' }}>
+      <div className="card" style={{ ...cardStyle, transitionDelay: '0.72s' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
           <Zap size={14} style={{ color: '#fbbf24' }} />
           <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Quick Actions</h3>
