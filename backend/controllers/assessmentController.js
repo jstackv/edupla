@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const XLSX = require('xlsx');
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
-const { createInAppNotification, getStudentEmails, getTeacherEmail } = require('../services/notificationHelpers');
+const { createInAppNotification, createDirectNotification, getStudentEmails, getTeacherEmail } = require('../services/notificationHelpers');
 const { notifyAssessmentShared } = require('../services/emailService');
 
 /* ─────────────────────────────────────────────────────────
@@ -37,6 +37,17 @@ function rawPercentage(obtained, max) {
 function scaleScore(obtained, fromMax, toMax) {
   if (obtained == null || !fromMax) return null;
   return Math.round((obtained / fromMax) * toMax * 100) / 100;
+}
+
+// A student's effective attempt cap: the class-wide max_attempts, unless
+// they have a per-student override (granted via "Add attempt" -> specific
+// students) that goes higher — never lower, so an override can only ever
+// give extra attempts, not take them away.
+function effectiveMaxAttempts(assessment, studentId) {
+  const base = assessment.max_attempts || 1;
+  const overrides = assessment.attempt_overrides || [];
+  const mine = overrides.find(o => o.student_id?.toString() === studentId?.toString());
+  return mine ? Math.max(base, mine.max_attempts) : base;
 }
 
 /* ═══════════════════════ Shared PDF mark-sheet styling ═══════════════════
@@ -2363,6 +2374,7 @@ exports.teacherShareAssessment = async (req, res) => {
     assessment.expires_at        = expires_at ? new Date(expires_at) : null;
     assessment.available_from    = available_from ? new Date(available_from) : null;
     assessment.max_attempts      = requestedMaxAttempts;
+    assessment.attempt_overrides = [];
     assessment.instructions      = instructions ?? assessment.instructions;
     assessment.shuffle_questions = shuffle_questions !== false;
     assessment.is_shared         = true;
@@ -2413,6 +2425,7 @@ exports.teacherUnshareAssessment = async (req, res) => {
     if (!assessment) return res.status(404).json({ message: 'Assessment not found' });
 
     assessment.is_shared = false;
+    assessment.attempt_overrides = [];
     await assessment.save();
 
     // Void every existing attempt — students' submissions are no longer
@@ -2449,6 +2462,13 @@ exports.teacherAddAttempts = async (req, res) => {
   try {
     const additional = Math.max(1, Math.round(Number(req.body.additional_attempts) || 1));
     const { duration_minutes, expires_at, available_from } = req.body;
+    // student_ids: when present (and non-empty), the extra attempt(s) are
+    // granted ONLY to those students — everyone else keeps whatever cap
+    // they already had. Omit (or leave empty) to apply to the whole class,
+    // same as before this option existed.
+    const studentIds = Array.isArray(req.body.student_ids)
+      ? [...new Set(req.body.student_ids.filter(Boolean).map(String))]
+      : [];
 
     const assessment = await Assessment.findOne({ _id: req.params.id, teacher_id: req.user.id })
       .populate('course_id', 'name')
@@ -2456,6 +2476,14 @@ exports.teacherAddAttempts = async (req, res) => {
     if (!assessment) return res.status(404).json({ message: 'Assessment not found' });
     if (!assessment.is_shared) {
       return res.status(400).json({ message: 'This assessment has not been shared yet — share it first.' });
+    }
+
+    if (studentIds.length) {
+      const classStudentIds = new Set((assessment.class_id?.students || []).map(id => id.toString()));
+      const invalid = studentIds.filter(id => !classStudentIds.has(id));
+      if (invalid.length) {
+        return res.status(400).json({ message: 'One or more selected students are not in this class.' });
+      }
     }
 
     if (duration_minutes !== undefined && duration_minutes !== null && duration_minutes !== '') {
@@ -2478,12 +2506,35 @@ exports.teacherAddAttempts = async (req, res) => {
       assessment.available_from = newAvailableFrom;
     }
 
-    assessment.max_attempts = (assessment.max_attempts || 1) + additional;
+    let newMaxForSelected = null;
+    if (studentIds.length) {
+      // Targeted grant: bump (or create) each selected student's own override,
+      // built on top of whatever cap they effectively have right now —
+      // the class-wide max_attempts, or a higher override from an earlier
+      // targeted grant. The class-wide max_attempts itself is untouched, so
+      // everyone else still can't attempt beyond it.
+      const overrides = assessment.attempt_overrides || [];
+      const byStudent = new Map(overrides.map(o => [o.student_id.toString(), o]));
+      studentIds.forEach(id => {
+        const current = byStudent.get(id)?.max_attempts ?? (assessment.max_attempts || 1);
+        byStudent.set(id, { student_id: id, max_attempts: current + additional });
+      });
+      assessment.attempt_overrides = Array.from(byStudent.values());
+      newMaxForSelected = Math.max(...studentIds.map(id => byStudent.get(id).max_attempts));
+    } else {
+      assessment.max_attempts = (assessment.max_attempts || 1) + additional;
+    }
     await assessment.save();
 
+    const targetDescription = studentIds.length
+      ? `${studentIds.length} selected student${studentIds.length > 1 ? 's' : ''}`
+      : 'the whole class';
     res.json({
-      message: `Added ${additional} attempt${additional > 1 ? 's' : ''}. Students now get up to ${assessment.max_attempts} attempt${assessment.max_attempts > 1 ? 's' : ''}.`,
+      message: studentIds.length
+        ? `Added ${additional} attempt${additional > 1 ? 's' : ''} for ${targetDescription}. They now get up to ${newMaxForSelected} attempt${newMaxForSelected > 1 ? 's' : ''}; everyone else is unchanged.`
+        : `Added ${additional} attempt${additional > 1 ? 's' : ''}. Students now get up to ${assessment.max_attempts} attempt${assessment.max_attempts > 1 ? 's' : ''}.`,
       max_attempts: assessment.max_attempts,
+      attempt_overrides: assessment.attempt_overrides,
       duration_minutes: assessment.duration_minutes,
       expires_at: assessment.expires_at,
       available_from: assessment.available_from,
@@ -2492,16 +2543,33 @@ exports.teacherAddAttempts = async (req, res) => {
     // ── Notify students async — a quick heads-up, not a full re-share blast ──
     try {
       const teacher = await User.findById(req.user.id, 'name').lean();
-      await createInAppNotification({
-        title: `Extra attempt: ${assessment.title}`,
-        message: `${teacher?.name || 'Your teacher'} gave you an extra attempt on "${assessment.title}" (${assessment.course_id?.name || 'module'}). You now have up to ${assessment.max_attempts} attempts.`,
-        type: 'info',
-        classId: assessment.class_id._id,
-        teacherId: req.user.id,
-        linkType: 'assessment',
-        linkId: assessment._id,
-        courseId: assessment.course_id?._id || null,
-      });
+      const notifyMax = studentIds.length ? newMaxForSelected : assessment.max_attempts;
+      const message = `${teacher?.name || 'Your teacher'} gave you an extra attempt on "${assessment.title}" (${assessment.course_id?.name || 'module'}). You now have up to ${notifyMax} attempts.`;
+      if (studentIds.length) {
+        // Targeted grant — only the selected students should see this,
+        // not the whole class (most of whom still can't attempt again).
+        await Promise.all(studentIds.map(id => createDirectNotification({
+          title: `Extra attempt: ${assessment.title}`,
+          message,
+          type: 'info',
+          classId: assessment.class_id._id,
+          teacherId: req.user.id,
+          recipientId: id,
+          linkType: 'assessment',
+          linkId: assessment._id,
+        })));
+      } else {
+        await createInAppNotification({
+          title: `Extra attempt: ${assessment.title}`,
+          message,
+          type: 'info',
+          classId: assessment.class_id._id,
+          teacherId: req.user.id,
+          linkType: 'assessment',
+          linkId: assessment._id,
+          courseId: assessment.course_id?._id || null,
+        });
+      }
     } catch (err) {
       console.error('Notification error (assessment add-attempts):', err.message);
     }
@@ -2549,6 +2617,7 @@ exports.teacherListAttempts = async (req, res) => {
         student_id: s._id,
         student_name: s.name,
         student_email: s.email,
+        max_attempts: effectiveMaxAttempts(assessment, s._id),
         attempts_used: list.length,
         best_score: bestScore,
         max_marks: maxMarks,
@@ -3059,17 +3128,19 @@ exports.studentGetSharedAssessments = async (req, res) => {
       const moduleWeight = a.course_id?.total_marks || 100;
       const rawPct = rawPercentage(bestScore, a.max_marks);
       const percentage = rawPct != null ? Math.round(rawPct) : null;
+      const myMaxAttempts = effectiveMaxAttempts(a, req.user.id);
       return {
         ...a, id: a._id,
         module_name: a.course_id?.name,
         teacher_name: a.teacher_id?.name,
+        max_attempts: myMaxAttempts,
         attempts_used: attemptsUsed,
-        attempts_left: Math.max((a.max_attempts || 1) - attemptsUsed, 0),
+        attempts_left: Math.max(myMaxAttempts - attemptsUsed, 0),
         expired,
         not_yet_available: notYetAvailable,
         // A resumed in-progress attempt is always allowed through, regardless
         // of available_from — that gate only applies to STARTING a new one.
-        can_start: !expired && !notYetAvailable && (a.max_attempts || 1) - attemptsUsed > 0,
+        can_start: !expired && !notYetAvailable && myMaxAttempts - attemptsUsed > 0,
         in_progress_attempt_id: inProgress ? inProgress._id : null,
         best_score: bestScore,
         module_weight: moduleWeight,
@@ -3102,6 +3173,7 @@ exports.studentGetAssessmentInstructions = async (req, res) => {
       assessment_id: assessment._id, student_id: req.user.id, status: 'in_progress', voided: { $ne: true },
     }).lean();
 
+    const myMaxAttempts = effectiveMaxAttempts(assessment, req.user.id);
     res.json({
       id: assessment._id,
       title: assessment.title,
@@ -3109,9 +3181,9 @@ exports.studentGetAssessmentInstructions = async (req, res) => {
       teacher_name: assessment.teacher_id?.name,
       instructions: assessment.instructions,
       duration_minutes: assessment.duration_minutes,
-      max_attempts: assessment.max_attempts,
+      max_attempts: myMaxAttempts,
       attempts_used: attemptsUsed,
-      attempts_left: Math.max((assessment.max_attempts || 1) - attemptsUsed, 0),
+      attempts_left: Math.max(myMaxAttempts - attemptsUsed, 0),
       available_from: assessment.available_from,
       not_yet_available: assessment.available_from ? new Date() < new Date(assessment.available_from) : false,
       expires_at: assessment.expires_at,
@@ -3169,8 +3241,9 @@ exports.studentStartAttempt = async (req, res) => {
     // against EVERY attempt ever created for this student — including ones
     // voided by a prior unshare — since attempt_number is part of a unique
     // index and old attempt numbers are never reused.
+    const myMaxAttempts = effectiveMaxAttempts(assessment, req.user.id);
     const attemptsUsed = await AssessmentAttempt.countDocuments({ assessment_id: assessment._id, student_id: req.user.id, voided: { $ne: true } });
-    if (attemptsUsed >= (assessment.max_attempts || 1)) {
+    if (attemptsUsed >= myMaxAttempts) {
       return res.status(400).json({ message: 'You have used all your attempts for this assessment.' });
     }
     const totalAttemptsEver = await AssessmentAttempt.countDocuments({ assessment_id: assessment._id, student_id: req.user.id });
@@ -3180,7 +3253,7 @@ exports.studentStartAttempt = async (req, res) => {
 
     // Shuffle only matters (and only needs to differ per attempt) when more
     // than one attempt is allowed.
-    const ordered = (assessment.max_attempts || 1) > 1 ? shuffleArray(questions) : questions;
+    const ordered = myMaxAttempts > 1 ? shuffleArray(questions) : questions;
 
     const now = new Date();
     const dueAt = new Date(now.getTime() + (assessment.duration_minutes || 30) * 60000);

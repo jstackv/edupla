@@ -249,6 +249,18 @@ const assessmentSchema = new mongoose.Schema({
   duration_minutes:   { type: Number, default: null },       // time limit per attempt
   shuffle_questions:  { type: Boolean, default: true },      // shuffle order when max_attempts > 1
   max_attempts:       { type: Number, default: 1 },
+  // Per-student attempt grants that go beyond the class-wide max_attempts
+  // above — set via "Add attempt" when a teacher picks specific students
+  // instead of the whole class. A student with an entry here gets
+  // Math.max(max_attempts, their entry's max_attempts) total attempts;
+  // everyone else is still governed purely by max_attempts. Cleared
+  // whenever the assessment is (re-)shared or unshared, same as a fresh
+  // start for max_attempts itself.
+  attempt_overrides: [{
+    student_id:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    max_attempts: { type: Number, required: true },
+    _id: false,
+  }],
   // Students can see the assessment (and its instructions) as soon as it's
   // shared, but can't actually START an attempt until this time. Leave null
   // to make it startable immediately, same behavior as before this field
