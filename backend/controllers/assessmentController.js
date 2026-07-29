@@ -39,6 +39,165 @@ function scaleScore(obtained, fromMax, toMax) {
   return Math.round((obtained / fromMax) * toMax * 100) / 100;
 }
 
+/* ═══════════════════════ Shared PDF mark-sheet styling ═══════════════════
+   Both the single-assessment and the "Overall" mark sheets render through
+   these three helpers so they share one consistent, polished look: a
+   gradient title banner, a row of stat chips, and a bordered/zebra-striped
+   table that redraws its header on every new page. ═══════════════════════ */
+
+// "Formative Assessment 2" -> "FA2"; "Comprehensive Assessment" -> "CA1"
+// (untitled/first-in-series assessments default to 1, mirroring the same
+// shorthand used in the Overall results UI).
+function shorthandTitle(title) {
+  if (!title) return '';
+  const match = title.trim().match(/^(.*?)\s*(\d+)?$/);
+  const base = (match?.[1] || title).trim();
+  const num = match?.[2] || '1';
+  const initials = base.split(/\s+/).filter(Boolean).map(w => w[0]).join('').toUpperCase();
+  return `${initials}${num}`;
+}
+
+const PDF_THEME = {
+  gradientFrom: '#4f46e5',
+  gradientTo: '#7c3aed',
+  headerBg: '#eef2ff',
+  headerBorder: '#c7d2fe',
+  headerText: '#3730a3',
+  rowBorder: '#e5e7eb',
+  zebra: '#f8fafc',
+  text: '#1e293b',
+  textMuted: '#64748b',
+  pass: '#10b981',
+  passBg: '#d1fae5',
+  fail: '#ef4444',
+  failBg: '#fee2e2',
+};
+
+// Gradient title banner spanning the full page width, with a subtitle line
+// and a small "Generated at" timestamp underneath.
+function pdfDrawBanner(doc, { title, subtitle }) {
+  const pageWidth = doc.page.width;
+  const bannerHeight = 58;
+  const grad = doc.linearGradient(0, 0, pageWidth, 0);
+  grad.stop(0, PDF_THEME.gradientFrom).stop(1, PDF_THEME.gradientTo);
+  doc.rect(0, 0, pageWidth, bannerHeight).fill(grad);
+
+  doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(17)
+    .text(title, 0, 13, { width: pageWidth, align: 'center' });
+  if (subtitle) {
+    doc.font('Helvetica').fontSize(9.5).fillColor('#ffffff', 0.85 /* opacity */)
+      .text(subtitle, 0, 36, { width: pageWidth, align: 'center' });
+  }
+  doc.fillColor('#000000');
+  doc.y = bannerHeight + 14;
+}
+
+// A centered row of pill-shaped stat chips (Students / Class average /
+// Passed / Failed / …), each a small colored card echoing the summary
+// stat cards used in the teacher's mark-sheet UI.
+function pdfDrawStatChips(doc, chips) {
+  const usableWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+  const gap = 8;
+  const chipWidth = Math.min(118, (usableWidth - gap * (chips.length - 1)) / chips.length);
+  const totalWidth = chipWidth * chips.length + gap * (chips.length - 1);
+  const startX = doc.page.margins.left + (usableWidth - totalWidth) / 2;
+  const chipHeight = 34;
+  const y = doc.y;
+
+  chips.forEach((chip, i) => {
+    const x = startX + i * (chipWidth + gap);
+    doc.fillOpacity(0.12).strokeOpacity(0.45).lineWidth(1);
+    doc.roundedRect(x, y, chipWidth, chipHeight, 6).fillAndStroke(chip.color, chip.color);
+    doc.fillOpacity(1).strokeOpacity(1);
+    doc.font('Helvetica-Bold').fontSize(12).fillColor(chip.color)
+      .text(String(chip.value), x + 8, y + 5, { width: chipWidth - 16, align: 'left' });
+    doc.font('Helvetica').fontSize(7).fillColor(PDF_THEME.textMuted)
+      .text(chip.label, x + 8, y + 20, { width: chipWidth - 16, align: 'left', ellipsis: true });
+  });
+  doc.fillColor('#000000');
+  doc.y = y + chipHeight + 16;
+}
+
+/* Bordered, zebra-striped mark-sheet table with a repeating header on every
+   new page. `cols` is [{ label, width, align }]; `rows` is an array of
+   `{ cells: [...], colors: { colIndex: hex }, badges: { colIndex: hex } }`
+   — `badges` draws that cell's text inside a small rounded pill instead of
+   plain text (used for the Decision column). */
+function pdfDrawTable(doc, { cols, rows, headerHeight = 24, rowHeight = 20 }) {
+  const startX = doc.page.margins.left;
+  const tableWidth = cols.reduce((s, c) => s + c.width, 0);
+  const pageBottom = doc.page.height - doc.page.margins.bottom;
+  let y = doc.y;
+
+  const colX = [];
+  { let x = startX; cols.forEach(c => { colX.push(x); x += c.width; }); }
+
+  const drawVerticalDividers = (top, height, color) => {
+    doc.lineWidth(0.5).strokeColor(color);
+    colX.forEach(x => doc.moveTo(x, top).lineTo(x, top + height).stroke());
+    doc.moveTo(startX + tableWidth, top).lineTo(startX + tableWidth, top + height).stroke();
+  };
+
+  const drawHeader = () => {
+    doc.rect(startX, y, tableWidth, headerHeight).fill(PDF_THEME.headerBg);
+    doc.font('Helvetica-Bold').fontSize(8.5).fillColor(PDF_THEME.headerText);
+    cols.forEach((c, i) => {
+      doc.text(c.label, colX[i] + 5, y + headerHeight / 2 - 4, { width: c.width - 8, align: c.align || 'left' });
+    });
+    drawVerticalDividers(y, headerHeight, PDF_THEME.headerBorder);
+    doc.moveTo(startX, y).lineTo(startX + tableWidth, y).strokeColor(PDF_THEME.headerBorder).lineWidth(1).stroke();
+    doc.moveTo(startX, y + headerHeight).lineTo(startX + tableWidth, y + headerHeight).strokeColor(PDF_THEME.headerBorder).lineWidth(1).stroke();
+    doc.fillColor('#000000');
+    y += headerHeight;
+  };
+
+  // Outer left/right border for the whole table, drawn once the final
+  // height is known — tracked so it can be closed out per page.
+  let pageTop = y;
+  drawHeader();
+
+  rows.forEach((r, i) => {
+    if (y + rowHeight > pageBottom) {
+      doc.moveTo(startX, pageTop).lineTo(startX, y).strokeColor(PDF_THEME.headerBorder).lineWidth(1).stroke();
+      doc.moveTo(startX + tableWidth, pageTop).lineTo(startX + tableWidth, y).strokeColor(PDF_THEME.headerBorder).lineWidth(1).stroke();
+      doc.addPage();
+      y = doc.page.margins.top;
+      pageTop = y;
+      drawHeader();
+    }
+    if (i % 2 === 1) doc.rect(startX, y, tableWidth, rowHeight).fill(PDF_THEME.zebra);
+
+    doc.font('Helvetica').fontSize(8.5);
+    r.cells.forEach((val, ci) => {
+      const c = cols[ci];
+      const color = r.colors?.[ci] || PDF_THEME.text;
+      const badgeColor = r.badges?.[ci];
+      if (badgeColor && val !== '—' && val !== '') {
+        const textW = doc.widthOfString(String(val));
+        const pillW = Math.min(c.width - 10, textW + 14);
+        const pillX = colX[ci] + (c.width - pillW) / 2;
+        doc.fillOpacity(0.15).fillColor(badgeColor);
+        doc.roundedRect(pillX, y + 3, pillW, rowHeight - 6, 6).fill();
+        doc.fillOpacity(1);
+        doc.font('Helvetica-Bold').fontSize(8).fillColor(badgeColor)
+          .text(String(val), pillX, y + rowHeight / 2 - 4, { width: pillW, align: 'center' });
+        doc.font('Helvetica').fontSize(8.5);
+      } else {
+        doc.fillColor(color)
+          .text(String(val ?? ''), colX[ci] + 5, y + rowHeight / 2 - 4.5, { width: c.width - 8, align: c.align || 'left', ellipsis: true });
+      }
+    });
+    doc.fillColor('#000000');
+    doc.moveTo(startX, y + rowHeight).lineTo(startX + tableWidth, y + rowHeight).strokeColor(PDF_THEME.rowBorder).lineWidth(0.5).stroke();
+    drawVerticalDividers(y, rowHeight, PDF_THEME.rowBorder);
+    y += rowHeight;
+  });
+
+  doc.moveTo(startX, pageTop).lineTo(startX, y).strokeColor(PDF_THEME.headerBorder).lineWidth(1).stroke();
+  doc.moveTo(startX + tableWidth, pageTop).lineTo(startX + tableWidth, y).strokeColor(PDF_THEME.headerBorder).lineWidth(1).stroke();
+  doc.y = y + 10;
+}
+
 /* ─────────────────────────────────────────────────────────
    Helper: normalise class_ids from the request body.
    Accepts:
@@ -2573,69 +2732,55 @@ exports.teacherDownloadOverallPdf = async (req, res) => {
     const doc = new PDFDocument({ size: 'A4', margin: 40, layout: result.assessments.length > 3 ? 'landscape' : 'portrait' });
     doc.pipe(res);
 
-    doc.fontSize(16).font('Helvetica-Bold').text(`Overall — ${typeLabel}`, { align: 'center' });
-    doc.fontSize(10).font('Helvetica').fillColor('#555')
-      .text(`${result.course.name} — ${result.class.name} — ${term} ${academic_year}`, { align: 'center' })
-      .text(`Generated ${new Date().toLocaleString()}`, { align: 'center' });
-    doc.moveDown(0.4);
+    pdfDrawBanner(doc, {
+      title: `Overall — ${typeLabel}`,
+      subtitle: `${result.course.name}  •  ${result.class.name}  •  ${term} ${academic_year}  •  Generated ${new Date().toLocaleDateString()}`,
+    });
 
     const passedCount = result.rows.filter(r => r.decision === 'C').length;
     const failedCount = result.rows.filter(r => r.decision === 'NYC').length;
-    doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#333')
-      .text(`Students: ${result.rows.length}    Passed: ${passedCount}    Failed: ${failedCount}`, { align: 'center' });
-    doc.moveDown(0.8);
-    doc.fillColor('#000');
+    const withPct = result.rows.filter(r => r.percentage != null);
+    const avg = withPct.length ? Math.round(withPct.reduce((s, r) => s + r.percentage, 0) / withPct.length) : null;
+    pdfDrawStatChips(doc, [
+      { label: 'Students', value: result.rows.length, color: '#6366f1' },
+      { label: 'Class average', value: avg != null ? `${avg}%` : '—', color: '#3b82f6' },
+      { label: 'Passed', value: passedCount, color: PDF_THEME.pass },
+      { label: 'Failed', value: failedCount, color: PDF_THEME.fail },
+    ]);
 
     const usableWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
-    const fixedWidth = 26 + 150 + 70 + 45 + 65 + 65; // No + Name + Total + % + MW + Decision
+    const fixedWidth = 26 + 148 + 66 + 42 + 58 + 62; // No + Name + Total + % + MW + Decision
     const perAssessmentWidth = result.assessments.length
-      ? Math.max(50, Math.floor((usableWidth - fixedWidth) / result.assessments.length))
+      ? Math.max(44, Math.floor((usableWidth - fixedWidth) / result.assessments.length))
       : 0;
 
     const cols = [
-      { label: 'No.', width: 26 },
-      { label: 'Name', width: 150 },
-      ...result.assessments.map(a => ({ label: `${a.title}`, width: perAssessmentWidth })),
-      { label: `Total(${result.combined_max})`, width: 70 },
-      { label: '%', width: 45 },
-      { label: `MW(${result.module_weight})`, width: 65 },
-      { label: 'Decision', width: 65 },
+      { label: 'No.', width: 26, align: 'center' },
+      { label: 'Name', width: 148 },
+      ...result.assessments.map(a => ({ label: shorthandTitle(a.title), width: perAssessmentWidth, align: 'center' })),
+      { label: `Total /${result.combined_max}`, width: 66, align: 'center' },
+      { label: '%', width: 42, align: 'center' },
+      { label: `MW /${result.module_weight}`, width: 58, align: 'center' },
+      { label: 'Decision', width: 62, align: 'center' },
     ];
-    const startX = doc.page.margins.left;
-    let y = doc.y;
 
-    const drawRow = (values, opts = {}) => {
-      let x = startX;
-      doc.font(opts.bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(8.5);
-      cols.forEach((c, i) => {
-        if (opts.colors && opts.colors[i]) doc.fillColor(opts.colors[i]); else doc.fillColor('#000');
-        doc.text(String(values[i] ?? ''), x, y, { width: c.width, ellipsis: true });
-        x += c.width;
-      });
-      doc.fillColor('#000');
-      y += 18;
-    };
-
-    drawRow(cols.map(c => c.label), { bold: true });
-    doc.moveTo(startX, y).lineTo(startX + cols.reduce((s, c) => s + c.width, 0), y).strokeColor('#ccc').stroke();
-    y += 4;
-
-    const pageBottom = doc.page.height - doc.page.margins.bottom;
-    result.rows.forEach((r, i) => {
-      if (y > pageBottom - 30) { doc.addPage(); y = doc.page.margins.top; }
+    const rows = result.rows.map((r, i) => {
       const decisionColIndex = cols.length - 1;
-      drawRow(
-        [
+      const decisionColor = r.decision === 'C' ? PDF_THEME.pass : (r.decision === 'NYC' ? PDF_THEME.fail : undefined);
+      return {
+        cells: [
           i + 1, r.student_name,
-          ...r.per_assessment.map(pa => pa.best_score != null ? pa.best_score : '—'),
-          r.total_obtained != null ? r.total_obtained : '—',
-          r.percentage != null ? `${r.percentage}%` : '—',
-          r.marks_on_mw != null ? r.marks_on_mw : '—',
+          ...r.per_assessment.map(pa => pa.best_score != null ? Math.round(pa.best_score) : '—'),
+          r.total_obtained != null ? Math.round(r.total_obtained) : '—',
+          r.percentage != null ? `${Math.round(r.percentage)}%` : '—',
+          r.marks_on_mw != null ? Math.round(r.marks_on_mw) : '—',
           r.decision || (r.status === 'not_attempted' ? 'Not attempted' : '—'),
         ],
-        { colors: { [decisionColIndex]: r.decision === 'C' ? '#10b981' : (r.decision === 'NYC' ? '#ef4444' : undefined) } }
-      );
+        badges: decisionColor ? { [decisionColIndex]: decisionColor } : undefined,
+      };
     });
+
+    pdfDrawTable(doc, { cols, rows });
     doc.end();
   } catch (err) {
     if (!res.headersSent) res.status(500).json({ message: err.message });
@@ -2823,82 +2968,63 @@ exports.teacherDownloadAttemptsPdf = async (req, res) => {
     const doc = new PDFDocument({ size: 'A4', margin: 40 });
     doc.pipe(res);
 
-    doc.fontSize(16).font('Helvetica-Bold').text(assessment.title, { align: 'center' });
-    doc.fontSize(10).font('Helvetica').fillColor('#555')
-      .text(`${assessment.course_id?.name || ''} — ${assessment.class_id?.name || ''}`, { align: 'center' })
-      .text(`Generated ${new Date().toLocaleString()}`, { align: 'center' });
-    doc.moveDown(0.4);
+    pdfDrawBanner(doc, {
+      title: assessment.title,
+      subtitle: `${assessment.course_id?.name || ''}  •  ${assessment.class_id?.name || ''}  •  Generated ${new Date().toLocaleDateString()}`,
+    });
 
-    // Passed/failed summary, computed once here so it stays in sync with
-    // the per-row decisions drawn further down.
-    const passedCount = students.filter(s => {
-      const list = byStudent[s._id.toString()] || [];
-      const graded = list.filter(a => a.status === 'graded');
-      const best = [...graded].sort((a, b) => b.total_score - a.total_score)[0];
-      const bestScore = best ? best.total_score : null;
-      return best && computeDecision(rawPercentage(bestScore, maxMarks), category) === 'C';
-    }).length;
-    const failedCount = students.filter(s => {
-      const list = byStudent[s._id.toString()] || [];
-      const graded = list.filter(a => a.status === 'graded');
-      const best = [...graded].sort((a, b) => b.total_score - a.total_score)[0];
-      const bestScore = best ? best.total_score : null;
-      return best && computeDecision(rawPercentage(bestScore, maxMarks), category) === 'NYC';
-    }).length;
-    doc.fontSize(9.5).font('Helvetica-Bold').fillColor('#333')
-      .text(`Students: ${students.length}    Passed: ${passedCount}    Failed: ${failedCount}`, { align: 'center' });
-    doc.moveDown(0.8);
-    doc.fillColor('#000');
-
-    const cols = [
-      { label: 'No.', width: 26 },
-      { label: 'Name', width: 190 },
-      { label: `Score(${maxMarks})`, width: 80 },
-      { label: '%', width: 50 },
-      { label: `MW(${moduleWeight})`, width: 80 },
-      { label: 'Decision', width: 65 },
-    ];
-    const startX = doc.page.margins.left;
-    let y = doc.y;
-
-    const drawRow = (values, opts = {}) => {
-      let x = startX;
-      doc.font(opts.bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(9);
-      cols.forEach((c, i) => {
-        if (opts.colors && opts.colors[i]) doc.fillColor(opts.colors[i]); else doc.fillColor('#000');
-        doc.text(String(values[i] ?? ''), x, y, { width: c.width, ellipsis: true });
-        x += c.width;
-      });
-      doc.fillColor('#000');
-      y += 18;
-    };
-
-    drawRow(cols.map(c => c.label), { bold: true });
-    doc.moveTo(startX, y).lineTo(startX + cols.reduce((s, c) => s + c.width, 0), y).strokeColor('#ccc').stroke();
-    y += 4;
-
-    students.forEach((s, i) => {
-      if (y > 760) { doc.addPage(); y = doc.page.margins.top; }
+    // Compute each student's best graded attempt once, up front, so the
+    // pass/fail chips and the table rows are always derived from the same
+    // numbers (and we're not re-sorting attempts twice per student).
+    const bestByStudent = students.map(s => {
       const list = byStudent[s._id.toString()] || [];
       const graded = list.filter(a => a.status === 'graded');
       const best = [...graded].sort((a, b) => b.total_score - a.total_score)[0];
       const bestScore = best ? best.total_score : null;
       const rawPct = rawPercentage(bestScore, maxMarks);
-      const percentage = rawPct != null ? Math.round(rawPct) : null;
-      const marksOnMw = scaleScore(bestScore, maxMarks, moduleWeight);
       const decision = best ? computeDecision(rawPct, category) : null;
-      drawRow(
-        [
-          i + 1, s.name || '',
-          bestScore != null ? bestScore : '—',
-          percentage != null ? `${percentage}%` : '—',
-          marksOnMw != null ? marksOnMw : '—',
-          decision || (list.length ? '—' : 'Not attempted'),
-        ],
-        { colors: { 5: decision === 'C' ? '#10b981' : (decision === 'NYC' ? '#ef4444' : undefined) } }
-      );
+      return {
+        student: s,
+        attempted: list.length > 0,
+        bestScore,
+        percentage: rawPct != null ? Math.round(rawPct) : null,
+        marksOnMw: scaleScore(bestScore, maxMarks, moduleWeight),
+        decision,
+      };
     });
+    const passedCount = bestByStudent.filter(b => b.decision === 'C').length;
+    const failedCount = bestByStudent.filter(b => b.decision === 'NYC').length;
+    const withPct = bestByStudent.filter(b => b.percentage != null);
+    const avg = withPct.length ? Math.round(withPct.reduce((s, b) => s + b.percentage, 0) / withPct.length) : null;
 
+    pdfDrawStatChips(doc, [
+      { label: 'Students', value: students.length, color: '#6366f1' },
+      { label: 'Class average', value: avg != null ? `${avg}%` : '—', color: '#3b82f6' },
+      { label: 'Passed', value: passedCount, color: PDF_THEME.pass },
+      { label: 'Failed', value: failedCount, color: PDF_THEME.fail },
+    ]);
+
+    const cols = [
+      { label: 'No.', width: 28, align: 'center' },
+      { label: 'Name', width: 210 },
+      { label: `Score /${maxMarks}`, width: 80, align: 'center' },
+      { label: '%', width: 55, align: 'center' },
+      { label: `MW /${moduleWeight}`, width: 80, align: 'center' },
+      { label: 'Decision', width: 68, align: 'center' },
+    ];
+
+    const rows = bestByStudent.map((b, i) => ({
+      cells: [
+        i + 1, b.student.name || '',
+        b.bestScore != null ? Math.round(b.bestScore) : '—',
+        b.percentage != null ? `${b.percentage}%` : '—',
+        b.marksOnMw != null ? Math.round(b.marksOnMw) : '—',
+        b.decision || (b.attempted ? '—' : 'Not attempted'),
+      ],
+      badges: b.decision ? { 5: b.decision === 'C' ? PDF_THEME.pass : PDF_THEME.fail } : undefined,
+    }));
+
+    pdfDrawTable(doc, { cols, rows });
     doc.end();
   } catch (err) {
     if (!res.headersSent) res.status(500).json({ message: err.message });
