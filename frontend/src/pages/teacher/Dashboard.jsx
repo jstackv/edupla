@@ -505,7 +505,7 @@ export default function TeacherDashboard() {
         <StatCard icon={Layers}        label="Modules"             value={c.modules || 0}       color="#a78bfa" bg="rgba(167,139,250,0.1)" to="/teacher/assessments-grade" sub="assigned courses" />
         <StatCard icon={ClipboardList} label="Assessments"         value={c.assessments || 0}   color="#fbbf24" bg="rgba(251,191,36,0.1)"  to="/teacher/assessments-grade" />
         <StatCard icon={BookMarked}    label="Documents"           value={c.documents || 0}     color="#f472b6" bg="rgba(244,114,182,0.1)" to="/teacher/documents" />
-        <StatCard icon={Timer}         label="Online Quizzes"      value={c.onlineAssessments || 0} color="#8b5cf6" bg="rgba(139,92,246,0.1)" to="/teacher/assessments" sub="shared with students" />
+        <StatCard icon={Timer}         label="Online Assessments"      value={c.onlineAssessments || 0} color="#8b5cf6" bg="rgba(139,92,246,0.1)" to="/teacher/assessments" sub="shared with students" />
       </div>
 
       {/* ── Charts Row ── */}
@@ -850,7 +850,7 @@ export default function TeacherDashboard() {
             <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>Online Assessment Activity</p>
           </div>
           {!quizStats.quizAssessments
-            ? <EmptyState icon={Laptop} msg="No online quizzes shared yet" action="Build one" actionTo="/teacher/assessments" />
+            ? <EmptyState icon={Laptop} msg="No online assessment shared yet" action="Build one" actionTo="/teacher/assessments" />
             : (
               <>
                 {/* Performance metrics, straight off student attempts — completion
@@ -983,7 +983,7 @@ export default function TeacherDashboard() {
       <div className="card" style={{ ...cardStyle, transitionDelay: '0.68s' }}>
         <SectionHeader title="Quiz Performance by Assessment" to="/teacher/assessments" linkLabel="Manage" />
         {!quizPerAssessment.length
-          ? <EmptyState icon={Laptop} msg="No online quizzes shared yet" action="Build one" actionTo="/teacher/assessments" />
+          ? <EmptyState icon={Laptop} msg="No online assessment shared yet" action="Build one" actionTo="/teacher/assessments" />
           : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {quizPerAssessment.map((q, i) => {
@@ -1023,9 +1023,9 @@ export default function TeacherDashboard() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 9 }}>
           {[
             { label: 'New Assignment', to: '/teacher/assignments',       icon: ClipboardList, color: '#fbbf24', bg: 'rgba(251,191,36,0.1)' },
-            { label: 'Grade Work',     to: '/teacher/assessments-grade', icon: BarChart2,     color: '#818cf8', bg: 'rgba(129,140,248,0.1)' },
-            { label: 'Online Quiz',    to: '/teacher/assessments',       icon: Timer,         color: '#8b5cf6', bg: 'rgba(139,92,246,0.1)' },
-            { label: 'Documents',      to: '/teacher/documents',         icon: FileText,      color: '#f472b6', bg: 'rgba(244,114,182,0.1)' },
+            { label: 'Record Marks',     to: '/teacher/assessments-grade', icon: BarChart2,     color: '#818cf8', bg: 'rgba(129,140,248,0.1)' },
+            { label: 'New Assessment',    to: '/teacher/assessments',       icon: Timer,         color: '#8b5cf6', bg: 'rgba(139,92,246,0.1)' },
+            { label: 'New Document',      to: '/teacher/documents',         icon: FileText,      color: '#f472b6', bg: 'rgba(244,114,182,0.1)' },
             { label: 'Announce',       to: '/teacher/announcements',     icon: Megaphone,     color: '#22d3ee', bg: 'rgba(34,211,238,0.1)' },
             { label: 'My Classes',     to: '/teacher/classes',           icon: BookOpen,      color: '#34d399', bg: 'rgba(52,211,153,0.1)' },
             { label: 'Groups & DMs',   to: '/teacher/groups',            icon: MessageSquare, color: '#f97316', bg: 'rgba(249,115,22,0.1)' },
