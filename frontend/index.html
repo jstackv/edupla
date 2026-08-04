@@ -3,9 +3,35 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>EDUPLA</title>
-    <meta name="description" content="The all-in-one education management platform for schools." />
+
+    <!-- Baseline SEO — real per-page titles/descriptions are set at runtime by
+         src/components/common/SEO.jsx via react-helmet-async. This block is the
+         fallback seen by crawlers/tools that don't execute JavaScript. -->
+    <title>Edupla — School Management & Online Assessment Platform</title>
+    <meta name="description" content="Edupla is an all-in-one school management platform: online assessments, marks, classes, assignments, and analytics for admins, teachers, and students." />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://edupla.vercel.app/" />
+
+    <!-- Google Search Console ownership verification.
+         Get your code from: Search Console → Add property → URL prefix →
+         "HTML tag" method. Paste ONLY the content="..." value below, then
+         redeploy and click Verify in Search Console. -->
+    <meta name="google-site-verification" content="yLIs751-LVISCsBKfnRFzeArRGtXAeXN-4LSB13j_bM" />
+
+    <!-- Open Graph / social preview fallback -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Edupla" />
+    <meta property="og:title" content="Edupla — School Management & Online Assessment Platform" />
+    <meta property="og:description" content="An all-in-one platform for online assessments, marks, classes, assignments, and analytics." />
+    <meta property="og:image" content="https://edupla.vercel.app/og-image.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <!-- Preconnect to Google Fonts so the fonts referenced in Landing/Login
+         load faster — page speed is a Google ranking signal. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   </head>
   <body>
     <div id="root"></div>

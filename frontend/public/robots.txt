@@ -1,0 +1,18 @@
+# Edupla — robots.txt
+# Only "/" (the marketing landing page) is meant to be indexed.
+# Everything else requires login and renders nothing meaningful to a
+# crawler, so we keep Googlebot's crawl budget focused on the page that
+# actually matters for ranking.
+
+User-agent: *
+Allow: /$
+Allow: /login$
+Disallow: /admin
+Disallow: /teacher
+Disallow: /student
+Disallow: /profile
+Disallow: /settings
+Disallow: /view-doc
+Disallow: /impersonate-handoff
+
+Sitemap: https://edupla.vercel.app/sitemap.xml

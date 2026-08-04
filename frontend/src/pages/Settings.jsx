@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import api from '../utils/api';
@@ -7,6 +8,7 @@ import {
   Lock, Eye, EyeOff, Sun, Moon, Bell, Globe, Palette,
   Shield, Check, ChevronRight, Zap, Monitor,
 } from 'lucide-react';
+import LanguageOptionsGrid from '../components/common/LanguageOptionsGrid';
 
 /* ── shared password strength bar ─────────────────── */
 function StrengthBar({ password }) {
@@ -51,6 +53,7 @@ function Toggle({ checked, onChange, color = '#6366f1' }) {
    ADMIN SETTINGS  — dark control room aesthetic
 ══════════════════════════════════════════════════════ */
 function AdminSettings({ user, dark, toggleTheme }) {
+  const { t } = useTranslation();
   const accentColor = user?.is_super_admin ? '#8b5cf6' : '#6366f1';
   const [form, setForm] = useState({ currentPassword:'', newPassword:'', confirmPassword:'' });
   const [show, setShow] = useState({ cur:false, new_:false, conf:false });
@@ -59,15 +62,15 @@ function AdminSettings({ user, dark, toggleTheme }) {
 
   const handleChangePassword = async (e) => {
     e.preventDefault();
-    if (!form.currentPassword) return toast.error('Enter your current password');
-    if (form.newPassword.length < 6) return toast.error('Password must be at least 6 characters');
-    if (form.newPassword !== form.confirmPassword) return toast.error('Passwords do not match');
+    if (!form.currentPassword) return toast.error(t('settingsPage.enterCurrentPassword'));
+    if (form.newPassword.length < 6) return toast.error(t('settingsPage.passwordMinLength'));
+    if (form.newPassword !== form.confirmPassword) return toast.error(t('settingsPage.passwordsNoMatch'));
     setSaving(true);
     try {
       await api.put('/auth/profile', { currentPassword: form.currentPassword, newPassword: form.newPassword });
-      toast.success('Password updated successfully');
+      toast.success(t('settingsPage.passwordUpdatedSuccess'));
       setForm({ currentPassword:'', newPassword:'', confirmPassword:'' });
-    } catch (err) { toast.error(err.response?.data?.message || 'Failed to update password'); }
+    } catch (err) { toast.error(err.response?.data?.message || t('settingsPage.passwordUpdateFailed')); }
     finally { setSaving(false); }
   };
 
@@ -83,8 +86,8 @@ function AdminSettings({ user, dark, toggleTheme }) {
 
       {/* Page header */}
       <div style={{ marginBottom:20 }}>
-        <h1 style={{ margin:'0 0 4px', fontFamily:"'Sora',sans-serif", fontSize:22, fontWeight:800, color:dark?'#f1f5f9':'#0f172a', letterSpacing:'-0.02em' }}>Settings</h1>
-        <p style={{ margin:0, fontSize:13, color:dark?'#64748b':'#9ca3af' }}>Control your account preferences and security</p>
+        <h1 style={{ margin:'0 0 4px', fontFamily:"'Sora',sans-serif", fontSize:22, fontWeight:800, color:dark?'#f1f5f9':'#0f172a', letterSpacing:'-0.02em' }}>{t('settingsPage.adminTitle')}</h1>
+        <p style={{ margin:0, fontSize:13, color:dark?'#64748b':'#9ca3af' }}>{t('settingsPage.adminSubtitle')}</p>
       </div>
 
       {/* Appearance */}
@@ -94,16 +97,16 @@ function AdminSettings({ user, dark, toggleTheme }) {
             <Palette size={17} color={accentColor} />
           </div>
           <div>
-            <p style={{ margin:0, fontSize:14, fontWeight:700, color:dark?'#e2e8f0':'#111827', fontFamily:"'Sora',sans-serif" }}>Appearance</p>
-            <p style={{ margin:0, fontSize:12, color:dark?'#64748b':'#9ca3af' }}>Display theme preferences</p>
+            <p style={{ margin:0, fontSize:14, fontWeight:700, color:dark?'#e2e8f0':'#111827', fontFamily:"'Sora',sans-serif" }}>{t('settingsPage.appearance')}</p>
+            <p style={{ margin:0, fontSize:12, color:dark?'#64748b':'#9ca3af' }}>{t('settingsPage.appearanceDesc')}</p>
           </div>
         </div>
         <div style={{ padding:'14px 22px 18px' }}>
           {/* Theme toggle card */}
           <div style={{ display:'flex', gap:12 }}>
             {[
-              { id:'light', label:'Light Mode', icon:Sun,     desc:'Clean bright interface' },
-              { id:'dark',  label:'Dark Mode',  icon:Moon,    desc:'Easy on the eyes'       },
+              { id:'light', label:t('settingsPage.lightMode'), icon:Sun,     desc:t('settingsPage.lightModeDesc') },
+              { id:'dark',  label:t('settingsPage.darkMode'),  icon:Moon,    desc:t('settingsPage.darkModeDesc')       },
             ].map(({ id, label, icon:Icon, desc }) => {
               const isActive = (id==='dark')===dark;
               return (
@@ -128,6 +131,22 @@ function AdminSettings({ user, dark, toggleTheme }) {
         </div>
       </div>
 
+      {/* Language */}
+      <div className="as-card">
+        <div className="as-section-header">
+          <div style={{ width:36, height:36, borderRadius:10, background:`${accentColor}15`, display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <Globe size={17} color={accentColor} />
+          </div>
+          <div>
+            <p style={{ margin:0, fontSize:14, fontWeight:700, color:dark?'#e2e8f0':'#111827', fontFamily:"'Sora',sans-serif" }}>{t('settingsPage.language')}</p>
+            <p style={{ margin:0, fontSize:12, color:dark?'#64748b':'#9ca3af' }}>{t('settingsPage.languageDesc')}</p>
+          </div>
+        </div>
+        <div style={{ padding:'14px 22px 18px' }}>
+          <LanguageOptionsGrid dark={dark} accentColor={accentColor} />
+        </div>
+      </div>
+
       {/* Notifications */}
       <div className="as-card">
         <div className="as-section-header">
@@ -135,15 +154,15 @@ function AdminSettings({ user, dark, toggleTheme }) {
             <Bell size={17} color="#10b981" />
           </div>
           <div>
-            <p style={{ margin:0, fontSize:14, fontWeight:700, color:dark?'#e2e8f0':'#111827', fontFamily:"'Sora',sans-serif" }}>Notifications</p>
-            <p style={{ margin:0, fontSize:12, color:dark?'#64748b':'#9ca3af' }}>Choose what alerts you receive</p>
+            <p style={{ margin:0, fontSize:14, fontWeight:700, color:dark?'#e2e8f0':'#111827', fontFamily:"'Sora',sans-serif" }}>{t('settingsPage.notifications')}</p>
+            <p style={{ margin:0, fontSize:12, color:dark?'#64748b':'#9ca3af' }}>{t('settingsPage.notificationsDescAdmin')}</p>
           </div>
         </div>
         <div style={{ padding:'6px 22px 14px' }}>
           {[
-            { key:'system',   label:'System alerts',    desc:'Critical platform notifications', color:'#ef4444' },
-            { key:'security', label:'Security events',  desc:'Login attempts and changes',      color:'#f59e0b' },
-            { key:'updates',  label:'Product updates',  desc:'New features and improvements',   color:'#6366f1' },
+            { key:'system',   label:t('settingsPage.systemAlerts'),    desc:t('settingsPage.systemAlertsDesc'), color:'#ef4444' },
+            { key:'security', label:t('settingsPage.securityEvents'),  desc:t('settingsPage.securityEventsDesc'),      color:'#f59e0b' },
+            { key:'updates',  label:t('settingsPage.productUpdates'),  desc:t('settingsPage.productUpdatesDesc'),   color:'#6366f1' },
           ].map(({ key, label, desc, color }) => (
             <div key={key} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 0', borderBottom:`1px solid ${dark?'#1e2535':'#f1f5f9'}` }}>
               <div>
@@ -163,17 +182,17 @@ function AdminSettings({ user, dark, toggleTheme }) {
             <Shield size={17} color="#ef4444" />
           </div>
           <div>
-            <p style={{ margin:0, fontSize:14, fontWeight:700, color:dark?'#e2e8f0':'#111827', fontFamily:"'Sora',sans-serif" }}>Security & Password</p>
-            <p style={{ margin:0, fontSize:12, color:dark?'#64748b':'#9ca3af' }}>Keep your account protected</p>
+            <p style={{ margin:0, fontSize:14, fontWeight:700, color:dark?'#e2e8f0':'#111827', fontFamily:"'Sora',sans-serif" }}>{t('settingsPage.securityAndPassword')}</p>
+            <p style={{ margin:0, fontSize:12, color:dark?'#64748b':'#9ca3af' }}>{t('settingsPage.securityAndPasswordDesc')}</p>
           </div>
         </div>
         <div style={{ padding:'18px 22px 22px' }}>
           <form onSubmit={handleChangePassword}>
             <div style={{ display:'grid', gap:14, marginBottom:18 }}>
               {[
-                { key:'currentPassword', label:'Current Password', show:show.cur, toggle:()=>setShow(s=>({...s,cur:!s.cur})), placeholder:'Enter current password' },
-                { key:'newPassword',     label:'New Password',     show:show.new_, toggle:()=>setShow(s=>({...s,new_:!s.new_})), placeholder:'Min. 6 characters', showStrength:true },
-                { key:'confirmPassword', label:'Confirm New Password', show:show.conf, toggle:()=>setShow(s=>({...s,conf:!s.conf})), placeholder:'Repeat new password' },
+                { key:'currentPassword', label:t('settingsPage.currentPassword'), show:show.cur, toggle:()=>setShow(s=>({...s,cur:!s.cur})), placeholder:t('settingsPage.currentPasswordPlaceholder') },
+                { key:'newPassword',     label:t('settingsPage.newPassword'),     show:show.new_, toggle:()=>setShow(s=>({...s,new_:!s.new_})), placeholder:t('settingsPage.newPasswordPlaceholder'), showStrength:true },
+                { key:'confirmPassword', label:t('settingsPage.confirmPassword'), show:show.conf, toggle:()=>setShow(s=>({...s,conf:!s.conf})), placeholder:t('settingsPage.confirmPasswordPlaceholder') },
               ].map(({ key, label, show:s, toggle, placeholder, showStrength }) => (
                 <div key={key}>
                   <label style={{ display:'block', fontSize:12, fontWeight:600, color:dark?'#94a3b8':'#374151', marginBottom:7, letterSpacing:'0.03em' }}>{label}</label>
@@ -191,7 +210,7 @@ function AdminSettings({ user, dark, toggleTheme }) {
                   </div>
                   {showStrength && <StrengthBar password={form.newPassword} />}
                   {key==='confirmPassword' && form.newPassword && form.confirmPassword && form.newPassword!==form.confirmPassword && (
-                    <p style={{ fontSize:11.5, color:'#ef4444', marginTop:5 }}>Passwords do not match</p>
+                    <p style={{ fontSize:11.5, color:'#ef4444', marginTop:5 }}>{t('settingsPage.passwordsNoMatch')}</p>
                   )}
                 </div>
               ))}
@@ -205,7 +224,7 @@ function AdminSettings({ user, dark, toggleTheme }) {
               transition:'all 0.15s',
             }}>
               {saving ? <div style={{ width:15,height:15,border:'2px solid rgba(255,255,255,0.4)',borderTopColor:'#fff',borderRadius:'50%',animation:'spin 0.7s linear infinite' }} /> : <Shield size={15} />}
-              {saving ? 'Updating…' : 'Update Password'}
+              {saving ? t('settingsPage.updating') : t('settingsPage.updatePassword')}
             </button>
           </form>
         </div>
@@ -218,15 +237,15 @@ function AdminSettings({ user, dark, toggleTheme }) {
             <Globe size={17} color={dark?'#64748b':'#9ca3af'} />
           </div>
           <div>
-            <p style={{ margin:0, fontSize:14, fontWeight:700, color:dark?'#e2e8f0':'#111827', fontFamily:"'Sora',sans-serif" }}>Account Overview</p>
-            <p style={{ margin:0, fontSize:12, color:dark?'#64748b':'#9ca3af' }}>Your account details</p>
+            <p style={{ margin:0, fontSize:14, fontWeight:700, color:dark?'#e2e8f0':'#111827', fontFamily:"'Sora',sans-serif" }}>{t('settingsPage.accountOverview')}</p>
+            <p style={{ margin:0, fontSize:12, color:dark?'#64748b':'#9ca3af' }}>{t('settingsPage.accountOverviewDesc')}</p>
           </div>
         </div>
         <div style={{ padding:'6px 22px 18px' }}>
           {[
-            { label:'Role',       value: user?.is_super_admin?'Super Administrator':'Administrator' },
-            { label:'Account ID', value:`#${user?.id||user?._id||'—'}` },
-            { label:'Platform',   value:'EDUPLA v2.0' },
+            { label:t('settingsPage.role'),       value: user?.is_super_admin?t('settingsPage.superAdministrator'):t('settingsPage.administrator') },
+            { label:t('settingsPage.accountId'), value:`#${user?.id||user?._id||'—'}` },
+            { label:t('settingsPage.platform'),   value:'EDUPLA v2.0' },
           ].map(({ label, value }) => (
             <div key={label} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'13px 0', borderBottom:`1px solid ${dark?'#1e2535':'#f1f5f9'}` }}>
               <span style={{ fontSize:13, color:dark?'#64748b':'#9ca3af' }}>{label}</span>
@@ -244,6 +263,7 @@ function AdminSettings({ user, dark, toggleTheme }) {
    TEACHER SETTINGS  — clean refined professional
 ══════════════════════════════════════════════════════ */
 function TeacherSettings({ dark, toggleTheme }) {
+  const { t } = useTranslation();
   const [form, setForm] = useState({ currentPassword:'', newPassword:'', confirmPassword:'' });
   const [show, setShow] = useState({ cur:false, new_:false, conf:false });
   const [saving, setSaving] = useState(false);
@@ -251,15 +271,15 @@ function TeacherSettings({ dark, toggleTheme }) {
 
   const handleChangePassword = async (e) => {
     e.preventDefault();
-    if (!form.currentPassword) return toast.error('Enter your current password');
-    if (form.newPassword.length < 6) return toast.error('Password must be at least 6 characters');
-    if (form.newPassword !== form.confirmPassword) return toast.error('Passwords do not match');
+    if (!form.currentPassword) return toast.error(t('settingsPage.enterCurrentPassword'));
+    if (form.newPassword.length < 6) return toast.error(t('settingsPage.passwordMinLength'));
+    if (form.newPassword !== form.confirmPassword) return toast.error(t('settingsPage.passwordsNoMatch'));
     setSaving(true);
     try {
       await api.put('/auth/profile', { currentPassword: form.currentPassword, newPassword: form.newPassword });
-      toast.success('Password updated');
+      toast.success(t('settingsPage.passwordUpdated'));
       setForm({ currentPassword:'', newPassword:'', confirmPassword:'' });
-    } catch (err) { toast.error(err.response?.data?.message || 'Failed to update password'); }
+    } catch (err) { toast.error(err.response?.data?.message || t('settingsPage.passwordUpdateFailed')); }
     finally { setSaving(false); }
   };
 
@@ -274,8 +294,8 @@ function TeacherSettings({ dark, toggleTheme }) {
       `}</style>
 
       <div style={{ marginBottom:20 }}>
-        <h1 style={{ margin:'0 0 4px', fontFamily:"'Playfair Display',serif", fontSize:24, fontWeight:700, color:dark?'#f1f5f9':'#0f172a' }}>Settings</h1>
-        <p style={{ margin:0, fontSize:13, color:dark?'#64748b':'#9ca3af' }}>Manage your preferences</p>
+        <h1 style={{ margin:'0 0 4px', fontFamily:"'Playfair Display',serif", fontSize:24, fontWeight:700, color:dark?'#f1f5f9':'#0f172a' }}>{t('settingsPage.teacherTitle')}</h1>
+        <p style={{ margin:0, fontSize:13, color:dark?'#64748b':'#9ca3af' }}>{t('settingsPage.teacherSubtitle')}</p>
       </div>
 
       {/* Appearance */}
@@ -284,17 +304,30 @@ function TeacherSettings({ dark, toggleTheme }) {
           <div style={{ width:34, height:34, borderRadius:9, background:'rgba(99,102,241,0.12)', display:'flex', alignItems:'center', justifyContent:'center' }}>
             <Palette size={16} color="#6366f1" />
           </div>
-          <p style={{ margin:0, fontSize:14, fontWeight:700, color:dark?'#e2e8f0':'#111827', fontFamily:"'Playfair Display',serif" }}>Appearance</p>
+          <p style={{ margin:0, fontSize:14, fontWeight:700, color:dark?'#e2e8f0':'#111827', fontFamily:"'Playfair Display',serif" }}>{t('settingsPage.appearance')}</p>
         </div>
         <div className="ts-row">
           <div style={{ display:'flex', alignItems:'center', gap:12 }}>
             {dark ? <Moon size={18} color="#6366f1" /> : <Sun size={18} color="#f59e0b" />}
             <div>
-              <p style={{ margin:0, fontSize:13.5, fontWeight:600, color:dark?'#e2e8f0':'#111827' }}>{dark?'Dark Mode':'Light Mode'}</p>
-              <p style={{ margin:0, fontSize:12, color:dark?'#64748b':'#9ca3af' }}>Toggle the interface theme</p>
+              <p style={{ margin:0, fontSize:13.5, fontWeight:600, color:dark?'#e2e8f0':'#111827' }}>{dark?t('settingsPage.darkMode'):t('settingsPage.lightMode')}</p>
+              <p style={{ margin:0, fontSize:12, color:dark?'#64748b':'#9ca3af' }}>{t('settingsPage.toggleTheme')}</p>
             </div>
           </div>
           <Toggle checked={dark} onChange={toggleTheme} />
+        </div>
+      </div>
+
+      {/* Language */}
+      <div className="ts-card">
+        <div style={{ display:'flex', alignItems:'center', gap:12, padding:'18px 22px 14px', borderBottom:`1px solid ${dark?'#1e2535':'#f1f5f9'}` }}>
+          <div style={{ width:34, height:34, borderRadius:9, background:'rgba(99,102,241,0.12)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <Globe size={16} color="#6366f1" />
+          </div>
+          <p style={{ margin:0, fontSize:14, fontWeight:700, color:dark?'#e2e8f0':'#111827', fontFamily:"'Playfair Display',serif" }}>{t('settingsPage.language')}</p>
+        </div>
+        <div style={{ padding:'16px 22px 20px' }}>
+          <LanguageOptionsGrid dark={dark} accentColor="#6366f1" />
         </div>
       </div>
 
@@ -304,12 +337,12 @@ function TeacherSettings({ dark, toggleTheme }) {
           <div style={{ width:34, height:34, borderRadius:9, background:'rgba(16,185,129,0.12)', display:'flex', alignItems:'center', justifyContent:'center' }}>
             <Bell size={16} color="#10b981" />
           </div>
-          <p style={{ margin:0, fontSize:14, fontWeight:700, color:dark?'#e2e8f0':'#111827', fontFamily:"'Playfair Display',serif" }}>Notifications</p>
+          <p style={{ margin:0, fontSize:14, fontWeight:700, color:dark?'#e2e8f0':'#111827', fontFamily:"'Playfair Display',serif" }}>{t('settingsPage.notifications')}</p>
         </div>
         {[
-          { key:'assignments',   label:'New assignments',     desc:'When students submit work' },
-          { key:'announcements', label:'Announcements',       desc:'Class and school-wide news' },
-          { key:'documents',     label:'Document activity',   desc:'Uploads and downloads' },
+          { key:'assignments',   label:t('settingsPage.teacherNewAssignments'),     desc:t('settingsPage.teacherNewAssignmentsDesc') },
+          { key:'announcements', label:t('nav.announcements'), desc:t('settingsPage.teacherAnnouncementsDesc') },
+          { key:'documents',     label:t('settingsPage.teacherDocumentActivity'),   desc:t('settingsPage.teacherDocumentActivityDesc') },
         ].map(({ key, label, desc }) => (
           <div key={key} className="ts-row">
             <div>
@@ -328,17 +361,17 @@ function TeacherSettings({ dark, toggleTheme }) {
             <Shield size={16} color="#f59e0b" />
           </div>
           <div>
-            <p style={{ margin:0, fontSize:14, fontWeight:700, color:dark?'#e2e8f0':'#111827', fontFamily:"'Playfair Display',serif" }}>Change Password</p>
-            <p style={{ margin:0, fontSize:12, color:dark?'#64748b':'#9ca3af' }}>Keep your account secure</p>
+            <p style={{ margin:0, fontSize:14, fontWeight:700, color:dark?'#e2e8f0':'#111827', fontFamily:"'Playfair Display',serif" }}>{t('settingsPage.changePassword')}</p>
+            <p style={{ margin:0, fontSize:12, color:dark?'#64748b':'#9ca3af' }}>{t('settingsPage.keepAccountSecure')}</p>
           </div>
         </div>
         <div style={{ padding:'18px 22px 22px' }}>
           <form onSubmit={handleChangePassword}>
             <div style={{ display:'grid', gap:13, marginBottom:16 }}>
               {[
-                { key:'currentPassword', label:'Current Password', show:show.cur, toggle:()=>setShow(s=>({...s,cur:!s.cur})), placeholder:'Current password' },
-                { key:'newPassword',     label:'New Password',     show:show.new_, toggle:()=>setShow(s=>({...s,new_:!s.new_})), placeholder:'New password (min. 6 chars)', showStrength:true },
-                { key:'confirmPassword', label:'Confirm Password', show:show.conf, toggle:()=>setShow(s=>({...s,conf:!s.conf})), placeholder:'Repeat new password' },
+                { key:'currentPassword', label:t('settingsPage.currentPassword'), show:show.cur, toggle:()=>setShow(s=>({...s,cur:!s.cur})), placeholder:t('settingsPage.teacherCurrentPasswordPlaceholder') },
+                { key:'newPassword',     label:t('settingsPage.newPassword'),     show:show.new_, toggle:()=>setShow(s=>({...s,new_:!s.new_})), placeholder:t('settingsPage.teacherNewPasswordPlaceholder'), showStrength:true },
+                { key:'confirmPassword', label:t('settingsPage.confirmPasswordShort'), show:show.conf, toggle:()=>setShow(s=>({...s,conf:!s.conf})), placeholder:t('settingsPage.confirmPasswordPlaceholder') },
               ].map(({ key, label, show:s, toggle, placeholder, showStrength }) => (
                 <div key={key}>
                   <label style={{ display:'block', fontSize:12, fontWeight:600, color:dark?'#94a3b8':'#374151', marginBottom:6 }}>{label}</label>
@@ -355,7 +388,7 @@ function TeacherSettings({ dark, toggleTheme }) {
             </div>
             <button type="submit" disabled={saving} style={{ display:'inline-flex', alignItems:'center', gap:7, padding:'10px 22px', borderRadius:11, border:'none', background:'linear-gradient(135deg,#6366f1,#4338ca)', color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer', boxShadow:'0 4px 14px rgba(99,102,241,0.35)', fontFamily:"'DM Sans',sans-serif" }}>
               {saving ? <div style={{ width:14,height:14,border:'2px solid rgba(255,255,255,0.4)',borderTopColor:'#fff',borderRadius:'50%',animation:'spin 0.7s linear infinite' }} /> : <Shield size={14}/>}
-              {saving ? 'Updating…' : 'Update Password'}
+              {saving ? t('settingsPage.updating') : t('settingsPage.updatePassword')}
             </button>
           </form>
         </div>
@@ -369,6 +402,7 @@ function TeacherSettings({ dark, toggleTheme }) {
    STUDENT SETTINGS  — friendly, colorful, playful
 ══════════════════════════════════════════════════════ */
 function StudentSettings({ dark, toggleTheme }) {
+  const { t } = useTranslation();
   const [form, setForm] = useState({ currentPassword:'', newPassword:'', confirmPassword:'' });
   const [show, setShow] = useState({ cur:false, new_:false, conf:false });
   const [saving, setSaving] = useState(false);
@@ -376,15 +410,15 @@ function StudentSettings({ dark, toggleTheme }) {
 
   const handleChangePassword = async (e) => {
     e.preventDefault();
-    if (!form.currentPassword) return toast.error('Enter your current password');
-    if (form.newPassword.length < 6) return toast.error('Password must be at least 6 characters');
-    if (form.newPassword !== form.confirmPassword) return toast.error('Passwords do not match');
+    if (!form.currentPassword) return toast.error(t('settingsPage.enterCurrentPassword'));
+    if (form.newPassword.length < 6) return toast.error(t('settingsPage.passwordMinLength'));
+    if (form.newPassword !== form.confirmPassword) return toast.error(t('settingsPage.passwordsNoMatch'));
     setSaving(true);
     try {
       await api.put('/auth/profile', { currentPassword: form.currentPassword, newPassword: form.newPassword });
-      toast.success('Password updated! 🎉');
+      toast.success(t('settingsPage.passwordUpdatedEmoji'));
       setForm({ currentPassword:'', newPassword:'', confirmPassword:'' });
-    } catch (err) { toast.error(err.response?.data?.message || 'Failed to update password'); }
+    } catch (err) { toast.error(err.response?.data?.message || t('settingsPage.passwordUpdateFailed')); }
     finally { setSaving(false); }
   };
 
@@ -398,8 +432,8 @@ function StudentSettings({ dark, toggleTheme }) {
       `}</style>
 
       <div style={{ marginBottom:20 }}>
-        <h1 style={{ margin:'0 0 4px', fontFamily:"'Nunito',sans-serif", fontSize:24, fontWeight:900, color:dark?'#f1f5f9':'#0f172a' }}>⚙️ Your Settings</h1>
-        <p style={{ margin:0, fontSize:13, color:dark?'#64748b':'#9ca3af' }}>Personalize your EDUPLA experience</p>
+        <h1 style={{ margin:'0 0 4px', fontFamily:"'Nunito',sans-serif", fontSize:24, fontWeight:900, color:dark?'#f1f5f9':'#0f172a' }}>{t('settingsPage.studentTitle')}</h1>
+        <p style={{ margin:0, fontSize:13, color:dark?'#64748b':'#9ca3af' }}>{t('settingsPage.studentSubtitle')}</p>
       </div>
 
       {/* Appearance */}
@@ -409,8 +443,8 @@ function StudentSettings({ dark, toggleTheme }) {
             {dark ? <Moon size={18} color="#fff" /> : <Sun size={18} color="#fff" />}
           </div>
           <div>
-            <p style={{ margin:0, fontSize:15, fontWeight:800, color:dark?'#e2e8f0':'#0f172a', fontFamily:"'Nunito',sans-serif" }}>Theme</p>
-            <p style={{ margin:0, fontSize:12, color:dark?'#64748b':'#9ca3af' }}>Pick your vibe</p>
+            <p style={{ margin:0, fontSize:15, fontWeight:800, color:dark?'#e2e8f0':'#0f172a', fontFamily:"'Nunito',sans-serif" }}>{t('settingsPage.theme')}</p>
+            <p style={{ margin:0, fontSize:12, color:dark?'#64748b':'#9ca3af' }}>{t('settingsPage.pickYourVibe')}</p>
           </div>
           <div style={{ marginLeft:'auto' }}>
             <Toggle checked={dark} onChange={toggleTheme} color="#8b5cf6" />
@@ -418,8 +452,8 @@ function StudentSettings({ dark, toggleTheme }) {
         </div>
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
           {[
-            { id:'light', label:'☀️ Light', desc:'Bright and fresh', active:!dark },
-            { id:'dark',  label:'🌙 Dark',  desc:'Easy on eyes',    active:dark  },
+            { id:'light', label:t('settingsPage.lightModeShort'), desc:t('settingsPage.lightModeDescShort'), active:!dark },
+            { id:'dark',  label:t('settingsPage.darkModeShort'),  desc:t('settingsPage.darkModeDescShort'),    active:dark  },
           ].map(({ id, label, desc, active }) => (
             <div key={id} onClick={() => { if (!active) toggleTheme(); }} style={{
               padding:'14px', borderRadius:14, cursor:'pointer',
@@ -435,6 +469,20 @@ function StudentSettings({ dark, toggleTheme }) {
         </div>
       </div>
 
+      {/* Language */}
+      <div className="ss-card" style={{ padding:22 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:16 }}>
+          <div style={{ width:40, height:40, borderRadius:12, background:'linear-gradient(135deg,#6366f1,#8b5cf6)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <Globe size={18} color="#fff" />
+          </div>
+          <div>
+            <p style={{ margin:0, fontSize:15, fontWeight:800, color:dark?'#e2e8f0':'#0f172a', fontFamily:"'Nunito',sans-serif" }}>{t('settingsPage.language')}</p>
+            <p style={{ margin:0, fontSize:12, color:dark?'#64748b':'#9ca3af' }}>{t('settingsPage.languageDesc')}</p>
+          </div>
+        </div>
+        <LanguageOptionsGrid dark={dark} accentColor="#8b5cf6" />
+      </div>
+
       {/* Notifications */}
       <div className="ss-card" style={{ padding:22 }}>
         <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:14 }}>
@@ -442,14 +490,14 @@ function StudentSettings({ dark, toggleTheme }) {
             <Bell size={18} color="#fff" />
           </div>
           <div>
-            <p style={{ margin:0, fontSize:15, fontWeight:800, color:dark?'#e2e8f0':'#0f172a', fontFamily:"'Nunito',sans-serif" }}>Notifications</p>
-            <p style={{ margin:0, fontSize:12, color:dark?'#64748b':'#9ca3af' }}>Stay in the loop</p>
+            <p style={{ margin:0, fontSize:15, fontWeight:800, color:dark?'#e2e8f0':'#0f172a', fontFamily:"'Nunito',sans-serif" }}>{t('settingsPage.notifications')}</p>
+            <p style={{ margin:0, fontSize:12, color:dark?'#64748b':'#9ca3af' }}>{t('settingsPage.notificationsDescStudent')}</p>
           </div>
         </div>
         {[
-          { key:'assignments',   label:'📝 Assignments',     desc:'New and upcoming deadlines', color:'#6366f1' },
-          { key:'announcements', label:'📢 Announcements',   desc:'Class and school news',       color:'#10b981' },
-          { key:'documents',     label:'📁 New Documents',   desc:'Shared study materials',      color:'#f59e0b' },
+          { key:'assignments',   label:t('settingsPage.assignmentsAlert'),     desc:t('settingsPage.assignmentsAlertDesc'), color:'#6366f1' },
+          { key:'announcements', label:t('settingsPage.announcementsAlert'),   desc:t('settingsPage.announcementsAlertDesc'),       color:'#10b981' },
+          { key:'documents',     label:t('settingsPage.documentsAlert'),   desc:t('settingsPage.documentsAlertDesc'),      color:'#f59e0b' },
         ].map(({ key, label, desc, color }) => (
           <div key={key} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'12px 0', borderBottom:`1px solid ${dark?'#1e2535':'#f1f5f9'}` }}>
             <div>
@@ -468,16 +516,16 @@ function StudentSettings({ dark, toggleTheme }) {
             <Lock size={18} color="#fff" />
           </div>
           <div>
-            <p style={{ margin:0, fontSize:15, fontWeight:800, color:dark?'#e2e8f0':'#0f172a', fontFamily:"'Nunito',sans-serif" }}>Change Password</p>
-            <p style={{ margin:0, fontSize:12, color:dark?'#64748b':'#9ca3af' }}>Keep your account safe</p>
+            <p style={{ margin:0, fontSize:15, fontWeight:800, color:dark?'#e2e8f0':'#0f172a', fontFamily:"'Nunito',sans-serif" }}>{t('settingsPage.changePassword')}</p>
+            <p style={{ margin:0, fontSize:12, color:dark?'#64748b':'#9ca3af' }}>{t('settingsPage.changePasswordDesc')}</p>
           </div>
         </div>
         <form onSubmit={handleChangePassword}>
           <div style={{ display:'grid', gap:13, marginBottom:16 }}>
             {[
-              { key:'currentPassword', label:'Current Password', show:show.cur, toggle:()=>setShow(s=>({...s,cur:!s.cur})), placeholder:'Your current password' },
-              { key:'newPassword',     label:'New Password',     show:show.new_, toggle:()=>setShow(s=>({...s,new_:!s.new_})), placeholder:'At least 6 characters', showStrength:true },
-              { key:'confirmPassword', label:'Confirm Password', show:show.conf, toggle:()=>setShow(s=>({...s,conf:!s.conf})), placeholder:'Type it again' },
+              { key:'currentPassword', label:t('settingsPage.currentPassword'), show:show.cur, toggle:()=>setShow(s=>({...s,cur:!s.cur})), placeholder:t('settingsPage.currentPasswordPlaceholderAlt') },
+              { key:'newPassword',     label:t('settingsPage.newPassword'),     show:show.new_, toggle:()=>setShow(s=>({...s,new_:!s.new_})), placeholder:t('settingsPage.newPasswordPlaceholderAlt'), showStrength:true },
+              { key:'confirmPassword', label:t('settingsPage.confirmPasswordShort'), show:show.conf, toggle:()=>setShow(s=>({...s,conf:!s.conf})), placeholder:t('settingsPage.confirmPasswordPlaceholderAlt') },
             ].map(({ key, label, show:s, toggle, placeholder, showStrength }) => (
               <div key={key}>
                 <label style={{ display:'block', fontSize:12, fontWeight:700, color:dark?'#94a3b8':'#374151', marginBottom:6, fontFamily:"'Nunito',sans-serif" }}>{label}</label>
@@ -490,14 +538,14 @@ function StudentSettings({ dark, toggleTheme }) {
                 </div>
                 {showStrength && <StrengthBar password={form.newPassword} />}
                 {key==='confirmPassword' && form.newPassword && form.confirmPassword && form.newPassword!==form.confirmPassword && (
-                  <p style={{ fontSize:11.5, color:'#ef4444', marginTop:5 }}>⚠️ Passwords don't match</p>
+                  <p style={{ fontSize:11.5, color:'#ef4444', marginTop:5 }}>{t('settingsPage.passwordsNoMatchEmoji')}</p>
                 )}
               </div>
             ))}
           </div>
           <button type="submit" disabled={saving} style={{ display:'inline-flex', alignItems:'center', gap:8, padding:'11px 24px', borderRadius:12, border:'none', background:'linear-gradient(135deg,#10b981,#059669)', color:'#fff', fontSize:13.5, fontWeight:700, cursor:'pointer', boxShadow:'0 4px 14px rgba(16,185,129,0.4)', fontFamily:"'Nunito',sans-serif" }}>
             {saving ? <div style={{ width:15,height:15,border:'2px solid rgba(255,255,255,0.4)',borderTopColor:'#fff',borderRadius:'50%',animation:'spin 0.7s linear infinite' }} /> : '🔒'}
-            {saving ? 'Updating…' : 'Update Password'}
+            {saving ? t('settingsPage.updating') : t('settingsPage.updatePassword')}
           </button>
         </form>
       </div>

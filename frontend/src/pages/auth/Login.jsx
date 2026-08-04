@@ -1,34 +1,30 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import toast from 'react-hot-toast';
+import SEO from '../../components/common/SEO';
 
 /* ─────────────────────────────────────────────
    CONSTANTS
 ───────────────────────────────────────────── */
-const STATS = [
-  { value: '2.4K', label: 'Students' },
-  { value: '180',  label: 'Courses'  },
-  { value: '96%',  label: 'Pass rate' },
-  { value: '120',  label: 'Teachers' },
+const STATS_KEYS = [
+  { valueKey: '2.4K', labelKey: 'auth.stats.students' },
+  { valueKey: '180',  labelKey: 'auth.stats.courses'  },
+  { valueKey: '96%',  labelKey: 'auth.stats.passRate' },
+  { valueKey: '120',  labelKey: 'auth.stats.teachers' },
 ];
 
-const FEATURES = [
-  { label: 'Smart classrooms', icon: '📚' },
-  { label: 'Live analytics',   icon: '📊' },
-  { label: 'Instant feedback', icon: '⚡' },
-  { label: 'Team spaces',      icon: '🤝' },
+const FEATURES_KEYS = [
+  { labelKey: 'auth.features.smartClassrooms', icon: '📚' },
+  { labelKey: 'auth.features.liveAnalytics',   icon: '📊' },
+  { labelKey: 'auth.features.instantFeedback', icon: '⚡' },
+  { labelKey: 'auth.features.teamSpaces',      icon: '🤝' },
 ];
 
-const ACTIVITY = [
-  'Sarah K. submitted Chemistry assignment',
-  'Mr. Osei published new Mathematics quiz',
-  'Class 10B results are ready to view',
-  'James M. achieved 100% on Physics test',
-  'New course: Advanced Biology added',
-  'Term report cards are now available',
-];
+/* NOTE: activity ticker items now come from i18n (auth.activity array) so
+   they translate with the rest of the page — see Ticker() below. */
 
 /* ─────────────────────────────────────────────
    ANIMATED PARTICLES BACKGROUND
@@ -105,15 +101,17 @@ function ParticleBg({ dark }) {
    ACTIVITY TICKER
 ───────────────────────────────────────────── */
 function Ticker({ dark }) {
+  const { t } = useTranslation();
+  const activity = t('auth.activity', { returnObjects: true });
   const [idx,  setIdx]  = useState(0);
   const [show, setShow] = useState(true);
   useEffect(() => {
     const id = setInterval(() => {
       setShow(false);
-      setTimeout(() => { setIdx(i => (i + 1) % ACTIVITY.length); setShow(true); }, 300);
+      setTimeout(() => { setIdx(i => (i + 1) % activity.length); setShow(true); }, 300);
     }, 3600);
     return () => clearInterval(id);
-  }, []);
+  }, [activity.length]);
 
   return (
     <div style={{
@@ -132,7 +130,7 @@ function Ticker({ dark }) {
         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         opacity: show ? 1 : 0, transition: 'opacity 0.28s',
       }}>
-        {ACTIVITY[idx]}
+        {activity[idx]}
       </span>
     </div>
   );
@@ -190,6 +188,7 @@ export default function Login() {
   const { login }             = useAuth();
   const { dark, toggleTheme } = useTheme();
   const navigate              = useNavigate();
+  const { t }                 = useTranslation();
 
   // live count flicker
   useEffect(() => {
@@ -227,7 +226,7 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.email || !form.password) {
-      setToast2({ msg: 'Please fill in both fields.', type: 'error' });
+      setToast2({ msg: t('auth.fillBothFields'), type: 'error' });
       return;
     }
     setLoading(true);
@@ -235,7 +234,7 @@ export default function Login() {
     try {
       // No role passed — backend determines user role from credentials
       const user = await login(form.email, form.password);
-      toast.success(`Welcome back, ${user.name}!`);
+      toast.success(t('auth.loginSuccess', { name: user.name }));
       const dest = {
         teacher:    '/teacher/dashboard',
         admin:      '/admin/dashboard',
@@ -244,7 +243,7 @@ export default function Login() {
       }[user.role] ?? '/dashboard';
       navigate(dest, { replace: true });
     } catch (err) {
-      const msg = err.response?.data?.message || 'Invalid email or password.';
+      const msg = err.response?.data?.message || t('auth.invalidCredentials');
       setToast2({ msg, type: 'error' });
     }
     setLoading(false);
@@ -253,7 +252,7 @@ export default function Login() {
   const handleForgot = async (e) => {
     e.preventDefault();
     if (!forgotEmail) {
-      setToast2({ msg: 'Please enter your email address.', type: 'error' });
+      setToast2({ msg: t('auth.enterEmail'), type: 'error' });
       return;
     }
     setLoading(true);
@@ -264,7 +263,7 @@ export default function Login() {
       setForgotSent(true);
       setToast2({ msg: '', type: '' });
     } catch {
-      setToast2({ msg: 'Could not send reset link. Try again.', type: 'error' });
+      setToast2({ msg: t('auth.resetLinkFailed'), type: 'error' });
     }
     setLoading(false);
   };
@@ -296,6 +295,12 @@ export default function Login() {
   /* ── render ── */
   return (
     <>
+      <SEO
+        title="Log In"
+        description="Log in to your Edupla account to access your classes, assessments, and dashboard."
+        path="/login"
+        noindex
+      />
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap');
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -457,7 +462,7 @@ export default function Login() {
             </div>
             <div>
               <p style={{ fontFamily: "'Sora',sans-serif", fontSize: 16, fontWeight: 800, color: C.text, letterSpacing: '0.05em', margin: 0 }}>EDUPLA</p>
-              <p style={{ fontSize: 10.5, color: C.text3, fontWeight: 600, letterSpacing: '0.09em', textTransform: 'uppercase', margin: '1px 0 0' }}>Education Platform</p>
+              <p style={{ fontSize: 10.5, color: C.text3, fontWeight: 600, letterSpacing: '0.09em', textTransform: 'uppercase', margin: '1px 0 0' }}>{t('auth.educationPlatform')}</p>
             </div>
             {/* online pill */}
             <div style={{
@@ -468,7 +473,7 @@ export default function Login() {
               border: '1px solid rgba(16,185,129,0.25)',
             }}>
               <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#10b981', animation: 'ep-pulse 2s infinite' }} />
-              {onlineCount} online
+              {t('auth.onlineCount', { count: onlineCount })}
             </div>
           </div>
 
@@ -483,7 +488,7 @@ export default function Login() {
               fontSize: 10.5, fontWeight: 600, color: '#818cf8', letterSpacing: '0.05em',
             }}>
               <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#10b981', animation: 'ep-pulse 2s infinite' }} />
-              Trusted by 120+ educators
+              {t('auth.trustedByEducators')}
             </div>
 
             <h1 style={{
@@ -492,22 +497,22 @@ export default function Login() {
               fontWeight: 800, lineHeight: 1.1, letterSpacing: '-0.035em',
               color: C.text, margin: '0 0 12px',
             }}>
-              Where Learning<br />
+              {t('auth.heroTitleLine1')}<br />
               <span style={{ background: 'linear-gradient(135deg,#818cf8,#a78bfa,#06b6d4)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
-                Meets Innovation
+                {t('auth.heroTitleLine2')}
               </span>
             </h1>
 
             <p style={{ fontSize: 13, lineHeight: 1.72, color: C.text2, maxWidth: 300, margin: '0 0 22px' }}>
-              A unified school platform empowering teachers, energizing students, and giving admins total clarity.
+              {t('auth.heroSubtitle')}
             </p>
 
             {/* features */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 22 }}>
-              {FEATURES.map(f => (
-                <div key={f.label} className="ep-feat-row">
+              {FEATURES_KEYS.map(f => (
+                <div key={f.labelKey} className="ep-feat-row">
                   <span style={{ fontSize: 17 }}>{f.icon}</span>
-                  <span style={{ fontSize: 12.5, color: C.text2, fontWeight: 500 }}>{f.label}</span>
+                  <span style={{ fontSize: 12.5, color: C.text2, fontWeight: 500 }}>{t(f.labelKey)}</span>
                   <div style={{ marginLeft: 'auto', width: 17, height: 17, borderRadius: '50%', background: 'rgba(16,185,129,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                       <polyline points="20 6 9 17 4 12" />
@@ -524,14 +529,14 @@ export default function Login() {
               border: `1px solid ${dark ? 'rgba(255,255,255,0.07)' : '#e2e8f4'}`,
               borderRadius: 16, overflow: 'hidden',
             }}>
-              {STATS.map((s, i) => (
-                <div key={s.label} style={{
+              {STATS_KEYS.map((s, i) => (
+                <div key={s.labelKey} style={{
                   display: 'flex', flexDirection: 'column', alignItems: 'center',
                   gap: 3, padding: '12px 4px',
                   borderRight: i < 3 ? `1px solid ${dark ? 'rgba(255,255,255,0.07)' : '#e2e8f4'}` : 'none',
                 }}>
-                  <span style={{ fontFamily: "'Sora',sans-serif", fontSize: 17, fontWeight: 800, color: C.text, letterSpacing: '-0.03em' }}>{s.value}</span>
-                  <span style={{ fontSize: 9.5, color: C.text3, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{s.label}</span>
+                  <span style={{ fontFamily: "'Sora',sans-serif", fontSize: 17, fontWeight: 800, color: C.text, letterSpacing: '-0.03em' }}>{s.valueKey}</span>
+                  <span style={{ fontSize: 9.5, color: C.text3, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{t(s.labelKey)}</span>
                 </div>
               ))}
             </div>
@@ -557,9 +562,9 @@ export default function Login() {
             }}>SK</div>
             <div>
               <p style={{ fontSize: 11.5, lineHeight: 1.68, color: C.text2, fontStyle: 'italic', margin: '0 0 5px' }}>
-                "EDUPLA transformed how we run our school — all in one place."
+                "{t('auth.testimonialQuote')}"
               </p>
-              <p style={{ fontSize: 10.5, fontWeight: 700, color: '#818cf8', margin: 0 }}>Sarah Kim · Principal, Westbridge Academy</p>
+              <p style={{ fontSize: 10.5, fontWeight: 700, color: '#818cf8', margin: 0 }}>{t('auth.testimonialAuthor')}</p>
             </div>
           </div>
         </div>
@@ -592,7 +597,7 @@ export default function Login() {
                 </div>
                 <div>
                   <p style={{ fontFamily: "'Sora',sans-serif", fontSize: 13, fontWeight: 800, color: C.text, letterSpacing: '0.04em', margin: 0 }}>EDUPLA</p>
-                  <p style={{ fontSize: 9.5, color: C.text3, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', margin: '1px 0 0' }}>Secure Portal</p>
+                  <p style={{ fontSize: 9.5, color: C.text3, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', margin: '1px 0 0' }}>{t('auth.securePortal')}</p>
                 </div>
               </div>
               {/* theme toggle */}
@@ -605,8 +610,8 @@ export default function Login() {
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   cursor: 'pointer', transition: 'all 0.2s',
                 }}
-                title={dark ? 'Light mode' : 'Dark mode'}
-                aria-label="Toggle theme"
+                title={dark ? t('auth.lightMode') : t('auth.darkMode')}
+                aria-label={t('auth.toggleTheme')}
               >
                 {dark
                   ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={C.text2} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
@@ -619,14 +624,14 @@ export default function Login() {
             {step === 'creds' && (
               <div className="ep-step">
                 <p style={{ fontFamily: "'Sora',sans-serif", fontSize: 21, fontWeight: 800, color: C.text, letterSpacing: '-0.025em', margin: '0 0 4px' }}>
-                  Welcome back
+                  {t('auth.welcomeBack')}
                 </p>
                 <p style={{ fontSize: 12.5, color: C.text2, margin: '0 0 18px' }}>
-                  Sign in to your EDUPLA account.
+                  {t('auth.signInSubtitle')}
                 </p>
 
                 {deactivMsg && (
-                  <InlineToast msg={`Account deactivated: ${deactivMsg}`} type="error" onClose={() => setDeactivMsg('')} />
+                  <InlineToast msg={t('auth.accountDeactivated', { reason: deactivMsg })} type="error" onClose={() => setDeactivMsg('')} />
                 )}
                 <InlineToast msg={toast2.msg} type={toast2.type} onClose={() => setToast2({ msg: '', type: '' })} />
 
@@ -634,7 +639,7 @@ export default function Login() {
                   {/* email */}
                   <div>
                     <label style={{ display: 'block', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', color: C.text3, textTransform: 'uppercase', marginBottom: 7 }}>
-                      Email address
+                      {t('auth.emailAddress')}
                     </label>
                     <div style={{ position: 'relative' }}>
                       <span style={iconStyle('email')}>
@@ -647,10 +652,10 @@ export default function Login() {
                         onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
                         onFocus={() => setFocused('email')}
                         onBlur={() => setFocused(null)}
-                        placeholder="Email address"
+                        placeholder={t('auth.emailPlaceholder')}
                         autoComplete="email"
                         style={inputStyle('email')}
-                        aria-label="Email address"
+                        aria-label={t('auth.emailAddress')}
                       />
                     </div>
                   </div>
@@ -658,13 +663,13 @@ export default function Login() {
                   {/* password */}
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 7 }}>
-                      <label style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', color: C.text3, textTransform: 'uppercase' }}>Password</label>
+                      <label style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', color: C.text3, textTransform: 'uppercase' }}>{t('common.password')}</label>
                       <button
                         type="button"
                         onClick={() => { setStep('forgot'); setForgotEmail(form.email); setForgotSent(false); setToast2({ msg: '', type: '' }); }}
                         style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11.5, color: '#818cf8', fontWeight: 600, fontFamily: "'DM Sans',sans-serif" }}
                       >
-                        Forgot password?
+                        {t('auth.forgotPassword')}
                       </button>
                     </div>
                     <div style={{ position: 'relative' }}>
@@ -678,15 +683,15 @@ export default function Login() {
                         onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
                         onFocus={() => setFocused('password')}
                         onBlur={() => setFocused(null)}
-                        placeholder="Edupla password"
+                        placeholder={t('auth.passwordPlaceholder')}
                         autoComplete="current-password"
                         style={{ ...inputStyle('password'), paddingRight: 42 }}
-                        aria-label="Password"
+                        aria-label={t('common.password')}
                       />
                       <button
                         type="button"
                         onClick={() => setShowPass(s => !s)}
-                        aria-label={showPass ? 'Hide password' : 'Show password'}
+                        aria-label={showPass ? t('auth.hidePassword') : t('auth.showPassword')}
                         style={{ position: 'absolute', right: 11, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: C.text3, display: 'flex', padding: 3 }}
                       >
                         {showPass
@@ -722,11 +727,11 @@ export default function Login() {
                       )}
                     </div>
                     <span onClick={() => setRemember(r => !r)} style={{ fontSize: 12.5, color: C.text2, cursor: 'pointer', userSelect: 'none' }}>
-                      Stay signed in for 30 days
+                      {t('auth.staySignedIn30')}
                     </span>
                     <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 5 }}>
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                      <span style={{ fontSize: 11, color: '#10b981', fontWeight: 600 }}>SSL secured</span>
+                      <span style={{ fontSize: 11, color: '#10b981', fontWeight: 600 }}>{t('auth.sslSecured')}</span>
                     </div>
                   </div>
 
@@ -734,8 +739,8 @@ export default function Login() {
                   <button type="submit" disabled={loading} className="ep-submit">
                     <div className="ep-shimmer" />
                     {loading
-                      ? <><div className="ep-spinner" />Signing in…</>
-                      : <>Sign in <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></>
+                      ? <><div className="ep-spinner" />{t('auth.signingIn')}</>
+                      : <>{t('auth.signIn')} <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></>
                     }
                   </button>
                 </form>
@@ -743,9 +748,9 @@ export default function Login() {
                 {/* trust strip */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20, paddingTop: 14, borderTop: `1px solid ${C.divider}`, marginTop: 2 }}>
                   {[
-                    { icon: '🔒', label: '256-bit SSL' },
-                    { icon: '⏱',  label: 'Auto logout'  },
-                    { icon: '🏅', label: 'ISO 27001'    },
+                    { icon: '🔒', label: t('auth.trustStrip.ssl') },
+                    { icon: '⏱',  label: t('auth.trustStrip.autoLogout')  },
+                    { icon: '🏅', label: t('auth.trustStrip.iso')    },
                   ].map(t => (
                     <div key={t.label} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, color: C.text3 }}>
                       <span>{t.icon}</span>{t.label}
@@ -765,7 +770,7 @@ export default function Login() {
                     style={{ color: C.text2, background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }}
                   >
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
-                    Back to sign in
+                    {t('auth.backToSignIn')}
                   </button>
                 </div>
 
@@ -782,9 +787,9 @@ export default function Login() {
                   </svg>
                 </div>
 
-                <p style={{ fontFamily: "'Sora',sans-serif", fontSize: 21, fontWeight: 800, color: C.text, letterSpacing: '-0.025em', margin: '0 0 4px' }}>Reset password</p>
+                <p style={{ fontFamily: "'Sora',sans-serif", fontSize: 21, fontWeight: 800, color: C.text, letterSpacing: '-0.025em', margin: '0 0 4px' }}>{t('auth.resetPassword')}</p>
                 <p style={{ fontSize: 12.5, color: C.text2, margin: '0 0 20px', lineHeight: 1.6 }}>
-                  Enter your school email address and we'll send you a reset link.
+                  {t('auth.resetPasswordSubtitle')}
                 </p>
 
                 <InlineToast msg={toast2.msg} type={toast2.type} onClose={() => setToast2({ msg: '', type: '' })} />
@@ -797,16 +802,16 @@ export default function Login() {
                     borderRadius: 14,
                   }}>
                     <div style={{ fontSize: 32, marginBottom: 10 }}>✉️</div>
-                    <p style={{ fontFamily: "'Sora',sans-serif", fontSize: 15, fontWeight: 700, color: '#10b981', margin: '0 0 6px' }}>Check your inbox</p>
+                    <p style={{ fontFamily: "'Sora',sans-serif", fontSize: 15, fontWeight: 700, color: '#10b981', margin: '0 0 6px' }}>{t('auth.checkYourInbox')}</p>
                     <p style={{ fontSize: 12.5, color: C.text2, lineHeight: 1.6, margin: 0 }}>
-                      A reset link was sent to <strong style={{ color: C.text }}>{forgotEmail}</strong>. It expires in 60 minutes.
+                      {t('auth.resetLinkSentPrefix')} <strong style={{ color: C.text }}>{forgotEmail}</strong>{t('auth.resetLinkSentSuffix')}
                     </p>
                   </div>
                 ) : (
                   <form onSubmit={handleForgot} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                     <div>
                       <label style={{ display: 'block', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', color: C.text3, textTransform: 'uppercase', marginBottom: 7 }}>
-                        Email address
+                        {t('auth.emailAddress')}
                       </label>
                       <div style={{ position: 'relative' }}>
                         <span style={iconStyle('forgot-email')}>
@@ -819,18 +824,18 @@ export default function Login() {
                           onChange={e => setForgotEmail(e.target.value)}
                           onFocus={() => setFocused('forgot-email')}
                           onBlur={() => setFocused(null)}
-                          placeholder="you@school.edu"
+                          placeholder={t('auth.emailPlaceholderSchool')}
                           autoComplete="email"
                           style={inputStyle('forgot-email')}
-                          aria-label="Email address for password reset"
+                          aria-label={t('auth.emailAddress')}
                         />
                       </div>
                     </div>
                     <button type="submit" disabled={loading} className="ep-submit">
                       <div className="ep-shimmer" />
                       {loading
-                        ? <><div className="ep-spinner" />Sending…</>
-                        : <>Send reset link <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></>
+                        ? <><div className="ep-spinner" />{t('auth.sending')}</>
+                        : <>{t('auth.sendResetLink')} <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></>
                       }
                     </button>
                   </form>
@@ -840,7 +845,7 @@ export default function Login() {
 
             {/* card footer */}
             <p style={{ fontSize: 10.5, textAlign: 'center', color: C.text3, paddingBottom: 16, margin: 0 }}>
-              © {new Date().getFullYear()} EDUPLA · All rights reserved
+              {t('auth.footerRights', { year: new Date().getFullYear() })}
             </p>
           </div>
         </div>
