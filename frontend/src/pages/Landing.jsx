@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '../context/ThemeContext';
+import LanguageSwitcher from '../components/common/LanguageSwitcher';
+import SEO from '../components/common/SEO';
 import {
   GraduationCap, Sun, Moon, ArrowRight, BookOpen, Users, Award,
   CheckCircle, Zap, Shield, Star, ChevronRight,
@@ -16,91 +19,95 @@ import {
 
 const FONT_IMPORT = `@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Outfit:wght@300;400;500;600;700;800;900&display=swap');`;
 
-const NAV = ['Features','Curriculum','How It Works','Testimonials','Pricing'];
+/* NOTE: all display text for these arrays now lives in i18n under `landing.*`
+   (see src/i18n/locales/en.json). Only icon/color/structural data stays here;
+   labels/descriptions are looked up at render time via tr(`landing....`). */
+
+const NAV = [
+  { key: 'features',     anchor: 'features' },
+  { key: 'curriculum',   anchor: 'curriculum' },
+  { key: 'howItWorks',   anchor: 'how-it-works' },
+  { key: 'testimonials', anchor: 'testimonials' },
+  { key: 'pricing',      anchor: 'pricing' },
+];
 
 const FEATURES = [
-  { icon: FolderKanban,    color: '#8b5cf6', label: 'Document Management',  desc: 'Upload, organize and preview notes, PDFs and class resources by module — with inline viewing and download tracking.' },
-  { icon: ClipboardList,   color: '#f97316', label: 'Assignment Workflow',  desc: 'Create assignments with deadlines, collect submissions, grade in bulk, and return feedback — all tracked automatically.' },
-  { icon: UserCog,         color: '#0ea5e9', label: 'Teacher Management',   desc: 'Admins onboard teachers, assign them to classes and modules, and manage extra co-teachers per class.' },
-  { icon: Users,           color: '#10b981', label: 'Student Management',   desc: 'Enroll students by level, trade and class year, bulk-import records, and track every learner in one directory.' },
-  { icon: ListChecks,      color: '#6366f1', label: 'Assessment & Modules', desc: 'Configure modules with weighted marks, then run Formative (FA), Integrated (IA) and Comprehensive (CA) assessments per class.' },
-  { icon: Timer,           color: '#f97316', label: 'Online Assessments & Auto-Grading', desc: 'Build MCQ, matching and open-ended quizzes, share a timed link with an attempt limit — questions and options shuffle per student, the timer auto-submits at the deadline, and answers are auto-graded instantly (with manual grading for open-ended ones).' },
-  { icon: FileBarChart2,   color: '#14b8a6', label: 'Report Management',    desc: 'Generate student report cards, per-assessment breakdowns and full class performance reports, ranked automatically.' },
-  { icon: SlidersHorizontal, color: '#ec4899', label: 'TVET Curriculum Setup', desc: 'Define Sector, Trade, Qualification Title and RTQF Level per class — fully aligned to competency-based TVET programs.' },
-  { icon: ClipboardCheck,  color: '#22c55e', label: 'Mark Approval Flow',   desc: 'Marks move through Draft → Submitted → Approved with admin review, so reports always reflect verified results.' },
-  { icon: Megaphone,       color: '#f59e0b', label: 'Smart Announcements', desc: 'Class-wide or school-wide notifications with read tracking, so nothing important is ever missed.' },
-  { icon: MessageSquare,   color: '#0ea5e9', label: 'Group Collaboration', desc: 'Teacher-led discussion groups with team leaders, plus optional peer-to-peer messaging within a class.' },
-  { icon: Shield,          color: '#ef4444', label: 'Enterprise Security', desc: 'Session-based auth, role permissions, encrypted file storage, and full activity audit trails built in.' },
-  { icon: Globe,           color: '#6366f1', label: 'Any Device',          desc: 'Fully responsive admin, teacher and student portals — flawless on desktop, tablet, and mobile.' },
-  { icon: Bell,            color: '#f59e0b', label: 'Real-Time Notifications', desc: 'A dedicated notification center with unread counts, mark-as-read and clear-all, so every grade, message and alert reaches the right person instantly.' },
-  { icon: Mic,             color: '#8b5cf6', label: 'Direct Messaging & Voice Notes', desc: 'Private teacher–student threads and peer chat, with voice notes and media sharing built right into every conversation.' }
+  { key: 'documentManagement',   icon: FolderKanban,    color: '#8b5cf6' },
+  { key: 'assignmentWorkflow',   icon: ClipboardList,   color: '#f97316' },
+  { key: 'teacherManagement',    icon: UserCog,         color: '#0ea5e9' },
+  { key: 'studentManagement',    icon: Users,           color: '#10b981' },
+  { key: 'assessmentModules',    icon: ListChecks,      color: '#6366f1' },
+  { key: 'onlineAssessments',    icon: Timer,           color: '#f97316' },
+  { key: 'reportManagement',     icon: FileBarChart2,   color: '#14b8a6' },
+  { key: 'tvetCurriculumSetup',  icon: SlidersHorizontal, color: '#ec4899' },
+  { key: 'markApprovalFlow',     icon: ClipboardCheck,  color: '#22c55e' },
+  { key: 'smartAnnouncements',   icon: Megaphone,       color: '#f59e0b' },
+  { key: 'groupCollaboration',   icon: MessageSquare,   color: '#0ea5e9' },
+  { key: 'enterpriseSecurity',   icon: Shield,          color: '#ef4444' },
+  { key: 'anyDevice',            icon: Globe,           color: '#6366f1' },
+  { key: 'realTimeNotifications',icon: Bell,            color: '#f59e0b' },
+  { key: 'directMessaging',      icon: Mic,             color: '#8b5cf6' },
 ];
 
 // TVET / competency-based curriculum configuration pipeline
 const CURRICULUM_PIPELINE = [
-  { icon: Layers,   color: '#6366f1', label: 'Sector',             example: 'e.g. ICT, Construction, Hospitality' },
-  { icon: Target,   color: '#0ea5e9', label: 'Trade',               example: 'e.g. Software Development, Electrical' },
-  { icon: Award,    color: '#f59e0b', label: 'Qualification Title', example: 'e.g. Certificate, Diploma programs' },
-  { icon: BadgeCheck, color: '#10b981', label: 'RTQF Level',        example: 'e.g. Level 3, 4, 5' },
-  { icon: Boxes,    color: '#8b5cf6', label: 'Modules',             example: 'Complementary · General · Specific · Elective' },
+  { key: 'sector',              icon: Layers,     color: '#6366f1' },
+  { key: 'trade',                icon: Target,     color: '#0ea5e9' },
+  { key: 'qualificationTitle',   icon: Award,      color: '#f59e0b' },
+  { key: 'rtqfLevel',            icon: BadgeCheck, color: '#10b981' },
+  { key: 'modules',              icon: Boxes,      color: '#8b5cf6' },
 ];
 
 // Assessment categories used inside a module
 const ASSESSMENT_TYPES = [
-  { code: 'FA', name: 'Formative Assessment', color: '#6366f1', desc: 'Ongoing checks during teaching to track ongoing understanding.' },
-  { code: 'IA', name: 'Integrated Assessment', color: '#0ea5e9', desc: 'Mid-term evaluation combining several learning outcomes.' },
-  { code: 'CA', name: 'Comprehensive Assessment', color: '#10b981', desc: 'End-of-term evaluation covering the full module scope.' },
+  { code: 'FA', key: 'fa', color: '#6366f1' },
+  { code: 'IA', key: 'ia', color: '#0ea5e9' },
+  { code: 'CA', key: 'ca', color: '#10b981' },
 ];
 
 // Mark review workflow
 const MARK_WORKFLOW = [
-  { label: 'Draft',     color: '#94a3b8', icon: FileText,        desc: 'Teacher enters marks per student for the assessment.' },
-  { label: 'Submitted', color: '#f59e0b', icon: Workflow,        desc: 'Teacher submits the full mark sheet for admin review.' },
-  { label: 'Approved',  color: '#10b981', icon: ClipboardCheck,  desc: 'Admin approves — marks lock in and reports update instantly.' },
-  { label: 'Rejected',  color: '#ef4444', icon: GitBranch,       desc: 'Admin sends it back with a review note for correction.' },
+  { key: 'draft',     color: '#94a3b8', icon: FileText },
+  { key: 'submitted', color: '#f59e0b', icon: Workflow },
+  { key: 'approved',  color: '#10b981', icon: ClipboardCheck },
+  { key: 'rejected',  color: '#ef4444', icon: GitBranch },
 ];
 
 // Reporting outputs
 const REPORT_TYPES = [
-  { icon: FileCheck2,   color: '#6366f1', label: 'Student Report Card', desc: 'A full per-student breakdown across every module, term and assessment type.' },
-  { icon: BarChart2,    color: '#0ea5e9', label: 'Assessment Report',   desc: 'Ranked results for a single assessment, with class average and percentile.' },
-  { icon: FileBarChart2, color: '#10b981', label: 'Class Performance Report', desc: 'School-wide or per-class analytics across modules, sectors and trades.' },
+  { key: 'studentReportCard',      icon: FileCheck2,    color: '#6366f1' },
+  { key: 'assessmentReport',       icon: BarChart2,     color: '#0ea5e9' },
+  { key: 'classPerformanceReport', icon: FileBarChart2, color: '#10b981' },
 ];
 
 const STEPS = [
-  { n: '01', icon: Target,   color: '#6366f1', title: 'Admin Configures', desc: 'Set up classes, enroll students, assign teachers, and configure settings in minutes.' },
-  { n: '02', icon: BookOpen, color: '#0ea5e9', title: 'Teachers Deliver',  desc: 'Upload materials, create assignments with due dates, track submissions, and give feedback instantly.' },
-  { n: '03', icon: Rocket,   color: '#10b981', title: 'Students Thrive',   desc: 'Access everything in one place — notes, assignments, grades, and announcements always up to date.' },
+  { n: '01', key: 'adminConfigures', icon: Target,   color: '#6366f1' },
+  { n: '02', key: 'teachersDeliver', icon: BookOpen, color: '#0ea5e9' },
+  { n: '03', key: 'studentsThrive',  icon: Rocket,   color: '#10b981' },
 ];
 
 const TESTIMONIALS = [
-  { init: 'SK', name: 'Sarah Kim',     role: 'Principal, Westbridge Academy', text: 'EDUPLA transformed how we run our school. Grading, reporting, and communication — all in one beautiful platform.', stars: 5, color: '#6366f1' },
-  { init: 'MR', name: 'Marcus Reid',   role: 'Senior Teacher, Lincoln High',  text: 'I used to spend 3 hours on paperwork every evening. Now I upload notes in 30 seconds and students get them instantly.', stars: 5, color: '#0ea5e9' },
-  { init: 'AJ', name: 'Aisha Jabari',  role: 'Student, Grade 11',             text: 'Finally a school app that feels good to use. I can see all my assignments, grades, and announcements in one place.', stars: 5, color: '#10b981' },
-  { init: 'DL', name: 'Dr. David Lee', role: 'District Superintendent',       text: 'The admin analytics dashboard gives us real-time visibility across all campuses. Decision-making has never been this fast.', stars: 5, color: '#f59e0b' },
+  { init: 'SK', name: 'Sarah Kim',     key: 'sarahKim',    stars: 5, color: '#6366f1' },
+  { init: 'MR', name: 'Marcus Reid',   key: 'marcusReid',  stars: 5, color: '#0ea5e9' },
+  { init: 'AJ', name: 'Aisha Jabari',  key: 'aishaJabari', stars: 5, color: '#10b981' },
+  { init: 'DL', name: 'Dr. David Lee', key: 'davidLee',    stars: 5, color: '#f59e0b' },
 ];
 
 const PRICING = [
-  { name: 'Starter',  price: 'Free',   period: '',    desc: 'Perfect for small schools getting started.', feats: ['Up to 100 students','5 teachers','Basic analytics','2GB storage','Email support'], cta: 'Get Started Free', hot: false },
-  { name: 'School',   price: '$99',    period: '/mo', desc: 'Everything a growing school needs.',         feats: ['Unlimited students','Unlimited teachers','Advanced analytics','100GB storage','Priority support','Custom branding','API access'], cta: 'Start Free Trial', hot: true },
-  { name: 'District', price: 'Custom', period: '',    desc: 'Multi-school deployment with full control.',  feats: ['Multiple campuses','SSO integration','Dedicated manager','SLA guarantee','Custom integrations','On-site training'], cta: 'Contact Sales', hot: false },
+  { key: 'starter',  price: 'Free',   period: '',    hot: false },
+  { key: 'school',   price: '$99',    period: '/mo', hot: true  },
+  { key: 'district', price: 'Custom', period: '',    hot: false },
 ];
 
 const STATS = [
-  { v: '2,400+', l: 'Students',  icon: Users,      c: '#6366f1' },
-  { v: '180+',   l: 'Modules',   icon: BookOpen,   c: '#0ea5e9' },
-  { v: '120+',   l: 'Educators', icon: Award,      c: '#10b981' },
-  { v: '96%',    l: 'Pass Rate', icon: TrendingUp, c: '#f59e0b' },
+  { key: 'students',  v: '2,400+', icon: Users,      c: '#6366f1' },
+  { key: 'modules',   v: '180+',   icon: BookOpen,   c: '#0ea5e9' },
+  { key: 'educators', v: '120+',   icon: Award,      c: '#10b981' },
+  { key: 'passRate',  v: '96%',    icon: TrendingUp, c: '#f59e0b' },
 ];
 
-const FAQS = [
-  { q: 'How quickly can we get started?',   a: 'Most schools are fully set up in under 30 minutes. Our onboarding wizard guides you through creating classes, adding teachers, and enrolling students step by step.' },
-  { q: 'Does EDUPLA support TVET curriculum structures?', a: 'Yes — every class can be linked to a Sector, Trade, Qualification Title and RTQF Level. Modules inherit that structure, and Formative, Integrated and Comprehensive assessments are tracked per module automatically.' },
-  { q: 'How are reports generated?',        a: 'Once a teacher submits marks and an admin approves them, student report cards, assessment reports and class performance reports are generated automatically — always reflecting the latest approved marks.' },
-  { q: 'Is student data kept private?',     a: 'Absolutely. All data is encrypted at rest and in transit. We never sell user data and comply fully with data-privacy best practices.' },
-  { q: 'Can teachers work offline?',        a: 'Lesson planning and document drafting work offline. Submissions and grading sync automatically when back online.' },
-  { q: 'Do you support multiple campuses?', a: 'Yes — our District plan supports unlimited campuses with centralised reporting and per-campus admin roles.' },
-];
+// FAQs are a straight array in i18n (landing.faqs); indexed by position.
+const FAQ_COUNT = 6;
 
 /* ─── COUNTER ── */
 function useCountUp(target, started) {
@@ -154,6 +161,7 @@ function StatItem(props) {
 /* ─── MOCKUP ── */
 function MockupCard(props) {
   var dark = props.dark;
+  var { t: tr } = useTranslation();
   var pulseState = useState(0);
   var pulse = pulseState[0];
   var setPulse = pulseState[1];
@@ -169,10 +177,10 @@ function MockupCard(props) {
     cb:     dark ? 'rgba(255,255,255,0.04)' : 'rgba(248,250,255,0.9)',
   };
   var cards = [
-    { icon: Users,         label: 'Students',  v: '247', c: '#6366f1', bg: 'rgba(99,102,241,0.1)' },
-    { icon: BookOpen,      label: 'Classes',   v: '18',  c: '#0ea5e9', bg: 'rgba(14,165,233,0.1)' },
-    { icon: ClipboardList, label: 'Tasks',     v: '94',  c: '#10b981', bg: 'rgba(16,185,129,0.1)' },
-    { icon: TrendingUp,    label: 'Avg Grade', v: '87%', c: '#f59e0b', bg: 'rgba(245,158,11,0.1)'  },
+    { icon: Users,         label: tr('landing.mockup.students'),  v: '247', c: '#6366f1', bg: 'rgba(99,102,241,0.1)' },
+    { icon: BookOpen,      label: tr('landing.mockup.classes'),   v: '18',  c: '#0ea5e9', bg: 'rgba(14,165,233,0.1)' },
+    { icon: ClipboardList, label: tr('landing.mockup.tasks'),     v: '94',  c: '#10b981', bg: 'rgba(16,185,129,0.1)' },
+    { icon: TrendingUp,    label: tr('landing.mockup.avgGrade'), v: '87%', c: '#f59e0b', bg: 'rgba(245,158,11,0.1)'  },
   ];
   return (
     <div style={{ borderRadius:20, overflow:'hidden', border:'1px solid '+s.border, background:s.bg, boxShadow:dark?'0 40px 100px rgba(0,0,0,0.7)':'0 40px 100px rgba(99,102,241,0.18)', fontFamily:"'Outfit',sans-serif" }}>
@@ -199,8 +207,8 @@ function MockupCard(props) {
         <div style={{ flex:1, padding:14, display:'flex', flexDirection:'column', gap:10 }}>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
             <div>
-              <div style={{ fontSize:13, fontWeight:700, color:s.tp, letterSpacing:'-0.02em' }}>Good morning, Sarah 👋</div>
-              <div style={{ fontSize:9, color:s.tm, marginTop:1 }}>3 assignments due today</div>
+              <div style={{ fontSize:13, fontWeight:700, color:s.tp, letterSpacing:'-0.02em' }}>{tr('landing.mockup.goodMorning')}</div>
+              <div style={{ fontSize:9, color:s.tm, marginTop:1 }}>{tr('landing.mockup.assignmentsDueToday')}</div>
             </div>
             <div style={{ width:26, height:26, borderRadius:8, background:'linear-gradient(135deg,#6366f1,#8b5cf6)', fontSize:9, fontWeight:800, color:'white', display:'flex', alignItems:'center', justifyContent:'center' }}>SK</div>
           </div>
@@ -220,11 +228,11 @@ function MockupCard(props) {
           </div>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, flex:1 }}>
             <div style={{ padding:'9px 10px', borderRadius:11, background:s.cb, border:'1px solid '+s.border }}>
-              <div style={{ fontSize:9, fontWeight:700, color:s.tp, opacity:0.6, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:8 }}>Activity</div>
+              <div style={{ fontSize:9, fontWeight:700, color:s.tp, opacity:0.6, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:8 }}>{tr('landing.mockup.activity')}</div>
               {[
-                { icon: ClipboardList, c: '#6366f1', t: 'Math HW graded' },
-                { icon: Bell,          c: '#f59e0b', t: 'Announcement sent' },
-                { icon: FileText,      c: '#10b981', t: 'Notes uploaded' },
+                { icon: ClipboardList, c: '#6366f1', t: tr('landing.mockup.mathHwGraded') },
+                { icon: Bell,          c: '#f59e0b', t: tr('landing.mockup.announcementSent') },
+                { icon: FileText,      c: '#10b981', t: tr('landing.mockup.notesUploaded') },
               ].map(function(item, i) {
                 var Icon = item.icon;
                 return (
@@ -238,7 +246,7 @@ function MockupCard(props) {
               })}
             </div>
             <div style={{ padding:'9px 10px', borderRadius:11, background:s.cb, border:'1px solid '+s.border }}>
-              <div style={{ fontSize:9, fontWeight:700, color:s.tp, opacity:0.6, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:8 }}>Submissions / Week</div>
+              <div style={{ fontSize:9, fontWeight:700, color:s.tp, opacity:0.6, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:8 }}>{tr('landing.mockup.submissionsPerWeek')}</div>
               <div style={{ display:'flex', alignItems:'flex-end', gap:3, height:58 }}>
                 {[40,65,30,85,55,90,70].map(function(h,i) {
                   return <div key={i} style={{ flex:1, borderRadius:'2px 2px 0 0', background:'linear-gradient(180deg,#8b5cf6,#6366f1)', height:h+'%', opacity:0.6+(i/7)*0.4 }} />;
@@ -352,6 +360,7 @@ function BottomLink(props) {
 
 /* ─── MAIN ── */
 export default function Landing() {
+  var { t: tr } = useTranslation();
   var themeCtx = useTheme();
   var dark = themeCtx.dark;
   var toggleTheme = themeCtx.toggleTheme;
@@ -376,8 +385,23 @@ export default function Landing() {
     stripeBg: dark ? 'rgba(255,255,255,0.015)' : 'rgba(99,102,241,0.022)',
   };
 
+  var jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: 'Edupla',
+    applicationCategory: 'EducationalApplication',
+    operatingSystem: 'Web',
+    description: tr('landing.hero.subtitle'),
+  };
+
   return (
     <div style={{ minHeight:'100vh', background:t.bg, fontFamily:"'Outfit',system-ui,sans-serif", color:t.tp, overflowX:'hidden' }}>
+      <SEO
+        title="School Management & Online Assessment Platform"
+        description={tr('landing.hero.subtitle')}
+        path="/"
+        jsonLd={jsonLd}
+      />
       <style>{`
         ${FONT_IMPORT}
         @keyframes fadeUp { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
@@ -428,14 +452,16 @@ export default function Landing() {
             <span style={{ fontFamily:"'Instrument Serif',serif", fontStyle:'italic', fontSize:22, color:t.tp, letterSpacing:'-0.01em' }}>Edupla</span>
           </Link>
 
+          <LanguageSwitcher dark={dark} />
+
           <div className="nav-links" style={{ flex:1, display:'flex', alignItems:'center', gap:4 }}>
-            {NAV.map(function(l) {
+            {NAV.map(function(item) {
               return (
-                <a key={l} href={'#'+l.toLowerCase().replace(/\s+/g,'-')}
+                <a key={item.key} href={'#'+item.anchor}
                   style={{ padding:'7px 14px', borderRadius:9, fontSize:14, fontWeight:500, color:t.tm, textDecoration:'none', transition:'all 0.2s' }}
                   onMouseEnter={function(e){ e.currentTarget.style.color=dark?'#a5b4fc':'#4f46e5'; e.currentTarget.style.background=dark?'rgba(99,102,241,0.08)':'rgba(99,102,241,0.06)'; }}
                   onMouseLeave={function(e){ e.currentTarget.style.color=t.tm; e.currentTarget.style.background='transparent'; }}
-                >{l}</a>
+                >{tr('landing.nav.'+item.key)}</a>
               );
             })}
           </div>
@@ -450,12 +476,12 @@ export default function Landing() {
               style={{ padding:'9px 18px', borderRadius:10, background:'transparent', border:'1.5px solid '+t.bord, color:t.tp, fontWeight:600, fontSize:13, textDecoration:'none', transition:'all 0.2s' }}
               onMouseEnter={function(e){ e.currentTarget.style.borderColor='#6366f1'; e.currentTarget.style.color='#6366f1'; }}
               onMouseLeave={function(e){ e.currentTarget.style.borderColor=t.bord; e.currentTarget.style.color=t.tp; }}
-            >Sign In</Link>
+            >{tr('landing.nav.login')}</Link>
             <Link to="/login"
               style={{ padding:'9px 20px', borderRadius:10, background:'linear-gradient(135deg,#4f46e5,#7c3aed)', color:'white', fontWeight:700, fontSize:13, textDecoration:'none', display:'flex', alignItems:'center', gap:6, boxShadow:'0 4px 14px rgba(99,102,241,0.4)', transition:'all 0.25s' }}
               onMouseEnter={function(e){ e.currentTarget.style.transform='translateY(-1px)'; e.currentTarget.style.boxShadow='0 8px 22px rgba(99,102,241,0.5)'; }}
               onMouseLeave={function(e){ e.currentTarget.style.transform='translateY(0)'; e.currentTarget.style.boxShadow='0 4px 14px rgba(99,102,241,0.4)'; }}
-            >Get Started <ArrowRight size={13} /></Link>
+            >{tr('landing.nav.getStarted')} <ArrowRight size={13} /></Link>
           </div>
 
           <div style={{ marginLeft:'auto', display:'flex', alignItems:'center', gap:8 }}>
@@ -470,14 +496,14 @@ export default function Landing() {
 
         {mob && (
           <div style={{ padding:'12px 1.5rem 20px', borderTop:'1px solid '+t.bord, background:dark?'rgba(8,12,24,0.97)':'rgba(248,250,255,0.97)', display:'flex', flexDirection:'column', gap:2 }}>
-            {NAV.map(function(l) {
+            {NAV.map(function(item) {
               return (
-                <a key={l} href={'#'+l.toLowerCase().replace(/\s+/g,'-')} onClick={function(){ setMob(false); }}
+                <a key={item.key} href={'#'+item.anchor} onClick={function(){ setMob(false); }}
                   style={{ padding:'11px 14px', borderRadius:10, fontSize:15, fontWeight:500, color:t.tp, textDecoration:'none' }}
-                >{l}</a>
+                >{tr('landing.nav.'+item.key)}</a>
               );
             })}
-            <Link to="/login" onClick={function(){ setMob(false); }} style={{ marginTop:10, padding:'12px', borderRadius:11, background:'linear-gradient(135deg,#4f46e5,#7c3aed)', color:'white', fontWeight:700, fontSize:14, textDecoration:'none', textAlign:'center' }}>Get Started Free</Link>
+            <Link to="/login" onClick={function(){ setMob(false); }} style={{ marginTop:10, padding:'12px', borderRadius:11, background:'linear-gradient(135deg,#4f46e5,#7c3aed)', color:'white', fontWeight:700, fontSize:14, textDecoration:'none', textAlign:'center' }}>{tr('landing.nav.getStartedFree')}</Link>
           </div>
         )}
       </nav>
@@ -490,25 +516,27 @@ export default function Landing() {
             <div style={{ display:'inline-flex', alignItems:'center', gap:8, padding:'6px 14px', borderRadius:100, background:dark?'rgba(99,102,241,0.12)':'rgba(99,102,241,0.07)', border:'1px solid '+(dark?'rgba(99,102,241,0.28)':'rgba(99,102,241,0.18)'), marginBottom:28 }}>
               <div style={{ width:7, height:7, borderRadius:'50%', background:'#34d399', animation:'glow 2s infinite' }} />
               <Sparkles size={12} color={dark?'#a78bfa':'#4f46e5'} />
-              <span style={{ fontSize:12, fontWeight:600, color:dark?'#a78bfa':'#4f46e5', letterSpacing:'0.04em' }}>The all-in-one school & TVET management platform</span>
+              <span style={{ fontSize:12, fontWeight:600, color:dark?'#a78bfa':'#4f46e5', letterSpacing:'0.04em' }}>{tr('landing.hero.badge')}</span>
             </div>
-            <h1 style={{ fontFamily:"'Instrument Serif',serif", fontStyle:'italic', fontSize:'clamp(3rem,5.5vw,4.8rem)', fontWeight:400, lineHeight:1.06, letterSpacing:'-0.02em', margin:'0 0 10px', color:t.tp }}>Reimagine How</h1>
-            <h1 style={{ fontFamily:"'Outfit',sans-serif", fontSize:'clamp(2.5rem,4.8vw,4.2rem)', fontWeight:900, lineHeight:1, letterSpacing:'-0.05em', margin:'0 0 26px', background:'linear-gradient(135deg,#4f46e5 0%,#7c3aed 50%,#0ea5e9 100%)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text' }}>Your School Runs</h1>
-            <p style={{ fontSize:17, lineHeight:1.78, color:t.tm, maxWidth:470, margin:'0 0 36px' }}>One unified platform for documents, assignments, teacher & student management, modules and assessments, competency-based TVET curriculum setup, and automated report generation — built for admins, teachers, and students alike.</p>
+            <h1 style={{ margin:0 }}>
+              <span style={{ display:'block', fontFamily:"'Instrument Serif',serif", fontStyle:'italic', fontSize:'clamp(3rem,5.5vw,4.8rem)', fontWeight:400, lineHeight:1.06, letterSpacing:'-0.02em', margin:'0 0 10px', color:t.tp }}>{tr('landing.hero.titleLine1')}</span>
+              <span style={{ display:'block', fontFamily:"'Outfit',sans-serif", fontSize:'clamp(2.5rem,4.8vw,4.2rem)', fontWeight:900, lineHeight:1, letterSpacing:'-0.05em', margin:'0 0 26px', background:'linear-gradient(135deg,#4f46e5 0%,#7c3aed 50%,#0ea5e9 100%)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text' }}>{tr('landing.hero.titleLine2')}</span>
+            </h1>
+            <p style={{ fontSize:17, lineHeight:1.78, color:t.tm, maxWidth:470, margin:'0 0 36px' }}>{tr('landing.hero.subtitle')}</p>
             <div style={{ display:'flex', gap:12, flexWrap:'wrap', marginBottom:'2.5rem' }}>
               <Link to="/login"
                 style={{ display:'inline-flex', alignItems:'center', gap:8, padding:'14px 28px', borderRadius:13, background:'linear-gradient(135deg,#4f46e5,#7c3aed)', color:'white', fontWeight:700, fontSize:15, textDecoration:'none', boxShadow:'0 8px 28px rgba(99,102,241,0.45)', transition:'all 0.25s' }}
                 onMouseEnter={function(e){ e.currentTarget.style.transform='translateY(-2px)'; e.currentTarget.style.boxShadow='0 14px 40px rgba(99,102,241,0.55)'; }}
                 onMouseLeave={function(e){ e.currentTarget.style.transform='translateY(0)'; e.currentTarget.style.boxShadow='0 8px 28px rgba(99,102,241,0.45)'; }}
-              >Get Started <ArrowRight size={15} /></Link>
+              >{tr('landing.hero.getStarted')} <ArrowRight size={15} /></Link>
               <a href="#features"
                 style={{ display:'inline-flex', alignItems:'center', gap:8, padding:'14px 24px', borderRadius:13, background:t.card, color:t.tp, fontWeight:600, fontSize:15, textDecoration:'none', border:'1px solid '+t.bord, backdropFilter:'blur(12px)', transition:'all 0.2s' }}
                 onMouseEnter={function(e){ e.currentTarget.style.borderColor='#6366f1'; }}
                 onMouseLeave={function(e){ e.currentTarget.style.borderColor=t.bord; }}
-              ><Play size={13} fill="currentColor" /> See Features</a>
+              ><Play size={13} fill="currentColor" /> {tr('landing.hero.seeFeatures')}</a>
             </div>
             <div style={{ display:'flex', gap:20, flexWrap:'wrap' }}>
-              {[{icon:Shield,label:'FERPA Compliant'},{icon:Zap,label:'Setup in 30 min'},{icon:Lock,label:'99.9% Uptime'}].map(function(item) {
+              {[{icon:Shield,label:tr('landing.hero.ferpaCompliant')},{icon:Zap,label:tr('landing.hero.setupIn30Min')},{icon:Lock,label:tr('landing.hero.uptime')}].map(function(item) {
                 var Icon = item.icon;
                 return (
                   <div key={item.label} style={{ display:'flex', alignItems:'center', gap:6 }}>
@@ -524,11 +552,11 @@ export default function Landing() {
             <MockupCard dark={dark} />
             <div className="float" style={{ position:'absolute', top:44, right:-32, padding:'9px 14px', borderRadius:12, background:dark?'rgba(16,185,129,0.12)':'#dcfce7', border:'1px solid rgba(16,185,129,0.3)', backdropFilter:'blur(12px)', display:'flex', alignItems:'center', gap:7, boxShadow:'0 8px 24px rgba(16,185,129,0.18)' }}>
               <CheckCircle size={13} color="#10b981" />
-              <span style={{ fontSize:11, fontWeight:700, color:'#10b981', whiteSpace:'nowrap' }}>Assignment graded!</span>
+              <span style={{ fontSize:11, fontWeight:700, color:'#10b981', whiteSpace:'nowrap' }}>{tr('landing.hero.assignmentGraded')}</span>
             </div>
             <div className="float2" style={{ position:'absolute', bottom:54, left:-36, padding:'9px 14px', borderRadius:12, background:dark?'rgba(99,102,241,0.12)':'rgba(99,102,241,0.07)', border:'1px solid rgba(99,102,241,0.25)', backdropFilter:'blur(12px)', display:'flex', alignItems:'center', gap:7, boxShadow:'0 8px 24px rgba(99,102,241,0.15)' }}>
               <Bell size={13} color="#6366f1" />
-              <span style={{ fontSize:11, fontWeight:700, color:dark?'#818cf8':'#4f46e5', whiteSpace:'nowrap' }}>3 new submissions</span>
+              <span style={{ fontSize:11, fontWeight:700, color:dark?'#818cf8':'#4f46e5', whiteSpace:'nowrap' }}>{tr('landing.hero.newSubmissions')}</span>
             </div>
           </div>
         </section>
@@ -536,7 +564,7 @@ export default function Landing() {
         {/* STATS */}
         <section style={{ background:t.stripeBg, borderTop:'1px solid '+t.bord, borderBottom:'1px solid '+t.bord }}>
           <div style={{ maxWidth:1000, margin:'0 auto', padding:'0 2rem', display:'grid', gridTemplateColumns:'repeat(4,1fr)', color:t.tp }}>
-            {STATS.map(function(s) { return <StatItem key={s.l} v={s.v} l={s.l} icon={s.icon} c={s.c} />; })}
+            {STATS.map(function(s) { return <StatItem key={s.key} v={s.v} l={tr('landing.stats.'+s.key)} icon={s.icon} c={s.c} />; })}
           </div>
         </section>
 
@@ -544,15 +572,15 @@ export default function Landing() {
         <section id="features" style={{ padding:'6rem 2rem' }}>
           <div style={{ maxWidth:1200, margin:'0 auto' }}>
             <div style={{ textAlign:'center', marginBottom:'4rem' }}>
-              <Label icon={Layers} text="Everything You Need" color="#4f46e5" />
-              <h2 style={{ fontFamily:"'Instrument Serif',serif", fontStyle:'italic', fontSize:'clamp(2rem,3.5vw,3rem)', fontWeight:400, letterSpacing:'-0.02em', margin:'0 0 18px', color:t.tp }}>Built for Modern Education</h2>
-              <p style={{ fontSize:16, color:t.tm, maxWidth:500, margin:'0 auto', lineHeight:1.75 }}>Every feature designed with educators in mind — intuitive, fast, and genuinely delightful to use.</p>
+              <Label icon={Layers} text={tr('landing.featuresSection.badge')} color="#4f46e5" />
+              <h2 style={{ fontFamily:"'Instrument Serif',serif", fontStyle:'italic', fontSize:'clamp(2rem,3.5vw,3rem)', fontWeight:400, letterSpacing:'-0.02em', margin:'0 0 18px', color:t.tp }}>{tr('landing.featuresSection.title')}</h2>
+              <p style={{ fontSize:16, color:t.tm, maxWidth:500, margin:'0 auto', lineHeight:1.75 }}>{tr('landing.featuresSection.subtitle')}</p>
             </div>
             <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(270px,1fr))', gap:16 }}>
               {FEATURES.map(function(feat, i) {
                 var Icon = feat.icon;
                 return (
-                  <div key={feat.label}
+                  <div key={feat.key}
                     onMouseEnter={function(){ setHovFeat(i); }}
                     onMouseLeave={function(){ setHovFeat(null); }}
                     style={{ padding:'28px 26px', borderRadius:20, background:t.card, border:'1px solid '+(hovFeat===i?feat.color+'44':t.bord), backdropFilter:'blur(16px)', transition:'all 0.3s', transform:hovFeat===i?'translateY(-5px)':'translateY(0)', boxShadow:hovFeat===i?'0 20px 50px '+feat.color+'22':'none', animation:'fadeUp 0.5s ease '+(i*0.05)+'s both' }}
@@ -560,8 +588,8 @@ export default function Landing() {
                     <div style={{ width:50, height:50, borderRadius:15, background:feat.color+'15', border:'1px solid '+feat.color+'22', display:'flex', alignItems:'center', justifyContent:'center', marginBottom:18, transition:'all 0.3s', boxShadow:hovFeat===i?'0 4px 16px '+feat.color+'28':'none' }}>
                       <Icon size={22} color={feat.color} />
                     </div>
-                    <h3 style={{ fontWeight:700, fontSize:16, margin:'0 0 10px', color:t.tp, letterSpacing:'-0.02em' }}>{feat.label}</h3>
-                    <p style={{ fontSize:14, lineHeight:1.7, color:t.tm, margin:0 }}>{feat.desc}</p>
+                    <h3 style={{ fontWeight:700, fontSize:16, margin:'0 0 10px', color:t.tp, letterSpacing:'-0.02em' }}>{tr('landing.features.'+feat.key+'.label')}</h3>
+                    <p style={{ fontSize:14, lineHeight:1.7, color:t.tm, margin:0 }}>{tr('landing.features.'+feat.key+'.desc')}</p>
                   </div>
                 );
               })}
@@ -573,9 +601,9 @@ export default function Landing() {
         <section id="curriculum" style={{ padding:'6rem 2rem' }}>
           <div style={{ maxWidth:1200, margin:'0 auto' }}>
             <div style={{ textAlign:'center', marginBottom:'3.5rem' }}>
-              <Label icon={School} text="Built for TVET" color="#ec4899" />
-              <h2 style={{ fontFamily:"'Instrument Serif',serif", fontStyle:'italic', fontSize:'clamp(2rem,3.5vw,3rem)', fontWeight:400, letterSpacing:'-0.02em', margin:'0 0 18px', color:t.tp }}>Competency-Based Curriculum, Configured Your Way</h2>
-              <p style={{ fontSize:16, color:t.tm, maxWidth:560, margin:'0 auto', lineHeight:1.75 }}>Every class is anchored to a real TVET program — Sector, Trade, Qualification Title and RTQF Level — so modules, assessments and reports always line up with the curriculum your institution follows.</p>
+              <Label icon={School} text={tr('landing.curriculumSection.badge')} color="#ec4899" />
+              <h2 style={{ fontFamily:"'Instrument Serif',serif", fontStyle:'italic', fontSize:'clamp(2rem,3.5vw,3rem)', fontWeight:400, letterSpacing:'-0.02em', margin:'0 0 18px', color:t.tp }}>{tr('landing.curriculumSection.title')}</h2>
+              <p style={{ fontSize:16, color:t.tm, maxWidth:560, margin:'0 auto', lineHeight:1.75 }}>{tr('landing.curriculumSection.subtitle')}</p>
             </div>
 
             {/* pipeline */}
@@ -583,13 +611,13 @@ export default function Landing() {
               {CURRICULUM_PIPELINE.map(function(step, i) {
                 var Icon = step.icon;
                 return (
-                  <div key={step.label} style={{ display:'flex', alignItems:'center', gap:10 }}>
+                  <div key={step.key} style={{ display:'flex', alignItems:'center', gap:10 }}>
                     <div style={{ width:190, padding:'20px 18px', borderRadius:18, background:t.card, border:'1px solid '+t.bord, backdropFilter:'blur(16px)', animation:'fadeUp 0.5s ease '+(i*0.08)+'s both' }}>
                       <div style={{ width:38, height:38, borderRadius:11, background:step.color+'15', border:'1px solid '+step.color+'25', display:'flex', alignItems:'center', justifyContent:'center', marginBottom:12 }}>
                         <Icon size={17} color={step.color} />
                       </div>
-                      <h4 style={{ fontWeight:700, fontSize:14, margin:'0 0 6px', color:t.tp }}>{step.label}</h4>
-                      <p style={{ fontSize:12, lineHeight:1.55, color:t.tm, margin:0 }}>{step.example}</p>
+                      <h4 style={{ fontWeight:700, fontSize:14, margin:'0 0 6px', color:t.tp }}>{tr('landing.curriculum.'+step.key+'.label')}</h4>
+                      <p style={{ fontSize:12, lineHeight:1.55, color:t.tm, margin:0 }}>{tr('landing.curriculum.'+step.key+'.example')}</p>
                     </div>
                     {i < CURRICULUM_PIPELINE.length - 1 && (
                       <ChevronRight size={18} color={t.tm} style={{ opacity:0.4, flexShrink:0 }} />
@@ -604,7 +632,7 @@ export default function Landing() {
               <div style={{ padding:'30px 28px', borderRadius:22, background:t.card, border:'1px solid '+t.bord, backdropFilter:'blur(16px)' }}>
                 <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:20 }}>
                   <ListChecks size={18} color="#6366f1" />
-                  <h3 style={{ fontWeight:700, fontSize:17, margin:0, color:t.tp }}>Assessment Types per Module</h3>
+                  <h3 style={{ fontWeight:700, fontSize:17, margin:0, color:t.tp }}>{tr('landing.curriculumSection.assessmentTypesTitle')}</h3>
                 </div>
                 <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
                   {ASSESSMENT_TYPES.map(function(a) {
@@ -612,8 +640,8 @@ export default function Landing() {
                       <div key={a.code} style={{ display:'flex', gap:14, alignItems:'flex-start', padding:'12px 14px', borderRadius:14, background:a.color+'0a', border:'1px solid '+a.color+'22' }}>
                         <div style={{ width:36, height:36, borderRadius:10, background:a.color+'18', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:800, color:a.color, flexShrink:0 }}>{a.code}</div>
                         <div>
-                          <p style={{ fontWeight:700, fontSize:13.5, margin:'0 0 3px', color:t.tp }}>{a.name}</p>
-                          <p style={{ fontSize:12.5, lineHeight:1.6, color:t.tm, margin:0 }}>{a.desc}</p>
+                          <p style={{ fontWeight:700, fontSize:13.5, margin:'0 0 3px', color:t.tp }}>{tr('landing.assessmentTypes.'+a.key+'.name')}</p>
+                          <p style={{ fontSize:12.5, lineHeight:1.6, color:t.tm, margin:0 }}>{tr('landing.assessmentTypes.'+a.key+'.desc')}</p>
                         </div>
                       </div>
                     );
@@ -625,13 +653,13 @@ export default function Landing() {
               <div style={{ padding:'30px 28px', borderRadius:22, background:t.card, border:'1px solid '+t.bord, backdropFilter:'blur(16px)' }}>
                 <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:20 }}>
                   <Workflow size={18} color="#10b981" />
-                  <h3 style={{ fontWeight:700, fontSize:17, margin:0, color:t.tp }}>Mark Approval Workflow</h3>
+                  <h3 style={{ fontWeight:700, fontSize:17, margin:0, color:t.tp }}>{tr('landing.curriculumSection.markWorkflowTitle')}</h3>
                 </div>
                 <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
                   {MARK_WORKFLOW.map(function(step, i) {
                     var Icon = step.icon;
                     return (
-                      <div key={step.label} style={{ display:'flex', gap:12, alignItems:'flex-start' }}>
+                      <div key={step.key} style={{ display:'flex', gap:12, alignItems:'flex-start' }}>
                         <div style={{ display:'flex', flexDirection:'column', alignItems:'center', flexShrink:0 }}>
                           <div style={{ width:30, height:30, borderRadius:9, background:step.color+'18', border:'1px solid '+step.color+'30', display:'flex', alignItems:'center', justifyContent:'center' }}>
                             <Icon size={13} color={step.color} />
@@ -639,8 +667,8 @@ export default function Landing() {
                           {i < MARK_WORKFLOW.length - 1 && <div style={{ width:1.5, flex:1, minHeight:14, background:t.bord, marginTop:3 }} />}
                         </div>
                         <div style={{ paddingBottom:i < MARK_WORKFLOW.length - 1 ? 6 : 0 }}>
-                          <p style={{ fontWeight:700, fontSize:13.5, margin:'0 0 2px', color:t.tp }}>{step.label}</p>
-                          <p style={{ fontSize:12.5, lineHeight:1.55, color:t.tm, margin:0 }}>{step.desc}</p>
+                          <p style={{ fontWeight:700, fontSize:13.5, margin:'0 0 2px', color:t.tp }}>{tr('landing.markWorkflow.'+step.key+'.label')}</p>
+                          <p style={{ fontSize:12.5, lineHeight:1.55, color:t.tm, margin:0 }}>{tr('landing.markWorkflow.'+step.key+'.desc')}</p>
                         </div>
                       </div>
                     );
@@ -652,19 +680,19 @@ export default function Landing() {
             {/* report outputs */}
             <div style={{ marginTop:'3rem' }}>
               <div style={{ textAlign:'center', marginBottom:'2rem' }}>
-                <h3 style={{ fontFamily:"'Instrument Serif',serif", fontStyle:'italic', fontWeight:400, fontSize:22, margin:'0 0 8px', color:t.tp }}>Reports, Generated Automatically</h3>
-                <p style={{ fontSize:14.5, color:t.tm, margin:0 }}>Once marks are approved, every report below updates on its own — no spreadsheets required.</p>
+                <h3 style={{ fontFamily:"'Instrument Serif',serif", fontStyle:'italic', fontWeight:400, fontSize:22, margin:'0 0 8px', color:t.tp }}>{tr('landing.curriculumSection.reportsTitle')}</h3>
+                <p style={{ fontSize:14.5, color:t.tm, margin:0 }}>{tr('landing.curriculumSection.reportsSubtitle')}</p>
               </div>
               <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))', gap:16 }}>
                 {REPORT_TYPES.map(function(r, i) {
                   var Icon = r.icon;
                   return (
-                    <div key={r.label} style={{ padding:'22px 20px', borderRadius:18, background:t.card, border:'1px solid '+t.bord, backdropFilter:'blur(16px)', animation:'fadeUp 0.5s ease '+(i*0.08)+'s both' }}>
+                    <div key={r.key} style={{ padding:'22px 20px', borderRadius:18, background:t.card, border:'1px solid '+t.bord, backdropFilter:'blur(16px)', animation:'fadeUp 0.5s ease '+(i*0.08)+'s both' }}>
                       <div style={{ width:42, height:42, borderRadius:12, background:r.color+'15', border:'1px solid '+r.color+'25', display:'flex', alignItems:'center', justifyContent:'center', marginBottom:14 }}>
                         <Icon size={19} color={r.color} />
                       </div>
-                      <h4 style={{ fontWeight:700, fontSize:14.5, margin:'0 0 8px', color:t.tp }}>{r.label}</h4>
-                      <p style={{ fontSize:13, lineHeight:1.65, color:t.tm, margin:0 }}>{r.desc}</p>
+                      <h4 style={{ fontWeight:700, fontSize:14.5, margin:'0 0 8px', color:t.tp }}>{tr('landing.reportTypes.'+r.key+'.label')}</h4>
+                      <p style={{ fontSize:13, lineHeight:1.65, color:t.tm, margin:0 }}>{tr('landing.reportTypes.'+r.key+'.desc')}</p>
                     </div>
                   );
                 })}
@@ -677,9 +705,9 @@ export default function Landing() {
         <section id="how-it-works" style={{ background:t.stripeBg, borderTop:'1px solid '+t.bord, borderBottom:'1px solid '+t.bord, padding:'6rem 2rem' }}>
           <div style={{ maxWidth:1100, margin:'0 auto' }}>
             <div style={{ textAlign:'center', marginBottom:'4rem' }}>
-              <Label icon={Rocket} text="Simple Onboarding" color="#7c3aed" />
-              <h2 style={{ fontFamily:"'Instrument Serif',serif", fontStyle:'italic', fontSize:'clamp(2rem,3.5vw,3rem)', fontWeight:400, letterSpacing:'-0.02em', margin:'0 0 18px', color:t.tp }}>Up and Running in Minutes</h2>
-              <p style={{ fontSize:16, color:t.tm, maxWidth:440, margin:'0 auto', lineHeight:1.75 }}>No IT team needed. No complicated setup. Just a few clicks and your whole school is online.</p>
+              <Label icon={Rocket} text={tr('landing.howItWorksSection.badge')} color="#7c3aed" />
+              <h2 style={{ fontFamily:"'Instrument Serif',serif", fontStyle:'italic', fontSize:'clamp(2rem,3.5vw,3rem)', fontWeight:400, letterSpacing:'-0.02em', margin:'0 0 18px', color:t.tp }}>{tr('landing.howItWorksSection.title')}</h2>
+              <p style={{ fontSize:16, color:t.tm, maxWidth:440, margin:'0 auto', lineHeight:1.75 }}>{tr('landing.howItWorksSection.subtitle')}</p>
             </div>
             <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(300px,1fr))', gap:22 }}>
               {STEPS.map(function(step, i) {
@@ -689,10 +717,10 @@ export default function Landing() {
                     <div style={{ position:'absolute', top:-20, right:-10, fontSize:130, fontWeight:900, color:step.color, opacity:0.04, lineHeight:1, userSelect:'none', fontFamily:"'Outfit',sans-serif" }}>{step.n}</div>
                     <div style={{ display:'inline-flex', alignItems:'center', gap:8, padding:'6px 14px', borderRadius:100, background:step.color+'12', border:'1px solid '+step.color+'28', marginBottom:22 }}>
                       <Icon size={13} color={step.color} />
-                      <span style={{ fontSize:12, fontWeight:700, color:step.color, letterSpacing:'0.06em' }}>Step {step.n}</span>
+                      <span style={{ fontSize:12, fontWeight:700, color:step.color, letterSpacing:'0.06em' }}>{tr('landing.howItWorksSection.step')} {step.n}</span>
                     </div>
-                    <h3 style={{ fontFamily:"'Instrument Serif',serif", fontStyle:'italic', fontWeight:400, fontSize:24, margin:'0 0 14px', color:t.tp, letterSpacing:'-0.01em' }}>{step.title}</h3>
-                    <p style={{ fontSize:15, lineHeight:1.75, color:t.tm, margin:0 }}>{step.desc}</p>
+                    <h3 style={{ fontFamily:"'Instrument Serif',serif", fontStyle:'italic', fontWeight:400, fontSize:24, margin:'0 0 14px', color:t.tp, letterSpacing:'-0.01em' }}>{tr('landing.steps.'+step.key+'.title')}</h3>
+                    <p style={{ fontSize:15, lineHeight:1.75, color:t.tm, margin:0 }}>{tr('landing.steps.'+step.key+'.desc')}</p>
                   </div>
                 );
               })}
@@ -704,8 +732,8 @@ export default function Landing() {
         <section id="testimonials" style={{ padding:'6rem 2rem' }}>
           <div style={{ maxWidth:1200, margin:'0 auto' }}>
             <div style={{ textAlign:'center', marginBottom:'4rem' }}>
-              <Label icon={MessageSquare} text="Testimonials" color="#0ea5e9" />
-              <h2 style={{ fontFamily:"'Instrument Serif',serif", fontStyle:'italic', fontSize:'clamp(2rem,3.5vw,3rem)', fontWeight:400, letterSpacing:'-0.02em', margin:'0 0 8px', color:t.tp }}>Loved by Educators Everywhere</h2>
+              <Label icon={MessageSquare} text={tr('landing.testimonialsSection.badge')} color="#0ea5e9" />
+              <h2 style={{ fontFamily:"'Instrument Serif',serif", fontStyle:'italic', fontSize:'clamp(2rem,3.5vw,3rem)', fontWeight:400, letterSpacing:'-0.02em', margin:'0 0 8px', color:t.tp }}>{tr('landing.testimonialsSection.title')}</h2>
             </div>
             <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))', gap:18 }}>
               {TESTIMONIALS.map(function(item, i) {
@@ -719,12 +747,12 @@ export default function Landing() {
                     <div style={{ display:'flex', gap:3, marginBottom:16 }}>
                       {[1,2,3,4,5].map(function(n) { return <Star key={n} size={13} color="#f59e0b" fill="#f59e0b" />; })}
                     </div>
-                    <p style={{ fontSize:14.5, lineHeight:1.75, color:dark?'#cbd5e1':'#475569', margin:'0 0 22px' }}>{item.text}</p>
+                    <p style={{ fontSize:14.5, lineHeight:1.75, color:dark?'#cbd5e1':'#475569', margin:'0 0 22px' }}>{tr('landing.testimonials.'+item.key+'.text')}</p>
                     <div style={{ display:'flex', alignItems:'center', gap:12 }}>
                       <div style={{ width:42, height:42, borderRadius:13, background:'linear-gradient(135deg,'+item.color+','+item.color+'aa)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, fontWeight:800, color:'white', flexShrink:0 }}>{item.init}</div>
                       <div>
                         <p style={{ fontWeight:700, fontSize:14, margin:0, color:t.tp }}>{item.name}</p>
-                        <p style={{ fontSize:12, color:t.tm, margin:0 }}>{item.role}</p>
+                        <p style={{ fontSize:12, color:t.tm, margin:0 }}>{tr('landing.testimonials.'+item.key+'.role')}</p>
                       </div>
                     </div>
                   </div>
@@ -738,27 +766,27 @@ export default function Landing() {
         <section id="pricing" style={{ background:t.stripeBg, borderTop:'1px solid '+t.bord, borderBottom:'1px solid '+t.bord, padding:'6rem 2rem' }}>
           <div style={{ maxWidth:1100, margin:'0 auto' }}>
             <div style={{ textAlign:'center', marginBottom:'4rem' }}>
-              <Label icon={Star} text="Pricing" color="#10b981" />
-              <h2 style={{ fontFamily:"'Instrument Serif',serif", fontStyle:'italic', fontSize:'clamp(2rem,3.5vw,3rem)', fontWeight:400, letterSpacing:'-0.02em', margin:'0 0 16px', color:t.tp }}>Simple, Transparent Pricing</h2>
-              <p style={{ fontSize:16, color:t.tm, maxWidth:400, margin:'0 auto', lineHeight:1.75 }}>No hidden fees. Cancel anytime. Scale as your school grows.</p>
+              <Label icon={Star} text={tr('landing.pricingSection.badge')} color="#10b981" />
+              <h2 style={{ fontFamily:"'Instrument Serif',serif", fontStyle:'italic', fontSize:'clamp(2rem,3.5vw,3rem)', fontWeight:400, letterSpacing:'-0.02em', margin:'0 0 16px', color:t.tp }}>{tr('landing.pricingSection.title')}</h2>
+              <p style={{ fontSize:16, color:t.tm, maxWidth:400, margin:'0 auto', lineHeight:1.75 }}>{tr('landing.pricingSection.subtitle')}</p>
             </div>
             <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(290px,1fr))', gap:20, maxWidth:980, margin:'0 auto' }}>
               {PRICING.map(function(plan, i) {
                 return (
-                  <div key={plan.name}
+                  <div key={plan.key}
                     onMouseEnter={function(){ setHovPlan(i); }}
                     onMouseLeave={function(){ setHovPlan(null); }}
                     style={{ padding:'36px 30px', borderRadius:24, position:'relative', background:plan.hot?(dark?'rgba(99,102,241,0.1)':'rgba(99,102,241,0.05)'):t.card, border:plan.hot?'2px solid rgba(99,102,241,0.45)':'1px solid '+t.bord, backdropFilter:'blur(16px)', transition:'all 0.3s', transform:hovPlan===i?'translateY(-5px)':(plan.hot?'translateY(-9px)':'translateY(0)'), boxShadow:hovPlan===i?'0 24px 60px rgba(99,102,241,0.2)':(plan.hot?'0 16px 50px rgba(99,102,241,0.18)':'none'), animation:'fadeUp 0.5s ease '+(i*0.1)+'s both' }}
                   >
-                    {plan.hot && <div style={{ position:'absolute', top:-14, left:'50%', transform:'translateX(-50%)', background:'linear-gradient(135deg,#4f46e5,#7c3aed)', color:'white', fontSize:11, fontWeight:700, padding:'5px 18px', borderRadius:100, letterSpacing:'0.06em', whiteSpace:'nowrap', boxShadow:'0 4px 14px rgba(99,102,241,0.4)' }}>Most Popular</div>}
-                    <h3 style={{ fontFamily:"'Instrument Serif',serif", fontStyle:'italic', fontWeight:400, fontSize:22, margin:'0 0 10px', color:t.tp }}>{plan.name}</h3>
+                    {plan.hot && <div style={{ position:'absolute', top:-14, left:'50%', transform:'translateX(-50%)', background:'linear-gradient(135deg,#4f46e5,#7c3aed)', color:'white', fontSize:11, fontWeight:700, padding:'5px 18px', borderRadius:100, letterSpacing:'0.06em', whiteSpace:'nowrap', boxShadow:'0 4px 14px rgba(99,102,241,0.4)' }}>{tr('landing.pricingSection.mostPopular')}</div>}
+                    <h3 style={{ fontFamily:"'Instrument Serif',serif", fontStyle:'italic', fontWeight:400, fontSize:22, margin:'0 0 10px', color:t.tp }}>{tr('landing.pricing.'+plan.key+'.name')}</h3>
                     <div style={{ display:'flex', alignItems:'baseline', gap:3, marginBottom:8 }}>
                       <span style={{ fontFamily:"'Outfit',sans-serif", fontWeight:900, fontSize:44, letterSpacing:'-0.06em', color:t.tp }}>{plan.price}</span>
                       {plan.period && <span style={{ fontSize:14, color:t.tm, fontWeight:500 }}>{plan.period}</span>}
                     </div>
-                    <p style={{ fontSize:13.5, color:t.tm, margin:'0 0 26px', lineHeight:1.65 }}>{plan.desc}</p>
+                    <p style={{ fontSize:13.5, color:t.tm, margin:'0 0 26px', lineHeight:1.65 }}>{tr('landing.pricing.'+plan.key+'.desc')}</p>
                     <div style={{ display:'flex', flexDirection:'column', gap:10, marginBottom:28 }}>
-                      {plan.feats.map(function(f) {
+                      {tr('landing.pricing.'+plan.key+'.feats', { returnObjects: true }).map(function(f) {
                         return (
                           <div key={f} style={{ display:'flex', alignItems:'center', gap:10 }}>
                             <div style={{ width:20, height:20, borderRadius:6, background:plan.hot?'rgba(99,102,241,0.14)':'rgba(16,185,129,0.1)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
@@ -773,7 +801,7 @@ export default function Landing() {
                       style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'13px 22px', borderRadius:13, background:plan.hot?'linear-gradient(135deg,#4f46e5,#7c3aed)':t.card, color:plan.hot?'white':t.tp, fontWeight:700, fontSize:14, textDecoration:'none', border:plan.hot?'none':'1.5px solid '+t.bord, boxShadow:plan.hot?'0 6px 20px rgba(99,102,241,0.4)':'none', transition:'all 0.2s' }}
                       onMouseEnter={function(e){ if(!plan.hot){ e.currentTarget.style.borderColor='#6366f1'; e.currentTarget.style.color='#6366f1'; } }}
                       onMouseLeave={function(e){ if(!plan.hot){ e.currentTarget.style.borderColor=t.bord; e.currentTarget.style.color=t.tp; } }}
-                    >{plan.cta} <ChevronRight size={14} /></Link>
+                    >{tr('landing.pricing.'+plan.key+'.cta')} <ChevronRight size={14} /></Link>
                   </div>
                 );
               })}
@@ -785,11 +813,11 @@ export default function Landing() {
         <section style={{ padding:'6rem 2rem' }}>
           <div style={{ maxWidth:740, margin:'0 auto' }}>
             <div style={{ textAlign:'center', marginBottom:'3.5rem' }}>
-              <h2 style={{ fontFamily:"'Instrument Serif',serif", fontStyle:'italic', fontSize:'clamp(2rem,3.5vw,2.8rem)', fontWeight:400, margin:'0 0 14px', color:t.tp }}>Frequently Asked Questions</h2>
-              <p style={{ fontSize:16, color:t.tm, lineHeight:1.7 }}>Everything you need to know before getting started.</p>
+              <h2 style={{ fontFamily:"'Instrument Serif',serif", fontStyle:'italic', fontSize:'clamp(2rem,3.5vw,2.8rem)', fontWeight:400, margin:'0 0 14px', color:t.tp }}>{tr('landing.faqSection.title')}</h2>
+              <p style={{ fontSize:16, color:t.tm, lineHeight:1.7 }}>{tr('landing.faqSection.subtitle')}</p>
             </div>
             <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-              {FAQS.map(function(item, i) {
+              {tr('landing.faqs', { returnObjects: true }).map(function(item, i) {
                 return (
                   <div key={item.q} style={{ borderRadius:16, background:t.card, border:'1px solid '+(faq===i?'rgba(99,102,241,0.35)':t.bord), overflow:'hidden', transition:'border-color 0.2s' }}>
                     <button onClick={function(){ setFaq(faq===i?null:i); }} style={{ width:'100%', padding:'18px 22px', background:'none', border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'space-between', gap:16, fontFamily:'inherit', textAlign:'left' }}>
@@ -816,21 +844,21 @@ export default function Landing() {
             <div style={{ position:'relative' }}>
               <div style={{ display:'inline-flex', alignItems:'center', gap:7, padding:'6px 16px', borderRadius:100, background:'rgba(255,255,255,0.14)', marginBottom:24, backdropFilter:'blur(8px)' }}>
                 <Sparkles size={12} color="white" />
-                <span style={{ fontSize:11, fontWeight:600, color:'rgba(255,255,255,0.9)', letterSpacing:'0.06em' }}>Join 2,400+ students already learning</span>
+                <span style={{ fontSize:11, fontWeight:600, color:'rgba(255,255,255,0.9)', letterSpacing:'0.06em' }}>{tr('landing.finalCta.badge')}</span>
               </div>
-              <h2 style={{ fontFamily:"'Instrument Serif',serif", fontStyle:'italic', fontSize:'clamp(2rem,4vw,3.2rem)', fontWeight:400, color:'white', margin:'0 0 18px', letterSpacing:'-0.01em' }}>Ready to Transform Your School?</h2>
-              <p style={{ fontSize:17, color:'rgba(255,255,255,0.75)', margin:'0 0 36px', lineHeight:1.75, maxWidth:500, marginLeft:'auto', marginRight:'auto' }}>Join 120+ educators using EDUPLA to save hours each week and improve student outcomes.</p>
+              <h2 style={{ fontFamily:"'Instrument Serif',serif", fontStyle:'italic', fontSize:'clamp(2rem,4vw,3.2rem)', fontWeight:400, color:'white', margin:'0 0 18px', letterSpacing:'-0.01em' }}>{tr('landing.finalCta.title')}</h2>
+              <p style={{ fontSize:17, color:'rgba(255,255,255,0.75)', margin:'0 0 36px', lineHeight:1.75, maxWidth:500, marginLeft:'auto', marginRight:'auto' }}>{tr('landing.finalCta.subtitle')}</p>
               <div style={{ display:'flex', gap:12, justifyContent:'center', flexWrap:'wrap' }}>
                 <Link to="/login"
                   style={{ display:'inline-flex', alignItems:'center', gap:10, padding:'15px 34px', borderRadius:14, background:'white', color:'#1e1b4b', fontWeight:800, fontSize:15, textDecoration:'none', boxShadow:'0 8px 30px rgba(0,0,0,0.25)', transition:'all 0.25s' }}
                   onMouseEnter={function(e){ e.currentTarget.style.transform='translateY(-2px) scale(1.02)'; e.currentTarget.style.boxShadow='0 14px 40px rgba(0,0,0,0.3)'; }}
                   onMouseLeave={function(e){ e.currentTarget.style.transform='translateY(0) scale(1)'; e.currentTarget.style.boxShadow='0 8px 30px rgba(0,0,0,0.25)'; }}
-                >Start for Free Today <ArrowRight size={16} /></Link>
+                >{tr('landing.finalCta.startFree')} <ArrowRight size={16} /></Link>
                 <a href="#features"
                   style={{ display:'inline-flex', alignItems:'center', gap:8, padding:'15px 28px', borderRadius:14, background:'rgba(255,255,255,0.12)', color:'white', fontWeight:700, fontSize:15, textDecoration:'none', border:'1.5px solid rgba(255,255,255,0.3)', backdropFilter:'blur(8px)', transition:'all 0.2s' }}
                   onMouseEnter={function(e){ e.currentTarget.style.background='rgba(255,255,255,0.2)'; }}
                   onMouseLeave={function(e){ e.currentTarget.style.background='rgba(255,255,255,0.12)'; }}
-                >Explore Features</a>
+                >{tr('landing.finalCta.exploreFeatures')}</a>
               </div>
             </div>
           </div>
@@ -854,7 +882,7 @@ export default function Landing() {
                     <span style={{ fontFamily:"'Instrument Serif',serif", fontStyle:'italic', fontSize:22, color:t.tp, letterSpacing:'-0.01em' }}>Edupla</span>
                   </div>
                   <p className="footer-brand-desc" style={{ fontSize:14, lineHeight:1.8, color:t.tm, maxWidth:270, marginBottom:28 }}>
-                    The modern education management platform built to help schools teach better, connect deeper, and grow smarter.
+                    {tr('landing.footer.brandDesc')}
                   </p>
                   <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
                     <SocialLink
@@ -893,24 +921,24 @@ export default function Landing() {
                 </div>
 
                 <div>
-                  <p style={{ fontWeight:700, fontSize:11, letterSpacing:'0.09em', textTransform:'uppercase', color:t.tp, opacity:0.45, margin:'0 0 20px' }}>Product</p>
-                  <FooterLink label="Features"  dark={dark} tm={t.tm} />
-                  <FooterLink label="Pricing"   dark={dark} tm={t.tm} />
-                  <FooterLink label="Changelog" dark={dark} tm={t.tm} />
-                  <FooterLink label="Roadmap"   dark={dark} tm={t.tm} />
-                  <FooterLink label="API Docs"  dark={dark} tm={t.tm} />
+                  <p style={{ fontWeight:700, fontSize:11, letterSpacing:'0.09em', textTransform:'uppercase', color:t.tp, opacity:0.45, margin:'0 0 20px' }}>{tr('landing.footer.product')}</p>
+                  <FooterLink label={tr('landing.nav.features')}  dark={dark} tm={t.tm} />
+                  <FooterLink label={tr('landing.nav.pricing')}   dark={dark} tm={t.tm} />
+                  <FooterLink label={tr('landing.footer.changelog')} dark={dark} tm={t.tm} />
+                  <FooterLink label={tr('landing.footer.roadmap')}   dark={dark} tm={t.tm} />
+                  <FooterLink label={tr('landing.footer.apiDocs')}  dark={dark} tm={t.tm} />
                 </div>
 
                 <div>
-                  <p style={{ fontWeight:700, fontSize:11, letterSpacing:'0.09em', textTransform:'uppercase', color:t.tp, opacity:0.45, margin:'0 0 20px' }}>Company</p>
-                  <FooterLink label="About"    dark={dark} tm={t.tm} />
-                  <FooterLink label="Blog"     dark={dark} tm={t.tm} />
-                  <FooterLink label="Careers"  dark={dark} tm={t.tm} />
-                  <FooterLink label="Press"    dark={dark} tm={t.tm} />
-                  <FooterLink label="Partners" dark={dark} tm={t.tm} />
+                  <p style={{ fontWeight:700, fontSize:11, letterSpacing:'0.09em', textTransform:'uppercase', color:t.tp, opacity:0.45, margin:'0 0 20px' }}>{tr('landing.footer.company')}</p>
+                  <FooterLink label={tr('landing.footer.about')}    dark={dark} tm={t.tm} />
+                  <FooterLink label={tr('landing.footer.blog')}     dark={dark} tm={t.tm} />
+                  <FooterLink label={tr('landing.footer.careers')}  dark={dark} tm={t.tm} />
+                  <FooterLink label={tr('landing.footer.press')}    dark={dark} tm={t.tm} />
+                  <FooterLink label={tr('landing.footer.partners')} dark={dark} tm={t.tm} />
                 </div>
                 <div>
-                  <p style={{ fontWeight:700, fontSize:11, letterSpacing:'0.09em', textTransform:'uppercase', color:t.tp, opacity:0.45, margin:'0 0 20px' }}>Contact</p>
+                  <p style={{ fontWeight:700, fontSize:11, letterSpacing:'0.09em', textTransform:'uppercase', color:t.tp, opacity:0.45, margin:'0 0 20px' }}>{tr('landing.footer.contact')}</p>
                   <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:14 }}>
                     <div style={{ width:32, height:32, borderRadius:9, background:'rgba(99,102,241,0.12)', border:'1px solid rgba(99,102,241,0.22)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
                       <Mail size={13} color="#6366f1" />
@@ -927,14 +955,14 @@ export default function Landing() {
                     <div style={{ width:32, height:32, borderRadius:9, background:'rgba(14,165,233,0.12)', border:'1px solid rgba(14,165,233,0.22)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
                       <MapPin size={13} color="#0ea5e9" />
                     </div>
-                    <span style={{ fontSize:13.5, color:t.tm }}>Kigali, Rwanda</span>
+                    <span style={{ fontSize:13.5, color:t.tm }}>{tr('landing.footer.location')}</span>
                   </div>
                   <div style={{ padding:'16px', borderRadius:14, background:dark?'rgba(99,102,241,0.08)':'rgba(99,102,241,0.05)', border:'1px solid '+(dark?'rgba(99,102,241,0.2)':'rgba(99,102,241,0.14)') }}>
-                    <p style={{ fontSize:12, fontWeight:700, color:t.tp, margin:'0 0 10px' }}>Stay in the loop</p>
+                    <p style={{ fontSize:12, fontWeight:700, color:t.tp, margin:'0 0 10px' }}>{tr('landing.footer.stayInLoop')}</p>
                     <div style={{ display:'flex', gap:6 }}>
                       <input
                         type="email"
-                        placeholder="your@email.com"
+                        placeholder={tr('landing.footer.emailPlaceholder')}
                         style={{ flex:1, minWidth:0, padding:'8px 11px', borderRadius:9, fontSize:12, background:dark?'rgba(255,255,255,0.06)':'rgba(255,255,255,0.85)', border:'1px solid '+t.bord, color:t.tp, outline:'none', fontFamily:"'Outfit',sans-serif" }}
                       />
                       <button
@@ -952,17 +980,17 @@ export default function Landing() {
             <div style={{ padding:'1.25rem 2rem' }} className="footer-pad">
               <div className="footer-bottom" style={{ maxWidth:1200, margin:'0 auto', display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:14 }}>
                 <div className="footer-bottom-left" style={{ display:'flex', alignItems:'center', gap:14, flexWrap:'wrap' }}>
-                  <p style={{ fontSize:13, color:t.tm, margin:0 }}>© 2026 EDUPLA · Built for modern education by JSTACK Dev Company (Jean Marie Vianney)</p>
+                  <p style={{ fontSize:13, color:t.tm, margin:0 }}>{tr('landing.footer.copyright')}</p>
                   <div className="footer-divider" style={{ width:1, height:14, background:t.bord }} />
                   <div style={{ display:'flex', alignItems:'center', gap:6 }}>
                     <div style={{ width:6, height:6, borderRadius:'50%', background:'#10b981', animation:'glow 2s infinite' }} />
-                    <span style={{ fontSize:12, color:'#10b981', fontWeight:600 }}>All systems operational</span>
+                    <span style={{ fontSize:12, color:'#10b981', fontWeight:600 }}>{tr('landing.footer.systemsOperational')}</span>
                   </div>
                 </div>
                 <div style={{ display:'flex', gap:22, flexWrap:'wrap' }}>
-                  <BottomLink label="Privacy Policy"    dark={dark} tm={t.tm} />
-                  <BottomLink label="Terms of Service"  dark={dark} tm={t.tm} />
-                  <BottomLink label="Support"           dark={dark} tm={t.tm} />
+                  <BottomLink label={tr('landing.footer.privacyPolicy')}    dark={dark} tm={t.tm} />
+                  <BottomLink label={tr('landing.footer.termsOfService')}  dark={dark} tm={t.tm} />
+                  <BottomLink label={tr('landing.footer.support')}           dark={dark} tm={t.tm} />
                 </div>
               </div>
             </div>

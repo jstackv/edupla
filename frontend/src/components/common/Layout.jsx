@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useMaintenance } from '../../context/MaintenanceContext';
@@ -13,40 +14,43 @@ import {
   Layers, UserPlus, AlertTriangle, X, Crown, ClipboardCheck,
 } from 'lucide-react';
 import NotificationPanel from './NotificationPanel';
+import LanguageSwitcher from './LanguageSwitcher';
 
 /* ─── NAV DEFINITIONS ───────────────────────────────────────────── */
+/* `labelKey` points into the `nav.*` i18n namespace; NavItem/SuperAdminNavItem
+   resolve it via t() at render time so links relabel instantly on language change. */
 const TeacherLinks = [
-  { to: '/teacher/dashboard',        icon: LayoutDashboard, label: 'Dashboard',     section: 'main' },
-  { to: '/teacher/classes',          icon: BookOpen,        label: 'My Classes',    section: 'main' },
-  { to: '/teacher/students',         icon: Users,           label: 'Students',      section: 'main' },
-  { to: '/teacher/documents',        icon: FileText,        label: 'Documents',     section: 'manage' },
-  { to: '/teacher/assignments',      icon: ClipboardList,   label: 'Assignments',   section: 'manage' },
-  { to: '/teacher/assessments-grade',icon: BookMarked,      label: 'Marks Recording',   section: 'manage' },
-  { to: '/teacher/assessments',      icon: ClipboardCheck,  label: 'Assessments',       section: 'manage' },
-  { to: '/teacher/announcements',    icon: Megaphone,       label: 'Announcements', section: 'manage' },
-  { to: '/teacher/groups',           icon: Users,           label: 'Groups',         section: 'manage' },
+  { to: '/teacher/dashboard',        icon: LayoutDashboard, labelKey: 'nav.dashboard',      section: 'main' },
+  { to: '/teacher/classes',          icon: BookOpen,        labelKey: 'nav.myClasses',      section: 'main' },
+  { to: '/teacher/students',         icon: Users,           labelKey: 'nav.students',       section: 'main' },
+  { to: '/teacher/documents',        icon: FileText,        labelKey: 'nav.documents',      section: 'manage' },
+  { to: '/teacher/assignments',      icon: ClipboardList,   labelKey: 'nav.assignments',    section: 'manage' },
+  { to: '/teacher/assessments-grade',icon: BookMarked,      labelKey: 'nav.marksRecording', section: 'manage' },
+  { to: '/teacher/assessments',      icon: ClipboardCheck,  labelKey: 'nav.assessments',    section: 'manage' },
+  { to: '/teacher/announcements',    icon: Megaphone,       labelKey: 'nav.announcements',  section: 'manage' },
+  { to: '/teacher/groups',           icon: Users,           labelKey: 'nav.groups',         section: 'manage' },
 ];
 const StudentLinks = [
-  { to: '/student/dashboard',     icon: LayoutDashboard, label: 'Dashboard',     section: 'main' },
-  { to: '/student/classes',       icon: BookMarked,      label: 'My Classes',    section: 'main' },
-  { to: '/student/documents',     icon: Notebook,        label: 'Notes & Docs',  section: 'manage' },
-  { to: '/student/assignments',   icon: ClipboardList,   label: 'Assignments',   section: 'manage' },
-  { to: '/student/assessments',   icon: ClipboardCheck,  label: 'Assessments',   section: 'manage' },
-  { to: '/student/announcements', icon: Megaphone,       label: 'Announcements', section: 'manage' },
-  { to: '/student/groups',        icon: Users,           label: 'Groups',      section: 'manage' },
+  { to: '/student/dashboard',     icon: LayoutDashboard, labelKey: 'nav.dashboard',     section: 'main' },
+  { to: '/student/classes',       icon: BookMarked,      labelKey: 'nav.myClasses',     section: 'main' },
+  { to: '/student/documents',     icon: Notebook,        labelKey: 'nav.notesAndDocs',  section: 'manage' },
+  { to: '/student/assignments',   icon: ClipboardList,   labelKey: 'nav.assignments',   section: 'manage' },
+  { to: '/student/assessments',   icon: ClipboardCheck,  labelKey: 'nav.assessments',   section: 'manage' },
+  { to: '/student/announcements', icon: Megaphone,       labelKey: 'nav.announcements', section: 'manage' },
+  { to: '/student/groups',        icon: Users,           labelKey: 'nav.groups',        section: 'manage' },
 ];
 const AdminLinks = [
-  { to: '/admin/dashboard',   icon: LayoutDashboard, label: 'Dashboard',     section: 'main' },
-  { to: '/admin/teachers',    icon: UserCheck,       label: 'Teachers',      section: 'main' },
-  { to: '/admin/classes',     icon: BookOpen,        label: 'Classes',       section: 'main' },
-  { to: '/admin/students',    icon: GraduationCap,   label: 'Students',      section: 'main' },
-  { to: '/admin/assessments', icon: BookMarked,      label: 'Manage Modules',   section: 'manage' },
-  { to: '/admin/settings',    icon: GraduationCap,   label: 'Manage TVET Info',        section: 'manage' },
+  { to: '/admin/dashboard',   icon: LayoutDashboard, labelKey: 'nav.dashboard',       section: 'main' },
+  { to: '/admin/teachers',    icon: UserCheck,       labelKey: 'nav.teachers',        section: 'main' },
+  { to: '/admin/classes',     icon: BookOpen,        labelKey: 'nav.classes',         section: 'main' },
+  { to: '/admin/students',    icon: GraduationCap,   labelKey: 'nav.students',        section: 'main' },
+  { to: '/admin/assessments', icon: BookMarked,      labelKey: 'nav.manageModules',   section: 'manage' },
+  { to: '/admin/settings',    icon: GraduationCap,   labelKey: 'nav.manageTvetInfo',  section: 'manage' },
 ];
 const SuperAdminLinks = [
-  { to: '/admin/dashboard',   icon: LayoutDashboard, label: 'Overview',      section: 'main' },
-  { to: '/admin/admins',      icon: Shield,          label: 'Manage Admins', section: 'main' },
-  { to: '/admin/maintenance', icon: AlertTriangle,   label: 'System Status', section: 'main' },
+  { to: '/admin/dashboard',   icon: LayoutDashboard, labelKey: 'nav.overview',      section: 'main' },
+  { to: '/admin/admins',      icon: Shield,          labelKey: 'nav.manageAdmins',  section: 'main' },
+  { to: '/admin/maintenance', icon: AlertTriangle,   labelKey: 'nav.systemStatus',  section: 'main' },
 ];
 
 /* ─── HELPERS ───────────────────────────────────────────────────── */
@@ -58,13 +62,14 @@ function getAvatarGradient(name) {
   if (!name) return AVATAR_GRADIENTS[0];
   return AVATAR_GRADIENTS[name.charCodeAt(0) % AVATAR_GRADIENTS.length];
 }
-const ROLE_LABEL = { teacher: 'Teacher Portal', student: 'Student Portal', admin: 'Admin Portal' };
+const ROLE_LABEL_KEY = { teacher: 'roles.teacherPortal', student: 'roles.studentPortal', admin: 'roles.adminPortal' };
 const ROLE_BADGE_COLOR = { teacher: '#6366f1', student: '#10b981', admin: '#8b5cf6' };
 
 /* ══════════════════════════════════════════════════════════════════
    LOGOUT CONFIRMATION MODAL
 ══════════════════════════════════════════════════════════════════ */
 function LogoutModal({ open, onConfirm, onCancel, dark, userName }) {
+  const { t } = useTranslation();
   useEffect(() => {
     if (!open) return;
     const handler = (e) => { if (e.key === 'Escape') onCancel(); };
@@ -129,14 +134,14 @@ function LogoutModal({ open, onConfirm, onCancel, dark, userName }) {
               color: dark ? '#f1f5f9' : '#0f172a',
               letterSpacing: '-0.02em',
             }}>
-              Sign out of EDUPLA?
+              {t('layout.signOutTitle')}
             </h3>
             <p style={{
               margin: 0, fontSize: 13.5,
               color: dark ? '#64748b' : '#6b7280',
               lineHeight: 1.6,
             }}>
-              {userName ? `${userName}, you'll` : "You'll"} need to sign in again to access your account and continue where you left off.
+              {userName ? t('layout.signOutBodyNamed', { name: userName }) : t('layout.signOutBody')}
             </p>
           </div>
 
@@ -162,7 +167,7 @@ function LogoutModal({ open, onConfirm, onCancel, dark, userName }) {
                 e.currentTarget.style.color = dark ? '#94a3b8' : '#6b7280';
               }}
             >
-              Stay signed in
+              {t('layout.staySignedIn')}
             </button>
             <button
               onClick={onConfirm}
@@ -189,7 +194,7 @@ function LogoutModal({ open, onConfirm, onCancel, dark, userName }) {
               }}
             >
               <LogOut size={14} />
-              Yes, sign out
+              {t('layout.yesSignOut')}
             </button>
           </div>
         </div>
@@ -202,6 +207,7 @@ function LogoutModal({ open, onConfirm, onCancel, dark, userName }) {
    USER DROPDOWN (top-right)
 ══════════════════════════════════════════════════════════════════ */
 function UserDropdown({ user, dark, from, to, initials, onLogoutClick }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   const navigate = useNavigate();
@@ -216,8 +222,8 @@ function UserDropdown({ user, dark, from, to, initials, onLogoutClick }) {
   const roleColor = ROLE_BADGE_COLOR[user?.role] || '#6366f1';
 
   const menuItems = [
-    { icon: UserCircle, label: 'View Profile',    sub: 'Edit your personal info',   action: () => { navigate('/profile');  setOpen(false); } },
-    { icon: Settings,   label: 'Settings',         sub: 'Password, appearance',       action: () => { navigate('/settings'); setOpen(false); } },
+    { icon: UserCircle, label: t('layout.viewProfile'), sub: t('layout.viewProfileSub'), action: () => { navigate('/profile');  setOpen(false); } },
+    { icon: Settings,   label: t('common.settings'),    sub: t('layout.settingsSub'),    action: () => { navigate('/settings'); setOpen(false); } },
   ];
 
   return (
@@ -320,7 +326,7 @@ function UserDropdown({ user, dark, from, to, initials, onLogoutClick }) {
             }}>
               <div style={{ width: 6, height: 6, borderRadius: '50%', background: roleColor }} />
               <span style={{ fontSize: 10.5, fontWeight: 700, color: roleColor, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                {user?.is_super_admin ? 'Super Admin' : user?.role}
+                {user?.is_super_admin ? t('roles.superAdmin') : user?.role}
               </span>
             </div>
           </div>
@@ -376,8 +382,8 @@ function UserDropdown({ user, dark, from, to, initials, onLogoutClick }) {
                 <LogOut size={15} color="#ef4444" />
               </div>
               <div>
-                <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#ef4444' }}>Sign out</p>
-                <p style={{ margin: 0, fontSize: 11, color: dark ? '#4a5168' : '#9ca3af' }}>End your current session</p>
+                <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#ef4444' }}>{t('common.signOut')}</p>
+                <p style={{ margin: 0, fontSize: 11, color: dark ? '#4a5168' : '#9ca3af' }}>{t('layout.signOutSub')}</p>
               </div>
             </button>
           </div>
@@ -391,6 +397,7 @@ function UserDropdown({ user, dark, from, to, initials, onLogoutClick }) {
    LAYOUT
 ══════════════════════════════════════════════════════════════════ */
 export default function Layout({ children }) {
+  const { t } = useTranslation();
   const { user, logout, endImpersonation } = useAuth();
   const isImpersonating = user?.impersonation_session === true && !!user?.impersonated_by;
   const { dark, toggleTheme } = useTheme();
@@ -414,18 +421,18 @@ export default function Layout({ children }) {
 
   const currentLink = links.find(l => l.to === location.pathname);
   const pageTitle =
-    location.pathname === '/profile'  ? 'Profile'  :
-    location.pathname === '/settings' ? 'Settings' :
-    location.pathname === '/teacher/assessments-grade' ? 'Marks Recording' :
-    location.pathname === '/admin/assessments' ? 'Assessments' :
-    location.pathname === '/teacher/groups' ? 'Groups' :
-    location.pathname === '/student/groups' ? 'My Groups' :
-    currentLink?.label || 'Dashboard';
+    location.pathname === '/profile'  ? t('common.profile')  :
+    location.pathname === '/settings' ? t('common.settings') :
+    location.pathname === '/teacher/assessments-grade' ? t('nav.marksRecording') :
+    location.pathname === '/admin/assessments' ? t('nav.assessments') :
+    location.pathname === '/teacher/groups' ? t('nav.groups') :
+    location.pathname === '/student/groups' ? t('nav.myGroups') :
+    (currentLink ? t(currentLink.labelKey) : t('nav.dashboard'));
 
   const handleLogoutConfirm = async () => {
     setShowLogoutModal(false);
     await logout();
-    toast.success('Signed out successfully');
+    toast.success(t('layout.signedOutSuccess'));
     navigate('/login');
   };
 
@@ -482,7 +489,7 @@ export default function Layout({ children }) {
         }}>
           <p style={{ fontFamily: "'Sora',sans-serif", fontSize: 13, fontWeight: 800, color: dark ? '#f59e0b' : '#b45309', letterSpacing: '0.06em' }}>EDUPLA</p>
           <span style={{ fontSize: 9, color: dark ? 'rgba(245,158,11,0.5)' : 'rgba(180,83,9,0.65)', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-            Super Admin
+            {t('roles.superAdmin')}
           </span>
         </div>
       </div>
@@ -514,7 +521,7 @@ export default function Layout({ children }) {
         }}>
           <p style={{ fontSize: 12, fontWeight: 700, color: dark ? '#f59e0b' : '#b45309' }}>{user?.name}</p>
           <span style={{ fontSize: 9, color: dark ? 'rgba(245,158,11,0.5)' : 'rgba(180,83,9,0.65)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-            Super Administrator
+            {t('roles.superAdministrator')}
           </span>
         </div>
         {!collapsed && (
@@ -534,7 +541,7 @@ export default function Layout({ children }) {
           pointerEvents: collapsed ? 'none' : 'auto',
           fontFamily: "'Space Mono',monospace",
         }}>
-          Control
+          {t('nav.control')}
         </div>
         {SuperAdminLinks.map(link => (
           <SuperAdminNavItem key={link.to} link={link} location={location} collapsed={collapsed} dark={dark} onNav={onNav} />
@@ -543,11 +550,11 @@ export default function Layout({ children }) {
 
       {/* Bottom */}
       <div style={{ padding: 8, borderTop: `1px solid ${dark ? 'rgba(245,158,11,0.10)' : 'rgba(217,119,6,0.15)'}`, flexShrink: 0 }}>
-        <SuperAdminNavItem link={{ to: '/profile', icon: UserCircle, label: 'Profile' }} location={location} collapsed={collapsed} dark={dark} onNav={onNav} />
-        <SuperAdminNavItem link={{ to: '/settings', icon: Settings, label: 'Settings' }} location={location} collapsed={collapsed} dark={dark} onNav={onNav} />
+        <SuperAdminNavItem link={{ to: '/profile', icon: UserCircle, labelKey: 'common.profile' }} location={location} collapsed={collapsed} dark={dark} onNav={onNav} />
+        <SuperAdminNavItem link={{ to: '/settings', icon: Settings, labelKey: 'common.settings' }} location={location} collapsed={collapsed} dark={dark} onNav={onNav} />
         <button
           onClick={() => setShowLogoutModal(true)}
-          title={collapsed ? 'Sign Out' : undefined}
+          title={collapsed ? t('common.signOut') : undefined}
           style={{
             width: '100%', display: 'flex', alignItems: 'center', gap: 10,
             padding: '9px 10px', borderRadius: 10, border: 'none', background: 'transparent',
@@ -559,7 +566,7 @@ export default function Layout({ children }) {
         >
           <LogOut size={16} style={{ flexShrink: 0 }} />
           <span style={{ transition: 'opacity 0.26s ease, width 0.26s ease', opacity: collapsed ? 0 : 1, width: collapsed ? 0 : 'auto', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-            Sign Out
+            {t('common.signOut')}
           </span>
         </button>
       </div>
@@ -592,7 +599,7 @@ export default function Layout({ children }) {
           pointerEvents: collapsed ? 'none' : 'auto',
         }}>
           <p style={{ fontFamily: "'Sora',sans-serif", fontSize: 13, fontWeight: 800, color: dark ? '#e8ecf4' : '#111827', letterSpacing: '0.06em' }}>EDUPLA</p>
-          <span style={{ fontSize: 10, color: dark ? '#4a5168' : '#9ca3af', fontWeight: 500 }}>{ROLE_LABEL[user?.role] || 'Portal'}</span>
+          <span style={{ fontSize: 10, color: dark ? '#4a5168' : '#9ca3af', fontWeight: 500 }}>{user?.role ? t(ROLE_LABEL_KEY[user.role]) : t('common.portal')}</span>
         </div>
       </div>
 
@@ -637,13 +644,13 @@ export default function Layout({ children }) {
 
       {/* Nav */}
       <nav style={{ flex: 1, overflowY: 'auto', padding: '4px 8px', scrollbarWidth: 'none' }}>
-        <SectionLabel label="Main Menu" collapsed={collapsed} dark={dark} />
+        <SectionLabel label={t("nav.mainMenu")} collapsed={collapsed} dark={dark} />
         {mainLinks.map(link => (
           <NavItem key={link.to} link={link} location={location} collapsed={collapsed} dark={dark} onNav={onNav} />
         ))}
         {manageLinks.length > 0 && (
           <>
-            <SectionLabel label="Management" collapsed={collapsed} dark={dark} />
+            <SectionLabel label={t("nav.management")} collapsed={collapsed} dark={dark} />
             {manageLinks.map(link => (
               <NavItem key={link.to} link={link} location={location} collapsed={collapsed} dark={dark} onNav={onNav} />
             ))}
@@ -653,11 +660,11 @@ export default function Layout({ children }) {
 
       {/* Bottom */}
       <div style={{ padding: 8, borderTop: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}`, flexShrink: 0 }}>
-        <NavItem link={{ to: '/profile', icon: UserCircle, label: 'Profile' }} location={location} collapsed={collapsed} dark={dark} onNav={onNav} />
-        <NavItem link={{ to: '/settings', icon: Settings, label: 'Settings' }} location={location} collapsed={collapsed} dark={dark} onNav={onNav} />
+        <NavItem link={{ to: '/profile', icon: UserCircle, labelKey: 'common.profile' }} location={location} collapsed={collapsed} dark={dark} onNav={onNav} />
+        <NavItem link={{ to: '/settings', icon: Settings, labelKey: 'common.settings' }} location={location} collapsed={collapsed} dark={dark} onNav={onNav} />
         <button
           onClick={() => setShowLogoutModal(true)}
-          title={collapsed ? 'Sign Out' : undefined}
+          title={collapsed ? t('common.signOut') : undefined}
           style={{
             width: '100%', display: 'flex', alignItems: 'center', gap: 10,
             padding: '9px 10px', borderRadius: 10, border: 'none', background: 'transparent',
@@ -669,7 +676,7 @@ export default function Layout({ children }) {
         >
           <LogOut size={16} style={{ flexShrink: 0 }} />
           <span style={{ transition: 'opacity 0.26s ease, width 0.26s ease', opacity: collapsed ? 0 : 1, width: collapsed ? 0 : 'auto', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-            Sign Out
+            {t('common.signOut')}
           </span>
           {collapsed && (
             <span className="nav-tooltip" style={{
@@ -678,7 +685,7 @@ export default function Layout({ children }) {
               color: '#f87171', fontSize: 12, fontWeight: 500, padding: '5px 10px',
               borderRadius: 8, whiteSpace: 'nowrap', opacity: 0, pointerEvents: 'none',
               boxShadow: '0 4px 20px rgba(0,0,0,0.4)', zIndex: 100, transition: 'opacity 0.15s',
-            }}>Sign Out</span>
+            }}>{t('common.signOut')}</span>
           )}
         </button>
       </div>
@@ -749,7 +756,7 @@ export default function Layout({ children }) {
       <div className="edupla-layout">
         {/* DESKTOP SIDEBAR */}
         <div className="edupla-sidebar">
-          <div className="collapse-btn" onClick={() => setCollapsed(c => !c)} title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
+          <div className="collapse-btn" onClick={() => setCollapsed(c => !c)} title={collapsed ? t('layout.expandSidebar') : t('layout.collapseSidebar')}>
             {collapsed ? <ChevronRight size={11} color={isSuperAdmin ? '#f59e0b' : (dark ? '#7b839a' : '#6b7280')} /> : <ChevronLeft size={11} color={isSuperAdmin ? '#f59e0b' : (dark ? '#7b839a' : '#6b7280')} />}
           </div>
           {isSuperAdmin ? <SuperAdminSidebarContent onNav={() => {}} /> : <SidebarContent onNav={() => {}} />}
@@ -793,7 +800,7 @@ export default function Layout({ children }) {
               <Home size={12} color={dark ? '#4a5168' : '#9ca3af'} />
               <ChevronRight size={10} color={dark ? '#4a5168' : '#9ca3af'} />
               <span style={{ fontSize: 12, color: isSuperAdmin ? '#f59e0b' : (dark ? '#7b839a' : '#6b7280'), fontWeight: isSuperAdmin ? 700 : 500 }}>
-                {isSuperAdmin ? 'Super Admin' : (ROLE_LABEL[user?.role] || 'Portal')}
+                {isSuperAdmin ? t('roles.superAdmin') : (user?.role ? t(ROLE_LABEL_KEY[user.role]) : t('common.portal'))}
               </span>
               <ChevronRight size={10} color={dark ? '#4a5168' : '#9ca3af'} />
               <span style={{ fontFamily: "'Sora',sans-serif", fontSize: 13, fontWeight: 700, color: dark ? '#e8ecf4' : '#111827' }}>{pageTitle}</span>
@@ -813,15 +820,18 @@ export default function Layout({ children }) {
                 onMouseLeave={e => e.currentTarget.style.borderColor = dark ? '#1e2130' : '#e5e7eb'}
               >
                 <Search size={13} color={dark ? '#4a5168' : '#9ca3af'} />
-                <span style={{ fontSize: 12, color: dark ? '#4a5168' : '#9ca3af' }}>Search…</span>
+                <span style={{ fontSize: 12, color: dark ? '#4a5168' : '#9ca3af' }}>{t('common.search')}</span>
                 <kbd style={{ fontSize: 9.5, color: dark ? '#4a5168' : '#9ca3af', background: dark ? '#1d2235' : '#f3f4f6', border: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}`, borderRadius: 4, padding: '1px 4px' }}>⌘K</kbd>
               </div>
 
               {/* Notifications */}
               <NotificationPanel dark={dark} />
 
+              {/* Language */}
+              <LanguageSwitcher dark={dark} />
+
               {/* Theme */}
-              <TopbarIconBtn dark={dark} title={dark ? 'Switch to Light' : 'Switch to Dark'} onClick={toggleTheme}>
+              <TopbarIconBtn dark={dark} title={dark ? t('layout.switchToLight') : t('layout.switchToDark')} onClick={toggleTheme}>
                 {dark ? <Sun size={14} color={dark ? '#7b839a' : '#6b7280'} /> : <Moon size={14} color={dark ? '#7b839a' : '#6b7280'} />}
               </TopbarIconBtn>
 
@@ -851,7 +861,7 @@ export default function Layout({ children }) {
               fontSize: 12, fontWeight: 600, color: '#7c3aed',
             }}>
             <UserCheck size={14} />
-            Viewing as {user?.name} ({user?.role}) — impersonation session, expires in 2 hours.
+            {t('layout.viewingAs', { name: user?.name, role: user?.role })}
             <button
               onClick={endImpersonation}
               style={{
@@ -860,7 +870,7 @@ export default function Layout({ children }) {
                 color: '#7c3aed', fontWeight: 700, fontSize: 11.5, cursor: 'pointer',
               }}
             >
-              End session
+              {t('layout.endSession')}
             </button>
             </div>
           )}
@@ -875,9 +885,9 @@ export default function Layout({ children }) {
               fontSize: 12, fontWeight: 600, color: '#d97706',
             }}>
               <AlertTriangle size={14} />
-              Maintenance mode is active — everyone else is seeing the maintenance screen.
+              {t('layout.maintenanceActive')}
               <Link to="/admin/maintenance" style={{ marginLeft: 'auto', color: '#d97706', fontWeight: 700, textDecoration: 'underline' }}>
-                Manage
+                {t('layout.manage')}
               </Link>
             </div>
           )}
@@ -915,7 +925,9 @@ function SectionLabel({ label, collapsed, dark }) {
 }
 
 function NavItem({ link, location, collapsed, dark, onNav }) {
+  const { t } = useTranslation();
   const Icon = link.icon;
+  const label = t(link.labelKey);
   const active = location.pathname === link.to;
   const [hovered, setHovered] = useState(false);
   const bg = active ? 'rgba(99,102,241,0.12)' : hovered ? (dark ? '#181c27' : '#f3f4f6') : 'transparent';
@@ -933,7 +945,7 @@ function NavItem({ link, location, collapsed, dark, onNav }) {
         {active && (<div style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', width: 3, height: 16, borderRadius: '0 3px 3px 0', background: '#6366f1' }} />)}
         <Icon size={16} style={{ flexShrink: 0 }} />
         <span style={{ flex: 1, transition: 'opacity 0.26s ease, width 0.26s ease', opacity: collapsed ? 0 : 1, width: collapsed ? 0 : 'auto', overflow: 'hidden', pointerEvents: 'none' }}>
-          {link.label}
+          {label}
         </span>
         {link.badge != null && !collapsed && (
           <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 5, background: 'rgba(99,102,241,0.2)', color: '#818cf8', flexShrink: 0 }}>{link.badge}</span>
@@ -947,7 +959,7 @@ function NavItem({ link, location, collapsed, dark, onNav }) {
           color: dark ? '#e8ecf4' : '#111827', fontSize: 12, fontWeight: 500, padding: '5px 10px', borderRadius: 8,
           whiteSpace: 'nowrap', pointerEvents: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.3)', zIndex: 100,
         }}>
-          {link.label}
+          {label}
         </span>
       )}
     </div>
@@ -955,7 +967,9 @@ function NavItem({ link, location, collapsed, dark, onNav }) {
 }
 
 function SuperAdminNavItem({ link, location, collapsed, dark, onNav }) {
+  const { t } = useTranslation();
   const Icon = link.icon;
+  const label = t(link.labelKey);
   const active = location.pathname === link.to;
   const [hovered, setHovered] = useState(false);
 
@@ -997,7 +1011,7 @@ function SuperAdminNavItem({ link, location, collapsed, dark, onNav }) {
           opacity: collapsed ? 0 : 1, width: collapsed ? 0 : 'auto',
           overflow: 'hidden', pointerEvents: 'none',
         }}>
-          {link.label}
+          {label}
         </span>
         {active && !collapsed && <ChevronRight size={12} style={{ flexShrink: 0, opacity: 0.6 }} />}
       </Link>
@@ -1010,7 +1024,7 @@ function SuperAdminNavItem({ link, location, collapsed, dark, onNav }) {
           whiteSpace: 'nowrap', pointerEvents: 'none',
           boxShadow: dark ? '0 4px 20px rgba(0,0,0,0.4)' : '0 4px 20px rgba(0,0,0,0.12)', zIndex: 100,
         }}>
-          {link.label}
+          {label}
         </span>
       )}
     </div>

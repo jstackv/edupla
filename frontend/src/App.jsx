@@ -1,5 +1,7 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { MaintenanceProvider, useMaintenance } from './context/MaintenanceContext';
@@ -7,42 +9,50 @@ import { ChatNotifyProvider } from './context/ChatNotifyContext';
 import Layout from './components/common/Layout';
 import { GraduationCap } from 'lucide-react';
 
+// Landing + Login load eagerly — they're the only two public, SEO-relevant
+// pages, and the ones an anonymous visitor (or Googlebot) actually hits.
 import Login from './pages/auth/Login';
 import Landing from './pages/Landing';
-import Profile from './pages/Profile';
-import Settings from './pages/Settings';
-import ViewerPage from './pages/ViewerPage';
 import Maintenance from './pages/Maintenance';
-import ImpersonateHandoff from './pages/ImpersonateHandoff';
 
-import TeacherDashboard from './pages/teacher/Dashboard';
-import Classes from './pages/teacher/Classes';
-import Students from './pages/teacher/Students';
-import Documents from './pages/teacher/Documents';
-import Assignments from './pages/teacher/Assignments';
-import TeacherAnnouncements from './pages/teacher/Announcements';
-import TeacherAssessmentPage from './pages/teacher/AssessmentsTeacher';
-import TeacherAssessmentsOnline from './pages/teacher/AssessmentsOnline';
-import TeacherGroups from './pages/teacher/Groups';
+// Everything below this line is only ever seen after login, so it's
+// code-split with React.lazy: none of it is downloaded on first load of
+// "/". This is what keeps the public landing page's JS bundle small, which
+// directly improves Core Web Vitals / page-speed — a real Google ranking
+// signal — and gets the page interactive faster for real visitors too.
+const Profile = lazy(() => import('./pages/Profile'));
+const Settings = lazy(() => import('./pages/Settings'));
+const ViewerPage = lazy(() => import('./pages/ViewerPage'));
+const ImpersonateHandoff = lazy(() => import('./pages/ImpersonateHandoff'));
 
-import StudentDashboard from './pages/student/Dashboard';
-import StudentClasses from './pages/student/Classes';
-import StudentDocuments from './pages/student/Documents';
-import StudentAssignments from './pages/student/Assignments';
-import StudentAnnouncements from './pages/student/Announcements';
-import StudentGroups from './pages/student/Groups';
-import StudentAssessments from './pages/student/Assessments';
-import AttemptAssessment from './pages/student/AttemptAssessment';
+const TeacherDashboard = lazy(() => import('./pages/teacher/Dashboard'));
+const Classes = lazy(() => import('./pages/teacher/Classes'));
+const Students = lazy(() => import('./pages/teacher/Students'));
+const Documents = lazy(() => import('./pages/teacher/Documents'));
+const Assignments = lazy(() => import('./pages/teacher/Assignments'));
+const TeacherAnnouncements = lazy(() => import('./pages/teacher/Announcements'));
+const TeacherAssessmentPage = lazy(() => import('./pages/teacher/AssessmentsTeacher'));
+const TeacherAssessmentsOnline = lazy(() => import('./pages/teacher/AssessmentsOnline'));
+const TeacherGroups = lazy(() => import('./pages/teacher/Groups'));
 
-import AdminDashboard from './pages/admin/Dashboard';
-import SuperAdminDashboard from './pages/admin/SuperAdminDashboard';
-import AdminTeachers from './pages/admin/Teachers';
-import AdminClasses from './pages/admin/Classes';
-import AdminStudents from './pages/admin/Students';
-import AdminAssessments from './pages/admin/Assessments';
-import AdminSettingsPage from './pages/admin/AdminSettings';
-import ManageAdmins from './pages/admin/ManageAdmins';
-import SystemMaintenance from './pages/admin/SystemMaintenance';
+const StudentDashboard = lazy(() => import('./pages/student/Dashboard'));
+const StudentClasses = lazy(() => import('./pages/student/Classes'));
+const StudentDocuments = lazy(() => import('./pages/student/Documents'));
+const StudentAssignments = lazy(() => import('./pages/student/Assignments'));
+const StudentAnnouncements = lazy(() => import('./pages/student/Announcements'));
+const StudentGroups = lazy(() => import('./pages/student/Groups'));
+const StudentAssessments = lazy(() => import('./pages/student/Assessments'));
+const AttemptAssessment = lazy(() => import('./pages/student/AttemptAssessment'));
+
+const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
+const SuperAdminDashboard = lazy(() => import('./pages/admin/SuperAdminDashboard'));
+const AdminTeachers = lazy(() => import('./pages/admin/Teachers'));
+const AdminClasses = lazy(() => import('./pages/admin/Classes'));
+const AdminStudents = lazy(() => import('./pages/admin/Students'));
+const AdminAssessments = lazy(() => import('./pages/admin/Assessments'));
+const AdminSettingsPage = lazy(() => import('./pages/admin/AdminSettings'));
+const ManageAdmins = lazy(() => import('./pages/admin/ManageAdmins'));
+const SystemMaintenance = lazy(() => import('./pages/admin/SystemMaintenance'));
 
 function getDefaultRoute(role) {
   if (role === 'teacher') return '/teacher/dashboard';
@@ -50,17 +60,20 @@ function getDefaultRoute(role) {
   return '/student/dashboard';
 }
 
-const LoadingScreen = () => (
-  <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--page-bg)' }}>
-    <div className="text-center">
-      <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center mx-auto mb-4 shadow-glow">
-        <GraduationCap className="w-8 h-8 text-white" />
+const LoadingScreen = () => {
+  const { t } = useTranslation();
+  return (
+    <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--page-bg)' }}>
+      <div className="text-center">
+        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center mx-auto mb-4 shadow-glow">
+          <GraduationCap className="w-8 h-8 text-white" />
+        </div>
+        <div className="animate-spin w-6 h-6 border-4 border-primary-500 border-t-transparent rounded-full mx-auto" />
+        <p className="text-muted text-sm mt-3 font-medium">{t('common.loading')}</p>
       </div>
-      <div className="animate-spin w-6 h-6 border-4 border-primary-500 border-t-transparent rounded-full mx-auto" />
-      <p className="text-muted text-sm mt-3 font-medium">Loading EDUPLA…</p>
     </div>
-  </div>
-);
+  );
+};
 
 const ProtectedRoute = ({ children, role }) => {
   const { user, loading } = useAuth();
@@ -111,6 +124,7 @@ function AppRoutes() {
   // Once resolved, redirect logged-in users away from public pages.
 
   return (
+    <Suspense fallback={<LoadingScreen />}>
     <Routes>
       {/* Landing page — always renders immediately; redirects logged-in users to their dashboard */}
       <Route
@@ -179,6 +193,7 @@ function AppRoutes() {
       {/* Fallback — unknown paths go to landing */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </Suspense>
   );
 }
 

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Edupla sitemap. Only "/" is listed because it's the only page that's both
+  public and has real, unique content to rank on. "/login" is deliberately
+  left out (it's noindexed — see robots.txt / SEO.jsx) since a login form
+  has no content for Google to rank and would only dilute focus from "/".
+
+  Add more <url> entries here if you build out standalone public pages
+  (e.g. /pricing, /about, /blog/...) in the future.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://edupla.vercel.app/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+</urlset>
