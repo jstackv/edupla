@@ -1,6 +1,7 @@
 # Dependencies
 node_modules/
 
+
 # Environment variables (secrets: JWT, Mongo URI, Cloudinary, Gemini API key, SMTP, etc.)
 .env
 .env.*
