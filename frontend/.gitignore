@@ -6,6 +6,7 @@ dist/
 dist-ssr/
 build/
 
+
 # Environment variables (Vite exposes VITE_* vars; keep them out of git)
 .env
 .env.*
