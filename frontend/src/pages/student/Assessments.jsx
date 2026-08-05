@@ -350,6 +350,116 @@ function CardSkeleton({ i }) {
   );
 }
 
+/* A single fact tile inside the instructions modal — icon bubble, value,
+   label — with a lift + glow on hover so the grid feels tactile. */
+function StatTile({ icon: Icon, color, value, label, small, i }) {
+  return (
+    <div style={{ '--i': i, '--sa-t-color': color }} className="card sa-modal-stat p-3 relative overflow-hidden assessment-stagger">
+      <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-1.5 relative" style={{ background: `${color}1f` }}>
+        <Icon className="w-4 h-4" style={{ color }} />
+      </div>
+      <div style={{ color: 'var(--text-primary)' }} className={`font-semibold relative ${small ? 'text-xs' : ''}`}>{value}</div>
+      <div className="text-xs relative" style={{ color: 'var(--text-secondary)' }}>{label}</div>
+    </div>
+  );
+}
+
+/* The /instructions endpoint returns a narrower shape than the list
+   endpoint (no can_start / best_score), so this pill is derived only from
+   the fields that payload actually guarantees — avoids StatusPill
+   mis-reading a missing field as "locked". */
+function ModalStatusPill({ data }) {
+  let label, color, bg, pulsing = false;
+  if (data.expired) { label = 'Expired'; color = '#9ca3af'; bg = 'rgba(156,163,175,0.15)'; }
+  else if (data.in_progress_attempt_id) { label = 'In progress'; color = '#f59e0b'; bg = 'rgba(245,158,11,0.14)'; pulsing = true; }
+  else if (data.not_yet_available) { label = 'Starts soon'; color = '#8b5cf6'; bg = 'rgba(139,92,246,0.14)'; }
+  else if (data.attempts_left <= 0) { label = 'No attempts left'; color = '#9ca3af'; bg = 'rgba(156,163,175,0.15)'; }
+  else { label = 'Ready to start'; color = '#3b82f6'; bg = 'rgba(59,130,246,0.14)'; pulsing = true; }
+  return (
+    <span className={`badge text-xs flex items-center gap-1.5 flex-shrink-0 ${pulsing ? 'assessment-badge-live' : ''}`} style={{ background: bg, color }}>
+      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: color }} />
+      {label}
+    </span>
+  );
+}
+
+function pad2(n) { return String(Math.max(0, n)).padStart(2, '0'); }
+
+/* One tile of the digit-clock countdown. Remounting on value-change (via
+   `key`) retriggers the pop animation for a satisfying per-second tick. */
+function DigitTile({ value, label, color }) {
+  return (
+    <div className="sa-digit-tile" style={{ '--sa-d-color': color }}>
+      <span key={value} className="sa-digit-pop">{pad2(value)}</span>
+      <span className="sa-digit-label">{label}</span>
+    </div>
+  );
+}
+
+/* The centerpiece "beautiful countdown" — a live digital-clock style
+   readout of either "opens in" or "time left to attempt", with an
+   urgency-tinted glass card and (when both bounds are known) a thin
+   progress bar showing how much of the assessment's open window has
+   elapsed. */
+function CountdownShowcase({ target, locked, windowStart, windowEnd }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const diff = Math.max(0, new Date(target).getTime() - now);
+  const totalSec = Math.floor(diff / 1000);
+  const days = Math.floor(totalSec / 86400);
+  const hours = Math.floor((totalSec % 86400) / 3600);
+  const mins = Math.floor((totalSec % 3600) / 60);
+  const secs = totalSec % 60;
+  const doneNow = diff <= 0;
+
+  const urgent = !locked && diff <= 30 * 60 * 1000;
+  const soon = !locked && !urgent && diff <= 2 * 60 * 60 * 1000;
+  const color = locked ? '#8b5cf6' : urgent ? '#ef4444' : soon ? '#f59e0b' : '#6366f1';
+
+  let windowPct = null;
+  if (windowStart && windowEnd) {
+    const s = new Date(windowStart).getTime();
+    const e = new Date(windowEnd).getTime();
+    if (e > s) windowPct = Math.min(100, Math.max(0, ((now - s) / (e - s)) * 100));
+  }
+
+  return (
+    <div className={`sa-countdown p-4 relative overflow-hidden ${urgent ? 'sa-countdown-urgent' : ''}`} style={{ '--sa-cd-color': color }}>
+      <span className="sa-countdown-sheen" aria-hidden="true" />
+      <div className="flex items-center gap-2 mb-3 relative">
+        {locked ? <CalendarClock className="w-4 h-4" style={{ color }} /> : <Hourglass className={`w-4 h-4 ${urgent ? 'assessment-timer-urgent' : ''}`} style={{ color }} />}
+        <p className="text-xs font-bold uppercase tracking-wide" style={{ color }}>
+          {doneNow ? (locked ? 'Opening now…' : "Time's up") : locked ? 'Opens for starting in' : 'Time left to start / attempt'}
+        </p>
+      </div>
+
+      {!doneNow && (
+        <div className="flex items-center gap-2 relative">
+          {days > 0 && <DigitTile value={days} label="Days" color={color} />}
+          <DigitTile value={hours} label="Hrs" color={color} />
+          <DigitTile value={mins} label="Min" color={color} />
+          {days === 0 && <DigitTile value={secs} label="Sec" color={color} />}
+        </div>
+      )}
+
+      {windowPct != null && (
+        <div className="mt-3.5 relative">
+          <div className="sa-window-track">
+            <div className="sa-window-fill" style={{ width: `${windowPct}%`, background: color }} />
+          </div>
+          <p className="text-xs mt-1.5" style={{ color: 'var(--text-secondary)' }}>
+            {fmtDate(windowStart)} → {fmtDate(windowEnd)}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function InstructionsModal({ assessment, onClose, onStart, starting }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -370,58 +480,46 @@ function InstructionsModal({ assessment, onClose, onStart, starting }) {
     return () => { alive = false; };
   }, [assessment.id]); // eslint-disable-line
 
+  const mColor = moduleColor(data?.module_name);
+  // Whichever boundary matters right now: "opens in" while locked, else "time left to attempt".
+  const countdownTarget = data ? (data.not_yet_available ? data.available_from : (!data.expired ? data.expires_at : null)) : null;
+  const windowStart = data?.available_from || null;
+
   return (
-    <Modal isOpen={true} onClose={onClose} title={assessment.title}>
+    <Modal isOpen={true} onClose={onClose} title={assessment.title} size="lg">
       {loading || !data ? (
-        <div className="flex items-center justify-center py-10"><Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--text-secondary)' }} /></div>
+        <div className="flex items-center justify-center py-14">
+          <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--text-secondary)' }} />
+        </div>
       ) : (
         <div className="space-y-4">
-          <p className="text-sm flex items-center gap-1.5" style={{ color: 'var(--text-secondary)' }}>
-            <BookOpen className="w-3.5 h-3.5" /> {data.module_name} · {data.teacher_name}
-          </p>
+          {/* Hero context strip */}
+          <div className="sa-hero p-4 flex items-center gap-3 relative overflow-hidden">
+            <span className="sa-hero-glow" style={{ '--sa-accent': mColor }} aria-hidden="true" />
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 relative" style={{ background: `linear-gradient(135deg, ${mColor}, ${mColor}99)` }}>
+              <BookOpen className="w-5.5 h-5.5 text-white assessment-icon-float" />
+            </div>
+            <div className="min-w-0 relative flex-1">
+              <span className="sa-module-tag" style={{ '--sa-accent': mColor }}>{data.module_name}</span>
+              <p className="text-sm font-semibold mt-0.5 truncate" style={{ color: 'var(--text-primary)' }}>{data.teacher_name}</p>
+            </div>
+            <ModalStatusPill data={data} />
+          </div>
+
+          {countdownTarget && <CountdownShowcase target={countdownTarget} locked={data.not_yet_available} windowStart={windowStart} windowEnd={data.expires_at} />}
 
           <div className="grid grid-cols-2 gap-3 text-sm">
-            <div className="card assessment-card p-3">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-1.5" style={{ background: 'rgba(99,102,241,0.12)' }}>
-                <Clock className="w-4 h-4" style={{ color: '#6366f1' }} />
-              </div>
-              <div style={{ color: 'var(--text-primary)' }} className="font-semibold">{data.duration_minutes} min</div>
-              <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>Time limit</div>
-            </div>
-            <div className="card assessment-card p-3">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-1.5" style={{ background: 'rgba(245,158,11,0.12)' }}>
-                <RotateCcw className="w-4 h-4" style={{ color: '#f59e0b' }} />
-              </div>
-              <div style={{ color: 'var(--text-primary)' }} className="font-semibold">{data.attempts_left} of {data.max_attempts}</div>
-              <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>Attempts left</div>
-            </div>
-            <div className="card assessment-card p-3">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-1.5" style={{ background: 'rgba(16,185,129,0.12)' }}>
-                <ListChecks className="w-4 h-4" style={{ color: '#10b981' }} />
-              </div>
-              <div style={{ color: 'var(--text-primary)' }} className="font-semibold">{data.question_count} questions</div>
-              <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>Total {data.total_marks} pts</div>
-            </div>
-            <div className="card assessment-card p-3">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-1.5" style={{ background: 'rgba(239,68,68,0.12)' }}>
-                <CalendarClock className="w-4 h-4" style={{ color: '#ef4444' }} />
-              </div>
-              <div style={{ color: 'var(--text-primary)' }} className="font-semibold text-xs">{fmtDate(data.expires_at)}</div>
-              <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>Available until</div>
-            </div>
+            <StatTile icon={Clock} color="#6366f1" value={`${data.duration_minutes} min`} label="Time limit" i={0} />
+            <StatTile icon={RotateCcw} color="#f59e0b" value={`${data.attempts_left} of ${data.max_attempts}`} label="Attempts left" i={1} />
+            <StatTile icon={ListChecks} color="#10b981" value={`${data.question_count} questions`} label={`Total ${data.total_marks} pts`} i={2} />
+            <StatTile icon={CalendarClock} color="#ef4444" value={fmtDate(data.expires_at)} label="Available until" small i={3} />
             {data.available_from && (
-              <div className="card assessment-card p-3">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-1.5" style={{ background: 'rgba(139,92,246,0.12)' }}>
-                  <CalendarClock className="w-4 h-4" style={{ color: '#8b5cf6' }} />
-                </div>
-                <div style={{ color: 'var(--text-primary)' }} className="font-semibold text-xs">{fmtDate(data.available_from)}</div>
-                <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>Opens for starting</div>
-              </div>
+              <StatTile icon={CalendarClock} color="#8b5cf6" value={fmtDate(data.available_from)} label="Opens for starting" small i={4} />
             )}
           </div>
 
           {data.not_yet_available && (
-            <div className="p-3 rounded-xl text-sm flex items-start gap-2" style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.3)' }}>
+            <div className="sa-note sa-note-violet p-3.5 rounded-xl text-sm flex items-start gap-2.5">
               <CalendarClock className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#8b5cf6' }} />
               <p style={{ color: 'var(--text-secondary)' }}>
                 This assessment isn't open yet. You'll be able to start it on <strong style={{ color: 'var(--text-primary)' }}>{fmtDate(data.available_from)}</strong> — once your {data.duration_minutes} minute window opens, it starts from that moment.
@@ -430,13 +528,13 @@ function InstructionsModal({ assessment, onClose, onStart, starting }) {
           )}
 
           {data.instructions && (
-            <div className="p-3 rounded-xl text-sm" style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', color: 'var(--text-secondary)' }}>
+            <div className="sa-note sa-note-indigo p-3.5 rounded-xl text-sm" style={{ color: 'var(--text-secondary)' }}>
               {data.instructions}
             </div>
           )}
 
-          <div className="p-3 rounded-xl text-sm flex items-start gap-2" style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)' }}>
-            <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div className="sa-note sa-note-amber p-3.5 rounded-xl text-sm flex items-start gap-2.5">
+            <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5 assessment-timer-urgent" />
             <p style={{ color: 'var(--text-secondary)' }}>
               This opens in full screen. Leaving the exam screen or switching to another window/tab submits it automatically, and it also submits automatically when the timer runs out. Make sure you're ready before you start.
             </p>
@@ -447,7 +545,7 @@ function InstructionsModal({ assessment, onClose, onStart, starting }) {
             <button
               onClick={() => onStart(data.in_progress_attempt_id)}
               disabled={starting || (data.expired || data.not_yet_available || (data.attempts_left <= 0 && !data.in_progress_attempt_id))}
-              className="btn-primary assessment-cta flex items-center gap-2"
+              className={`btn-primary assessment-cta flex items-center gap-2 relative ${!data.not_yet_available && !data.expired ? 'sa-cta-ready' : ''}`}
             >
               {starting ? <Loader2 className="w-4 h-4 animate-spin" /> : <PlayCircle className="w-4 h-4" />}
               {data.in_progress_attempt_id ? 'Resume Assessment' : data.not_yet_available ? 'Not open yet' : 'Start Assessment'}
