@@ -1068,6 +1068,132 @@ html { scroll-behavior: smooth; }
   }
 }
 
+/* ── Instructions modal — hero strip, digit-clock countdown, tiles ─── */
+
+.sa-hero {
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--surface-100), transparent);
+  border: 1px solid var(--card-border);
+  animation: assessmentRise 0.35s cubic-bezier(0.16,1,0.3,1) both;
+}
+.sa-hero-glow {
+  position: absolute;
+  inset: -60% -20% auto -20%;
+  height: 200%;
+  background: radial-gradient(50% 50% at 20% 30%, color-mix(in srgb, var(--sa-accent) 25%, transparent), transparent 70%);
+  pointer-events: none;
+}
+
+.sa-modal-stat {
+  transition: transform 0.22s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.22s ease, border-color 0.22s ease;
+}
+.sa-modal-stat:hover {
+  transform: translateY(-3px);
+  border-color: color-mix(in srgb, var(--sa-t-color) 45%, var(--card-border));
+  box-shadow: 0 10px 22px color-mix(in srgb, var(--sa-t-color) 18%, transparent);
+}
+
+.sa-note {
+  border: 1px solid transparent;
+  transition: transform 0.2s ease;
+}
+.sa-note-violet { background: rgba(139,92,246,0.1); border-color: rgba(139,92,246,0.3); }
+.sa-note-indigo { background: rgba(99,102,241,0.08); border-color: rgba(99,102,241,0.2); }
+.sa-note-amber  { background: rgba(245,158,11,0.1); border-color: rgba(245,158,11,0.3); }
+
+/* Digit-clock countdown card */
+.sa-countdown {
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--sa-cd-color) 30%, var(--card-border));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--sa-cd-color) 8%, var(--card-bg)), var(--card-bg));
+  animation: assessmentRise 0.4s cubic-bezier(0.16,1,0.3,1) both;
+}
+.sa-countdown-urgent {
+  border-color: rgba(239,68,68,0.5);
+  box-shadow: 0 0 0 1px rgba(239,68,68,0.15), 0 8px 24px rgba(239,68,68,0.12);
+  animation: sa-countdown-throb 1.6s ease-in-out infinite;
+}
+@keyframes sa-countdown-throb {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(239,68,68,0.15), 0 8px 24px rgba(239,68,68,0.12); }
+  50%      { box-shadow: 0 0 0 1px rgba(239,68,68,0.35), 0 8px 30px rgba(239,68,68,0.28); }
+}
+.sa-countdown-sheen {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, transparent 20%, color-mix(in srgb, var(--sa-cd-color) 14%, transparent) 40%, transparent 60%);
+  background-size: 250% 100%;
+  animation: sa-sheen-move 4.5s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes sa-sheen-move {
+  0%   { background-position: 120% 0; }
+  100% { background-position: -20% 0; }
+}
+
+.sa-digit-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 56px;
+  padding: 8px 4px 7px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--sa-d-color) 10%, var(--surface-100));
+  border: 1px solid color-mix(in srgb, var(--sa-d-color) 22%, transparent);
+  position: relative;
+  flex: 1;
+}
+.sa-digit-pop {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 1.35rem;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--sa-d-color);
+  animation: sa-digit-tick 0.35s cubic-bezier(0.34,1.56,0.64,1);
+}
+@keyframes sa-digit-tick {
+  0%   { transform: translateY(-6px) scale(0.85); opacity: 0.3; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+.sa-digit-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.sa-window-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-100);
+  overflow: hidden;
+}
+.sa-window-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 1s cubic-bezier(0.16,1,0.3,1);
+}
+
+/* Ready-to-go pulse ring on the Start Assessment CTA */
+.sa-cta-ready {
+  animation: sa-cta-glow 2.2s ease-in-out infinite;
+}
+@keyframes sa-cta-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(99,102,241,0.4); }
+  50%      { box-shadow: 0 0 0 8px rgba(99,102,241,0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sa-hero, .sa-modal-stat, .sa-countdown, .sa-countdown-urgent,
+  .sa-countdown-sheen, .sa-digit-pop, .sa-window-fill, .sa-cta-ready {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
 /* ── Results mark-sheet modal ── */
 .results-row {
   position: relative;
