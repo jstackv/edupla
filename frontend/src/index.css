@@ -845,6 +845,229 @@ html { scroll-behavior: smooth; }
   }
 }
 
+/* ── Student Assessments — command center, spotlight, tilt cards ──────
+   Additive layer on top of the .assessment-card family above: search /
+   filter / sort toolbar, an overall-progress command center, a "what
+   matters right now" spotlight banner, and per-card 3D tilt + sparkle. */
+
+.sa-tilt {
+  transition: transform 0.35s cubic-bezier(0.16,1,0.3,1), box-shadow 0.25s ease, border-color 0.25s ease;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+.sa-tilt:hover {
+  box-shadow: 0 18px 40px rgba(15,23,42,0.16), 0 4px 12px rgba(0,0,0,0.08);
+  border-color: rgba(99,102,241,0.4);
+}
+
+.sa-card-rail {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  opacity: 0.7;
+  transition: opacity 0.25s ease;
+}
+.sa-tilt:hover .sa-card-rail { opacity: 1; }
+
+.sa-module-tag {
+  display: inline-block;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 999px;
+  color: var(--sa-accent);
+  background: color-mix(in srgb, var(--sa-accent) 14%, transparent);
+}
+
+/* List-view row */
+.sa-row {
+  overflow: visible;
+}
+.sa-row-rail {
+  position: absolute;
+  left: 0; top: 10%; bottom: 10%;
+  width: 3px;
+  border-radius: 3px;
+  opacity: 0.8;
+}
+
+/* Sparkle burst that fires once when a graded card (>=80%) settles */
+.sa-sparkle-burst {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.sa-sparkle {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--sa-c, #10b981);
+  transform: translate(-50%, -50%) rotate(var(--sa-a)) translateY(0) scale(0);
+  animation: sa-sparkle-pop 0.7s cubic-bezier(0.16,1,0.3,1) forwards;
+}
+@keyframes sa-sparkle-pop {
+  0%   { transform: translate(-50%, -50%) rotate(var(--sa-a)) translateY(0) scale(0); opacity: 1; }
+  70%  { opacity: 1; }
+  100% { transform: translate(-50%, -50%) rotate(var(--sa-a)) translateY(-26px) scale(1); opacity: 0; }
+}
+
+/* Command center */
+.sa-command-center { isolation: isolate; }
+.sa-command-glow {
+  position: absolute;
+  inset: -40% -10% auto -10%;
+  height: 160%;
+  background: radial-gradient(60% 60% at 15% 20%, rgba(99,102,241,0.16), transparent 70%),
+              radial-gradient(50% 50% at 90% 30%, rgba(139,92,246,0.14), transparent 70%);
+  pointer-events: none;
+  z-index: -1;
+}
+.sa-mini-stat {
+  transition: transform 0.22s cubic-bezier(0.34,1.56,0.64,1), background 0.22s ease;
+}
+.sa-mini-stat:hover {
+  transform: translateY(-2px);
+  background: var(--surface-100);
+}
+
+/* Spotlight banner */
+@keyframes sa-border-spin { to { --sa-angle: 360deg; } }
+@property --sa-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+.sa-spotlight {
+  border-radius: 18px;
+  padding: 2px;
+  cursor: pointer;
+  border: none;
+  background: none;
+  display: block;
+  animation: assessmentRise 0.4s cubic-bezier(0.16,1,0.3,1) both;
+}
+.sa-spotlight-border {
+  position: absolute;
+  inset: 0;
+  border-radius: 18px;
+  padding: 2px;
+  background: conic-gradient(from var(--sa-angle, 0deg), #6366f1, #8b5cf6, #ec4899, #6366f1);
+  animation: sa-border-spin 5s linear infinite;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+.sa-spotlight-inner {
+  position: relative;
+  border-radius: 16px;
+  background: var(--card-bg);
+  transition: transform 0.2s cubic-bezier(0.16,1,0.3,1), box-shadow 0.2s ease;
+}
+.sa-spotlight:hover .sa-spotlight-inner {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 36px rgba(99,102,241,0.2);
+}
+.sa-spotlight:active .sa-spotlight-inner { transform: translateY(0); }
+
+/* Toolbar: filter chips + view toggle */
+.sa-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--surface-100);
+  border: 1px solid transparent;
+  transition: transform 0.18s cubic-bezier(0.34,1.56,0.64,1), background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+  cursor: pointer;
+}
+.sa-filter-chip:hover {
+  transform: translateY(-1px);
+  background: color-mix(in srgb, #6366f1 12%, var(--surface-100));
+  color: var(--text-primary);
+}
+.sa-filter-chip-active {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  color: #fff !important;
+  box-shadow: 0 4px 12px rgba(99,102,241,0.3);
+}
+.sa-filter-count {
+  font-size: 10.5px;
+  font-weight: 800;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: rgba(0,0,0,0.12);
+  min-width: 16px;
+  text-align: center;
+  line-height: 1.5;
+}
+.sa-filter-chip-active .sa-filter-count { background: rgba(255,255,255,0.25); }
+
+.sa-view-toggle {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--surface-100);
+  border: 1px solid var(--card-border);
+}
+.sa-view-toggle button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  color: var(--text-secondary);
+  transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease;
+}
+.sa-view-toggle button:hover { color: var(--text-primary); }
+.sa-view-toggle button.active {
+  background: var(--card-bg);
+  color: #6366f1;
+  box-shadow: 0 2px 6px rgba(15,23,42,0.1);
+}
+
+/* Empty state orbiting accents */
+.sa-empty-orbit {
+  position: absolute;
+  top: 18%;
+  left: 50%;
+  width: 1px; height: 1px;
+  pointer-events: none;
+}
+.sa-empty-orbit span {
+  position: absolute;
+  top: 0; left: 0;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: #6366f1;
+  opacity: 0.5;
+  animation: sa-orbit 6s linear infinite;
+}
+.sa-empty-orbit span:nth-child(1) { animation-delay: 0s; background: #6366f1; }
+.sa-empty-orbit span:nth-child(2) { animation-delay: -2s; background: #8b5cf6; }
+.sa-empty-orbit span:nth-child(3) { animation-delay: -4s; background: #ec4899; }
+@keyframes sa-orbit {
+  from { transform: rotate(0deg) translateX(70px) rotate(0deg); }
+  to   { transform: rotate(360deg) translateX(70px) rotate(-360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sa-tilt, .sa-spotlight-border, .sa-sparkle, .sa-mini-stat,
+  .sa-empty-orbit span, .sa-filter-chip, .sa-view-toggle button,
+  .sa-spotlight-inner {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
 /* ── Results mark-sheet modal ── */
 .results-row {
   position: relative;
