@@ -1509,3 +1509,511 @@ html { scroll-behavior: smooth; }
     transition: none !important;
   }
 }
+
+/* ═══════════════════════════════════════════════
+   ADD ATTEMPT MODAL — glowing summary, quick chips,
+   sliding segmented control, animated switch, timeline
+   ═══════════════════════════════════════════════ */
+
+@keyframes aam-glow-drift {
+  0%, 100% { transform: translate(0, 0); }
+  50%      { transform: translate(3%, -4%); }
+}
+@keyframes aam-pop {
+  0%   { transform: scale(0.6) rotate(-20deg); opacity: 0; }
+  60%  { transform: scale(1.12) rotate(4deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+.aam-summary {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  border-radius: 18px;
+  padding: 18px 16px;
+  background: linear-gradient(135deg, rgba(99,102,241,0.10), rgba(139,92,246,0.06));
+  border: 1px solid rgba(99,102,241,0.22);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+.aam-summary:hover {
+  border-color: rgba(99,102,241,0.4);
+  box-shadow: 0 10px 28px rgba(99,102,241,0.14);
+}
+.aam-summary::before {
+  content: '';
+  position: absolute;
+  inset: -40% -10% auto -10%;
+  height: 180%;
+  background: radial-gradient(50% 50% at 20% 20%, rgba(99,102,241,0.20), transparent 70%),
+              radial-gradient(45% 45% at 85% 60%, rgba(236,72,153,0.14), transparent 70%);
+  pointer-events: none;
+  z-index: -1;
+  animation: aam-glow-drift 8s ease-in-out infinite;
+}
+.aam-summary-num { font-variant-numeric: tabular-nums; }
+.aam-arrow-icon { animation: aam-pop 0.4s cubic-bezier(0.34,1.56,0.64,1) both; }
+
+/* Quick "attempts to add" chips */
+.aam-chip {
+  padding: 6px 12px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  font-weight: 700;
+  border: 1px solid var(--card-border);
+  background: var(--card-bg);
+  color: var(--text-secondary);
+  transition: transform 0.18s cubic-bezier(0.34,1.56,0.64,1), border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+.aam-chip:hover {
+  transform: translateY(-2px);
+  border-color: #a5b4fc;
+  color: var(--text-primary);
+  box-shadow: 0 6px 14px rgba(99,102,241,0.18);
+}
+.aam-chip-active {
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  border-color: transparent;
+  color: #fff !important;
+  box-shadow: 0 4px 14px rgba(99,102,241,0.35);
+}
+
+/* Sliding segmented control ("All students" / "Specific students") */
+.aam-segment {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 4px;
+  border-radius: 14px;
+  background: var(--surface-100);
+  border: 1px solid var(--card-border);
+}
+.aam-segment-thumb {
+  position: absolute;
+  top: 4px; bottom: 4px; left: 4px;
+  width: calc(50% - 4px);
+  border-radius: 10px;
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  box-shadow: 0 4px 12px rgba(99,102,241,0.35);
+  transition: transform 0.32s cubic-bezier(0.34,1.56,0.64,1);
+  z-index: 0;
+}
+.aam-segment button {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 0;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 10px;
+  color: var(--text-secondary);
+  transition: color 0.2s ease;
+}
+.aam-segment button.active { color: #fff; }
+.aam-segment button:hover:not(.active) { color: var(--text-primary); }
+
+/* Roster rows + custom checkbox + avatar */
+.aam-student-row {
+  border-radius: 10px;
+  transition: background 0.18s ease, transform 0.18s ease;
+}
+.aam-student-row:hover { background: var(--surface-100); transform: translateX(2px); }
+
+.aam-avatar {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10.5px; font-weight: 800; color: #fff;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, var(--aam-a1, #6366f1), var(--aam-a2, #8b5cf6));
+}
+
+.aam-check {
+  width: 18px; height: 18px;
+  border-radius: 6px;
+  border: 1.5px solid var(--card-border);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: transform 0.18s cubic-bezier(0.34,1.56,0.64,1), background 0.18s ease, border-color 0.18s ease;
+}
+.aam-check-active {
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  border-color: transparent;
+  transform: scale(1.08);
+}
+
+/* Animated toggle switch */
+.aam-switch {
+  width: 40px; height: 22px;
+  border-radius: 999px;
+  background: var(--surface-100);
+  border: 1px solid var(--card-border);
+  position: relative;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+.aam-switch-on {
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  border-color: transparent;
+  box-shadow: 0 2px 8px rgba(99,102,241,0.35);
+}
+.aam-switch-knob {
+  position: absolute; top: 2px; left: 2px;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+  transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1);
+}
+.aam-switch-on .aam-switch-knob { transform: translateX(18px); }
+
+.aam-timing-panel { animation: assessmentRise 0.3s cubic-bezier(0.16,1,0.3,1) both; }
+
+/* Small date/time preset pills */
+.aam-preset {
+  font-size: 11px; font-weight: 700;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: var(--surface-100);
+  color: var(--text-secondary);
+  border: 1px solid transparent;
+  transition: all 0.16s ease;
+}
+.aam-preset:hover {
+  background: color-mix(in srgb, #6366f1 14%, var(--surface-100));
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+/* Attempt-window timeline preview */
+.aam-timeline-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--card-bg);
+  position: relative;
+  overflow: visible;
+  border: 1px solid var(--card-border);
+}
+.aam-timeline-fill {
+  position: absolute; inset: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #8b5cf6, #6366f1, #10b981);
+  transition: opacity 0.2s ease;
+}
+.aam-timeline-now {
+  position: absolute; top: 50%;
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid #0f172a;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 3px rgba(255,255,255,0.5);
+}
+.dark .aam-timeline-now { border-color: #f1f5f9; }
+
+@media (prefers-reduced-motion: reduce) {
+  .aam-summary::before, .aam-arrow-icon, .aam-chip, .aam-segment-thumb,
+  .aam-student-row, .aam-check, .aam-switch, .aam-switch-knob, .aam-timing-panel,
+  .aam-preset {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   STUDENT RESULT MODAL — hero, tabbed results, overall
+   ═══════════════════════════════════════════════ */
+
+@keyframes srm-hero-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50%      { transform: translate(-2%, 3%) scale(1.05); }
+}
+@keyframes srm-ring-in {
+  from { opacity: 0; transform: scale(0.85); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes srm-confetti-fall {
+  0%   { transform: translateY(-10px) rotate(0deg); opacity: 0; }
+  10%  { opacity: 1; }
+  100% { transform: translateY(140px) rotate(var(--srm-rot, 220deg)); opacity: 0; }
+}
+@keyframes srm-tab-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.srm-hero {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  border-radius: 20px;
+  padding: 22px 20px;
+  border: 1px solid var(--card-border);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--srm-color, #6366f1) 12%, var(--card-bg)), var(--card-bg));
+}
+.srm-hero::before {
+  content: '';
+  position: absolute;
+  inset: -50% -20% auto -20%;
+  height: 220%;
+  background: radial-gradient(55% 55% at 20% 25%, color-mix(in srgb, var(--srm-color, #6366f1) 28%, transparent), transparent 70%),
+              radial-gradient(45% 45% at 90% 70%, color-mix(in srgb, var(--srm-color, #6366f1) 16%, transparent), transparent 70%);
+  pointer-events: none;
+  z-index: -1;
+  animation: srm-hero-drift 9s ease-in-out infinite;
+}
+.srm-hero-ring { animation: srm-ring-in 0.5s cubic-bezier(0.16,1,0.3,1) both; }
+
+.srm-confetti-piece {
+  position: absolute;
+  top: 0; left: 50%;
+  width: 6px; height: 10px;
+  border-radius: 2px;
+  animation: srm-confetti-fall 1.3s ease-in forwards;
+}
+
+/* Tab strip */
+.srm-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 14px;
+  background: var(--surface-100);
+  border: 1px solid var(--card-border);
+  overflow-x: auto;
+}
+.srm-tab {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  transition: color 0.2s ease, transform 0.18s ease;
+  white-space: nowrap;
+}
+.srm-tab:hover:not(.srm-tab-active) { color: var(--text-primary); transform: translateY(-1px); }
+.srm-tab-active {
+  color: #fff;
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  box-shadow: 0 4px 12px rgba(99,102,241,0.35);
+}
+.srm-tab-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+.srm-panel { animation: srm-tab-in 0.25s cubic-bezier(0.16,1,0.3,1) both; }
+
+/* Attempt history cards */
+.srm-attempt-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 14px;
+  border: 1px solid var(--card-border);
+  background: var(--card-bg);
+  transition: transform 0.2s cubic-bezier(0.16,1,0.3,1), box-shadow 0.2s ease, border-color 0.2s ease;
+  animation: assessmentRise 0.35s cubic-bezier(0.16,1,0.3,1) both;
+  animation-delay: calc(var(--i, 0) * 60ms);
+}
+.srm-attempt-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(15,23,42,0.10);
+  border-color: color-mix(in srgb, var(--srm-a-color, #6366f1) 40%, var(--card-border));
+}
+.srm-attempt-best-glow {
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, #eab308, #f59e0b);
+}
+
+/* Module & teacher meta pills, shown under the hero title */
+.srm-meta-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  color: var(--text-secondary);
+  transition: transform 0.18s cubic-bezier(0.34,1.56,0.64,1), border-color 0.18s ease, color 0.18s ease;
+}
+.srm-meta-pill:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--srm-color, #6366f1) 45%, var(--card-border));
+  color: var(--text-primary);
+}
+
+/* Personal competency-margin meter — replaces any class-average comparison
+   with a purely self-referential "how far from the line am I" visual. */
+.srm-margin { transition: border-color 0.2s ease, background 0.2s ease; }
+.srm-margin-track {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  position: relative;
+  overflow: visible;
+}
+.srm-margin-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.9s cubic-bezier(0.16,1,0.3,1);
+}
+.srm-margin-line {
+  position: absolute;
+  top: -4px; bottom: -4px;
+  width: 3px;
+  border-radius: 2px;
+  background: repeating-linear-gradient(180deg, var(--text-secondary) 0 4px, transparent 4px 7px);
+  opacity: 0.85;
+  transition: left 0.9s cubic-bezier(0.16,1,0.3,1);
+}
+
+/* Overall tab — per-assessment mini breakdown bars */
+.srm-mini-row {
+  transition: background 0.18s ease, transform 0.18s ease;
+  border-radius: 10px;
+}
+.srm-mini-row:hover { background: var(--surface-100); transform: translateX(2px); }
+
+.srm-stat-tile {
+  transition: transform 0.22s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.22s ease, border-color 0.22s ease;
+}
+.srm-stat-tile:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 22px rgba(15,23,42,0.10);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .srm-hero::before, .srm-hero-ring, .srm-confetti-piece, .srm-tab, .srm-meta-pill,
+  .srm-panel, .srm-attempt-card, .srm-margin-fill, .srm-margin-line,
+  .srm-mini-row, .srm-stat-tile {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   ATTEMPT RESULT SCREEN — outcome-themed hero shown
+   right after a submit / auto-submit (timeout, or
+   leaving the exam screen), each with its own look.
+   ═══════════════════════════════════════════════ */
+
+@keyframes aar-drift {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); }
+  50%      { transform: translate(-50%, -46%) scale(1.08); }
+}
+@keyframes aar-card-in {
+  from { opacity: 0; transform: translateY(18px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes aar-ring-pulse {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--aar-accent, #10b981) 45%, transparent); }
+  100% { box-shadow: 0 0 0 18px transparent; }
+}
+@keyframes aar-icon-pop {
+  0%   { transform: scale(0.4) rotate(-15deg); opacity: 0; }
+  60%  { transform: scale(1.15) rotate(4deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+@keyframes aar-fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes aar-hourglass-spin {
+  0%, 75% { transform: rotate(0deg); }
+  100%    { transform: rotate(180deg); }
+}
+@keyframes aar-gauge-in {
+  from { opacity: 0; transform: scale(0.85); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.aar-backdrop { position: fixed; inset: 0; overflow: hidden; }
+.aar-dots {
+  position: absolute; inset: 0;
+  background-image: radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px);
+  background-size: 26px 26px;
+  pointer-events: none;
+}
+.aar-glow {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 900px; height: 900px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  pointer-events: none;
+  animation: aar-drift 10s ease-in-out infinite;
+}
+
+.aar-card {
+  position: relative;
+  border-radius: 24px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  box-shadow: 0 24px 60px rgba(0,0,0,0.35), 0 0 0 1px color-mix(in srgb, var(--aar-accent, #10b981) 14%, transparent);
+  animation: aar-card-in 0.5s cubic-bezier(0.16,1,0.3,1) both;
+  overflow: hidden;
+}
+.aar-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 4px;
+  background: linear-gradient(90deg, transparent, var(--aar-accent, #10b981), transparent);
+}
+
+.aar-icon-wrap {
+  position: relative;
+  width: 64px; height: 64px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--aar-accent, #10b981) 16%, var(--card-bg));
+  animation: aar-ring-pulse 1.8s ease-out 0.4s 2;
+}
+.aar-icon-pop { animation: aar-icon-pop 0.55s cubic-bezier(0.34,1.56,0.64,1) both 0.1s; }
+
+.aar-fade-in { animation: aar-fade-up 0.5s cubic-bezier(0.16,1,0.3,1) both; }
+
+.aar-gauge { animation: aar-gauge-in 0.6s cubic-bezier(0.16,1,0.3,1) both 0.15s; }
+
+.aar-decision-badge { transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s ease; }
+.aar-decision-badge:hover { transform: translateY(-2px) scale(1.03); box-shadow: 0 8px 18px rgba(0,0,0,0.18); }
+
+.aar-stat-chip {
+  transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), border-color 0.2s ease;
+}
+.aar-stat-chip:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--aar-accent, #10b981) 40%, var(--card-border)); }
+
+.aar-pending-card {
+  background: rgba(245,158,11,0.08);
+  border: 1px solid rgba(245,158,11,0.22);
+}
+.aar-hourglass-spin { display: inline-block; animation: aar-hourglass-spin 2.2s ease-in-out infinite; transform-origin: 50% 50%; }
+
+.aar-cta {
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s ease;
+}
+.aar-cta:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(99,102,241,0.4); }
+.aar-cta:active { transform: translateY(0); }
+
+@media (prefers-reduced-motion: reduce) {
+  .aar-glow, .aar-card, .aar-icon-wrap, .aar-icon-pop, .aar-fade-in,
+  .aar-gauge, .aar-decision-badge, .aar-stat-chip, .aar-hourglass-spin, .aar-cta {
+    animation: none !important;
+    transition: none !important;
+  }
+}

@@ -3,12 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import Modal from '../../components/common/Modal';
+import StudentResultModal from '../../components/common/StudentResultModal';
 import {
   ClipboardCheck, Clock, RotateCcw, CalendarClock, AlertTriangle,
   CheckCircle2, PlayCircle, Loader2, Inbox, Award, Hourglass,
   Sparkles, ListChecks, BookOpen, TimerReset, Search, X,
-  LayoutGrid, Rows3, ArrowUpDown, Flame, Trophy, Target,
-  ChevronRight, Zap, Rocket,
+  LayoutGrid, Rows3, ArrowUpDown, Flame, Target,
+  ChevronRight, Zap, Rocket, BarChart3,
 } from 'lucide-react';
 
 function fmtDate(d) {
@@ -143,45 +144,6 @@ function StatusPill({ a }) {
   );
 }
 
-/* Small animated SVG ring showing best-score percentage, with a brief
-   sparkle burst for strong results (>=80%) once the ring finishes filling. */
-function ScoreRing({ pct, size = 46, celebrate = false }) {
-  const [filled, setFilled] = useState(false);
-  const [burst, setBurst] = useState(false);
-  useEffect(() => {
-    const t = setTimeout(() => setFilled(true), 80);
-    let t2;
-    if (celebrate) t2 = setTimeout(() => setBurst(true), 900);
-    return () => { clearTimeout(t); if (t2) clearTimeout(t2); };
-  }, [celebrate]);
-  const stroke = 4;
-  const r = (size - stroke) / 2;
-  const c = 2 * Math.PI * r;
-  const color = scoreColor(pct);
-  return (
-    <span className="relative inline-flex flex-shrink-0" style={{ width: size, height: size }}>
-      {burst && !prefersReducedMotion && (
-        <span className="sa-sparkle-burst" aria-hidden="true">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <span key={i} className="sa-sparkle" style={{ '--sa-a': `${i * 60}deg`, '--sa-c': color }} />
-          ))}
-        </span>
-      )}
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="flex-shrink-0">
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--card-border)" strokeWidth={stroke} />
-        <circle
-          cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round"
-          strokeDasharray={c} strokeDashoffset={filled ? c - (pct / 100) * c : c}
-          style={{ transition: 'stroke-dashoffset 0.9s cubic-bezier(0.16,1,0.3,1)', transform: 'rotate(-90deg)', transformOrigin: '50% 50%' }}
-        />
-        <text x="50%" y="51%" textAnchor="middle" dominantBaseline="middle" fontSize={size * 0.3} fontWeight="700" fill={color} style={{ fontVariantNumeric: 'tabular-nums' }}>
-          {Math.round(pct)}
-        </text>
-      </svg>
-    </span>
-  );
-}
-
 /* A quick "N days left" chip in the same red→amber→green urgency language
    used elsewhere in the app, so a tight deadline actually looks tight. */
 function ExpiryChip({ expiresAt, expired }) {
@@ -212,9 +174,8 @@ function StartsChip({ availableFrom }) {
   );
 }
 
-function AssessmentCard({ a, i, onOpen, layout = 'grid' }) {
+function AssessmentCard({ a, i, onOpen, onViewResult, layout = 'grid' }) {
   const s = statusInfo(a);
-  const pct = a.max_marks ? Math.round(((a.best_score ?? 0) / a.max_marks) * 100) : 0;
   const ctaDisabled = a.expired || (!a.can_start && !a.in_progress_attempt_id);
   const tilt = useTilt();
   const mColor = moduleColor(a.module_name);
@@ -247,10 +208,17 @@ function AssessmentCard({ a, i, onOpen, layout = 'grid' }) {
             {a.module_name} · By {a.teacher_name} · {a.duration_minutes} min · {a.attempts_left}/{a.max_attempts} left
           </p>
         </div>
-        {a.best_score != null && <ScoreRing pct={pct} size={40} celebrate={pct >= 80} />}
         {a.not_yet_available && !a.expired
           ? <StartsChip availableFrom={a.available_from} />
           : <ExpiryChip expiresAt={a.expires_at} expired={a.expired} />}
+        {a.best_score != null && (
+          <button
+            onClick={() => onViewResult(a)}
+            className="btn-secondary text-sm flex items-center justify-center gap-2 flex-shrink-0"
+          >
+            <BarChart3 className="w-4 h-4" /> Result
+          </button>
+        )}
         <button
           onClick={() => onOpen(a)}
           disabled={ctaDisabled && !a.not_yet_available}
@@ -282,31 +250,8 @@ function AssessmentCard({ a, i, onOpen, layout = 'grid' }) {
           <h3 className="font-semibold leading-snug mt-1" style={{ color: 'var(--text-primary)' }}>{a.title}</h3>
           <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--text-secondary)' }}>By {a.teacher_name}</p>
         </div>
-        {a.best_score != null ? <ScoreRing pct={pct} celebrate={pct >= 80} /> : <StatusPill a={a} />}
+        <StatusPill a={a} />
       </div>
-
-      {a.best_score != null && (
-        <div className="flex items-center gap-2 -mt-1 relative flex-wrap">
-          <StatusPill a={a} />
-          <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{a.best_score} / {a.max_marks} pts</span>
-          {a.decision && (
-            <span
-              className="text-xs font-bold px-1.5 py-0.5 rounded-full"
-              style={{
-                background: a.decision === 'C' ? 'rgba(16,185,129,0.14)' : 'rgba(239,68,68,0.14)',
-                color: a.decision === 'C' ? '#10b981' : '#ef4444',
-              }}
-            >
-              {a.decision}
-            </span>
-          )}
-          {pct >= 80 && (
-            <span className="flex items-center gap-1 text-xs font-semibold" style={{ color: '#10b981' }}>
-              <Trophy className="w-3 h-3" /> Great score
-            </span>
-          )}
-        </div>
-      )}
 
       <div className="flex items-center gap-2 flex-wrap text-xs relative">
         <span className="flex items-center gap-1 px-2 py-0.5 rounded-full" style={{ background: 'var(--surface-100)', color: 'var(--text-secondary)' }}>
@@ -320,13 +265,23 @@ function AssessmentCard({ a, i, onOpen, layout = 'grid' }) {
           : <ExpiryChip expiresAt={a.expires_at} expired={a.expired} />}
       </div>
 
-      <button
-        onClick={() => onOpen(a)}
-        disabled={ctaDisabled && !a.not_yet_available}
-        className="btn-primary assessment-cta text-sm mt-1 flex items-center justify-center gap-2 disabled:opacity-45 disabled:cursor-not-allowed"
-      >
-        {cta}
-      </button>
+      <div className="flex items-center gap-2 mt-1">
+        {a.best_score != null && (
+          <button
+            onClick={() => onViewResult(a)}
+            className="btn-secondary text-sm flex items-center justify-center gap-2 flex-shrink-0"
+          >
+            <BarChart3 className="w-4 h-4" /> Result
+          </button>
+        )}
+        <button
+          onClick={() => onOpen(a)}
+          disabled={ctaDisabled && !a.not_yet_available}
+          className="btn-primary assessment-cta text-sm flex-1 flex items-center justify-center gap-2 disabled:opacity-45 disabled:cursor-not-allowed"
+        >
+          {cta}
+        </button>
+      </div>
     </div>
   );
 }
@@ -766,6 +721,7 @@ export default function StudentAssessments() {
   const [loading, setLoading] = useState(true);
   const [assessments, setAssessments] = useState([]);
   const [instructionsFor, setInstructionsFor] = useState(null);
+  const [resultFor, setResultFor] = useState(null);
   const [starting, setStarting] = useState(false);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('all');
@@ -852,7 +808,7 @@ export default function StudentAssessments() {
 
   const renderList = (list) => (
     <div className={gridCls}>
-      {list.map((a, i) => <AssessmentCard key={a.id} a={a} i={i} onOpen={setInstructionsFor} layout={view} />)}
+      {list.map((a, i) => <AssessmentCard key={a.id} a={a} i={i} onOpen={setInstructionsFor} onViewResult={setResultFor} layout={view} />)}
     </div>
   );
 
@@ -929,6 +885,13 @@ export default function StudentAssessments() {
           onClose={() => setInstructionsFor(null)}
           onStart={handleStart}
           starting={starting}
+        />
+      )}
+
+      {resultFor && (
+        <StudentResultModal
+          assessment={resultFor}
+          onClose={() => setResultFor(null)}
         />
       )}
     </div>

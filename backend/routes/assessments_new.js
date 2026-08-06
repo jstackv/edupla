@@ -80,6 +80,7 @@ router.get('/student/courses', isAuthenticated, isStudent, ctrl.studentGetCourse
 // ── STUDENT: online-quiz feature (browse, attempt, submit) ────────────────
 router.get('/student/assessments',                      isAuthenticated, isStudent, ctrl.studentGetSharedAssessments);
 router.get('/student/assessments/:id/instructions',     isAuthenticated, isStudent, ctrl.studentGetAssessmentInstructions);
+router.get('/student/assessments/:id/result',            isAuthenticated, isStudent, ctrl.studentGetAssessmentResult);
 router.post('/student/assessments/:id/start',           isAuthenticated, isStudent, ctrl.studentStartAttempt);
 router.get('/student/attempts/:attemptId',                isAuthenticated, isStudent, ctrl.studentGetAttempt);
 router.post('/student/attempts/:attemptId/answer',        isAuthenticated, isStudent, ctrl.studentSaveAnswer);

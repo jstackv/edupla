@@ -2730,6 +2730,161 @@ async function buildOverallResults(teacherId, { course_id, class_id, type, term,
   };
 }
 
+/* ═══════════════════════ STUDENT: own results — single + overall (tabs) ══
+   Powers the student-facing "View Result" modal: every SHARED assessment in
+   the same series as the one the student opened (same course/class/type/
+   term/academic_year — exactly the grouping teacherGetOverallResults uses)
+   gets its own tab with that student's attempts, plus one combined
+   "Overall" tab computed with the identical best-score/module-weight
+   scaling logic buildOverallResults uses for the teacher's mark sheet — so
+   a student's own "C"/"NYC" always matches what the teacher sees. Only
+   this student's data is ever included; no classmates are exposed, aside
+   from an optional, non-identifying class-average benchmark per
+   assessment. ═══════════════════════════════════════════════════════════ */
+async function buildStudentSeriesResult(assessmentId, studentId) {
+  const anchor = await Assessment.findOne({ _id: assessmentId, mode: 'quiz', is_shared: true })
+    .populate('course_id', 'name total_marks category')
+    .lean();
+  if (!anchor || !anchor.course_id) return null;
+
+  const cls = await Class.findOne({ _id: anchor.class_id, students: studentId }, 'name').lean();
+  if (!cls) return null; // this assessment isn't for this student's class
+
+  const student = await User.findById(studentId, 'name email').lean();
+  if (!student) return null;
+
+  const assessments = await Assessment.find({
+    course_id: anchor.course_id._id, class_id: anchor.class_id, type: anchor.type,
+    term: anchor.term, academic_year: anchor.academic_year, mode: 'quiz', is_shared: true,
+  }).populate('teacher_id', 'name').sort({ created_at: 1 }).lean();
+
+  const moduleWeight = anchor.course_id.total_marks || 100;
+  const category = anchor.course_id.category || 'Complementary modules';
+
+  const maxMarksByAssessment = {};
+  for (const a of assessments) {
+    const agg = await AssessmentQuestion.aggregate([
+      { $match: { assessment_id: a._id } },
+      { $group: { _id: null, total: { $sum: '$marks' } } },
+    ]);
+    maxMarksByAssessment[a._id.toString()] = agg[0]?.total || 0;
+  }
+  const combinedMax = assessments.reduce((s, a) => s + (maxMarksByAssessment[a._id.toString()] || 0), 0);
+
+  const assessmentIds = assessments.map(a => a._id);
+
+  // This student's own attempts across every assessment in the series —
+  // every attempt is shown per-tab (not just the best), oldest first.
+  const myAttempts = assessmentIds.length
+    ? await AssessmentAttempt.find({ assessment_id: { $in: assessmentIds }, student_id: studentId, voided: { $ne: true } })
+      .sort({ attempt_number: 1 }).lean()
+    : [];
+  const myByAssessment = {};
+  myAttempts.forEach(at => {
+    const k = at.assessment_id.toString();
+    (myByAssessment[k] = myByAssessment[k] || []).push(at);
+  });
+
+  const passingLine = passingLineForCategory(category);
+
+  let totalObtained = 0;
+  let anyAttempted = false;
+  let anyPendingGrading = false;
+
+  const perAssessment = assessments.map(a => {
+    const key = a._id.toString();
+    const list = myByAssessment[key] || [];
+    const maxMarks = maxMarksByAssessment[key] || 0;
+    const graded = list.filter(x => x.status === 'graded');
+    const best = [...graded].sort((x, y) => y.total_score - x.total_score)[0];
+    const bestScore = best ? best.total_score : null;
+    if (bestScore != null) { totalObtained += bestScore; anyAttempted = true; }
+    const pendingHere = list.some(x => x.needs_manual_grading && x.status === 'submitted');
+    if (pendingHere) anyPendingGrading = true;
+
+    const rawPct = rawPercentage(bestScore, maxMarks);
+    const percentage = rawPct != null ? Math.round(rawPct) : null;
+    // Personal-only signal (no classmate data): how far this best score
+    // sits from the competency line, in both marks and percentage points —
+    // powers a "X pts to Competent" / "X pts above the line" indicator.
+    const marginPct = rawPct != null ? Math.round((rawPct - passingLine) * 10) / 10 : null;
+    const marginMarks = bestScore != null && maxMarks
+      ? Math.round((bestScore - (passingLine / 100) * maxMarks) * 10) / 10
+      : null;
+
+    return {
+      assessment_id: a._id,
+      title: a.title,
+      teacher_name: a.teacher_id?.name || null,
+      duration_minutes: a.duration_minutes,
+      max_marks: maxMarks,
+      max_attempts: effectiveMaxAttempts(a, studentId),
+      attempts_used: list.length,
+      best_score: bestScore,
+      percentage,
+      decision: bestScore != null ? computeDecision(rawPct, category) : null,
+      status: pendingHere ? 'needs_grading' : (bestScore != null ? 'graded' : (list.length ? 'needs_grading' : 'not_attempted')),
+      passing_line: passingLine,
+      margin_percentage: marginPct,
+      margin_marks: marginMarks,
+      attempts: list.map(x => {
+        const aRawPct = rawPercentage(x.total_score, maxMarks);
+        return {
+          id: x._id,
+          attempt_number: x.attempt_number,
+          status: x.status,
+          total_score: x.total_score ?? null,
+          percentage: aRawPct != null ? Math.round(aRawPct) : null,
+          is_best: !!(best && x._id.toString() === best._id.toString()),
+          needs_manual_grading: !!(x.needs_manual_grading && x.status === 'submitted'),
+          auto_submitted: !!x.auto_submitted,
+          submitted_at: x.submitted_at,
+          started_at: x.started_at,
+        };
+      }),
+    };
+  });
+
+  const rawOverallPct = anyAttempted ? rawPercentage(totalObtained, combinedMax) : null;
+  const overallPercentage = rawOverallPct != null ? Math.round(rawOverallPct) : null;
+  const overallMarginPct = rawOverallPct != null ? Math.round((rawOverallPct - passingLine) * 10) / 10 : null;
+
+  return {
+    course: { id: anchor.course_id._id, name: anchor.course_id.name },
+    class: { id: cls._id, name: cls.name },
+    student: { id: student._id, name: student.name },
+    type: anchor.type,
+    type_label: TYPE_TITLES[anchor.type] || anchor.type,
+    term: anchor.term,
+    academic_year: anchor.academic_year,
+    anchor_assessment_id: anchor._id,
+    module_weight: moduleWeight,
+    combined_max: combinedMax,
+    passing_line: passingLine,
+    teachers: [...new Set(assessments.map(a => a.teacher_id?.name).filter(Boolean))],
+    assessments: perAssessment,
+    overall: {
+      total_obtained: anyAttempted ? Math.round(totalObtained * 100) / 100 : null,
+      combined_max: combinedMax,
+      percentage: overallPercentage,
+      marks_on_mw: anyAttempted ? scaleScore(totalObtained, combinedMax, moduleWeight) : null,
+      module_weight: moduleWeight,
+      decision: anyAttempted ? computeDecision(rawOverallPct, category) : null,
+      status: anyPendingGrading ? 'needs_grading' : (anyAttempted ? 'graded' : 'not_attempted'),
+      passing_line: passingLine,
+      margin_percentage: overallMarginPct,
+    },
+  };
+}
+
+exports.studentGetAssessmentResult = async (req, res) => {
+  try {
+    const result = await buildStudentSeriesResult(req.params.id, req.user.id);
+    if (!result) return res.status(404).json({ message: 'Assessment not found or not available to you.' });
+    res.json(result);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
 exports.teacherGetOverallResults = async (req, res) => {
   try {
     const { course_id, class_id, type, term, academic_year } = req.query;
