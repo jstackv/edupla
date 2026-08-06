@@ -46,6 +46,7 @@ import {
   ClipboardCheck, School, BookOpen, ChevronRight, Plus, Loader2,
   ListChecks, Share2, BarChart3, Edit2, Trash2, ArrowLeft, Inbox,
   Lock, PlusCircle, Sparkles, Award, FileEdit, Users, Scale, Undo2,
+  CheckCircle2, Clock, X,
 } from 'lucide-react';
 
 const TERMS = ['Term 1', 'Term 2', 'Term 3'];
@@ -109,40 +110,38 @@ function timeAgo(dateStr) {
   return new Date(dateStr).toLocaleDateString();
 }
 
-function initials(name) {
-  return (name || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
-}
-
-/* One-line human sentence summarizing who has submitted, e.g.:
-   "Hakizimana Xavin has submitted assessment"
-   "Hakizimana Xavin's assessment was submitted" (auto-submitted)
-   "Hakizimana Xavin and 5 others have submitted" */
-function submittersSummary(submitters, submittedCount) {
+/* Builds the toast's headline as { name, rest } so the JSX can bold just
+   the most recent submitter's name, e.g.:
+   { name: "Hakizimana Xavin", rest: " has submitted assessment" }
+   { name: "Hakizimana Xavin", rest: "'s assessment was submitted" }  (auto)
+   { name: "Hakizimana Xavin", rest: " and 5 others have submitted" } */
+function submittersTitleParts(submitters, submittedCount) {
   if (submittedCount === 0) return null;
-  const [first] = submitters;
+  const [latest] = submitters;
   if (submittedCount === 1) {
-    return first.auto_submitted
-      ? `${first.name}'s assessment was submitted`
-      : `${first.name} has submitted assessment`;
+    return { name: latest.name, rest: latest.auto_submitted ? "'s assessment was submitted" : ' has submitted assessment' };
   }
   const others = submittedCount - 1;
-  return `${first.name} and ${others} other${others > 1 ? 's' : ''} have submitted`;
+  return { name: latest.name, rest: ` and ${others} other${others > 1 ? 's' : ''} have submitted` };
 }
 
-/* Hover-triggered preview of recent submitters, portal-rendered to
-   document.body with a fixed position anchored under the badge — the card
-   it lives on has `overflow: hidden` for its corner-glow decoration, so
-   rendering in-place would get clipped. Clicking anywhere on the card jumps
+/* Hover-triggered toast previewing only the most recent submitter (plus a
+   tally of everyone else) — portal-rendered to document.body with a fixed
+   position anchored under the card, so the card's own `overflow: hidden`
+   corner-glow decoration never clips it. Clicking anywhere on it jumps
    straight to that assessment's results, where ungraded submissions can be
    marked. */
-function SubmittersTooltip({ submitters, submittedCount, pos, onMouseEnter, onMouseLeave, onOpenResults }) {
-  const summary = submittersSummary(submitters, submittedCount);
-  if (!summary || !pos) return null;
+function SubmittersTooltip({ submitters, submittedCount, pos, onMouseEnter, onMouseLeave, onOpenResults, onClose }) {
+  const parts = submittersTitleParts(submitters, submittedCount);
+  if (!parts || !pos) return null;
+  const [latest] = submitters;
+  const accent = latest.auto_submitted ? '#b45309' : '#0f766e';
+  const Icon = latest.auto_submitted ? Clock : CheckCircle2;
 
   return createPortal(
     <div
-      className="assessment-submitters-tooltip fixed w-80 rounded-2xl p-0 z-[70] cursor-pointer overflow-hidden"
-      style={{ top: pos.top, left: pos.left }}
+      className="assessment-submitters-tooltip fixed w-96 z-[70] cursor-pointer flex items-center gap-3.5"
+      style={{ bottom: pos.bottom, left: pos.left, '--toast-accent': accent }}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       onClick={onOpenResults}
@@ -150,40 +149,23 @@ function SubmittersTooltip({ submitters, submittedCount, pos, onMouseEnter, onMo
       tabIndex={0}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onOpenResults?.(); }}
     >
-      <div className="assessment-tooltip-inner p-3.5">
-        <p className="text-xs font-semibold flex items-center gap-1.5 mb-3" style={{ color: 'var(--text-primary)' }}>
-          <span className="assessment-tooltip-icon-dot">
-            <Users className="w-3.5 h-3.5" style={{ color: '#6366f1' }} />
-          </span>
-          {summary}
+      <span className="assessment-toast-icon">
+        <span className="assessment-toast-icon-ring" />
+        <Icon className="w-5 h-5 relative z-10" style={{ color: '#fff' }} />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="assessment-toast-title"><strong>{parts.name}</strong>{parts.rest}</p>
+        <p className="assessment-toast-subtitle">
+          {latest.auto_submitted ? 'Auto-submitted' : 'Submitted'} · {timeAgo(latest.submitted_at)}
         </p>
-        <div className="space-y-2">
-          {submitters.slice(0, 3).map((s, si) => (
-            <div key={si} style={{ '--si': si }} className="assessment-submitter-row flex items-center gap-2.5">
-              <div className="assessment-submitter-avatar w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0">
-                {initials(s.name)}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-medium truncate" style={{ color: 'var(--text-primary)' }}>{s.name}</p>
-                <p className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>
-                  {s.auto_submitted ? 'Auto-submitted' : 'Submitted'} · {timeAgo(s.submitted_at)}
-                </p>
-              </div>
-              {!s.auto_submitted && <span className="assessment-submitter-pulse" />}
-            </div>
-          ))}
-        </div>
-        {submittedCount > 3 && (
-          <p className="text-[10px] mt-2.5 pt-2" style={{ color: 'var(--text-secondary)', borderTop: '1px solid var(--card-border)' }}>
-            +{submittedCount - 3} more have submitted
-          </p>
-        )}
       </div>
-      <div className="assessment-tooltip-cta">
-        <BarChart3 className="w-3.5 h-3.5" />
-        Open results to grade
-        <ChevronRight className="w-3.5 h-3.5 assessment-tooltip-cta-arrow" />
-      </div>
+      <button
+        onClick={(e) => { e.stopPropagation(); onClose?.(); }}
+        className="assessment-toast-close flex-shrink-0"
+        aria-label="Dismiss"
+      >
+        <X className="w-3.5 h-3.5" />
+      </button>
     </div>,
     document.body
   );
@@ -194,20 +176,27 @@ function SubmittersTooltip({ submitters, submittedCount, pos, onMouseEnter, onMo
 function AssessmentCard({ a, i, onQuestions, onShare, onAddAttempt, onEdit, onDelete, onUnshare, onViewResults }) {
   const [showSubmitters, setShowSubmitters] = useState(false);
   const [tooltipPos, setTooltipPos] = useState(null);
-  const badgeRef = useRef(null);
+  const cardRef = useRef(null);
   const closeTimer = useRef(null);
   const statusColor = a.is_shared ? '#10b981' : '#9ca3af';
   const hasQuestions = (a.max_marks || 0) > 0;
   const submittedCount = a.submitted_count || 0;
   const recentSubmitters = a.recent_submitters || [];
+  // Once an assessment expires there's nothing new to be notified about —
+  // students can no longer submit, so the toast stops appearing entirely,
+  // even if past submissions are still sitting there ungraded.
+  const canToast = a.is_shared && !a.expired && submittedCount > 0;
 
-  // A small delay before closing lets the cursor travel from the badge down
-  // into the portal-rendered tooltip without it flickering shut mid-move.
+  // A small delay before closing lets the cursor travel from the card up
+  // into the portal-rendered toast without it flickering shut mid-move.
+  // Anchored with `bottom` (not `top`) so it grows upward from the card's
+  // top edge regardless of the toast's own (variable) height.
   const openTooltip = () => {
+    if (!canToast) return;
     clearTimeout(closeTimer.current);
-    if (badgeRef.current) {
-      const rect = badgeRef.current.getBoundingClientRect();
-      setTooltipPos({ top: rect.bottom + 8, left: rect.left });
+    if (cardRef.current) {
+      const rect = cardRef.current.getBoundingClientRect();
+      setTooltipPos({ bottom: window.innerHeight - rect.top + 8, left: rect.left });
     }
     setShowSubmitters(true);
   };
@@ -218,8 +207,11 @@ function AssessmentCard({ a, i, onQuestions, onShare, onAddAttempt, onEdit, onDe
 
   return (
     <div
+      ref={cardRef}
       style={{ '--i': i, borderColor: `color-mix(in srgb, ${statusColor} 18%, var(--card-border))` }}
       className="card assessment-card p-4 flex flex-col gap-3 relative"
+      onMouseEnter={openTooltip}
+      onMouseLeave={scheduleClose}
     >
       <div
         className="pointer-events-none absolute top-0 right-0 w-24 h-24 rounded-2xl"
@@ -249,26 +241,13 @@ function AssessmentCard({ a, i, onQuestions, onShare, onAddAttempt, onEdit, onDe
           )}
           {a.is_shared && a.student_count > 0 && (
             <span
-              ref={badgeRef}
-              className={`assessment-stat-badge assessment-stat-badge-interactive ${submittedCount > 0 ? 'assessment-stat-badge-active' : ''}`}
+              className={`assessment-stat-badge ${submittedCount > 0 ? 'assessment-stat-badge-interactive assessment-stat-badge-active' : ''}`}
               style={{ '--stat-color': '#10b981' }}
-              onMouseEnter={openTooltip}
-              onMouseLeave={scheduleClose}
               onClick={() => submittedCount > 0 && onViewResults?.(a)}
               role={submittedCount > 0 ? 'button' : undefined}
               tabIndex={submittedCount > 0 ? 0 : undefined}
             >
               <ClipboardCheck className="w-3.5 h-3.5" /> {submittedCount}/{a.student_count} submissions
-              {showSubmitters && submittedCount > 0 && (
-                <SubmittersTooltip
-                  submitters={recentSubmitters}
-                  submittedCount={submittedCount}
-                  pos={tooltipPos}
-                  onMouseEnter={() => clearTimeout(closeTimer.current)}
-                  onMouseLeave={scheduleClose}
-                  onOpenResults={() => { setShowSubmitters(false); onViewResults?.(a); }}
-                />
-              )}
             </span>
           )}
           {a.student_count > 0 && (
@@ -303,6 +282,18 @@ function AssessmentCard({ a, i, onQuestions, onShare, onAddAttempt, onEdit, onDe
         </button>
         <button onClick={() => onDelete(a)} className="text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-red-500 transition-all duration-150 hover:bg-red-500/10 ml-auto" style={{ border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.07)' }}><Trash2 className="w-3.5 h-3.5" /> Delete</button>
       </div>
+
+      {showSubmitters && canToast && (
+        <SubmittersTooltip
+          submitters={recentSubmitters}
+          submittedCount={submittedCount}
+          pos={tooltipPos}
+          onMouseEnter={() => clearTimeout(closeTimer.current)}
+          onMouseLeave={scheduleClose}
+          onOpenResults={() => { setShowSubmitters(false); onViewResults?.(a); }}
+          onClose={() => { clearTimeout(closeTimer.current); setShowSubmitters(false); }}
+        />
+      )}
     </div>
   );
 }

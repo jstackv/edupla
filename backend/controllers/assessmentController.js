@@ -754,6 +754,7 @@ exports.teacherGetAssessments = async (req, res) => {
         submission_status: sub?.status || 'draft',
         review_note: sub?.review_note || null,
         submitted_count: submitters.length,
+        expired: a.expires_at ? new Date() > new Date(a.expires_at) : false,
         recent_submitters: submitters.slice(0, 5).map(s => ({
           name: s.student_name, auto_submitted: s.auto_submitted, submitted_at: s.submitted_at,
         })),
