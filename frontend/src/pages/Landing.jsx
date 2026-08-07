@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '../context/ThemeContext';
 import LanguageSwitcher from '../components/common/LanguageSwitcher';
 import SEO from '../components/common/SEO';
+import ownerPhoto from '../assets/owner-jmv.jpg';
 import {
   GraduationCap, Sun, Moon, ArrowRight, BookOpen, Users, Award,
   CheckCircle, Zap, Shield, Star, ChevronRight,
@@ -14,7 +15,9 @@ import {
   Eye, BarChart2, Lock,
   User, ClipboardCheck, Workflow, BadgeCheck, FileBarChart2,
   School, ListChecks, FolderKanban, GitBranch, Boxes,
-  FileCheck2, UserCog, SlidersHorizontal, ArrowDown, Mic, Timer
+  FileCheck2, UserCog, SlidersHorizontal, ArrowDown, Mic, Timer,
+  Code2, Calendar, Quote,
+  Coffee, Heart, Cpu, Infinity as InfinityIcon, Sparkle, Terminal
 } from 'lucide-react';
 
 const FONT_IMPORT = `@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Outfit:wght@300;400;500;600;700;800;900&display=swap');`;
@@ -28,7 +31,7 @@ const NAV = [
   { key: 'curriculum',   anchor: 'curriculum' },
   { key: 'howItWorks',   anchor: 'how-it-works' },
   { key: 'testimonials', anchor: 'testimonials' },
-  { key: 'pricing',      anchor: 'pricing' },
+  { key: 'owner',        anchor: 'owner', staticLabel: 'Owner' },
 ];
 
 const FEATURES = [
@@ -93,12 +96,6 @@ const TESTIMONIALS = [
   { init: 'DL', name: 'Dr. David Lee', key: 'davidLee',    stars: 5, color: '#f59e0b' },
 ];
 
-const PRICING = [
-  { key: 'starter',  price: 'Free',   period: '',    hot: false },
-  { key: 'school',   price: '$99',    period: '/mo', hot: true  },
-  { key: 'district', price: 'Custom', period: '',    hot: false },
-];
-
 const STATS = [
   { key: 'students',  v: '2,400+', icon: Users,      c: '#6366f1' },
   { key: 'modules',   v: '180+',   icon: BookOpen,   c: '#0ea5e9' },
@@ -108,6 +105,43 @@ const STATS = [
 
 // FAQs are a straight array in i18n (landing.faqs); indexed by position.
 const FAQ_COUNT = 6;
+
+/* ─── OWNER ── */
+/* Exact, given owner info — kept as plain constants (not run through i18n)
+   since it's factual/legal attribution, not marketing copy that should
+   vary by locale. */
+const OWNER = {
+  name: 'Jean Marie Vianney',
+  role: 'Owner, Developer & Designer',
+  bio: "The owner and developer of Edupla, where he had the opportunity to build the platform from the ground up and continue improving it every day. He cared deeply about thoughtful design, reliable performance, and the small details that make software simple, intuitive, and enjoyable to use. His goal is to keep learning, building, and creating an experience that genuinely serves his users.",
+  phone: '+250785683347',
+  phoneDisplay: '+250 785 683 347',
+  email: 'jstackvm@gmail.com',
+  portfolio: 'https://stack-port.vercel.app/',
+  github: 'https://github.com/jstackv',
+  location: 'Kigali, Rwanda',
+  founded: '2026',
+};
+
+/* Focus areas — a quick, honest signal of what the owner actually spends
+   time on, replacing the old vanity-stat cards (100% / 24-7 / 0 / ∞) which
+   didn't carry real information. */
+const OWNER_FOCUS = [
+  { key: 'fullstack',   label: 'Full-Stack Development',   icon: Code2,   color: '#6366f1' },
+  { key: 'design',      label: 'Thoughtful UI/UX',          icon: Sparkle, color: '#f472b6' },
+  { key: 'reliability', label: 'Reliable, Secure Systems',  icon: Shield,  color: '#10b981' },
+];
+
+/* Tech the platform is actually built with — plain text chips, no logos. */
+const OWNER_STACK = [
+  'React', 'Node.js', 'Express', 'MongoDB', 'JavaScript',
+  'Tailwind CSS', 'Vite', 'REST APIs', 'Git & GitHub', 'i18n',
+];
+
+/* Dominant tone sampled from the owner photo's backdrop — used to give the
+   portrait a glow/background that reads as part of the same photograph
+   rather than a cut-out pasted onto the page. */
+const OWNER_TINT = { deep: '#02132b', mid: '#0d3258', soft: '#1a5f95' };
 
 /* ─── COUNTER ── */
 function useCountUp(target, started) {
@@ -358,6 +392,44 @@ function BottomLink(props) {
   );
 }
 
+/* ─── OWNER: contact/link row (icon chip + label, click-through) ── */
+function OwnerLinkRow(props) {
+  var icon = props.icon;
+  var label = props.label;
+  var value = props.value;
+  var href = props.href;
+  var dark = props.dark;
+  var t = props.t;
+  function onEnter(e) {
+    e.currentTarget.style.transform = 'translateX(4px)';
+    e.currentTarget.style.borderColor = OWNER_TINT.soft + '55';
+    e.currentTarget.style.background = dark ? 'rgba(26,95,149,0.1)' : 'rgba(26,95,149,0.06)';
+  }
+  function onLeave(e) {
+    e.currentTarget.style.transform = 'translateX(0)';
+    e.currentTarget.style.borderColor = t.bord;
+    e.currentTarget.style.background = 'transparent';
+  }
+  return (
+    
+      <a href={href}
+      target={href.startsWith('http') ? '_blank' : undefined}
+      rel={href.startsWith('http') ? 'noopener noreferrer' : undefined}
+      onMouseEnter={onEnter}
+      onMouseLeave={onLeave}
+      style={{ display:'flex', alignItems:'center', gap:12, padding:'11px 13px', borderRadius:13, border:'1px solid '+t.bord, background:'transparent', textDecoration:'none', transition:'all 0.22s cubic-bezier(0.16,1,0.3,1)' }}
+    >
+      <div style={{ width:34, height:34, borderRadius:10, background:OWNER_TINT.soft+'1c', border:'1px solid '+OWNER_TINT.soft+'35', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+        {icon}
+      </div>
+      <div style={{ minWidth:0 }}>
+        <p style={{ margin:0, fontSize:10.5, letterSpacing:'0.06em', textTransform:'uppercase', fontWeight:700, color:t.tm, opacity:0.75 }}>{label}</p>
+        <p style={{ margin:0, fontSize:13.5, fontWeight:600, color:t.tp, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{value}</p>
+      </div>
+    </a>
+  );
+}
+
 /* ─── MAIN ── */
 export default function Landing() {
   var { t: tr } = useTranslation();
@@ -367,14 +439,18 @@ export default function Landing() {
   var mobState = useState(false); var mob = mobState[0]; var setMob = mobState[1];
   var scrollState = useState(false); var scrolled = scrollState[0]; var setScrolled = scrollState[1];
   var hovFeatState = useState(null); var hovFeat = hovFeatState[0]; var setHovFeat = hovFeatState[1];
-  var hovPlanState = useState(null); var hovPlan = hovPlanState[0]; var setHovPlan = hovPlanState[1];
   var faqState = useState(null); var faq = faqState[0]; var setFaq = faqState[1];
+  var showTopBtnState = useState(false); var showTopBtn = showTopBtnState[0]; var setShowTopBtn = showTopBtnState[1];
 
   useEffect(function() {
-    function fn() { setScrolled(window.scrollY > 20); }
+    function fn() { setScrolled(window.scrollY > 20); setShowTopBtn(window.scrollY > 600); }
     window.addEventListener('scroll', fn);
     return function() { window.removeEventListener('scroll', fn); };
   }, []);
+
+  function scrollToTop() {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
 
   var t = {
     bg:       dark ? '#080c18' : '#f8faff',
@@ -413,11 +489,100 @@ export default function Landing() {
         section[id] { scroll-margin-top: 84px; }
         ::-webkit-scrollbar{width:4px;height:4px}
         ::-webkit-scrollbar-thumb{background:#6366f120;border-radius:9px}
+
+        /* ── Owner section ── */
+        @keyframes ownerGlowDrift { 0%,100%{ transform:translate(-50%,-50%) scale(1); } 50%{ transform:translate(-48%,-52%) scale(1.08); } }
+        @keyframes ownerBorderSpin { to { transform: rotate(360deg); } }
+        @keyframes ownerFloatSlow { 0%,100%{ transform:translateY(0) rotate(-2deg); } 50%{ transform:translateY(-10px) rotate(1deg); } }
+        @keyframes ownerFloatSlow2 { 0%,100%{ transform:translateY(0) rotate(2deg); } 50%{ transform:translateY(-8px) rotate(-1.5deg); } }
+        @keyframes ownerRise { from{opacity:0;transform:translateY(30px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes ownerRiseLeft  { from{opacity:0;transform:translateX(-26px)} to{opacity:1;transform:translateX(0)} }
+        @keyframes ownerRiseRight { from{opacity:0;transform:translateX(26px)} to{opacity:1;transform:translateX(0)} }
+        @keyframes ownerChipIn { from{opacity:0;transform:translateY(10px) scale(0.94);} to{opacity:1;transform:translateY(0) scale(1);} }
+        @keyframes ownerFocusPulseDot { 0%,100%{ opacity:0.55; } 50%{ opacity:1; } }
+        .owner-reveal { opacity:0; animation: ownerRise 0.7s cubic-bezier(0.16,1,0.3,1) forwards; }
+        .owner-reveal-left { opacity:0; animation: ownerRiseLeft 0.8s cubic-bezier(0.16,1,0.3,1) forwards; }
+        .owner-reveal-right { opacity:0; animation: ownerRiseRight 0.8s cubic-bezier(0.16,1,0.3,1) forwards; }
+        .owner-photo-frame { transition: transform 0.5s cubic-bezier(0.16,1,0.3,1); }
+        .owner-photo-wrap:hover .owner-photo-frame { transform: perspective(900px) rotateY(-4deg) rotateX(2deg) scale(1.015); }
+        .owner-photo-wrap:hover .owner-glow { opacity:1; }
+        .owner-badge-float { animation: ownerFloatSlow 5s ease-in-out infinite; }
+        .owner-badge-float2 { animation: ownerFloatSlow2 6s ease-in-out infinite 0.6s; }
+        .owner-cta-primary { position:relative; overflow:hidden; }
+        .owner-cta-primary::after { content:''; position:absolute; inset:0; background:linear-gradient(120deg,transparent 30%,rgba(255,255,255,0.35) 50%,transparent 70%); transform:translateX(-120%); transition:transform 0.7s ease; }
+        .owner-cta-primary:hover::after { transform:translateX(120%); }
+        .owner-badge-float3 { animation: ownerFloatSlow 5.6s ease-in-out infinite 0.3s; }
+        @keyframes ownerStatusPulse { 0%{box-shadow:0 0 0 0 rgba(52,211,153,0.55)} 70%{box-shadow:0 0 0 8px rgba(52,211,153,0)} 100%{box-shadow:0 0 0 0 rgba(52,211,153,0)} }
+        .owner-status-dot { animation: ownerStatusPulse 2s infinite; }
+        .owner-stat-card { transition: transform 0.3s cubic-bezier(0.16,1,0.3,1), border-color 0.3s, box-shadow 0.3s; }
+        .owner-stat-card:hover { transform: translateY(-4px); }
+        .owner-chip { opacity:0; animation: ownerChipIn 0.5s cubic-bezier(0.16,1,0.3,1) forwards; transition: transform 0.25s cubic-bezier(0.16,1,0.3,1), border-color 0.25s, box-shadow 0.25s, background 0.25s; cursor:default; }
+        .owner-chip:hover { transform: translateY(-3px); }
+
+        @media (prefers-reduced-motion: reduce) {
+          .owner-reveal, .owner-reveal-left, .owner-reveal-right, .owner-chip { animation:none !important; opacity:1 !important; }
+          .owner-badge-float, .owner-badge-float2, .owner-badge-float3, .owner-photo-frame, .owner-cta-primary::after, .owner-status-dot { animation:none !important; transition:none !important; }
+        }
+
+        /* ── Footer ── */
+        @keyframes footerBlobDriftA { 0%,100%{ transform:translate(0,0) scale(1); } 50%{ transform:translate(30px,-24px) scale(1.12); } }
+        @keyframes footerBlobDriftB { 0%,100%{ transform:translate(0,0) scale(1); } 50%{ transform:translate(-26px,20px) scale(1.08); } }
+        @keyframes footerLinePan { 0%{ background-position:0% 50%; } 100%{ background-position:200% 50%; } }
+        @keyframes footerWordmarkDrift { 0%,100%{ transform:translateX(-50%); } 50%{ transform:translateX(calc(-50% - 14px)); } }
+        @keyframes footerStatIn { from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:translateY(0);} }
+        @keyframes backToTopIn { from{opacity:0; transform:translateY(12px) scale(0.9);} to{opacity:1; transform:translateY(0) scale(1);} }
+        .footer-blob-a { animation: footerBlobDriftA 14s ease-in-out infinite; }
+        .footer-blob-b { animation: footerBlobDriftB 17s ease-in-out infinite; }
+        .footer-accent-line { background-size:200% 100%; animation: footerLinePan 6s linear infinite; }
+        .footer-wordmark { animation: footerWordmarkDrift 10s ease-in-out infinite; }
+        .footer-stat-chip { opacity:0; animation: footerStatIn 0.5s ease forwards; transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease; }
+        .footer-stat-chip:hover { transform: translateY(-3px); }
+        .footer-newsletter-input:focus { box-shadow: 0 0 0 3px rgba(99,102,241,0.25); border-color:#6366f1 !important; }
+        .footer-send-btn { position:relative; overflow:hidden; }
+        .footer-send-btn::after { content:''; position:absolute; inset:0; background:linear-gradient(120deg,transparent 30%,rgba(255,255,255,0.4) 50%,transparent 70%); transform:translateX(-120%); transition:transform 0.6s ease; }
+        .footer-send-btn:hover::after { transform:translateX(120%); }
+        .back-to-top-btn { animation: backToTopIn 0.35s cubic-bezier(0.16,1,0.3,1) both; transition: transform 0.25s cubic-bezier(0.16,1,0.3,1), box-shadow 0.25s; }
+        .back-to-top-btn:hover { transform: translateY(-4px); }
+        @media (prefers-reduced-motion: reduce) {
+          .footer-blob-a, .footer-blob-b, .footer-accent-line, .footer-wordmark, .footer-stat-chip, .back-to-top-btn { animation:none !important; opacity:1 !important; }
+        }
+
+        /* ── Hero ── */
+        @keyframes heroWordmarkDrift { 0%,100%{ transform:translate(-50%,-50%); } 50%{ transform:translate(calc(-50% - 10px),-50%); } }
+        @keyframes heroMeshDriftA { 0%,100%{ transform:translate(0,0) scale(1); } 50%{ transform:translate(26px,-20px) scale(1.1); } }
+        @keyframes heroMeshDriftB { 0%,100%{ transform:translate(0,0) scale(1); } 50%{ transform:translate(-22px,18px) scale(1.08); } }
+        @keyframes heroGridDrift { 0%{ background-position:0 0; } 100%{ background-position:48px 48px; } }
+        @keyframes heroChipIn { from{opacity:0;transform:translateY(10px) scale(0.94);} to{opacity:1;transform:translateY(0) scale(1);} }
+        @keyframes heroPulseDot { 0%,100%{ opacity:0.5; } 50%{ opacity:1; } }
+        @keyframes heroScrollBounce { 0%,100%{ transform:translateY(0); opacity:0.5; } 50%{ transform:translateY(8px); opacity:1; } }
+        @keyframes heroBadgeSpin { to { transform: rotate(360deg); } }
+        .hero-wordmark { animation: heroWordmarkDrift 11s ease-in-out infinite; }
+        .hero-mesh-a { animation: heroMeshDriftA 13s ease-in-out infinite; }
+        .hero-mesh-b { animation: heroMeshDriftB 16s ease-in-out infinite; }
+        .hero-grid-pattern { animation: heroGridDrift 6s linear infinite; }
+        .hero-chip { opacity:0; animation: heroChipIn 0.55s cubic-bezier(0.16,1,0.3,1) forwards; transition: transform 0.28s cubic-bezier(0.16,1,0.3,1), border-color 0.28s, box-shadow 0.28s, background 0.28s; cursor:default; }
+        .hero-chip:hover { transform: translateY(-4px) scale(1.03); }
+        .hero-scroll-cue { animation: heroScrollBounce 2.2s ease-in-out infinite; }
+        .hero-mockup-wrap { transition: transform 0.5s cubic-bezier(0.16,1,0.3,1); }
+        .hero-mockup-wrap:hover { transform: perspective(1000px) rotateY(-3deg) rotateX(1.5deg) scale(1.015); }
+        .hero-cta-primary { position:relative; overflow:hidden; }
+        .hero-cta-primary::after { content:''; position:absolute; inset:0; background:linear-gradient(120deg,transparent 30%,rgba(255,255,255,0.4) 50%,transparent 70%); transform:translateX(-120%); transition:transform 0.7s ease; }
+        .hero-cta-primary:hover::after { transform:translateX(120%); }
+        .hero-ring-spin { animation: heroBadgeSpin 40s linear infinite; }
+        @media (prefers-reduced-motion: reduce) {
+          .hero-wordmark, .hero-mesh-a, .hero-mesh-b, .hero-grid-pattern, .hero-chip, .hero-scroll-cue, .hero-mockup-wrap, .hero-cta-primary::after, .hero-ring-spin { animation:none !important; opacity:1 !important; transition:none !important; }
+        }
+
         @media(max-width:900px){
           .hero-grid{grid-template-columns:1fr!important}
+          .hero-wordmark{display:none!important}
+          .hero-mockup-wrap:hover{transform:none!important}
           .footer-grid{grid-template-columns:1fr 1fr!important; gap:2.25rem!important}
           .footer-brand{grid-column:1/-1}
           .footer-brand-desc{max-width:420px!important}
+          .owner-grid{grid-template-columns:1fr!important; text-align:center!important}
+          .owner-photo-col{justify-content:center!important; margin:0 auto!important}
+          .owner-links-grid{grid-template-columns:1fr!important}
         }
         @media(max-width:768px){
           .nav-links{display:none!important}
@@ -430,6 +595,13 @@ export default function Landing() {
           .footer-bottom{flex-direction:column!important; align-items:flex-start!important; gap:16px!important}
           .footer-bottom-left{flex-direction:column!important; align-items:flex-start!important; gap:10px!important}
           .footer-divider{display:none!important}
+        }
+        @media(max-width:480px){
+          .owner-badge-float{ right:-8px!important; top:12px!important; }
+          .owner-badge-float2{ left:-8px!important; bottom:20px!important; }
+          .owner-badge-float3{ left:12px!important; top:-8px!important; }
+          .owner-cta-row{ flex-direction:column!important; }
+          .owner-cta-row a{ width:100%!important; justify-content:center!important; }
         }
         @media(min-width:769px){.mob-btn{display:none!important}}
       `}</style>
@@ -461,7 +633,7 @@ export default function Landing() {
                   style={{ padding:'7px 14px', borderRadius:9, fontSize:14, fontWeight:500, color:t.tm, textDecoration:'none', transition:'all 0.2s' }}
                   onMouseEnter={function(e){ e.currentTarget.style.color=dark?'#a5b4fc':'#4f46e5'; e.currentTarget.style.background=dark?'rgba(99,102,241,0.08)':'rgba(99,102,241,0.06)'; }}
                   onMouseLeave={function(e){ e.currentTarget.style.color=t.tm; e.currentTarget.style.background='transparent'; }}
-                >{tr('landing.nav.'+item.key)}</a>
+                >{item.staticLabel || tr('landing.nav.'+item.key)}</a>
               );
             })}
           </div>
@@ -500,7 +672,7 @@ export default function Landing() {
               return (
                 <a key={item.key} href={'#'+item.anchor} onClick={function(){ setMob(false); }}
                   style={{ padding:'11px 14px', borderRadius:10, fontSize:15, fontWeight:500, color:t.tp, textDecoration:'none' }}
-                >{tr('landing.nav.'+item.key)}</a>
+                >{item.staticLabel || tr('landing.nav.'+item.key)}</a>
               );
             })}
             <Link to="/login" onClick={function(){ setMob(false); }} style={{ marginTop:10, padding:'12px', borderRadius:11, background:'linear-gradient(135deg,#4f46e5,#7c3aed)', color:'white', fontWeight:700, fontSize:14, textDecoration:'none', textAlign:'center' }}>{tr('landing.nav.getStartedFree')}</Link>
@@ -511,54 +683,85 @@ export default function Landing() {
       <div style={{ position:'relative', zIndex:1, paddingTop:66 }}>
 
         {/* HERO */}
-        <section style={{ maxWidth:1200, margin:'0 auto', padding:'clamp(3.5rem,8vw,6rem) 2rem 3rem', display:'grid', gridTemplateColumns:'1fr 1fr', gap:'4rem', alignItems:'center' }} className="hero-grid">
-          <div className="fade-up">
-            <div style={{ display:'inline-flex', alignItems:'center', gap:8, padding:'6px 14px', borderRadius:100, background:dark?'rgba(99,102,241,0.12)':'rgba(99,102,241,0.07)', border:'1px solid '+(dark?'rgba(99,102,241,0.28)':'rgba(99,102,241,0.18)'), marginBottom:28 }}>
-              <div style={{ width:7, height:7, borderRadius:'50%', background:'#34d399', animation:'glow 2s infinite' }} />
-              <Sparkles size={12} color={dark?'#a78bfa':'#4f46e5'} />
-              <span style={{ fontSize:12, fontWeight:600, color:dark?'#a78bfa':'#4f46e5', letterSpacing:'0.04em' }}>{tr('landing.hero.badge')}</span>
+        <section style={{ position:'relative', overflow:'hidden' }}>
+
+          {/* giant faded wordmark, centered behind the hero content */}
+          <div className="hero-wordmark" style={{ position:'absolute', top:'50%', left:'50%', fontFamily:"'Outfit',sans-serif", fontWeight:900, fontSize:'clamp(7rem,20vw,17rem)', letterSpacing:'-0.05em', lineHeight:1, color:dark?'rgba(255,255,255,0.028)':'rgba(79,70,229,0.04)', whiteSpace:'nowrap', pointerEvents:'none', userSelect:'none', zIndex:0 }}>Edupla</div>
+
+          {/* ambient mesh gradients, unique to the hero */}
+          <div className="hero-mesh-a" style={{ position:'absolute', top:'-12%', left:'6%', width:520, height:520, borderRadius:'50%', background:'radial-gradient(circle,rgba(99,102,241,0.16),transparent 70%)', filter:'blur(90px)', pointerEvents:'none', zIndex:0 }} />
+          <div className="hero-mesh-b" style={{ position:'absolute', bottom:'-14%', right:'2%', width:460, height:460, borderRadius:'50%', background:'radial-gradient(circle,rgba(14,165,233,0.14),transparent 70%)', filter:'blur(80px)', pointerEvents:'none', zIndex:0 }} />
+
+          {/* faint drifting dot-grid for texture */}
+          <div className="hero-grid-pattern" style={{ position:'absolute', inset:0, backgroundImage:'radial-gradient(circle,'+(dark?'rgba(255,255,255,0.05)':'rgba(79,70,229,0.07)')+' 1px, transparent 1px)', backgroundSize:'24px 24px', opacity:0.5, pointerEvents:'none', zIndex:0, maskImage:'radial-gradient(ellipse 60% 55% at 50% 35%, black, transparent)', WebkitMaskImage:'radial-gradient(ellipse 60% 55% at 50% 35%, black, transparent)' }} />
+
+          <div style={{ maxWidth:1200, margin:'0 auto', padding:'clamp(3.5rem,8vw,6rem) 2rem 4rem', display:'grid', gridTemplateColumns:'1fr 1fr', gap:'4rem', alignItems:'center', position:'relative', zIndex:1 }} className="hero-grid">
+            <div className="fade-up">
+              <div style={{ display:'inline-flex', alignItems:'center', gap:8, padding:'6px 14px', borderRadius:100, background:dark?'rgba(99,102,241,0.12)':'rgba(99,102,241,0.07)', border:'1px solid '+(dark?'rgba(99,102,241,0.28)':'rgba(99,102,241,0.18)'), marginBottom:28 }}>
+                <div style={{ width:7, height:7, borderRadius:'50%', background:'#34d399', animation:'glow 2s infinite' }} />
+                <Sparkles size={12} color={dark?'#a78bfa':'#4f46e5'} />
+                <span style={{ fontSize:12, fontWeight:600, color:dark?'#a78bfa':'#4f46e5', letterSpacing:'0.04em' }}>{tr('landing.hero.badge')}</span>
+              </div>
+              <h1 style={{ margin:0 }}>
+                <span style={{ display:'block', fontFamily:"'Instrument Serif',serif", fontStyle:'italic', fontSize:'clamp(3rem,5.5vw,4.8rem)', fontWeight:400, lineHeight:1.06, letterSpacing:'-0.02em', margin:'0 0 10px', color:t.tp }}>{tr('landing.hero.titleLine1')}</span>
+                <span style={{ display:'block', fontFamily:"'Outfit',sans-serif", fontSize:'clamp(2.5rem,4.8vw,4.2rem)', fontWeight:900, lineHeight:1, letterSpacing:'-0.05em', margin:'0 0 26px', background:'linear-gradient(135deg,#4f46e5 0%,#7c3aed 50%,#0ea5e9 100%)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text' }}>{tr('landing.hero.titleLine2')}</span>
+              </h1>
+              <p style={{ fontSize:17, lineHeight:1.78, color:t.tm, maxWidth:470, margin:'0 0 36px' }}>{tr('landing.hero.subtitle')}</p>
+              <div style={{ display:'flex', gap:12, flexWrap:'wrap', marginBottom:'2.5rem' }}>
+                <Link to="/login" className="hero-cta-primary"
+                  style={{ display:'inline-flex', alignItems:'center', gap:8, padding:'14px 28px', borderRadius:13, background:'linear-gradient(135deg,#4f46e5,#7c3aed)', color:'white', fontWeight:700, fontSize:15, textDecoration:'none', boxShadow:'0 8px 28px rgba(99,102,241,0.45)', transition:'all 0.25s' }}
+                  onMouseEnter={function(e){ e.currentTarget.style.transform='translateY(-2px)'; e.currentTarget.style.boxShadow='0 14px 40px rgba(99,102,241,0.55)'; }}
+                  onMouseLeave={function(e){ e.currentTarget.style.transform='translateY(0)'; e.currentTarget.style.boxShadow='0 8px 28px rgba(99,102,241,0.45)'; }}
+                >{tr('landing.hero.getStarted')} <ArrowRight size={15} /></Link>
+                <a href="#features"
+                  style={{ display:'inline-flex', alignItems:'center', gap:8, padding:'14px 24px', borderRadius:13, background:t.card, color:t.tp, fontWeight:600, fontSize:15, textDecoration:'none', border:'1px solid '+t.bord, backdropFilter:'blur(12px)', transition:'all 0.2s' }}
+                  onMouseEnter={function(e){ e.currentTarget.style.borderColor='#6366f1'; e.currentTarget.style.transform='translateY(-2px)'; }}
+                  onMouseLeave={function(e){ e.currentTarget.style.borderColor=t.bord; e.currentTarget.style.transform='translateY(0)'; }}
+                ><Play size={13} fill="currentColor" /> {tr('landing.hero.seeFeatures')}</a>
+              </div>
+              <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
+                {[
+                  { icon:Shield, label:tr('landing.hero.ferpaCompliant'), color:'#10b981' },
+                  { icon:Zap,    label:tr('landing.hero.setupIn30Min'),   color:'#f59e0b' },
+                  { icon:Lock,   label:tr('landing.hero.uptime'),         color:'#6366f1' },
+                  { icon:Globe,  label:'Multi-Language', color:'#0ea5e9' },
+                ].map(function(item, i) {
+                  var Icon = item.icon;
+                  return (
+                    <div key={item.label} className="hero-chip" style={{ animationDelay:(0.15+i*0.08)+'s', display:'flex', alignItems:'center', gap:7, padding:'8px 14px', borderRadius:100, background:t.card, border:'1px solid '+t.bord, backdropFilter:'blur(10px)' }}
+                      onMouseEnter={function(e){ e.currentTarget.style.borderColor=item.color+'55'; e.currentTarget.style.boxShadow='0 10px 24px '+item.color+'22'; e.currentTarget.style.background=item.color+'0c'; }}
+                      onMouseLeave={function(e){ e.currentTarget.style.borderColor=t.bord; e.currentTarget.style.boxShadow='none'; e.currentTarget.style.background=t.card; }}
+                    >
+                      <Icon size={12} color={item.color} />
+                      <span style={{ fontSize:12, fontWeight:600, color:t.tm }}>{item.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-            <h1 style={{ margin:0 }}>
-              <span style={{ display:'block', fontFamily:"'Instrument Serif',serif", fontStyle:'italic', fontSize:'clamp(3rem,5.5vw,4.8rem)', fontWeight:400, lineHeight:1.06, letterSpacing:'-0.02em', margin:'0 0 10px', color:t.tp }}>{tr('landing.hero.titleLine1')}</span>
-              <span style={{ display:'block', fontFamily:"'Outfit',sans-serif", fontSize:'clamp(2.5rem,4.8vw,4.2rem)', fontWeight:900, lineHeight:1, letterSpacing:'-0.05em', margin:'0 0 26px', background:'linear-gradient(135deg,#4f46e5 0%,#7c3aed 50%,#0ea5e9 100%)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text' }}>{tr('landing.hero.titleLine2')}</span>
-            </h1>
-            <p style={{ fontSize:17, lineHeight:1.78, color:t.tm, maxWidth:470, margin:'0 0 36px' }}>{tr('landing.hero.subtitle')}</p>
-            <div style={{ display:'flex', gap:12, flexWrap:'wrap', marginBottom:'2.5rem' }}>
-              <Link to="/login"
-                style={{ display:'inline-flex', alignItems:'center', gap:8, padding:'14px 28px', borderRadius:13, background:'linear-gradient(135deg,#4f46e5,#7c3aed)', color:'white', fontWeight:700, fontSize:15, textDecoration:'none', boxShadow:'0 8px 28px rgba(99,102,241,0.45)', transition:'all 0.25s' }}
-                onMouseEnter={function(e){ e.currentTarget.style.transform='translateY(-2px)'; e.currentTarget.style.boxShadow='0 14px 40px rgba(99,102,241,0.55)'; }}
-                onMouseLeave={function(e){ e.currentTarget.style.transform='translateY(0)'; e.currentTarget.style.boxShadow='0 8px 28px rgba(99,102,241,0.45)'; }}
-              >{tr('landing.hero.getStarted')} <ArrowRight size={15} /></Link>
-              <a href="#features"
-                style={{ display:'inline-flex', alignItems:'center', gap:8, padding:'14px 24px', borderRadius:13, background:t.card, color:t.tp, fontWeight:600, fontSize:15, textDecoration:'none', border:'1px solid '+t.bord, backdropFilter:'blur(12px)', transition:'all 0.2s' }}
-                onMouseEnter={function(e){ e.currentTarget.style.borderColor='#6366f1'; }}
-                onMouseLeave={function(e){ e.currentTarget.style.borderColor=t.bord; }}
-              ><Play size={13} fill="currentColor" /> {tr('landing.hero.seeFeatures')}</a>
-            </div>
-            <div style={{ display:'flex', gap:20, flexWrap:'wrap' }}>
-              {[{icon:Shield,label:tr('landing.hero.ferpaCompliant')},{icon:Zap,label:tr('landing.hero.setupIn30Min')},{icon:Lock,label:tr('landing.hero.uptime')}].map(function(item) {
-                var Icon = item.icon;
-                return (
-                  <div key={item.label} style={{ display:'flex', alignItems:'center', gap:6 }}>
-                    <Icon size={13} color={dark?'#818cf8':'#4f46e5'} />
-                    <span style={{ fontSize:12, fontWeight:500, color:t.tm }}>{item.label}</span>
-                  </div>
-                );
-              })}
+            <div style={{ position:'relative', animation:'fadeUp 0.9s ease both' }}>
+              <div style={{ position:'absolute', top:-30, right:-30, width:200, height:200, borderRadius:'50%', background:'radial-gradient(circle,rgba(139,92,246,0.25),transparent)', filter:'blur(50px)', pointerEvents:'none' }} />
+              <div style={{ position:'absolute', top:'50%', left:'50%', width:400, height:400, transform:'translate(-50%,-50%)', borderRadius:'50%', border:'1px dashed '+(dark?'rgba(99,102,241,0.18)':'rgba(99,102,241,0.14)'), pointerEvents:'none' }} className="hero-ring-spin" />
+              <div className="hero-mockup-wrap">
+                <MockupCard dark={dark} />
+              </div>
+              <div className="float" style={{ position:'absolute', top:44, right:-32, padding:'9px 14px', borderRadius:12, background:dark?'rgba(16,185,129,0.12)':'#dcfce7', border:'1px solid rgba(16,185,129,0.3)', backdropFilter:'blur(12px)', display:'flex', alignItems:'center', gap:7, boxShadow:'0 8px 24px rgba(16,185,129,0.18)' }}>
+                <CheckCircle size={13} color="#10b981" />
+                <span style={{ fontSize:11, fontWeight:700, color:'#10b981', whiteSpace:'nowrap' }}>{tr('landing.hero.assignmentGraded')}</span>
+              </div>
+              <div className="float2" style={{ position:'absolute', bottom:54, left:-36, padding:'9px 14px', borderRadius:12, background:dark?'rgba(99,102,241,0.12)':'rgba(99,102,241,0.07)', border:'1px solid rgba(99,102,241,0.25)', backdropFilter:'blur(12px)', display:'flex', alignItems:'center', gap:7, boxShadow:'0 8px 24px rgba(99,102,241,0.15)' }}>
+                <Bell size={13} color="#6366f1" />
+                <span style={{ fontSize:11, fontWeight:700, color:dark?'#818cf8':'#4f46e5', whiteSpace:'nowrap' }}>{tr('landing.hero.newSubmissions')}</span>
+              </div>
             </div>
           </div>
-          <div style={{ position:'relative', animation:'fadeUp 0.9s ease both' }}>
-            <div style={{ position:'absolute', top:-30, right:-30, width:200, height:200, borderRadius:'50%', background:'radial-gradient(circle,rgba(139,92,246,0.25),transparent)', filter:'blur(50px)', pointerEvents:'none' }} />
-            <MockupCard dark={dark} />
-            <div className="float" style={{ position:'absolute', top:44, right:-32, padding:'9px 14px', borderRadius:12, background:dark?'rgba(16,185,129,0.12)':'#dcfce7', border:'1px solid rgba(16,185,129,0.3)', backdropFilter:'blur(12px)', display:'flex', alignItems:'center', gap:7, boxShadow:'0 8px 24px rgba(16,185,129,0.18)' }}>
-              <CheckCircle size={13} color="#10b981" />
-              <span style={{ fontSize:11, fontWeight:700, color:'#10b981', whiteSpace:'nowrap' }}>{tr('landing.hero.assignmentGraded')}</span>
+
+          {/* scroll cue */}
+          <a href="#features" aria-label="Scroll to features" className="hero-scroll-cue" style={{ position:'relative', zIndex:1, display:'flex', justifyContent:'center', marginTop:-8, marginBottom:8, textDecoration:'none' }}>
+            <div style={{ width:30, height:30, borderRadius:'50%', border:'1px solid '+t.bord, background:t.card, display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <ArrowDown size={13} color={t.tm} />
             </div>
-            <div className="float2" style={{ position:'absolute', bottom:54, left:-36, padding:'9px 14px', borderRadius:12, background:dark?'rgba(99,102,241,0.12)':'rgba(99,102,241,0.07)', border:'1px solid rgba(99,102,241,0.25)', backdropFilter:'blur(12px)', display:'flex', alignItems:'center', gap:7, boxShadow:'0 8px 24px rgba(99,102,241,0.15)' }}>
-              <Bell size={13} color="#6366f1" />
-              <span style={{ fontSize:11, fontWeight:700, color:dark?'#818cf8':'#4f46e5', whiteSpace:'nowrap' }}>{tr('landing.hero.newSubmissions')}</span>
-            </div>
-          </div>
+          </a>
         </section>
 
         {/* STATS */}
@@ -762,49 +965,160 @@ export default function Landing() {
           </div>
         </section>
 
-        {/* PRICING */}
-        <section id="pricing" style={{ background:t.stripeBg, borderTop:'1px solid '+t.bord, borderBottom:'1px solid '+t.bord, padding:'6rem 2rem' }}>
-          <div style={{ maxWidth:1100, margin:'0 auto' }}>
-            <div style={{ textAlign:'center', marginBottom:'4rem' }}>
-              <Label icon={Star} text={tr('landing.pricingSection.badge')} color="#10b981" />
-              <h2 style={{ fontFamily:"'Instrument Serif',serif", fontStyle:'italic', fontSize:'clamp(2rem,3.5vw,3rem)', fontWeight:400, letterSpacing:'-0.02em', margin:'0 0 16px', color:t.tp }}>{tr('landing.pricingSection.title')}</h2>
-              <p style={{ fontSize:16, color:t.tm, maxWidth:400, margin:'0 auto', lineHeight:1.75 }}>{tr('landing.pricingSection.subtitle')}</p>
+        {/* OWNER / CREATOR */}
+        <section id="owner" style={{ padding:'6rem 2rem', position:'relative', overflow:'hidden' }}>
+          {/* ambient glow, same family of colors as the portrait's own backdrop */}
+          <div style={{ position:'absolute', top:'18%', left:'50%', width:900, height:900, transform:'translate(-50%,-50%)', borderRadius:'50%', background:'radial-gradient(circle,'+OWNER_TINT.soft+'22,transparent 70%)', filter:'blur(70px)', pointerEvents:'none', animation:'ownerGlowDrift 12s ease-in-out infinite' }} />
+
+          <div style={{ maxWidth:1100, margin:'0 auto', position:'relative' }}>
+            <div className="owner-reveal" style={{ textAlign:'center', marginBottom:'3.5rem' }}>
+              <h2 style={{ fontFamily:"'Instrument Serif',serif", fontStyle:'italic', fontSize:'clamp(2.6rem,6vw,70px)', fontWeight:400, letterSpacing:'-0.02em', color:t.tp }}>
+                Meet the Builder
+              </h2>
+              <p style={{ fontSize:16, color:t.tm, maxWidth:560, margin:'0 auto 20px', lineHeight:1.75 }}>
+                Edupla is independently designed, developed, and maintained by one person, with care given to every screen, workflow, and detail throughout the platform.
+              </p>
             </div>
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(290px,1fr))', gap:20, maxWidth:980, margin:'0 auto' }}>
-              {PRICING.map(function(plan, i) {
+
+            {/* focus areas — quick, honest signal of what's being worked on right now */}
+            <div className="owner-reveal" style={{ animationDelay:'0.1s', display:'flex', flexWrap:'wrap', justifyContent:'center', gap:12, marginBottom:'3.5rem' }}>
+              {OWNER_FOCUS.map(function(f) {
+                var Icon = f.icon;
                 return (
-                  <div key={plan.key}
-                    onMouseEnter={function(){ setHovPlan(i); }}
-                    onMouseLeave={function(){ setHovPlan(null); }}
-                    style={{ padding:'36px 30px', borderRadius:24, position:'relative', background:plan.hot?(dark?'rgba(99,102,241,0.1)':'rgba(99,102,241,0.05)'):t.card, border:plan.hot?'2px solid rgba(99,102,241,0.45)':'1px solid '+t.bord, backdropFilter:'blur(16px)', transition:'all 0.3s', transform:hovPlan===i?'translateY(-5px)':(plan.hot?'translateY(-9px)':'translateY(0)'), boxShadow:hovPlan===i?'0 24px 60px rgba(99,102,241,0.2)':(plan.hot?'0 16px 50px rgba(99,102,241,0.18)':'none'), animation:'fadeUp 0.5s ease '+(i*0.1)+'s both' }}
+                  <div key={f.key} className="owner-stat-card" style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 22px', borderRadius:100, background:t.card, border:'1px solid '+t.bord, backdropFilter:'blur(16px)' }}
+                    onMouseEnter={function(e){ e.currentTarget.style.borderColor=f.color+'55'; e.currentTarget.style.boxShadow='0 14px 34px '+f.color+'22'; }}
+                    onMouseLeave={function(e){ e.currentTarget.style.borderColor=t.bord; e.currentTarget.style.boxShadow='none'; }}
                   >
-                    {plan.hot && <div style={{ position:'absolute', top:-14, left:'50%', transform:'translateX(-50%)', background:'linear-gradient(135deg,#4f46e5,#7c3aed)', color:'white', fontSize:11, fontWeight:700, padding:'5px 18px', borderRadius:100, letterSpacing:'0.06em', whiteSpace:'nowrap', boxShadow:'0 4px 14px rgba(99,102,241,0.4)' }}>{tr('landing.pricingSection.mostPopular')}</div>}
-                    <h3 style={{ fontFamily:"'Instrument Serif',serif", fontStyle:'italic', fontWeight:400, fontSize:22, margin:'0 0 10px', color:t.tp }}>{tr('landing.pricing.'+plan.key+'.name')}</h3>
-                    <div style={{ display:'flex', alignItems:'baseline', gap:3, marginBottom:8 }}>
-                      <span style={{ fontFamily:"'Outfit',sans-serif", fontWeight:900, fontSize:44, letterSpacing:'-0.06em', color:t.tp }}>{plan.price}</span>
-                      {plan.period && <span style={{ fontSize:14, color:t.tm, fontWeight:500 }}>{plan.period}</span>}
+                    <div style={{ width:28, height:28, borderRadius:9, background:f.color+'18', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                      <Icon size={14} color={f.color} />
                     </div>
-                    <p style={{ fontSize:13.5, color:t.tm, margin:'0 0 26px', lineHeight:1.65 }}>{tr('landing.pricing.'+plan.key+'.desc')}</p>
-                    <div style={{ display:'flex', flexDirection:'column', gap:10, marginBottom:28 }}>
-                      {tr('landing.pricing.'+plan.key+'.feats', { returnObjects: true }).map(function(f) {
-                        return (
-                          <div key={f} style={{ display:'flex', alignItems:'center', gap:10 }}>
-                            <div style={{ width:20, height:20, borderRadius:6, background:plan.hot?'rgba(99,102,241,0.14)':'rgba(16,185,129,0.1)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                              <CheckCircle size={11} color={plan.hot?'#818cf8':'#10b981'} />
-                            </div>
-                            <span style={{ fontSize:13.5, color:t.tm }}>{f}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <Link to="/login"
-                      style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'13px 22px', borderRadius:13, background:plan.hot?'linear-gradient(135deg,#4f46e5,#7c3aed)':t.card, color:plan.hot?'white':t.tp, fontWeight:700, fontSize:14, textDecoration:'none', border:plan.hot?'none':'1.5px solid '+t.bord, boxShadow:plan.hot?'0 6px 20px rgba(99,102,241,0.4)':'none', transition:'all 0.2s' }}
-                      onMouseEnter={function(e){ if(!plan.hot){ e.currentTarget.style.borderColor='#6366f1'; e.currentTarget.style.color='#6366f1'; } }}
-                      onMouseLeave={function(e){ if(!plan.hot){ e.currentTarget.style.borderColor=t.bord; e.currentTarget.style.color=t.tp; } }}
-                    >{tr('landing.pricing.'+plan.key+'.cta')} <ChevronRight size={14} /></Link>
+                    <span style={{ fontSize:13.5, fontWeight:600, color:t.tp, whiteSpace:'nowrap' }}>{f.label}</span>
+                    <span style={{ width:6, height:6, borderRadius:'50%', background:f.color, animation:'ownerFocusPulseDot 2.4s ease-in-out infinite', flexShrink:0 }} />
                   </div>
                 );
               })}
+            </div>
+
+            <div className="owner-grid" style={{ display:'grid', gridTemplateColumns:'1fr 1.1fr', gap:'3.5rem', alignItems:'center' }}>
+
+              {/* photo column */}
+              <div className="owner-photo-col owner-reveal-left" style={{ display:'flex', justifyContent:'center', animationDelay:'0.05s' }}>
+                <div className="owner-photo-wrap" style={{ position:'relative', width:380, maxWidth:'100%' }}>
+
+                  {/* color-matched glow sitting behind the portrait — same
+                      navy family sampled from the photo itself, so the
+                      photo reads as glowing out of its own background
+                      rather than sitting on top of an unrelated one */}
+                  <div className="owner-glow" style={{ position:'absolute', top:'50%', left:'50%', width:500, height:500, transform:'translate(-50%,-50%)', borderRadius:'50%', background:'radial-gradient(circle,'+OWNER_TINT.soft+'55 0%,'+OWNER_TINT.mid+'33 45%,transparent 72%)', filter:'blur(42px)', opacity:0.85, transition:'opacity 0.4s ease', pointerEvents:'none', zIndex:0 }} />
+
+                  {/* slow-rotating soft-color ring for depth */}
+                  <div style={{ position:'absolute', top:'50%', left:'50%', width:430, height:430, transform:'translate(-50%,-50%)', borderRadius:'50%', border:'1px dashed '+OWNER_TINT.soft+'40', animation:'ownerBorderSpin 30s linear infinite', pointerEvents:'none', zIndex:0 }} />
+
+                  <div className="owner-photo-frame" style={{ position:'relative', zIndex:1, borderRadius:28, overflow:'hidden', border:'1px solid '+OWNER_TINT.soft+'3a', boxShadow:'0 30px 70px -20px '+OWNER_TINT.mid+'70, 0 0 0 1px '+OWNER_TINT.soft+'20' }}>
+                    <img
+                      src={ownerPhoto}
+                      alt={OWNER.name + ' — ' + OWNER.role}
+                      style={{
+                        display:'block',
+                        width:'100%',
+                        height:500,
+                        objectFit:'cover',
+                        objectPosition:'top center',
+                        /* the same navy the photo's backdrop already is —
+                           painted underneath, then the image itself is
+                           faded out at the very bottom edge so it dissolves
+                           into that color (and, beyond it, into the page)
+                           instead of ending in a hard rectangle */
+                        background: 'linear-gradient(180deg,'+OWNER_TINT.deep+' 0%,'+OWNER_TINT.mid+' 100%)',
+                        WebkitMaskImage: 'linear-gradient(to bottom, black 78%, transparent 100%)',
+                        maskImage: 'linear-gradient(to bottom, black 78%, transparent 100%)',
+                      }}
+                    />
+                    {/* thin tint wash so the frame's edges and the photo's
+                        own navy read as one continuous surface */}
+                    <div style={{ position:'absolute', inset:0, background:'linear-gradient(180deg, transparent 55%, '+OWNER_TINT.deep+'55 100%)', pointerEvents:'none' }} />
+                  </div>
+
+                  {/* floating badges */}
+                  <div className="owner-badge-float" style={{ position:'absolute', top:18, right:-24, zIndex:2, padding:'8px 13px', borderRadius:12, background:dark?'rgba(13,50,88,0.55)':'#eaf4ff', border:'1px solid '+OWNER_TINT.soft+'45', backdropFilter:'blur(12px)', display:'flex', alignItems:'center', gap:7, boxShadow:'0 10px 26px '+OWNER_TINT.mid+'30' }}>
+                    <Code2 size={13} color={OWNER_TINT.soft} />
+                    <span style={{ fontSize:11, fontWeight:700, color:dark?'#bfe0ff':OWNER_TINT.mid, whiteSpace:'nowrap' }}>Founder of Edupla</span>
+                  </div>
+                  <div className="owner-badge-float2" style={{ position:'absolute', bottom:34, left:-26, zIndex:2, padding:'8px 13px', borderRadius:12, background:dark?'rgba(13,50,88,0.55)':'#eaf4ff', border:'1px solid '+OWNER_TINT.soft+'45', backdropFilter:'blur(12px)', display:'flex', alignItems:'center', gap:7, boxShadow:'0 10px 26px '+OWNER_TINT.mid+'30' }}>
+                    <MapPin size={13} color={OWNER_TINT.soft} />
+                    <span style={{ fontSize:11, fontWeight:700, color:dark?'#bfe0ff':OWNER_TINT.mid, whiteSpace:'nowrap' }}>{OWNER.location}</span>
+                  </div>
+                  <div className="owner-badge-float3" style={{ position:'absolute', top:-18, left:30, zIndex:2, padding:'8px 13px', borderRadius:12, background:dark?'rgba(13,50,88,0.55)':'#eaf4ff', border:'1px solid '+OWNER_TINT.soft+'45', backdropFilter:'blur(12px)', display:'flex', alignItems:'center', gap:7, boxShadow:'0 10px 26px '+OWNER_TINT.mid+'30' }}>
+                    <span className="owner-status-dot" style={{ width:6, height:6, borderRadius:'50%', background:'#34d399', flexShrink:0 }} />
+                    <span style={{ fontSize:11, fontWeight:700, color:dark?'#bfe0ff':OWNER_TINT.mid, whiteSpace:'nowrap' }}>Building since {OWNER.founded}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* details column */}
+              <div className="owner-reveal-right" style={{ animationDelay:'0.15s' }}>
+                <div style={{ padding:'2px 0' }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:10, flexWrap:'wrap', marginBottom:6 }}>
+                    <h3 style={{ fontFamily:"'Instrument Serif',serif", fontStyle:'italic', fontWeight:400, fontSize:'clamp(1.7rem,2.6vw,2.1rem)', margin:0, color:t.tp }}>{OWNER.name}</h3>
+                    <span style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'4px 11px', borderRadius:100, background:OWNER_TINT.soft+'16', border:'1px solid '+OWNER_TINT.soft+'35' }}>
+                      <BadgeCheck size={12} color={OWNER_TINT.soft} />
+                      <span style={{ fontSize:11, fontWeight:700, color:OWNER_TINT.soft }}>Verified Owner</span>
+                    </span>
+                  </div>
+                  <p style={{ fontSize:14, fontWeight:600, color:t.tm, margin:'0 0 6px', letterSpacing:'0.01em' }}>{OWNER.role}</p>
+                  <div style={{ display:'flex', alignItems:'center', gap:14, flexWrap:'wrap', marginBottom:22 }}>
+                    <span style={{ display:'flex', alignItems:'center', gap:6, fontSize:12.5, color:t.tm }}>
+                      <MapPin size={13} color={OWNER_TINT.soft} /> {OWNER.location}
+                    </span>
+                    <span style={{ display:'flex', alignItems:'center', gap:6, fontSize:12.5, color:t.tm }}>
+                      <Calendar size={13} color={OWNER_TINT.soft} /> Building Edupla since {OWNER.founded}
+                    </span>
+                  </div>
+
+                  <div style={{ position:'relative', padding:'18px 20px', borderRadius:16, background:t.card, border:'1px solid '+t.bord, backdropFilter:'blur(16px)', marginBottom:24 }}>
+                    <Quote size={26} color={OWNER_TINT.soft} style={{ opacity:0.35, position:'absolute', top:14, right:16 }} />
+                    <p style={{ fontSize:14.5, lineHeight:1.8, color:dark?'#cbd5e1':'#475569', margin:0, maxWidth:480 }}>{OWNER.bio}</p>
+                  </div>
+
+                  <div style={{ marginBottom:24 }}>
+                    <p style={{ fontSize:10.5, letterSpacing:'0.08em', textTransform:'uppercase', fontWeight:700, color:t.tm, opacity:0.65, margin:'0 0 10px', display:'flex', alignItems:'center', gap:6 }}>
+                      <Terminal size={12} color={OWNER_TINT.soft} /> Built With
+                    </p>
+                    <div style={{ display:'flex', flexWrap:'wrap', gap:9 }}>
+                      {OWNER_STACK.map(function(tech, i) {
+                        return (
+                          <span key={tech} className="owner-chip" style={{ animationDelay:(i*0.05)+'s', padding:'8px 15px', borderRadius:11, fontSize:12.5, fontWeight:600, color:t.tp, background:t.card, border:'1px solid '+t.bord, whiteSpace:'nowrap' }}
+                            onMouseEnter={function(e){ e.currentTarget.style.borderColor=OWNER_TINT.soft+'60'; e.currentTarget.style.background=OWNER_TINT.soft+'12'; e.currentTarget.style.boxShadow='0 8px 20px '+OWNER_TINT.mid+'25'; }}
+                            onMouseLeave={function(e){ e.currentTarget.style.borderColor=t.bord; e.currentTarget.style.background=t.card; e.currentTarget.style.boxShadow='none'; }}
+                          >{tech}</span>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="owner-links-grid" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:26 }}>
+                    <OwnerLinkRow t={t} dark={dark} href={'tel:'+OWNER.phone} icon={<Phone size={15} color={OWNER_TINT.soft} />} label="Phone" value={OWNER.phoneDisplay} />
+                    <OwnerLinkRow t={t} dark={dark} href={'mailto:'+OWNER.email} icon={<Mail size={15} color={OWNER_TINT.soft} />} label="Email" value={OWNER.email} />
+                    <OwnerLinkRow t={t} dark={dark} href={OWNER.portfolio} icon={<Globe size={15} color={OWNER_TINT.soft} />} label="Portfolio" value="stack-port.vercel.app" />
+                    <OwnerLinkRow t={t} dark={dark} href={OWNER.github} icon={<GitBranch size={15} color={OWNER_TINT.soft} />} label="GitHub" value="github.com/jstackv" />
+                  </div>
+
+                  <div className="owner-cta-row" style={{ display:'flex', gap:12, flexWrap:'wrap' }}>
+                    <a href={OWNER.portfolio} target="_blank" rel="noopener noreferrer" className="owner-cta-primary"
+                      style={{ display:'inline-flex', alignItems:'center', gap:9, padding:'14px 26px', borderRadius:13, background:'linear-gradient(135deg,'+OWNER_TINT.mid+','+OWNER_TINT.soft+')', color:'white', fontWeight:700, fontSize:14.5, textDecoration:'none', boxShadow:'0 10px 30px '+OWNER_TINT.mid+'55', transition:'all 0.25s' }}
+                      onMouseEnter={function(e){ e.currentTarget.style.transform='translateY(-2px)'; e.currentTarget.style.boxShadow='0 16px 40px '+OWNER_TINT.mid+'70'; }}
+                      onMouseLeave={function(e){ e.currentTarget.style.transform='translateY(0)'; e.currentTarget.style.boxShadow='0 10px 30px '+OWNER_TINT.mid+'55'; }}
+                    >View My Portfolio <ArrowRight size={15} /></a>
+
+                    <a href={OWNER.github} target="_blank" rel="noopener noreferrer"
+                      style={{ display:'inline-flex', alignItems:'center', gap:9, padding:'14px 24px', borderRadius:13, background:t.card, color:t.tp, fontWeight:700, fontSize:14.5, textDecoration:'none', border:'1.5px solid '+t.bord, backdropFilter:'blur(12px)', transition:'all 0.2s' }}
+                      onMouseEnter={function(e){ e.currentTarget.style.borderColor=OWNER_TINT.soft; e.currentTarget.style.color=OWNER_TINT.soft; e.currentTarget.style.transform='translateY(-2px)'; }}
+                      onMouseLeave={function(e){ e.currentTarget.style.borderColor=t.bord; e.currentTarget.style.color=t.tp; e.currentTarget.style.transform='translateY(0)'; }}
+                    ><GitBranch size={15} /> View GitHub Profile <ChevronRight size={14} /></a>
+                  </div>
+                </div>
+              </div>
+
             </div>
           </div>
         </section>
@@ -867,10 +1181,36 @@ export default function Landing() {
         {/* FOOTER */}
         <footer style={{ borderTop:'1px solid '+t.bord, background:dark?'rgba(8,12,24,0.85)':'rgba(248,250,255,0.92)', backdropFilter:'blur(20px)', position:'relative', overflow:'hidden' }}>
 
-          <div style={{ position:'absolute', bottom:-100, left:'10%', width:400, height:400, borderRadius:'50%', background:'radial-gradient(circle,rgba(99,102,241,0.1),transparent)', filter:'blur(80px)', pointerEvents:'none' }} />
-          <div style={{ position:'absolute', top:-60, right:'5%', width:300, height:300, borderRadius:'50%', background:'radial-gradient(circle,rgba(139,92,246,0.08),transparent)', filter:'blur(60px)', pointerEvents:'none' }} />
+          {/* animated gradient accent line along the very top edge */}
+          <div className="footer-accent-line" style={{ position:'absolute', top:0, left:0, right:0, height:2, background:'linear-gradient(90deg,#6366f1,#8b5cf6,#0ea5e9,#8b5cf6,#6366f1)', pointerEvents:'none' }} />
+
+          {/* giant faded wordmark for depth */}
+          <div className="footer-wordmark" style={{ position:'absolute', bottom:-6, left:'50%', transform:'translateX(-50%)', fontFamily:"'Outfit',sans-serif", fontWeight:900, fontSize:'clamp(6rem,18vw,15rem)', letterSpacing:'-0.05em', lineHeight:1, color:dark?'rgba(255,255,255,0.025)':'rgba(79,70,229,0.035)', whiteSpace:'nowrap', pointerEvents:'none', userSelect:'none', zIndex:0 }}>Edupla</div>
+
+          <div className="footer-blob-a" style={{ position:'absolute', bottom:-100, left:'10%', width:400, height:400, borderRadius:'50%', background:'radial-gradient(circle,rgba(99,102,241,0.1),transparent)', filter:'blur(80px)', pointerEvents:'none' }} />
+          <div className="footer-blob-b" style={{ position:'absolute', top:-60, right:'5%', width:300, height:300, borderRadius:'50%', background:'radial-gradient(circle,rgba(139,92,246,0.08),transparent)', filter:'blur(60px)', pointerEvents:'none' }} />
 
           <div style={{ position:'relative', zIndex:1 }}>
+
+            {/* quick stats strip */}
+            <div style={{ borderBottom:'1px solid '+t.bord, padding:'1.75rem 2rem' }} className="footer-pad">
+              <div style={{ maxWidth:1200, margin:'0 auto', display:'flex', flexWrap:'wrap', justifyContent:'center', gap:12 }}>
+                {STATS.map(function(s, i) {
+                  var Icon = s.icon;
+                  return (
+                    <div key={s.key} className="footer-stat-chip" style={{ animationDelay:(i*0.08)+'s', display:'flex', alignItems:'center', gap:9, padding:'9px 18px', borderRadius:100, background:t.card, border:'1px solid '+t.bord }}
+                      onMouseEnter={function(e){ e.currentTarget.style.borderColor=s.c+'55'; e.currentTarget.style.boxShadow='0 10px 26px '+s.c+'22'; }}
+                      onMouseLeave={function(e){ e.currentTarget.style.borderColor=t.bord; e.currentTarget.style.boxShadow='none'; }}
+                    >
+                      <Icon size={13} color={s.c} />
+                      <span style={{ fontSize:13, fontWeight:800, color:t.tp }}>{s.v}</span>
+                      <span style={{ fontSize:11.5, color:t.tm, fontWeight:500 }}>{tr('landing.stats.'+s.key)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
             <div style={{ borderBottom:'1px solid '+t.bord, padding:'3rem 2rem 2.5rem' }} className="footer-pad">
               <div className="footer-grid" style={{ maxWidth:1200, margin:'0 auto', display:'grid', gridTemplateColumns:'2.2fr 1fr 1fr 1.2fr', gap:'3rem' }}>
 
@@ -921,16 +1261,15 @@ export default function Landing() {
                 </div>
 
                 <div>
-                  <p style={{ fontWeight:700, fontSize:11, letterSpacing:'0.09em', textTransform:'uppercase', color:t.tp, opacity:0.45, margin:'0 0 20px' }}>{tr('landing.footer.product')}</p>
+                  <p style={{ display:'flex', alignItems:'center', gap:7, fontWeight:700, fontSize:11, letterSpacing:'0.09em', textTransform:'uppercase', color:t.tp, opacity:0.55, margin:'0 0 20px' }}><Layers size={13} color="#6366f1" />{tr('landing.footer.product')}</p>
                   <FooterLink label={tr('landing.nav.features')}  dark={dark} tm={t.tm} />
-                  <FooterLink label={tr('landing.nav.pricing')}   dark={dark} tm={t.tm} />
                   <FooterLink label={tr('landing.footer.changelog')} dark={dark} tm={t.tm} />
                   <FooterLink label={tr('landing.footer.roadmap')}   dark={dark} tm={t.tm} />
                   <FooterLink label={tr('landing.footer.apiDocs')}  dark={dark} tm={t.tm} />
                 </div>
 
                 <div>
-                  <p style={{ fontWeight:700, fontSize:11, letterSpacing:'0.09em', textTransform:'uppercase', color:t.tp, opacity:0.45, margin:'0 0 20px' }}>{tr('landing.footer.company')}</p>
+                  <p style={{ display:'flex', alignItems:'center', gap:7, fontWeight:700, fontSize:11, letterSpacing:'0.09em', textTransform:'uppercase', color:t.tp, opacity:0.55, margin:'0 0 20px' }}><Users size={13} color="#0ea5e9" />{tr('landing.footer.company')}</p>
                   <FooterLink label={tr('landing.footer.about')}    dark={dark} tm={t.tm} />
                   <FooterLink label={tr('landing.footer.blog')}     dark={dark} tm={t.tm} />
                   <FooterLink label={tr('landing.footer.careers')}  dark={dark} tm={t.tm} />
@@ -938,7 +1277,7 @@ export default function Landing() {
                   <FooterLink label={tr('landing.footer.partners')} dark={dark} tm={t.tm} />
                 </div>
                 <div>
-                  <p style={{ fontWeight:700, fontSize:11, letterSpacing:'0.09em', textTransform:'uppercase', color:t.tp, opacity:0.45, margin:'0 0 20px' }}>{tr('landing.footer.contact')}</p>
+                  <p style={{ display:'flex', alignItems:'center', gap:7, fontWeight:700, fontSize:11, letterSpacing:'0.09em', textTransform:'uppercase', color:t.tp, opacity:0.55, margin:'0 0 20px' }}><Mail size={13} color="#10b981" />{tr('landing.footer.contact')}</p>
                   <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:14 }}>
                     <div style={{ width:32, height:32, borderRadius:9, background:'rgba(99,102,241,0.12)', border:'1px solid rgba(99,102,241,0.22)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
                       <Mail size={13} color="#6366f1" />
@@ -957,21 +1296,6 @@ export default function Landing() {
                     </div>
                     <span style={{ fontSize:13.5, color:t.tm }}>{tr('landing.footer.location')}</span>
                   </div>
-                  <div style={{ padding:'16px', borderRadius:14, background:dark?'rgba(99,102,241,0.08)':'rgba(99,102,241,0.05)', border:'1px solid '+(dark?'rgba(99,102,241,0.2)':'rgba(99,102,241,0.14)') }}>
-                    <p style={{ fontSize:12, fontWeight:700, color:t.tp, margin:'0 0 10px' }}>{tr('landing.footer.stayInLoop')}</p>
-                    <div style={{ display:'flex', gap:6 }}>
-                      <input
-                        type="email"
-                        placeholder={tr('landing.footer.emailPlaceholder')}
-                        style={{ flex:1, minWidth:0, padding:'8px 11px', borderRadius:9, fontSize:12, background:dark?'rgba(255,255,255,0.06)':'rgba(255,255,255,0.85)', border:'1px solid '+t.bord, color:t.tp, outline:'none', fontFamily:"'Outfit',sans-serif" }}
-                      />
-                      <button
-                        style={{ padding:'8px 14px', borderRadius:9, background:'linear-gradient(135deg,#4f46e5,#7c3aed)', color:'white', fontWeight:700, fontSize:13, border:'none', cursor:'pointer', flexShrink:0, fontFamily:"'Outfit',sans-serif", transition:'all 0.2s' }}
-                        onMouseEnter={function(e){ e.currentTarget.style.transform='translateY(-1px)'; }}
-                        onMouseLeave={function(e){ e.currentTarget.style.transform='translateY(0)'; }}
-                      >↗</button>
-                    </div>
-                  </div>
                 </div>
 
               </div>
@@ -980,7 +1304,14 @@ export default function Landing() {
             <div style={{ padding:'1.25rem 2rem' }} className="footer-pad">
               <div className="footer-bottom" style={{ maxWidth:1200, margin:'0 auto', display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:14 }}>
                 <div className="footer-bottom-left" style={{ display:'flex', alignItems:'center', gap:14, flexWrap:'wrap' }}>
-                  <p style={{ fontSize:13, color:t.tm, margin:0 }}>{tr('landing.footer.copyright')}</p>
+                  <p style={{ fontSize:13, color:t.tm, margin:0 }}>
+                    © {OWNER.founded} Edupla. Created, designed, and owned by{' '}
+                    <a href={OWNER.portfolio} target="_blank" rel="noopener noreferrer"
+                      style={{ color:'inherit', fontWeight:700, textDecoration:'underline', textDecorationColor:t.bord, textUnderlineOffset:3, transition:'color 0.2s' }}
+                      onMouseEnter={function(e){ e.currentTarget.style.color = dark ? '#a5b4fc' : '#4f46e5'; }}
+                      onMouseLeave={function(e){ e.currentTarget.style.color = 'inherit'; }}
+                    >{OWNER.name}</a>. All rights reserved.
+                  </p>
                   <div className="footer-divider" style={{ width:1, height:14, background:t.bord }} />
                   <div style={{ display:'flex', alignItems:'center', gap:6 }}>
                     <div style={{ width:6, height:6, borderRadius:'50%', background:'#10b981', animation:'glow 2s infinite' }} />
@@ -997,6 +1328,17 @@ export default function Landing() {
 
           </div>
         </footer>
+
+        {showTopBtn && (
+          <button
+            className="back-to-top-btn"
+            onClick={scrollToTop}
+            aria-label="Back to top"
+            style={{ position:'fixed', bottom:26, right:26, zIndex:90, width:46, height:46, borderRadius:14, background:'linear-gradient(135deg,#4f46e5,#7c3aed)', border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 12px 30px rgba(99,102,241,0.45)' }}
+          >
+            <ArrowRight size={17} color="white" style={{ transform:'rotate(-90deg)' }} />
+          </button>
+        )}
 
       </div>
     </div>
