@@ -117,26 +117,11 @@ const OWNER = {
   phone: '+250785683347',
   phoneDisplay: '+250 785 683 347',
   email: 'jstackvm@gmail.com',
-  portfolio: 'https://stack-port.vercel.app/',
+  portfolio: 'https://jstackv.vercel.app/',
   github: 'https://github.com/jstackv',
   location: 'Kigali, Rwanda',
   founded: '2026',
 };
-
-/* Focus areas — a quick, honest signal of what the owner actually spends
-   time on, replacing the old vanity-stat cards (100% / 24-7 / 0 / ∞) which
-   didn't carry real information. */
-const OWNER_FOCUS = [
-  { key: 'fullstack',   label: 'Full-Stack Development',   icon: Code2,   color: '#6366f1' },
-  { key: 'design',      label: 'Thoughtful UI/UX',          icon: Sparkle, color: '#f472b6' },
-  { key: 'reliability', label: 'Reliable, Secure Systems',  icon: Shield,  color: '#10b981' },
-];
-
-/* Tech the platform is actually built with — plain text chips, no logos. */
-const OWNER_STACK = [
-  'React', 'Node.js', 'Express', 'MongoDB', 'JavaScript',
-  'Tailwind CSS', 'Vite', 'REST APIs', 'Git & GitHub', 'i18n',
-];
 
 /* Dominant tone sampled from the owner photo's backdrop — used to give the
    portrait a glow/background that reads as part of the same photograph
@@ -548,7 +533,7 @@ export default function Landing() {
         }
 
         /* ── Hero ── */
-        @keyframes heroWordmarkDrift { 0%,100%{ transform:translate(-50%,-50%); } 50%{ transform:translate(calc(-50% - 10px),-50%); } }
+        @keyframes heroWordmarkDrift { 0%,100%{ transform:translateX(-50%); } 50%{ transform:translateX(calc(-50% - 10px)); } }
         @keyframes heroMeshDriftA { 0%,100%{ transform:translate(0,0) scale(1); } 50%{ transform:translate(26px,-20px) scale(1.1); } }
         @keyframes heroMeshDriftB { 0%,100%{ transform:translate(0,0) scale(1); } 50%{ transform:translate(-22px,18px) scale(1.08); } }
         @keyframes heroGridDrift { 0%{ background-position:0 0; } 100%{ background-position:48px 48px; } }
@@ -685,9 +670,6 @@ export default function Landing() {
         {/* HERO */}
         <section style={{ position:'relative', overflow:'hidden' }}>
 
-          {/* giant faded wordmark, centered behind the hero content */}
-          <div className="hero-wordmark" style={{ position:'absolute', top:'50%', left:'50%', fontFamily:"'Outfit',sans-serif", fontWeight:900, fontSize:'clamp(7rem,20vw,17rem)', letterSpacing:'-0.05em', lineHeight:1, color:dark?'rgba(255,255,255,0.028)':'rgba(79,70,229,0.04)', whiteSpace:'nowrap', pointerEvents:'none', userSelect:'none', zIndex:0 }}>Edupla</div>
-
           {/* ambient mesh gradients, unique to the hero */}
           <div className="hero-mesh-a" style={{ position:'absolute', top:'-12%', left:'6%', width:520, height:520, borderRadius:'50%', background:'radial-gradient(circle,rgba(99,102,241,0.16),transparent 70%)', filter:'blur(90px)', pointerEvents:'none', zIndex:0 }} />
           <div className="hero-mesh-b" style={{ position:'absolute', bottom:'-14%', right:'2%', width:460, height:460, borderRadius:'50%', background:'radial-gradient(circle,rgba(14,165,233,0.14),transparent 70%)', filter:'blur(80px)', pointerEvents:'none', zIndex:0 }} />
@@ -739,19 +721,24 @@ export default function Landing() {
                 })}
               </div>
             </div>
-            <div style={{ position:'relative', animation:'fadeUp 0.9s ease both' }}>
-              <div style={{ position:'absolute', top:-30, right:-30, width:200, height:200, borderRadius:'50%', background:'radial-gradient(circle,rgba(139,92,246,0.25),transparent)', filter:'blur(50px)', pointerEvents:'none' }} />
-              <div style={{ position:'absolute', top:'50%', left:'50%', width:400, height:400, transform:'translate(-50%,-50%)', borderRadius:'50%', border:'1px dashed '+(dark?'rgba(99,102,241,0.18)':'rgba(99,102,241,0.14)'), pointerEvents:'none' }} className="hero-ring-spin" />
-              <div className="hero-mockup-wrap">
-                <MockupCard dark={dark} />
-              </div>
-              <div className="float" style={{ position:'absolute', top:44, right:-32, padding:'9px 14px', borderRadius:12, background:dark?'rgba(16,185,129,0.12)':'#dcfce7', border:'1px solid rgba(16,185,129,0.3)', backdropFilter:'blur(12px)', display:'flex', alignItems:'center', gap:7, boxShadow:'0 8px 24px rgba(16,185,129,0.18)' }}>
-                <CheckCircle size={13} color="#10b981" />
-                <span style={{ fontSize:11, fontWeight:700, color:'#10b981', whiteSpace:'nowrap' }}>{tr('landing.hero.assignmentGraded')}</span>
-              </div>
-              <div className="float2" style={{ position:'absolute', bottom:54, left:-36, padding:'9px 14px', borderRadius:12, background:dark?'rgba(99,102,241,0.12)':'rgba(99,102,241,0.07)', border:'1px solid rgba(99,102,241,0.25)', backdropFilter:'blur(12px)', display:'flex', alignItems:'center', gap:7, boxShadow:'0 8px 24px rgba(99,102,241,0.15)' }}>
-                <Bell size={13} color="#6366f1" />
-                <span style={{ fontSize:11, fontWeight:700, color:dark?'#818cf8':'#4f46e5', whiteSpace:'nowrap' }}>{tr('landing.hero.newSubmissions')}</span>
+            <div style={{ animation:'fadeUp 0.9s ease both' }}>
+
+              <div className="hero-wordmark" style={{ textAlign:'center', fontFamily:"'Outfit',sans-serif", fontWeight:900, fontSize:'clamp(4.5rem,9vw,8.5rem)', letterSpacing:'-0.05em', lineHeight:1, color:dark?'rgba(255,255,255,0.09)':'rgba(79,70,229,0.11)', whiteSpace:'nowrap', userSelect:'none', marginBottom:'-1.2rem', position:'relative', zIndex:0 }}>Edupla</div>
+
+              <div style={{ position:'relative', marginTop:'2.75rem' }}>
+                <div style={{ position:'absolute', top:-30, right:-30, width:200, height:200, borderRadius:'50%', background:'radial-gradient(circle,rgba(139,92,246,0.25),transparent)', filter:'blur(50px)', pointerEvents:'none' }} />
+                <div style={{ position:'absolute', top:'50%', left:'50%', width:400, height:400, transform:'translate(-50%,-50%)', borderRadius:'50%', border:'1px dashed '+(dark?'rgba(99,102,241,0.18)':'rgba(99,102,241,0.14)'), pointerEvents:'none' }} className="hero-ring-spin" />
+                <div className="hero-mockup-wrap" style={{ position:'relative', zIndex:1 }}>
+                  <MockupCard dark={dark} />
+                </div>
+                <div className="float" style={{ position:'absolute', top:44, right:-32, padding:'9px 14px', borderRadius:12, background:dark?'rgba(16,185,129,0.12)':'#dcfce7', border:'1px solid rgba(16,185,129,0.3)', backdropFilter:'blur(12px)', display:'flex', alignItems:'center', gap:7, boxShadow:'0 8px 24px rgba(16,185,129,0.18)', zIndex:2 }}>
+                  <CheckCircle size={13} color="#10b981" />
+                  <span style={{ fontSize:11, fontWeight:700, color:'#10b981', whiteSpace:'nowrap' }}>{tr('landing.hero.assignmentGraded')}</span>
+                </div>
+                <div className="float2" style={{ position:'absolute', bottom:54, left:-36, padding:'9px 14px', borderRadius:12, background:dark?'rgba(99,102,241,0.12)':'rgba(99,102,241,0.07)', border:'1px solid rgba(99,102,241,0.25)', backdropFilter:'blur(12px)', display:'flex', alignItems:'center', gap:7, boxShadow:'0 8px 24px rgba(99,102,241,0.15)', zIndex:2 }}>
+                  <Bell size={13} color="#6366f1" />
+                  <span style={{ fontSize:11, fontWeight:700, color:dark?'#818cf8':'#4f46e5', whiteSpace:'nowrap' }}>{tr('landing.hero.newSubmissions')}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -976,27 +963,8 @@ export default function Landing() {
                 Meet the Builder
               </h2>
               <p style={{ fontSize:16, color:t.tm, maxWidth:560, margin:'0 auto 20px', lineHeight:1.75 }}>
-                Edupla is independently designed, developed, and maintained by one person, with care given to every screen, workflow, and detail throughout the platform.
+                Edupla is built and maintained independently, with care given to every detail.
               </p>
-            </div>
-
-            {/* focus areas — quick, honest signal of what's being worked on right now */}
-            <div className="owner-reveal" style={{ animationDelay:'0.1s', display:'flex', flexWrap:'wrap', justifyContent:'center', gap:12, marginBottom:'3.5rem' }}>
-              {OWNER_FOCUS.map(function(f) {
-                var Icon = f.icon;
-                return (
-                  <div key={f.key} className="owner-stat-card" style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 22px', borderRadius:100, background:t.card, border:'1px solid '+t.bord, backdropFilter:'blur(16px)' }}
-                    onMouseEnter={function(e){ e.currentTarget.style.borderColor=f.color+'55'; e.currentTarget.style.boxShadow='0 14px 34px '+f.color+'22'; }}
-                    onMouseLeave={function(e){ e.currentTarget.style.borderColor=t.bord; e.currentTarget.style.boxShadow='none'; }}
-                  >
-                    <div style={{ width:28, height:28, borderRadius:9, background:f.color+'18', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                      <Icon size={14} color={f.color} />
-                    </div>
-                    <span style={{ fontSize:13.5, fontWeight:600, color:t.tp, whiteSpace:'nowrap' }}>{f.label}</span>
-                    <span style={{ width:6, height:6, borderRadius:'50%', background:f.color, animation:'ownerFocusPulseDot 2.4s ease-in-out infinite', flexShrink:0 }} />
-                  </div>
-                );
-              })}
             </div>
 
             <div className="owner-grid" style={{ display:'grid', gridTemplateColumns:'1fr 1.1fr', gap:'3.5rem', alignItems:'center' }}>
@@ -1050,7 +1018,7 @@ export default function Landing() {
                   </div>
                   <div className="owner-badge-float3" style={{ position:'absolute', top:-18, left:30, zIndex:2, padding:'8px 13px', borderRadius:12, background:dark?'rgba(13,50,88,0.55)':'#eaf4ff', border:'1px solid '+OWNER_TINT.soft+'45', backdropFilter:'blur(12px)', display:'flex', alignItems:'center', gap:7, boxShadow:'0 10px 26px '+OWNER_TINT.mid+'30' }}>
                     <span className="owner-status-dot" style={{ width:6, height:6, borderRadius:'50%', background:'#34d399', flexShrink:0 }} />
-                    <span style={{ fontSize:11, fontWeight:700, color:dark?'#bfe0ff':OWNER_TINT.mid, whiteSpace:'nowrap' }}>Building since {OWNER.founded}</span>
+                    <span style={{ fontSize:11, fontWeight:700, color:dark?'#bfe0ff':OWNER_TINT.mid, whiteSpace:'nowrap' }}>Created since {OWNER.founded}</span>
                   </div>
                 </div>
               </div>
@@ -1080,26 +1048,10 @@ export default function Landing() {
                     <p style={{ fontSize:14.5, lineHeight:1.8, color:dark?'#cbd5e1':'#475569', margin:0, maxWidth:480 }}>{OWNER.bio}</p>
                   </div>
 
-                  <div style={{ marginBottom:24 }}>
-                    <p style={{ fontSize:10.5, letterSpacing:'0.08em', textTransform:'uppercase', fontWeight:700, color:t.tm, opacity:0.65, margin:'0 0 10px', display:'flex', alignItems:'center', gap:6 }}>
-                      <Terminal size={12} color={OWNER_TINT.soft} /> Built With
-                    </p>
-                    <div style={{ display:'flex', flexWrap:'wrap', gap:9 }}>
-                      {OWNER_STACK.map(function(tech, i) {
-                        return (
-                          <span key={tech} className="owner-chip" style={{ animationDelay:(i*0.05)+'s', padding:'8px 15px', borderRadius:11, fontSize:12.5, fontWeight:600, color:t.tp, background:t.card, border:'1px solid '+t.bord, whiteSpace:'nowrap' }}
-                            onMouseEnter={function(e){ e.currentTarget.style.borderColor=OWNER_TINT.soft+'60'; e.currentTarget.style.background=OWNER_TINT.soft+'12'; e.currentTarget.style.boxShadow='0 8px 20px '+OWNER_TINT.mid+'25'; }}
-                            onMouseLeave={function(e){ e.currentTarget.style.borderColor=t.bord; e.currentTarget.style.background=t.card; e.currentTarget.style.boxShadow='none'; }}
-                          >{tech}</span>
-                        );
-                      })}
-                    </div>
-                  </div>
-
                   <div className="owner-links-grid" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:26 }}>
                     <OwnerLinkRow t={t} dark={dark} href={'tel:'+OWNER.phone} icon={<Phone size={15} color={OWNER_TINT.soft} />} label="Phone" value={OWNER.phoneDisplay} />
                     <OwnerLinkRow t={t} dark={dark} href={'mailto:'+OWNER.email} icon={<Mail size={15} color={OWNER_TINT.soft} />} label="Email" value={OWNER.email} />
-                    <OwnerLinkRow t={t} dark={dark} href={OWNER.portfolio} icon={<Globe size={15} color={OWNER_TINT.soft} />} label="Portfolio" value="stack-port.vercel.app" />
+                    <OwnerLinkRow t={t} dark={dark} href={OWNER.portfolio} icon={<Globe size={15} color={OWNER_TINT.soft} />} label="Portfolio" value="jstackv.vercel.app" />
                     <OwnerLinkRow t={t} dark={dark} href={OWNER.github} icon={<GitBranch size={15} color={OWNER_TINT.soft} />} label="GitHub" value="github.com/jstackv" />
                   </div>
 
