@@ -7,7 +7,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import { MaintenanceProvider, useMaintenance } from './context/MaintenanceContext';
 import { ChatNotifyProvider } from './context/ChatNotifyContext';
 import Layout from './components/common/Layout';
-import { GraduationCap } from 'lucide-react';
+import BrandMark from './components/common/BrandMark';
 
 // Landing + Login load eagerly — they're the only two public, SEO-relevant
 // pages, and the ones an anonymous visitor (or Googlebot) actually hits.
@@ -60,16 +60,137 @@ function getDefaultRoute(role) {
   return '/student/dashboard';
 }
 
+// ── Loading screen ──────────────────────────────────────────────────────
+// "Prism & Ascent" splash treatment, matching the BrandMark redesign:
+// a floating badge held inside two counter-rotating gradient halo rings
+// (violet + gold, echoing the shard and spark in the mark itself), ambient
+// background glow, gradient-shimmer label text, and a slim indeterminate
+// progress thread underneath that carries the same violet -> gold ramp as
+// the badge's "growth path" — the loading state literally continues the
+// logo's story instead of bolting on a generic spinner.
 const LoadingScreen = () => {
   const { t } = useTranslation();
   return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--page-bg)' }}>
-      <div className="text-center">
-        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center mx-auto mb-4 shadow-glow">
-          <GraduationCap className="w-8 h-8 text-white" />
+    <div
+      className="min-h-screen flex items-center justify-center relative overflow-hidden"
+      style={{ background: 'var(--page-bg)' }}
+    >
+      <style>{`
+        @keyframes edupla-loader-float {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-6px); }
+        }
+        @keyframes edupla-loader-ringspin {
+          to { transform: rotate(360deg); }
+        }
+        @keyframes edupla-loader-ringspin-rev {
+          to { transform: rotate(-360deg); }
+        }
+        @keyframes edupla-loader-drift {
+          0%, 100% { transform: translate(0, 0) scale(1); }
+          50% { transform: translate(2%, -3%) scale(1.06); }
+        }
+        @keyframes edupla-loader-dot {
+          0%, 80%, 100% { opacity: 0.25; }
+          40% { opacity: 1; }
+        }
+        @keyframes edupla-loader-fadeup {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes edupla-loader-shimmer {
+          0% { background-position: 0% 50%; }
+          100% { background-position: 200% 50%; }
+        }
+        @keyframes edupla-loader-slide {
+          0% { left: -45%; }
+          100% { left: 100%; }
+        }
+
+        .edupla-loader-blob { animation: edupla-loader-drift 9s ease-in-out infinite; }
+        .edupla-loader-blob.b2 { animation-delay: -4.5s; }
+
+        .edupla-loader-badge-wrap { animation: edupla-loader-float 3.2s ease-in-out infinite; }
+
+        .edupla-loader-ring {
+          position: absolute; inset: -11px; border-radius: 9999px;
+          background: conic-gradient(from 0deg, transparent 0deg, rgba(139,92,246,0.65) 55deg, transparent 130deg, transparent 360deg);
+          -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px));
+          mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px));
+          animation: edupla-loader-ringspin 3.2s linear infinite;
+        }
+        .edupla-loader-ring.gold {
+          inset: -18px;
+          background: conic-gradient(from 200deg, transparent 0deg, rgba(245,185,74,0.7) 45deg, transparent 110deg, transparent 360deg);
+          animation: edupla-loader-ringspin-rev 4.6s linear infinite;
+        }
+
+        .edupla-loader-content { animation: edupla-loader-fadeup 0.5s ease both; }
+
+        .edupla-loader-label {
+          background: linear-gradient(90deg, var(--text-muted, #6b7280) 0%, #8B5CF6 25%, #F5B94A 50%, #8B5CF6 75%, var(--text-muted, #6b7280) 100%);
+          background-size: 220% auto;
+          -webkit-background-clip: text; background-clip: text; color: transparent;
+          animation: edupla-loader-shimmer 3s linear infinite;
+        }
+        .edupla-loader-dot { animation: edupla-loader-dot 1.4s ease-in-out infinite; }
+        .edupla-loader-dot:nth-child(2) { animation-delay: 0.2s; }
+        .edupla-loader-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        .edupla-loader-track {
+          width: 156px; height: 3px; border-radius: 999px; margin: 14px auto 0;
+          background: rgba(99,102,241,0.14); overflow: hidden; position: relative;
+        }
+        .edupla-loader-bar {
+          position: absolute; top: 0; bottom: 0; left: -45%; width: 45%; border-radius: 999px;
+          background: linear-gradient(90deg, transparent, #8B5CF6, #F5B94A, transparent);
+          animation: edupla-loader-slide 1.7s ease-in-out infinite;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .edupla-loader-badge-wrap, .edupla-loader-blob, .edupla-loader-ring,
+          .edupla-loader-dot, .edupla-loader-label, .edupla-loader-bar { animation: none; }
+        }
+      `}</style>
+
+      {/* Ambient glow blobs, echoing the landing page's background treatment */}
+      <div
+        aria-hidden="true"
+        className="edupla-loader-blob"
+        style={{ position: 'absolute', width: 480, height: 480, borderRadius: '50%', top: '-10%', left: '-8%', background: 'radial-gradient(circle,rgba(99,102,241,0.16),transparent)', filter: 'blur(90px)' }}
+      />
+      <div
+        aria-hidden="true"
+        className="edupla-loader-blob b2"
+        style={{ position: 'absolute', width: 420, height: 420, borderRadius: '50%', bottom: '-12%', right: '-6%', background: 'radial-gradient(circle,rgba(139,92,246,0.14),transparent)', filter: 'blur(80px)' }}
+      />
+      <div
+        aria-hidden="true"
+        className="edupla-loader-blob b2"
+        style={{ position: 'absolute', width: 280, height: 280, borderRadius: '50%', top: '18%', right: '12%', background: 'radial-gradient(circle,rgba(245,185,74,0.10),transparent)', filter: 'blur(70px)' }}
+      />
+
+      <div className="edupla-loader-content text-center relative">
+        <div className="relative inline-block mb-6 edupla-loader-badge-wrap">
+          <span className="edupla-loader-ring" aria-hidden="true" />
+          <span className="edupla-loader-ring gold" aria-hidden="true" />
+          <BrandMark size={64} animated />
         </div>
-        <div className="animate-spin w-6 h-6 border-4 border-primary-500 border-t-transparent rounded-full mx-auto" />
-        <p className="text-muted text-sm mt-3 font-medium">{t('common.loading')}</p>
+
+        <p className="text-sm font-semibold tracking-wide">
+          <span className="edupla-loader-label">
+            {t('common.loading').replace(/[.\u2026]+\s*$/, '')}
+          </span>
+          <span className="inline-flex ml-0.5 text-muted" aria-hidden="true">
+            <span className="edupla-loader-dot">.</span>
+            <span className="edupla-loader-dot">.</span>
+            <span className="edupla-loader-dot">.</span>
+          </span>
+        </p>
+
+        <div className="edupla-loader-track" aria-hidden="true">
+          <span className="edupla-loader-bar" />
+        </div>
       </div>
     </div>
   );

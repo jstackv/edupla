@@ -1,60 +1,105 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
   <defs>
-    <!-- Rich violet-to-indigo brand gradient -->
-    <linearGradient id="bg" x1="2" y1="1" x2="30" y2="31" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#7C3AED"/>
-      <stop offset="0.5" stop-color="#4F46E5"/>
-      <stop offset="1" stop-color="#312E81"/>
+    <!-- Rich violet -> indigo -> deep blue brand gradient, more saturated & dimensional -->
+    <linearGradient id="bg" x1="1" y1="0" x2="30" y2="32" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#A78BFA"/>
+      <stop offset="0.3" stop-color="#7C3AED"/>
+      <stop offset="0.62" stop-color="#4338CA"/>
+      <stop offset="1" stop-color="#1E1B4B"/>
     </linearGradient>
 
-    <!-- Radial glow, upper-left, for a premium glassy lift -->
-    <radialGradient id="glow" cx="11" cy="9" r="17" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.4"/>
+    <!-- Glass highlight, upper-left -->
+    <radialGradient id="glow" cx="10" cy="7" r="20" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.55"/>
+      <stop offset="0.5" stop-color="#FFFFFF" stop-opacity="0.08"/>
       <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
     </radialGradient>
 
-    <!-- Monogram fill: white fading to soft lavender for subtle depth -->
-    <linearGradient id="glyph" x1="7" y1="8" x2="25" y2="24" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#FFFFFF"/>
-      <stop offset="1" stop-color="#E9E4FF"/>
+    <!-- Depth vignette, lower-right -->
+    <radialGradient id="vignette" cx="25" cy="27" r="17" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1E1B4B" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#1E1B4B" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Prism shard crossing the badge -->
+    <linearGradient id="shard" x1="0" y1="20" x2="20" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0"/>
+      <stop offset="0.55" stop-color="#FFFFFF" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
     </linearGradient>
 
-    <!-- Gold accent for the growth-tip marker -->
-    <linearGradient id="gold" x1="20.5" y1="7.5" x2="25.5" y2="12.5" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#F4E4B8"/>
-      <stop offset="1" stop-color="#D4AF37"/>
+    <!-- Monogram fill -->
+    <linearGradient id="glyph" x1="7" y1="7" x2="24" y2="25" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#DCD3FF"/>
+    </linearGradient>
+
+    <!-- Thin inner rim light on the glyph's spine -->
+    <linearGradient id="rim" x1="7" y1="7" x2="15" y2="15" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- Ember/gold spark accent -->
+    <linearGradient id="gold" x1="19.6" y1="6.2" x2="26.8" y2="13.4" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FDE9B0"/>
+      <stop offset="0.45" stop-color="#F5B94A"/>
+      <stop offset="1" stop-color="#E0791E"/>
+    </linearGradient>
+
+    <!-- Ascending progress path, spine -> spark -->
+    <linearGradient id="path" x1="9" y1="22" x2="23" y2="10" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7DD3FC" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#A5F3FC" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#FDE9B0" stop-opacity="0.95"/>
     </linearGradient>
 
     <clipPath id="roundedSquare">
-      <rect width="32" height="32" rx="8.5"/>
+      <rect width="32" height="32" rx="9"/>
     </clipPath>
 
-    <filter id="softShadow" x="-30%" y="-30%" width="160%" height="160%">
-      <feDropShadow dx="0" dy="0.8" stdDeviation="0.9" flood-color="#1E1B4B" flood-opacity="0.35"/>
+    <filter id="softShadow" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="0.9" stdDeviation="1" flood-color="#1E1B4B" flood-opacity="0.4"/>
+    </filter>
+
+    <filter id="badgeLift" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="1.2" stdDeviation="1.4" flood-color="#2E1065" flood-opacity="0.4"/>
     </filter>
   </defs>
 
-  <!-- Background -->
-  <rect width="32" height="32" rx="8.5" fill="url(#bg)"/>
+  <g filter="url(#badgeLift)">
+    <rect width="32" height="32" rx="9" fill="url(#bg)"/>
 
-  <g clip-path="url(#roundedSquare)">
-    <rect width="32" height="32" fill="url(#glow)"/>
-    <!-- Fine inner border for a crisp, premium edge -->
-    <rect x="0.6" y="0.6" width="30.8" height="30.8" rx="8" fill="none" stroke="#FFFFFF" stroke-opacity="0.14" stroke-width="0.9"/>
+    <g clip-path="url(#roundedSquare)">
+      <rect width="32" height="32" fill="url(#vignette)"/>
+      <rect width="32" height="32" fill="url(#glow)"/>
+      <!-- Prism facet shard, top-left corner -->
+      <path d="M0 13 L13 0 L20 0 L0 20 Z" fill="url(#shard)"/>
+      <!-- Fine inner border for a crisp, premium edge -->
+      <rect x="0.6" y="0.6" width="30.8" height="30.8" rx="8.5" fill="none" stroke="#FFFFFF" stroke-opacity="0.16" stroke-width="0.9"/>
+    </g>
+
+    <!-- Ascending progress path from the monogram's base to the spark,
+         a quiet "growth trajectory" thread that ties the glyph to the
+         achievement mark -->
+    <path d="M17.1 22.6 C19.4 21.4 20.9 19.4 21.6 16.6 C22.1 14.6 22.4 12.6 23 10.9"
+          fill="none" stroke="url(#path)" stroke-width="1" stroke-linecap="round" stroke-dasharray="0.4 2.4"/>
+
+    <!-- Monogram: stylised "E" built from three bars + spine, doubling as
+         an ascending bar-chart / achievement mark. Stays crisp at 16px. -->
+    <g filter="url(#softShadow)">
+      <rect x="7.6" y="8.4" width="12.6" height="2.9" rx="1.45" fill="url(#glyph)"/>
+      <rect x="7.6" y="14.55" width="9.6" height="2.9" rx="1.45" fill="url(#glyph)"/>
+      <rect x="7.6" y="20.7" width="12.6" height="2.9" rx="1.45" fill="url(#glyph)"/>
+      <rect x="7.6" y="8.4" width="2.9" height="15.2" rx="1.45" fill="url(#glyph)"/>
+      <rect x="7.6" y="8.4" width="2.9" height="15.2" rx="1.45" fill="url(#rim)"/>
+    </g>
+
+    <!-- Four-point sparkle: the achievement / insight mark at the growth
+         path's peak -->
+    <g filter="url(#softShadow)">
+      <path d="M23.1 6.5 L24.15 9.05 L26.7 10.1 L24.15 11.15 L23.1 13.7 L22.05 11.15 L19.5 10.1 L22.05 9.05 Z" fill="url(#gold)"/>
+      <circle cx="23.1" cy="10.1" r="0.5" fill="#FFFFFF" fill-opacity="0.9"/>
+    </g>
   </g>
-
-  <!-- Monogram: a stylised "E" built from three ascending bars, doubling as
-       an upward growth/progress mark, like an open book / achievement motif
-       appropriate for a school & assessment platform. Stays crisp at 16px. -->
-  <g filter="url(#softShadow)">
-    <rect x="7.6" y="8.4" width="12.6" height="2.9" rx="1.45" fill="url(#glyph)"/>
-    <rect x="7.6" y="14.55" width="9.6" height="2.9" rx="1.45" fill="url(#glyph)"/>
-    <rect x="7.6" y="20.7" width="12.6" height="2.9" rx="1.45" fill="url(#glyph)"/>
-    <rect x="7.6" y="8.4" width="2.9" height="15.2" rx="1.45" fill="url(#glyph)"/>
-  </g>
-
-  <!-- Gold growth-tip accent, marking the top-right corner of the "E" like
-       an upward trend point -->
-  <circle cx="23.1" cy="9.85" r="2.35" fill="url(#gold)"/>
-  <circle cx="23.1" cy="9.85" r="2.35" fill="none" stroke="#FFFFFF" stroke-opacity="0.35" stroke-width="0.5"/>
 </svg>
