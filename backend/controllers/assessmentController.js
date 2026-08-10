@@ -39,6 +39,15 @@ function scaleScore(obtained, fromMax, toMax) {
   return Math.round((obtained / fromMax) * toMax * 100) / 100;
 }
 
+// Builds a safe, readable download filename in the "<module> - <label>
+// marks.<ext>" shape (e.g. "WEB DEVELOPMENT USING PHP - Formative
+// Assessment 1 marks.xlsx"). Strips characters that are invalid in
+// filenames (/ \ : * ? " < > |) while keeping spaces and punctuation.
+function buildMarksFilename(moduleName, label, ext) {
+  const clean = (s) => String(s || '').replace(/[\\/:*?"<>|]+/g, '').replace(/\s+/g, ' ').trim();
+  return `${clean(moduleName)} - ${clean(label)} marks.${ext}`;
+}
+
 // A student's effective attempt cap: the class-wide max_attempts, unless
 // they have a per-student override (granted via "Add attempt" -> specific
 // students) that goes higher — never lower, so an override can only ever
@@ -69,12 +78,16 @@ function shorthandTitle(title) {
 }
 
 const PDF_THEME = {
-  gradientFrom: '#4f46e5',
-  gradientTo: '#7c3aed',
-  headerBg: '#eef2ff',
-  headerBorder: '#c7d2fe',
-  headerText: '#3730a3',
-  rowBorder: '#e5e7eb',
+  gradientFrom: '#0b4f49',
+  gradientTo: '#082e2a',
+  bannerDark: '#01140f',
+  subtitleBand: '#062621',
+  gold: '#d4af37',
+  goldSoft: '#f4e4b8',
+  headerBg: '#f0fdfa',
+  headerBorder: '#0b4f49',
+  headerText: '#0b4f49',
+  rowBorder: '#475569',
   zebra: '#f8fafc',
   text: '#1e293b',
   textMuted: '#64748b',
@@ -84,49 +97,137 @@ const PDF_THEME = {
   failBg: '#fee2e2',
 };
 
-// Gradient title banner spanning the full page width, with a subtitle line
-// and a small "Generated at" timestamp underneath.
+// Three-band title banner spanning the full page width — a gradient teal
+// title band, a darker teal subtitle band, and a thin gold accent line
+// closing it off. Pairs with pdfDrawFooter, which carries the EDUPLA
+// wordmark and generation timestamp at the bottom of every page instead.
 function pdfDrawBanner(doc, { title, subtitle }) {
   const pageWidth = doc.page.width;
-  const bannerHeight = 58;
-  const grad = doc.linearGradient(0, 0, pageWidth, 0);
-  grad.stop(0, PDF_THEME.gradientFrom).stop(1, PDF_THEME.gradientTo);
-  doc.rect(0, 0, pageWidth, bannerHeight).fill(grad);
+  const titleH = 34;
+  const subtitleH = subtitle ? 18 : 0;
+  const accentH = 3;
+  let y = 0;
 
+  // ── Gradient title band ──
+  const grad = doc.linearGradient(0, y, pageWidth, y);
+  grad.stop(0, PDF_THEME.gradientFrom).stop(1, PDF_THEME.gradientTo);
+  doc.rect(0, y, pageWidth, titleH).fill(grad);
   doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(17)
-    .text(title, 0, 13, { width: pageWidth, align: 'center' });
+    .text(title, 0, y + titleH / 2 - 8, { width: pageWidth, align: 'center' });
+  y += titleH;
+
+  // ── Subtitle band ──
   if (subtitle) {
-    doc.font('Helvetica').fontSize(9.5).fillColor('#ffffff', 0.85 /* opacity */)
-      .text(subtitle, 0, 36, { width: pageWidth, align: 'center' });
+    doc.rect(0, y, pageWidth, subtitleH).fill(PDF_THEME.subtitleBand);
+    doc.font('Helvetica-Oblique').fontSize(9.5).fillColor('#e6fffa')
+      .text(subtitle, 0, y + subtitleH / 2 - 5, { width: pageWidth, align: 'center' });
+    y += subtitleH;
   }
+
+  // ── Gold accent line ──
+  const goldGrad = doc.linearGradient(0, y, pageWidth, y);
+  goldGrad.stop(0, PDF_THEME.gold).stop(1, PDF_THEME.goldSoft);
+  doc.rect(0, y, pageWidth, accentH).fill(goldGrad);
+  y += accentH;
+
   doc.fillColor('#000000');
-  doc.y = bannerHeight + 14;
+  doc.y = y + 14;
 }
 
-// A centered row of pill-shaped stat chips (Students / Class average /
-// Passed / Failed / …), each a small colored card echoing the summary
-// stat cards used in the teacher's mark-sheet UI.
+// Small centered footer stamped on every page — "Generated at <date> with
+// EDUPLA - School Management Platform" — carrying the brand mark that used
+// to live in the banner's top strip. Must be called ONCE, after all pages
+// are drawn but before doc.end(), and the PDFDocument must have been
+// created with { bufferPages: true } so every already-rendered page can be
+// revisited (PDFKit streams pages out as they're finished otherwise).
+function pdfDrawFooter(doc, { generatedAt }) {
+  const range = doc.bufferedPageRange();
+  const label = `Generated at ${generatedAt} with EDUPLA - School Management Platform`;
+  for (let i = range.start; i < range.start + range.count; i++) {
+    doc.switchToPage(i);
+    const pageWidth = doc.page.width;
+    const bottomMargin = doc.page.margins.bottom;
+    const y = doc.page.height - bottomMargin + 12;
+    // Placing text below the normal bottom margin would otherwise make
+    // PDFKit think the content overflowed and silently start a new page
+    // — zeroing the margin for this one draw call is the standard trick
+    // to write into that reserved footer strip without triggering that.
+    doc.page.margins.bottom = 0;
+    doc.font('Helvetica-Oblique').fontSize(7.5).fillColor(PDF_THEME.textMuted)
+      .text(label, 0, y, { width: pageWidth, align: 'center', lineBreak: false });
+    doc.page.margins.bottom = bottomMargin;
+  }
+  doc.fillColor('#000000');
+}
+
+// A centered row of bordered stat cards (Students / Class average / Passed
+// / Failed / …) — a lightly tinted body, a crisp colored outline, and a
+// solid accent bar across the top, echoing the summary stat cards used in
+// the teacher's mark-sheet UI.
 function pdfDrawStatChips(doc, chips) {
   const usableWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
-  const gap = 8;
-  const chipWidth = Math.min(118, (usableWidth - gap * (chips.length - 1)) / chips.length);
+  const gap = 12;
+  const chipWidth = Math.min(140, (usableWidth - gap * (chips.length - 1)) / chips.length);
   const totalWidth = chipWidth * chips.length + gap * (chips.length - 1);
   const startX = doc.page.margins.left + (usableWidth - totalWidth) / 2;
-  const chipHeight = 34;
+  const chipHeight = 48;
+  const radius = 10;
   const y = doc.y;
+
+  // Small hand-drawn icon inside a solid color badge — check/cross/dot,
+  // picked automatically from the chip's label so call sites don't need
+  // to change (Helvetica's AFM font doesn't support ✓/✕ glyphs reliably,
+  // so these are drawn as paths instead of text).
+  const drawIcon = (cx, cy, r, color, kind) => {
+    doc.circle(cx, cy, r).fill(color);
+    doc.strokeColor('#ffffff').lineWidth(1.6).lineCap('round').lineJoin('round');
+    if (kind === 'pass') {
+      doc.moveTo(cx - r * 0.45, cy).lineTo(cx - r * 0.1, cy + r * 0.4).lineTo(cx + r * 0.5, cy - r * 0.4).stroke();
+    } else if (kind === 'fail') {
+      doc.moveTo(cx - r * 0.4, cy - r * 0.4).lineTo(cx + r * 0.4, cy + r * 0.4).stroke();
+      doc.moveTo(cx + r * 0.4, cy - r * 0.4).lineTo(cx - r * 0.4, cy + r * 0.4).stroke();
+    } else {
+      doc.circle(cx, cy, r * 0.32).fill('#ffffff');
+    }
+    doc.strokeColor('#000000');
+  };
 
   chips.forEach((chip, i) => {
     const x = startX + i * (chipWidth + gap);
-    doc.fillOpacity(0.12).strokeOpacity(0.45).lineWidth(1);
-    doc.roundedRect(x, y, chipWidth, chipHeight, 6).fillAndStroke(chip.color, chip.color);
-    doc.fillOpacity(1).strokeOpacity(1);
-    doc.font('Helvetica-Bold').fontSize(12).fillColor(chip.color)
-      .text(String(chip.value), x + 8, y + 5, { width: chipWidth - 16, align: 'left' });
-    doc.font('Helvetica').fontSize(7).fillColor(PDF_THEME.textMuted)
-      .text(chip.label, x + 8, y + 20, { width: chipWidth - 16, align: 'left', ellipsis: true });
+
+    // Soft drop shadow behind the card
+    doc.fillOpacity(0.08);
+    doc.roundedRect(x + 1.2, y + 2.2, chipWidth, chipHeight, radius).fill('#0f172a');
+    doc.fillOpacity(1);
+
+    // Card body — white with a faint gradient wash of the chip's color
+    const bodyGrad = doc.linearGradient(x, y, x, y + chipHeight);
+    bodyGrad.stop(0, '#ffffff', 1).stop(1, chip.color, 0.07);
+    doc.roundedRect(x, y, chipWidth, chipHeight, radius).fill(bodyGrad);
+
+    // Crisp border
+    doc.lineWidth(1).strokeColor(chip.color).strokeOpacity(0.4);
+    doc.roundedRect(x, y, chipWidth, chipHeight, radius).stroke();
+    doc.strokeOpacity(1);
+
+    // Icon badge on the left
+    const kind = /pass/i.test(chip.label) ? 'pass' : /fail/i.test(chip.label) ? 'fail' : 'dot';
+    const iconR = 9;
+    const iconCx = x + 17;
+    const iconCy = y + chipHeight / 2;
+    drawIcon(iconCx, iconCy, iconR, chip.color, kind);
+
+    // Value + label, right of the icon
+    const textX = iconCx + iconR + 8;
+    const textW = x + chipWidth - textX - 8;
+    doc.font('Helvetica-Bold').fontSize(15).fillColor(chip.color)
+      .text(String(chip.value), textX, y + 9, { width: textW, align: 'left' });
+    doc.font('Helvetica-Bold').fontSize(6.5).fillColor(PDF_THEME.textMuted)
+      .text(chip.label.toUpperCase(), textX, y + 28, { width: textW, align: 'left', characterSpacing: 0.5, ellipsis: true });
   });
-  doc.fillColor('#000000');
-  doc.y = y + chipHeight + 16;
+
+  doc.fillColor('#000000').strokeColor('#000000');
+  doc.y = y + chipHeight + 20;
 }
 
 /* Bordered, zebra-striped mark-sheet table with a repeating header on every
@@ -143,10 +244,32 @@ function pdfDrawTable(doc, { cols, rows, headerHeight = 24, rowHeight = 20 }) {
   const colX = [];
   { let x = startX; cols.forEach(c => { colX.push(x); x += c.width; }); }
 
-  const drawVerticalDividers = (top, height, color) => {
-    doc.lineWidth(0.5).strokeColor(color);
-    colX.forEach(x => doc.moveTo(x, top).lineTo(x, top + height).stroke());
-    doc.moveTo(startX + tableWidth, top).lineTo(startX + tableWidth, top + height).stroke();
+  // All fills happen first, all grid lines are stroked afterward in one pass
+  // per page — interleaving fill-then-stroke-then-fill (as before) let a
+  // row's zebra background occasionally paint back over the border line
+  // directly above it, making that one boundary look thinner/thicker than
+  // its neighbors. Drawing every line only after every fill on that page is
+  // done removes that inconsistency entirely.
+  let segment = null; // { top, headerBottom, bottom }
+  let rowBottoms = [];
+
+  const finishSegment = () => {
+    if (!segment) return;
+    doc.lineWidth(1.25).strokeColor(PDF_THEME.rowBorder);
+    colX.forEach(x => doc.moveTo(x, segment.top).lineTo(x, segment.bottom).stroke());
+    doc.moveTo(startX + tableWidth, segment.top).lineTo(startX + tableWidth, segment.bottom).stroke();
+    rowBottoms.slice(0, -1).forEach(ry => {
+      doc.moveTo(startX, ry).lineTo(startX + tableWidth, ry).stroke();
+    });
+
+    doc.lineWidth(1.5).strokeColor(PDF_THEME.headerBorder);
+    doc.moveTo(startX, segment.top).lineTo(startX + tableWidth, segment.top).stroke();
+    doc.moveTo(startX, segment.headerBottom).lineTo(startX + tableWidth, segment.headerBottom).stroke();
+    doc.moveTo(startX, segment.bottom).lineTo(startX + tableWidth, segment.bottom).stroke();
+    doc.moveTo(startX, segment.top).lineTo(startX, segment.bottom).stroke();
+    doc.moveTo(startX + tableWidth, segment.top).lineTo(startX + tableWidth, segment.bottom).stroke();
+
+    rowBottoms = [];
   };
 
   const drawHeader = () => {
@@ -155,25 +278,20 @@ function pdfDrawTable(doc, { cols, rows, headerHeight = 24, rowHeight = 20 }) {
     cols.forEach((c, i) => {
       doc.text(c.label, colX[i] + 5, y + headerHeight / 2 - 4, { width: c.width - 8, align: c.align || 'left' });
     });
-    drawVerticalDividers(y, headerHeight, PDF_THEME.headerBorder);
-    doc.moveTo(startX, y).lineTo(startX + tableWidth, y).strokeColor(PDF_THEME.headerBorder).lineWidth(1).stroke();
-    doc.moveTo(startX, y + headerHeight).lineTo(startX + tableWidth, y + headerHeight).strokeColor(PDF_THEME.headerBorder).lineWidth(1).stroke();
     doc.fillColor('#000000');
+    const top = y;
     y += headerHeight;
+    segment = { top, headerBottom: y, bottom: y };
   };
 
-  // Outer left/right border for the whole table, drawn once the final
-  // height is known — tracked so it can be closed out per page.
-  let pageTop = y;
   drawHeader();
 
   rows.forEach((r, i) => {
     if (y + rowHeight > pageBottom) {
-      doc.moveTo(startX, pageTop).lineTo(startX, y).strokeColor(PDF_THEME.headerBorder).lineWidth(1).stroke();
-      doc.moveTo(startX + tableWidth, pageTop).lineTo(startX + tableWidth, y).strokeColor(PDF_THEME.headerBorder).lineWidth(1).stroke();
+      segment.bottom = y;
+      finishSegment();
       doc.addPage();
       y = doc.page.margins.top;
-      pageTop = y;
       drawHeader();
     }
     if (i % 2 === 1) doc.rect(startX, y, tableWidth, rowHeight).fill(PDF_THEME.zebra);
@@ -199,14 +317,160 @@ function pdfDrawTable(doc, { cols, rows, headerHeight = 24, rowHeight = 20 }) {
       }
     });
     doc.fillColor('#000000');
-    doc.moveTo(startX, y + rowHeight).lineTo(startX + tableWidth, y + rowHeight).strokeColor(PDF_THEME.rowBorder).lineWidth(0.5).stroke();
-    drawVerticalDividers(y, rowHeight, PDF_THEME.rowBorder);
     y += rowHeight;
+    rowBottoms.push(y);
+    segment.bottom = y;
   });
 
-  doc.moveTo(startX, pageTop).lineTo(startX, y).strokeColor(PDF_THEME.headerBorder).lineWidth(1).stroke();
-  doc.moveTo(startX + tableWidth, pageTop).lineTo(startX + tableWidth, y).strokeColor(PDF_THEME.headerBorder).lineWidth(1).stroke();
+  finishSegment();
   doc.y = y + 10;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Shared "advanced" Excel report theme — used by the mark-sheet exports
+   (teacherDownloadOverallExcel / teacherDownloadAttemptsExcel). Mirrors
+   the violet/indigo brand used in the PDF exports and the app UI, dressed
+   up with a gradient hero banner, stat cards, a frozen zebra-striped
+   table and colored decision/performance badges — built with ExcelJS
+   (unlike the plain `xlsx` package, it supports real cell styling).
+═══════════════════════════════════════════════════════════════════ */
+const XL_THEME = {
+  midnight: 'FF0B0B12',
+  violet: 'FF4F46E5',
+  indigo: 'FF7C3AED',
+  indigoSoft: 'FF3730A3',
+  gold: 'FFD4AF37',
+  goldSoft: 'FFF4E4B8',
+  headerBg: 'FFEEF2FF',
+  headerText: 'FF3730A3',
+  border: 'FFE2E8F0',
+  textDark: 'FF1E293B',
+  textMuted: 'FF64748B',
+  stripe: 'FFF8FAFC',
+  white: 'FFFFFFFF',
+  pass: 'FF047857',
+  passBg: 'FFD1FAE5',
+  fail: 'FFB91C1C',
+  failBg: 'FFFEE2E2',
+  needs: 'FFB45309',
+  needsBg: 'FFFEF3C7',
+  muted: 'FF9CA3AF',
+  mutedBg: 'FFF1F5F9',
+};
+
+// Same performance-color scale used by the frontend's `perfColor()`.
+function xlPerfColor(pct) {
+  if (pct == null) return XL_THEME.textMuted;
+  if (pct >= 80) return 'FF059669';
+  if (pct >= 60) return 'FF4F46E5';
+  if (pct >= 40) return 'FFD97706';
+  return 'FFDC2626';
+}
+
+// Splits `colCount` columns into `n` near-equal contiguous ranges, e.g.
+// distributing stat cards evenly across however many columns the table
+// ends up with (which varies with the number of assessments).
+function xlDistributeRanges(colCount, n) {
+  const base = Math.floor(colCount / n);
+  const rem = colCount % n;
+  const ranges = [];
+  let start = 1;
+  for (let i = 0; i < n; i++) {
+    const size = Math.max(1, base + (i < rem ? 1 : 0));
+    ranges.push([start, start + size - 1]);
+    start += size;
+  }
+  return ranges;
+}
+
+// Draws the four-row brand banner (brand strip, gradient hero title,
+// subtitle, gold accent line) spanning every column, and returns the
+// next free row index.
+function xlDrawBanner(ws, { title, subtitle }, colCount) {
+  let row = 1;
+
+  ws.mergeCells(row, 1, row, colCount);
+  const brandCell = ws.getCell(row, 1);
+  brandCell.value = {
+    richText: [
+      { font: { name: 'Calibri', size: 11, color: { argb: XL_THEME.gold } }, text: '  ◆  ' },
+      { font: { name: 'Calibri', size: 12, bold: true, color: { argb: XL_THEME.gold } }, text: 'E D U P L A' },
+      { font: { name: 'Calibri', size: 10, italic: true, color: { argb: 'FFC9C9C9' } }, text: '   ·   School Management Platform' },
+    ],
+  };
+  brandCell.alignment = { vertical: 'middle', horizontal: 'left' };
+  brandCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: XL_THEME.midnight } };
+  ws.getRow(row).height = 22;
+  row++;
+
+  ws.mergeCells(row, 1, row, colCount);
+  const titleCell = ws.getCell(row, 1);
+  titleCell.value = `  ${title}`;
+  titleCell.font = { name: 'Calibri', size: 20, bold: true, color: { argb: XL_THEME.white } };
+  titleCell.alignment = { vertical: 'middle', horizontal: 'left' };
+  titleCell.fill = { type: 'gradient', gradient: 'angle', degree: 0, stops: [{ position: 0, color: { argb: XL_THEME.violet } }, { position: 1, color: { argb: XL_THEME.indigo } }] };
+  ws.getRow(row).height = 36;
+  row++;
+
+  ws.mergeCells(row, 1, row, colCount);
+  const subtitleCell = ws.getCell(row, 1);
+  subtitleCell.value = `  ${subtitle}`;
+  subtitleCell.font = { name: 'Calibri', size: 11, italic: true, color: { argb: XL_THEME.white } };
+  subtitleCell.alignment = { vertical: 'middle', horizontal: 'left' };
+  subtitleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: XL_THEME.indigoSoft } };
+  ws.getRow(row).height = 22;
+  row++;
+
+  ws.mergeCells(row, 1, row, colCount);
+  ws.getCell(row, 1).fill = { type: 'gradient', gradient: 'angle', degree: 0, stops: [{ position: 0, color: { argb: XL_THEME.gold } }, { position: 1, color: { argb: XL_THEME.goldSoft } }] };
+  ws.getRow(row).height = 4;
+  row++;
+
+  ws.getRow(row).height = 10; // spacer
+  row++;
+
+  return row;
+}
+
+// Draws a row of colored "stat cards" (value + label) spread evenly
+// across the sheet's columns, and returns the next free row index.
+function xlDrawStatChips(ws, startRow, chips, colCount) {
+  const ranges = xlDistributeRanges(colCount, chips.length);
+  const valueRow = startRow;
+  const labelRow = startRow + 1;
+
+  chips.forEach((chip, i) => {
+    const [from, to] = ranges[i];
+    [valueRow, labelRow].forEach(r => { if (to > from) ws.mergeCells(r, from, r, to); });
+
+    const vCell = ws.getCell(valueRow, from);
+    vCell.value = chip.value;
+    vCell.font = { name: 'Calibri', size: 15, bold: true, color: { argb: chip.color } };
+    vCell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+    vCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: chip.bg } };
+    vCell.border = { top: { style: 'thin', color: { argb: chip.bg } }, left: { style: 'thin', color: { argb: chip.bg } }, right: { style: 'thin', color: { argb: chip.bg } } };
+
+    const lCell = ws.getCell(labelRow, from);
+    lCell.value = chip.label;
+    lCell.font = { name: 'Calibri', size: 8.5, bold: true, color: { argb: XL_THEME.textMuted } };
+    lCell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+    lCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: chip.bg } };
+    lCell.border = { left: { style: 'thin', color: { argb: chip.bg } }, right: { style: 'thin', color: { argb: chip.bg } }, bottom: { style: 'thin', color: { argb: chip.bg } } };
+  });
+
+  ws.getRow(valueRow).height = 22;
+  ws.getRow(labelRow).height = 15;
+  ws.getRow(labelRow + 1).height = 10; // spacer
+  return labelRow + 2;
+}
+
+// Styles a "Decision"/status cell as a small colored pill (fill + bold
+// colored text), matching the badges used throughout the app UI.
+function xlStyleBadgeCell(cell, { text, color, bg }) {
+  cell.value = text;
+  cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: color } };
+  cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } };
+  cell.alignment = { vertical: 'middle', horizontal: 'center' };
 }
 
 /* ─────────────────────────────────────────────────────────
@@ -2904,43 +3168,110 @@ exports.teacherDownloadOverallExcel = async (req, res) => {
     const result = await buildOverallResults(req.user.id, { course_id, class_id, type, term, academic_year });
     if (!result) return res.status(404).json({ message: 'Module or class not found' });
 
-    const header = [
-      'No.', 'Name',
-      ...result.assessments.map(a => `${a.title}(${a.max_marks})`),
-      `Total(${result.combined_max})`, '%', `MW(${result.module_weight})`, 'Decision',
-    ];
-    const rows = result.rows.map((r, i) => [
-      i + 1, r.student_name,
-      ...r.per_assessment.map(pa => pa.best_score != null ? pa.best_score : ''),
-      r.total_obtained != null ? r.total_obtained : '',
-      r.percentage != null ? `${r.percentage}%` : '',
-      r.marks_on_mw != null ? r.marks_on_mw : '',
-      r.decision || (r.status === 'not_attempted' ? 'Not attempted' : ''),
-    ]);
-
+    const typeLabel = TYPE_TITLES[type] || type;
     const passedCount = result.rows.filter(r => r.decision === 'C').length;
     const failedCount = result.rows.filter(r => r.decision === 'NYC').length;
+    const withPct = result.rows.filter(r => r.percentage != null);
+    const avg = withPct.length ? Math.round(withPct.reduce((s, r) => s + r.percentage, 0) / withPct.length) : null;
 
-    const typeLabel = TYPE_TITLES[type] || type;
-    const title = `Overall — ${typeLabel} — ${result.course.name} — ${result.class.name} — ${term} ${academic_year}`;
-    const summary = `Students: ${result.rows.length}   |   Passed: ${passedCount}   |   Failed: ${failedCount}`;
-    const sheetData = [[title], [summary], [], header, ...rows];
-    const ws = XLSX.utils.aoa_to_sheet(sheetData);
-    ws['!merges'] = [
-      { s: { r: 0, c: 0 }, e: { r: 0, c: header.length - 1 } },
-      { s: { r: 1, c: 0 }, e: { r: 1, c: header.length - 1 } },
+    // Per-assessment columns use the same FA1/CA2-style shorthand (with its
+    // max marks) as the app UI and the PDF export.
+    const assessmentLabels = result.assessments.map(a => `${shorthandTitle(a.title)} /${a.max_marks}`);
+    const headerLabels = ['No.', 'Name', ...assessmentLabels, `Total /${result.combined_max}`, '%', `MW /${result.module_weight}`, 'Decision'];
+    const colCount = headerLabels.length;
+
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'Edupla';
+    wb.created = new Date();
+    const ws = wb.addWorksheet('Overall', { pageSetup: { fitToPage: true, fitToWidth: 1, orientation: 'landscape' } });
+    ws.views = [{ showGridLines: false }];
+
+    ws.columns = [
+      { width: 6 },
+      { width: 30 },
+      ...result.assessments.map(() => ({ width: 13 })),
+      { width: 13 },
+      { width: 9 },
+      { width: 12 },
+      { width: 12 },
     ];
-    ws['!cols'] = [{ wch: 6 }, { wch: 28 }, ...result.assessments.map(() => ({ wch: 16 })), { wch: 14 }, { wch: 10 }, { wch: 16 }, { wch: 12 }];
 
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Overall');
-    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
-    const filename = `overall-marksheet-${type}-${term}-${academic_year}`.replace(/[^a-z0-9]+/gi, '-') + '.xlsx';
+    let row = xlDrawBanner(ws, {
+      title: `Overall — ${typeLabel}`,
+      subtitle: `${result.course.name}   •   ${result.class.name}   •   ${term} ${academic_year}   •   Generated ${new Date().toLocaleDateString()}`,
+    }, colCount);
 
+    row = xlDrawStatChips(ws, row, [
+      { label: 'STUDENTS', value: String(result.rows.length), color: XL_THEME.violet, bg: 'FFEEF2FF' },
+      { label: 'CLASS AVERAGE', value: avg != null ? `${avg}%` : '—', color: xlPerfColor(avg), bg: 'FFEFF6FF' },
+      { label: 'PASSED', value: String(passedCount), color: XL_THEME.pass, bg: XL_THEME.passBg },
+      { label: 'FAILED', value: String(failedCount), color: XL_THEME.fail, bg: XL_THEME.failBg },
+    ], colCount);
+
+    const headerRowIdx = row;
+    const headerRow = ws.getRow(headerRowIdx);
+    headerLabels.forEach((label, i) => {
+      const cell = headerRow.getCell(i + 1);
+      cell.value = label;
+      cell.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: XL_THEME.headerText } };
+      cell.alignment = { vertical: 'middle', horizontal: i === 1 ? 'left' : 'center', indent: i === 1 ? 1 : 0, wrapText: true };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: XL_THEME.headerBg } };
+      cell.border = { top: { style: 'thin', color: { argb: XL_THEME.border } }, bottom: { style: 'medium', color: { argb: XL_THEME.headerText } }, left: { style: 'thin', color: { argb: XL_THEME.border } }, right: { style: 'thin', color: { argb: XL_THEME.border } } };
+    });
+    headerRow.height = 30;
+
+    result.rows.forEach((r, i) => {
+      const dataRow = ws.getRow(headerRowIdx + 1 + i);
+      const stripe = i % 2 === 1;
+      const rowFill = stripe ? XL_THEME.stripe : XL_THEME.white;
+
+      const setCell = (col, value, opts = {}) => {
+        const cell = dataRow.getCell(col);
+        cell.value = value;
+        cell.font = { name: 'Calibri', size: 10.5, color: { argb: opts.color || XL_THEME.textDark }, bold: !!opts.bold };
+        cell.alignment = { vertical: 'middle', horizontal: opts.align || 'center', indent: opts.indent || 0 };
+        if (!opts.skipFill) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: opts.bg || rowFill } };
+        cell.border = { top: { style: 'thin', color: { argb: XL_THEME.border } }, bottom: { style: 'thin', color: { argb: XL_THEME.border } }, left: { style: 'thin', color: { argb: XL_THEME.border } }, right: { style: 'thin', color: { argb: XL_THEME.border } } };
+      };
+
+      setCell(1, i + 1, { color: XL_THEME.textMuted });
+      setCell(2, r.student_name, { align: 'left', indent: 1, bold: true });
+      r.per_assessment.forEach((pa, pi) => {
+        setCell(3 + pi, pa.best_score != null ? Math.round(pa.best_score) : '—', { color: pa.best_score != null ? XL_THEME.textDark : XL_THEME.muted });
+      });
+      const totalCol = 3 + r.per_assessment.length;
+      setCell(totalCol, r.total_obtained != null ? Math.round(r.total_obtained) : '—', { bold: true });
+      setCell(totalCol + 1, r.percentage != null ? `${r.percentage}%` : '—', { color: xlPerfColor(r.percentage), bold: true });
+      setCell(totalCol + 2, r.marks_on_mw != null ? Math.round(r.marks_on_mw) : '—');
+
+      const decisionCol = totalCol + 3;
+      const dCell = dataRow.getCell(decisionCol);
+      if (r.decision === 'C') {
+        xlStyleBadgeCell(dCell, { text: 'C', color: XL_THEME.pass, bg: XL_THEME.passBg });
+      } else if (r.decision === 'NYC') {
+        xlStyleBadgeCell(dCell, { text: 'NYC', color: XL_THEME.fail, bg: XL_THEME.failBg });
+      } else if (r.status === 'needs_grading') {
+        xlStyleBadgeCell(dCell, { text: 'Needs grading', color: XL_THEME.needs, bg: XL_THEME.needsBg });
+      } else {
+        xlStyleBadgeCell(dCell, { text: 'Not attempted', color: XL_THEME.muted, bg: XL_THEME.mutedBg });
+      }
+      dCell.border = { top: { style: 'thin', color: { argb: XL_THEME.border } }, bottom: { style: 'thin', color: { argb: XL_THEME.border } }, left: { style: 'thin', color: { argb: XL_THEME.border } }, right: { style: 'thin', color: { argb: XL_THEME.border } } };
+
+      dataRow.height = 20;
+    });
+
+    ws.autoFilter = { from: { row: headerRowIdx, column: 1 }, to: { row: headerRowIdx, column: colCount } };
+    ws.views = [{ showGridLines: false, state: 'frozen', xSplit: 2, ySplit: headerRowIdx, topLeftCell: `C${headerRowIdx + 1}`, activeCell: `C${headerRowIdx + 1}` }];
+
+    const filename = buildMarksFilename(result.course.name, `Overall ${typeLabel}s`, 'xlsx');
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.send(buffer);
-  } catch (err) { res.status(500).json({ message: err.message }); }
+    res.setHeader('Cache-Control', 'no-store');
+    await wb.xlsx.write(res);
+    res.end();
+  } catch (err) {
+    if (!res.headersSent) res.status(500).json({ message: err.message });
+  }
 };
 
 exports.teacherDownloadOverallPdf = async (req, res) => {
@@ -2950,16 +3281,17 @@ exports.teacherDownloadOverallPdf = async (req, res) => {
     if (!result) return res.status(404).json({ message: 'Module or class not found' });
 
     const typeLabel = TYPE_TITLES[type] || type;
-    const filename = `overall-marksheet-${type}-${term}-${academic_year}`.replace(/[^a-z0-9]+/gi, '-') + '.pdf';
+    const filename = buildMarksFilename(result.course.name, `Overall ${typeLabel}s`, 'pdf');
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Cache-Control', 'no-store');
 
-    const doc = new PDFDocument({ size: 'A4', margin: 40, layout: result.assessments.length > 3 ? 'landscape' : 'portrait' });
+    const doc = new PDFDocument({ size: 'A4', margin: 40, layout: result.assessments.length > 3 ? 'landscape' : 'portrait', bufferPages: true });
     doc.pipe(res);
 
     pdfDrawBanner(doc, {
-      title: `Overall — ${typeLabel}`,
-      subtitle: `${result.course.name}  •  ${result.class.name}  •  ${term} ${academic_year}  •  Generated ${new Date().toLocaleDateString()}`,
+      title: `EDUPLA - Overall — ${typeLabel}s`,
+      subtitle: `${result.course.name}  •  ${result.class.name}  •  ${term} ${academic_year}`,
     });
 
     const passedCount = result.rows.filter(r => r.decision === 'C').length;
@@ -2967,8 +3299,8 @@ exports.teacherDownloadOverallPdf = async (req, res) => {
     const withPct = result.rows.filter(r => r.percentage != null);
     const avg = withPct.length ? Math.round(withPct.reduce((s, r) => s + r.percentage, 0) / withPct.length) : null;
     pdfDrawStatChips(doc, [
-      { label: 'Students', value: result.rows.length, color: '#6366f1' },
-      { label: 'Class average', value: avg != null ? `${avg}%` : '—', color: '#3b82f6' },
+      { label: 'Students', value: result.rows.length, color: '#0f766e' },
+      { label: 'Class average', value: avg != null ? `${avg}%` : '—', color: '#0891b2' },
       { label: 'Passed', value: passedCount, color: PDF_THEME.pass },
       { label: 'Failed', value: failedCount, color: PDF_THEME.fail },
     ]);
@@ -2982,7 +3314,7 @@ exports.teacherDownloadOverallPdf = async (req, res) => {
     const cols = [
       { label: 'No.', width: 26, align: 'center' },
       { label: 'Name', width: 148 },
-      ...result.assessments.map(a => ({ label: shorthandTitle(a.title), width: perAssessmentWidth, align: 'center' })),
+      ...result.assessments.map(a => ({ label: `${shorthandTitle(a.title)}${a.max_marks ? ` /${a.max_marks}` : ''}`, width: perAssessmentWidth, align: 'center' })),
       { label: `Total /${result.combined_max}`, width: 66, align: 'center' },
       { label: '%', width: 42, align: 'center' },
       { label: `MW /${result.module_weight}`, width: 58, align: 'center' },
@@ -3006,6 +3338,7 @@ exports.teacherDownloadOverallPdf = async (req, res) => {
     });
 
     pdfDrawTable(doc, { cols, rows });
+    pdfDrawFooter(doc, { generatedAt: new Date().toLocaleDateString() });
     doc.end();
   } catch (err) {
     if (!res.headersSent) res.status(500).json({ message: err.message });
@@ -3123,7 +3456,9 @@ exports.teacherDownloadAttemptsExcel = async (req, res) => {
     const moduleWeight = assessment.course_id?.total_marks || 100;
     const category = assessment.course_id?.category || 'Complementary modules';
 
-    const header = ['No.', 'Name', `Score(${maxMarks})`, '%', `MW(${moduleWeight})`, 'Decision'];
+    const shorthand = shorthandTitle(assessment.title);
+    const scoreLabel = `${shorthand} /${maxMarks}`;
+
     const rows = students.map((s, i) => {
       const list = byStudent[s._id.toString()] || [];
       const graded = list.filter(a => a.status === 'graded');
@@ -3133,37 +3468,99 @@ exports.teacherDownloadAttemptsExcel = async (req, res) => {
       const percentage = rawPct != null ? Math.round(rawPct) : null;
       const marksOnMw = scaleScore(bestScore, maxMarks, moduleWeight);
       const decision = best ? computeDecision(rawPct, category) : null;
-      return [
-        i + 1, s.name || '',
-        bestScore != null ? bestScore : '',
-        percentage != null ? `${percentage}%` : '',
-        marksOnMw != null ? marksOnMw : '',
-        decision || (list.length ? '' : 'Not attempted'),
-      ];
+      const needsGrading = list.some(a => a.needs_manual_grading && a.status === 'submitted');
+      return {
+        student_name: s.name || '', bestScore, percentage, marksOnMw, decision,
+        status: needsGrading ? 'needs_grading' : (list.length ? 'graded' : 'not_attempted'),
+      };
     });
 
-    const passedCount = rows.filter(r => r[5] === 'C').length;
-    const failedCount = rows.filter(r => r[5] === 'NYC').length;
+    const passedCount = rows.filter(r => r.decision === 'C').length;
+    const failedCount = rows.filter(r => r.decision === 'NYC').length;
+    const withPct = rows.filter(r => r.percentage != null);
+    const avg = withPct.length ? Math.round(withPct.reduce((s, r) => s + r.percentage, 0) / withPct.length) : null;
 
-    const title = `${assessment.title} — ${assessment.course_id?.name || ''} — ${assessment.class_id?.name || ''}`;
-    const summary = `Students: ${students.length}   |   Passed: ${passedCount}   |   Failed: ${failedCount}`;
-    const sheetData = [[title], [summary], [], header, ...rows];
-    const ws = XLSX.utils.aoa_to_sheet(sheetData);
-    ws['!merges'] = [
-      { s: { r: 0, c: 0 }, e: { r: 0, c: header.length - 1 } },
-      { s: { r: 1, c: 0 }, e: { r: 1, c: header.length - 1 } },
-    ];
-    ws['!cols'] = [{ wch: 6 }, { wch: 30 }, { wch: 16 }, { wch: 10 }, { wch: 16 }, { wch: 14 }];
+    const headerLabels = ['No.', 'Name', scoreLabel, '%', `MW /${moduleWeight}`, 'Decision'];
+    const colCount = headerLabels.length;
 
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Mark Sheet');
-    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
-    const filename = `assessment-marksheet-${(assessment.title || 'assessment').replace(/[^a-z0-9]+/gi, '-')}.xlsx`;
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'Edupla';
+    wb.created = new Date();
+    const ws = wb.addWorksheet('Mark Sheet', { pageSetup: { fitToPage: true, fitToWidth: 1, orientation: 'portrait' } });
+    ws.views = [{ showGridLines: false }];
+    ws.columns = [{ width: 6 }, { width: 32 }, { width: 13 }, { width: 9 }, { width: 12 }, { width: 14 }];
 
+    let row = xlDrawBanner(ws, {
+      title: assessment.title || 'Assessment',
+      subtitle: `${assessment.course_id?.name || ''}   •   ${assessment.class_id?.name || ''}   •   Generated ${new Date().toLocaleDateString()}`,
+    }, colCount);
+
+    row = xlDrawStatChips(ws, row, [
+      { label: 'STUDENTS', value: String(students.length), color: XL_THEME.violet, bg: 'FFEEF2FF' },
+      { label: 'CLASS AVERAGE', value: avg != null ? `${avg}%` : '—', color: xlPerfColor(avg), bg: 'FFEFF6FF' },
+      { label: 'PASSED', value: String(passedCount), color: XL_THEME.pass, bg: XL_THEME.passBg },
+      { label: 'FAILED', value: String(failedCount), color: XL_THEME.fail, bg: XL_THEME.failBg },
+    ], colCount);
+
+    const headerRowIdx = row;
+    const headerRow = ws.getRow(headerRowIdx);
+    headerLabels.forEach((label, i) => {
+      const cell = headerRow.getCell(i + 1);
+      cell.value = label;
+      cell.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: XL_THEME.headerText } };
+      cell.alignment = { vertical: 'middle', horizontal: i === 1 ? 'left' : 'center', indent: i === 1 ? 1 : 0, wrapText: true };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: XL_THEME.headerBg } };
+      cell.border = { top: { style: 'thin', color: { argb: XL_THEME.border } }, bottom: { style: 'medium', color: { argb: XL_THEME.headerText } }, left: { style: 'thin', color: { argb: XL_THEME.border } }, right: { style: 'thin', color: { argb: XL_THEME.border } } };
+    });
+    headerRow.height = 30;
+
+    rows.forEach((r, i) => {
+      const dataRow = ws.getRow(headerRowIdx + 1 + i);
+      const stripe = i % 2 === 1;
+      const rowFill = stripe ? XL_THEME.stripe : XL_THEME.white;
+
+      const setCell = (col, value, opts = {}) => {
+        const cell = dataRow.getCell(col);
+        cell.value = value;
+        cell.font = { name: 'Calibri', size: 10.5, color: { argb: opts.color || XL_THEME.textDark }, bold: !!opts.bold };
+        cell.alignment = { vertical: 'middle', horizontal: opts.align || 'center', indent: opts.indent || 0 };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rowFill } };
+        cell.border = { top: { style: 'thin', color: { argb: XL_THEME.border } }, bottom: { style: 'thin', color: { argb: XL_THEME.border } }, left: { style: 'thin', color: { argb: XL_THEME.border } }, right: { style: 'thin', color: { argb: XL_THEME.border } } };
+      };
+
+      setCell(1, i + 1, { color: XL_THEME.textMuted });
+      setCell(2, r.student_name, { align: 'left', indent: 1, bold: true });
+      setCell(3, r.bestScore != null ? Math.round(r.bestScore) : '—', { bold: true, color: r.bestScore != null ? XL_THEME.textDark : XL_THEME.muted });
+      setCell(4, r.percentage != null ? `${r.percentage}%` : '—', { color: xlPerfColor(r.percentage), bold: true });
+      setCell(5, r.marksOnMw != null ? Math.round(r.marksOnMw) : '—');
+
+      const dCell = dataRow.getCell(6);
+      if (r.decision === 'C') {
+        xlStyleBadgeCell(dCell, { text: 'C', color: XL_THEME.pass, bg: XL_THEME.passBg });
+      } else if (r.decision === 'NYC') {
+        xlStyleBadgeCell(dCell, { text: 'NYC', color: XL_THEME.fail, bg: XL_THEME.failBg });
+      } else if (r.status === 'needs_grading') {
+        xlStyleBadgeCell(dCell, { text: 'Needs grading', color: XL_THEME.needs, bg: XL_THEME.needsBg });
+      } else {
+        xlStyleBadgeCell(dCell, { text: 'Not attempted', color: XL_THEME.muted, bg: XL_THEME.mutedBg });
+      }
+      dCell.border = { top: { style: 'thin', color: { argb: XL_THEME.border } }, bottom: { style: 'thin', color: { argb: XL_THEME.border } }, left: { style: 'thin', color: { argb: XL_THEME.border } }, right: { style: 'thin', color: { argb: XL_THEME.border } } };
+
+      dataRow.height = 20;
+    });
+
+    ws.autoFilter = { from: { row: headerRowIdx, column: 1 }, to: { row: headerRowIdx, column: colCount } };
+    ws.views = [{ showGridLines: false, state: 'frozen', xSplit: 2, ySplit: headerRowIdx, topLeftCell: `C${headerRowIdx + 1}`, activeCell: `C${headerRowIdx + 1}` }];
+
+    const filename = buildMarksFilename(assessment.course_id?.name, assessment.title || 'Assessment', 'xlsx');
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.send(buffer);
-  } catch (err) { res.status(500).json({ message: err.message }); }
+    res.setHeader('Cache-Control', 'no-store');
+    await wb.xlsx.write(res);
+    res.end();
+  } catch (err) {
+    if (!res.headersSent) res.status(500).json({ message: err.message });
+  }
 };
 
 exports.teacherDownloadAttemptsPdf = async (req, res) => {
@@ -3186,16 +3583,17 @@ exports.teacherDownloadAttemptsPdf = async (req, res) => {
     const moduleWeight = assessment.course_id?.total_marks || 100;
     const category = assessment.course_id?.category || 'Complementary modules';
 
-    const filename = `assessment-marksheet-${(assessment.title || 'assessment').replace(/[^a-z0-9]+/gi, '-')}.pdf`;
+    const filename = buildMarksFilename(assessment.course_id?.name, assessment.title || 'Assessment', 'pdf');
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Cache-Control', 'no-store');
 
-    const doc = new PDFDocument({ size: 'A4', margin: 40 });
+    const doc = new PDFDocument({ size: 'A4', margin: 40, bufferPages: true });
     doc.pipe(res);
 
     pdfDrawBanner(doc, {
-      title: assessment.title,
-      subtitle: `${assessment.course_id?.name || ''}  •  ${assessment.class_id?.name || ''}  •  Generated ${new Date().toLocaleDateString()}`,
+      title: `EDUPLA - ${assessment.title}`,
+      subtitle: `${assessment.course_id?.name || ''}  •  ${assessment.class_id?.name || ''}`,
     });
 
     // Compute each student's best graded attempt once, up front, so the
@@ -3223,8 +3621,8 @@ exports.teacherDownloadAttemptsPdf = async (req, res) => {
     const avg = withPct.length ? Math.round(withPct.reduce((s, b) => s + b.percentage, 0) / withPct.length) : null;
 
     pdfDrawStatChips(doc, [
-      { label: 'Students', value: students.length, color: '#6366f1' },
-      { label: 'Class average', value: avg != null ? `${avg}%` : '—', color: '#3b82f6' },
+      { label: 'Students', value: students.length, color: '#0f766e' },
+      { label: 'Class average', value: avg != null ? `${avg}%` : '—', color: '#0891b2' },
       { label: 'Passed', value: passedCount, color: PDF_THEME.pass },
       { label: 'Failed', value: failedCount, color: PDF_THEME.fail },
     ]);
@@ -3250,6 +3648,7 @@ exports.teacherDownloadAttemptsPdf = async (req, res) => {
     }));
 
     pdfDrawTable(doc, { cols, rows });
+    pdfDrawFooter(doc, { generatedAt: new Date().toLocaleDateString() });
     doc.end();
   } catch (err) {
     if (!res.headersSent) res.status(500).json({ message: err.message });

@@ -24,6 +24,13 @@ app.use(cors({
     callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
+  // Lets the frontend read the server-set download filename (Content-
+  // Disposition) off blob-download responses — browsers hide response
+  // headers from JS on cross-origin requests unless explicitly exposed,
+  // and blob: URLs carry no HTTP headers of their own for the browser to
+  // fall back on, so without this every download reverts to whatever
+  // filename the frontend hardcodes locally.
+  exposedHeaders: ['Content-Disposition'],
 }));
 
 app.use(express.json());

@@ -1,5 +1,60 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <rect width="32" height="32" rx="8" fill="#3b5bdb"/>
-  <path d="M8 22 L16 10 L24 22" stroke="white" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M11 18 L21 18" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+  <defs>
+    <!-- Rich violet-to-indigo brand gradient -->
+    <linearGradient id="bg" x1="2" y1="1" x2="30" y2="31" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7C3AED"/>
+      <stop offset="0.5" stop-color="#4F46E5"/>
+      <stop offset="1" stop-color="#312E81"/>
+    </linearGradient>
+
+    <!-- Radial glow, upper-left, for a premium glassy lift -->
+    <radialGradient id="glow" cx="11" cy="9" r="17" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.4"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Monogram fill: white fading to soft lavender for subtle depth -->
+    <linearGradient id="glyph" x1="7" y1="8" x2="25" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#E9E4FF"/>
+    </linearGradient>
+
+    <!-- Gold accent for the growth-tip marker -->
+    <linearGradient id="gold" x1="20.5" y1="7.5" x2="25.5" y2="12.5" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F4E4B8"/>
+      <stop offset="1" stop-color="#D4AF37"/>
+    </linearGradient>
+
+    <clipPath id="roundedSquare">
+      <rect width="32" height="32" rx="8.5"/>
+    </clipPath>
+
+    <filter id="softShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="0.8" stdDeviation="0.9" flood-color="#1E1B4B" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="32" height="32" rx="8.5" fill="url(#bg)"/>
+
+  <g clip-path="url(#roundedSquare)">
+    <rect width="32" height="32" fill="url(#glow)"/>
+    <!-- Fine inner border for a crisp, premium edge -->
+    <rect x="0.6" y="0.6" width="30.8" height="30.8" rx="8" fill="none" stroke="#FFFFFF" stroke-opacity="0.14" stroke-width="0.9"/>
+  </g>
+
+  <!-- Monogram: a stylised "E" built from three ascending bars, doubling as
+       an upward growth/progress mark -- an open book / achievement motif
+       appropriate for a school & assessment platform. Stays crisp at 16px. -->
+  <g filter="url(#softShadow)">
+    <rect x="7.6" y="8.4" width="12.6" height="2.9" rx="1.45" fill="url(#glyph)"/>
+    <rect x="7.6" y="14.55" width="9.6" height="2.9" rx="1.45" fill="url(#glyph)"/>
+    <rect x="7.6" y="20.7" width="12.6" height="2.9" rx="1.45" fill="url(#glyph)"/>
+    <rect x="7.6" y="8.4" width="2.9" height="15.2" rx="1.45" fill="url(#glyph)"/>
+  </g>
+
+  <!-- Gold growth-tip accent, marking the top-right corner of the "E" like
+       an upward trend point -->
+  <circle cx="23.1" cy="9.85" r="2.35" fill="url(#gold)"/>
+  <circle cx="23.1" cy="9.85" r="2.35" fill="none" stroke="#FFFFFF" stroke-opacity="0.35" stroke-width="0.5"/>
 </svg>

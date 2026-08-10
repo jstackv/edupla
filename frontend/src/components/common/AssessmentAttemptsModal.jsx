@@ -59,14 +59,14 @@ const RANK_STYLE = {
 // Column widths — named constants so the sticky-column left offsets below
 // always agree with the grid template itself.
 const COL_NO = 40;
-const COL_STUDENT = 200;
+const COL_STUDENT = 260;
 const COL_ATTEMPTS = 90;
 const COL_TREND = 150;
 const COL_BEST = 100;
 const COL_PCT = 130;
 const COL_MW = 90;
 const COL_DECISION = 100;
-const COL_STATUS_MIN = 170;
+const COL_STATUS_MIN = 110;
 
 // Status is the only flexible column — like the Overall mark sheet, this
 // lets the table stretch to fill the modal's full width instead of leaving
@@ -437,14 +437,26 @@ export default function AssessmentAttemptsModal({ assessment, onClose }) {
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [assessment.id]);
 
+  // Pulls the real filename the server chose (e.g. "WEB DEVELOPMENT USING
+  // PHP - Formative Assessment 1 marks.xlsx") off the Content-Disposition
+  // header, falling back to a generic name only if that header is ever
+  // missing — blob: URLs carry no HTTP headers of their own, so this is
+  // the only way the browser's save dialog gets the real name instead of
+  // a hardcoded placeholder.
+  const filenameFromDisposition = (headers, fallback) => {
+    const disposition = headers?.['content-disposition'] || '';
+    const match = disposition.match(/filename\*?=(?:UTF-8''|")?([^";]+)"?/i);
+    return match ? decodeURIComponent(match[1].replace(/"$/, '')) : fallback;
+  };
+
   const download = async (type) => {
     setDownloading(type);
     try {
-      const { data } = await api.get(`/assessment/teacher/assessments/${assessment.id}/attempts/${type}`, { responseType: 'blob' });
-      const url = URL.createObjectURL(data);
+      const response = await api.get(`/assessment/teacher/assessments/${assessment.id}/attempts/${type}`, { responseType: 'blob' });
+      const url = URL.createObjectURL(response.data);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `assessment-marksheet.${type === 'excel' ? 'xlsx' : 'pdf'}`;
+      a.download = filenameFromDisposition(response.headers, `assessment-marksheet.${type === 'excel' ? 'xlsx' : 'pdf'}`);
       a.click();
       URL.revokeObjectURL(url);
     } catch {

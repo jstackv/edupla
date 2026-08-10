@@ -39,8 +39,8 @@ const STATUS_STYLE = {
 // Column widths — kept as named constants so the sticky-column left
 // offsets below always agree with the grid template itself.
 const COL_NO = 40;
-const COL_STUDENT = 190;
-const COL_ASSESSMENT_MIN = 130;
+const COL_STUDENT = 240;
+const COL_ASSESSMENT_MIN = 90;
 const COL_TOTAL = 100;
 const COL_PCT = 130;
 const COL_MW = 110;
@@ -131,14 +131,23 @@ export default function OverallResultsModal({ courseId, classId, type, term, aca
     // eslint-disable-next-line
   }, [courseId, classId, type, term, academicYear]);
 
+  // Pulls the real filename the server chose off the Content-Disposition
+  // header — see the matching helper in AssessmentAttemptsModal.jsx for why
+  // this can't just be read straight off a blob: URL.
+  const filenameFromDisposition = (headers, fallback) => {
+    const disposition = headers?.['content-disposition'] || '';
+    const match = disposition.match(/filename\*?=(?:UTF-8''|")?([^";]+)"?/i);
+    return match ? decodeURIComponent(match[1].replace(/"$/, '')) : fallback;
+  };
+
   const download = async (kind) => {
     setDownloading(kind);
     try {
-      const { data } = await api.get(`/assessment/teacher/assessments/overall/${kind}`, { params, responseType: 'blob' });
-      const url = URL.createObjectURL(data);
+      const response = await api.get(`/assessment/teacher/assessments/overall/${kind}`, { params, responseType: 'blob' });
+      const url = URL.createObjectURL(response.data);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `overall-marksheet.${kind === 'excel' ? 'xlsx' : 'pdf'}`;
+      a.download = filenameFromDisposition(response.headers, `overall-marksheet.${kind === 'excel' ? 'xlsx' : 'pdf'}`);
       a.click();
       URL.revokeObjectURL(url);
     } catch {
