@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../context/ThemeContext';
 import LanguageSwitcher from '../components/common/LanguageSwitcher';
+import BrandMark from '../components/common/BrandMark';
 import SEO from '../components/common/SEO';
 import ownerPhoto from '../assets/owner-jmv.jpg';
 import {
@@ -601,15 +602,12 @@ export default function Landing() {
       <nav style={{ position:'fixed', top:0, left:0, right:0, width:'100%', zIndex:100, backdropFilter:'blur(24px)', background:scrolled?(dark?'rgba(8,12,24,0.92)':'rgba(248,250,255,0.92)'):(dark?'rgba(8,12,24,0.55)':'rgba(248,250,255,0.55)'), borderBottom:'1px solid '+(scrolled?t.bord:'transparent'), transition:'all 0.3s' }}>
         <div style={{ maxWidth:1200, margin:'0 auto', padding:'0 2rem', height:66, display:'flex', alignItems:'center', gap:32 }}>
           <Link to="/" style={{ display:'flex', alignItems:'center', gap:10, textDecoration:'none', flexShrink:0 }}>
-            <div style={{ width:38, height:38, borderRadius:12, background:'linear-gradient(135deg,#6366f1,#8b5cf6)', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 4px 16px rgba(99,102,241,0.4)', transition:'transform 0.2s' }}
-              onMouseEnter={function(e){ e.currentTarget.style.transform='scale(1.1) rotate(-5deg)'; }}
-              onMouseLeave={function(e){ e.currentTarget.style.transform='scale(1) rotate(0)'; }}>
-              <GraduationCap size={18} color="white" />
-            </div>
+            <BrandMark size={38} />
             <span style={{ fontFamily:"'Instrument Serif',serif", fontStyle:'italic', fontSize:22, color:t.tp, letterSpacing:'-0.01em' }}>Edupla</span>
           </Link>
 
           <LanguageSwitcher dark={dark} />
+
 
           <div className="nav-links" style={{ flex:1, display:'flex', alignItems:'center', gap:4 }}>
             {NAV.map(function(item) {

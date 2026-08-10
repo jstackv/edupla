@@ -60,8 +60,14 @@ const MODULE_COLORS = [
 ];
 function moduleColor(idx) { return MODULE_COLORS[idx % MODULE_COLORS.length]; }
 
-/* ─── Step 1: Pick class → Step 2: Pick module → Step 3: Upload ─── */
-function UploadModal({ isOpen, onClose, teacherClasses, onSuccess }) {
+/* ─── Step 1: Pick class → Step 2: Pick module → Step 3: Upload ───
+   `presetClass` / `presetModule` let a caller that already has this context
+   (the teacher has already navigated into that class and/or module) skip
+   straight past the steps that would just re-ask for the same thing —
+   e.g. opening this from the docs view (both already known) jumps right
+   to step 3, and opening it from the modules view (class already known)
+   jumps to step 2. */
+function UploadModal({ isOpen, onClose, teacherClasses, onSuccess, presetClass, presetModule }) {
   const [step, setStep] = useState(1);
   const [selectedClass, setSelectedClass] = useState(null);   // { _id, name, modules[] }
   const [selectedModule, setSelectedModule] = useState(null); // course object
@@ -70,7 +76,26 @@ function UploadModal({ isOpen, onClose, teacherClasses, onSuccess }) {
   const [saving, setSaving] = useState(false);
   const [dragOver, setDragOver] = useState(false);
 
-  const reset = () => { setStep(1); setSelectedClass(null); setSelectedModule(null); setForm({ title: '', description: '' }); setFile(null); };
+  // Re-derive the starting point from presets every time the modal opens,
+  // rather than always resetting to step 1.
+  useEffect(() => {
+    if (!isOpen) return;
+    if (presetModule) {
+      setSelectedClass(presetClass || null);
+      setSelectedModule(presetModule);
+      setStep(3);
+    } else if (presetClass) {
+      setSelectedClass(presetClass);
+      setSelectedModule(null);
+      setStep(2);
+    } else {
+      setSelectedClass(null);
+      setSelectedModule(null);
+      setStep(1);
+    }
+  }, [isOpen, presetClass, presetModule]);
+
+  const reset = () => { setForm({ title: '', description: '' }); setFile(null); };
   const handleClose = () => { reset(); onClose(); };
 
   const handleUpload = async (e) => {
@@ -171,7 +196,9 @@ function UploadModal({ isOpen, onClose, teacherClasses, onSuccess }) {
               </button>
             );
           })}
-          <button type="button" onClick={() => setStep(1)} className="btn-secondary w-full mt-2">← Back to classes</button>
+          {!presetClass && (
+            <button type="button" onClick={() => setStep(1)} className="btn-secondary w-full mt-2">← Back to classes</button>
+          )}
         </div>
       )}
 
@@ -226,8 +253,10 @@ function UploadModal({ isOpen, onClose, teacherClasses, onSuccess }) {
               )}
             </div>
           </div>
-          <div className="flex justify-between gap-3 pt-2">
-            <button type="button" onClick={() => setStep(2)} className="btn-secondary">← Back</button>
+          <div className={`flex gap-3 pt-2 ${presetModule ? 'justify-end' : 'justify-between'}`}>
+            {!presetModule && (
+              <button type="button" onClick={() => setStep(2)} className="btn-secondary">← Back</button>
+            )}
             <div className="flex gap-3">
               <button type="button" onClick={handleClose} className="btn-secondary">Cancel</button>
               <button type="submit" disabled={saving || !file} className="btn-primary">
@@ -483,7 +512,7 @@ export default function Documents() {
           })}
         </div>
 
-        <UploadModal isOpen={modal} onClose={() => setModal(false)} teacherClasses={teacherClasses} onSuccess={fetchDocs} />
+        <UploadModal isOpen={modal} onClose={() => setModal(false)} teacherClasses={teacherClasses} onSuccess={fetchDocs} presetClass={selectedClass} />
       </div>
     );
   }
@@ -578,7 +607,7 @@ export default function Documents() {
 
       {total > 12 && <Pagination page={page} totalPages={Math.ceil(total / 12)} onPageChange={setPage} />}
 
-      <UploadModal isOpen={modal} onClose={() => setModal(false)} teacherClasses={teacherClasses} onSuccess={fetchDocs} />
+      <UploadModal isOpen={modal} onClose={() => setModal(false)} teacherClasses={teacherClasses} onSuccess={fetchDocs} presetClass={selectedClass} presetModule={selectedModule} />
 
       {/* Edit Modal */}
       <Modal isOpen={editModal} onClose={() => setEditModal(false)} title="Edit Note">

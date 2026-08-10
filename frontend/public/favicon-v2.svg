@@ -44,7 +44,7 @@
   </g>
 
   <!-- Monogram: a stylised "E" built from three ascending bars, doubling as
-       an upward growth/progress mark -- an open book / achievement motif
+       an upward growth/progress mark, like an open book / achievement motif
        appropriate for a school & assessment platform. Stays crisp at 16px. -->
   <g filter="url(#softShadow)">
     <rect x="7.6" y="8.4" width="12.6" height="2.9" rx="1.45" fill="url(#glyph)"/>

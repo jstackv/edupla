@@ -5,7 +5,7 @@
       "destination": "https://eduplaa.vercel.app/api/:path*"
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!.*\\.[a-zA-Z0-9]+$).*)",
       "destination": "/index.html"
     }
   ]
