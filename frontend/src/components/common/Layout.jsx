@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import NotificationPanel from './NotificationPanel';
 import LanguageSwitcher from './LanguageSwitcher';
+import BrandMark from '../common/BrandMark';
 
 /* ─── NAV DEFINITIONS ───────────────────────────────────────────── */
 /* `labelKey` points into the `nav.*` i18n namespace; NavItem/SuperAdminNavItem
@@ -467,20 +468,15 @@ export default function Layout({ children }) {
         animation: 'sa-glow 6s ease-in-out infinite reverse',
       }} />
 
-      {/* Logo */}
+      {/* Logo — the real Edupla brand mark, not a generic icon, so the
+          super-admin sidebar carries the same brand identity as the rest
+          of the app instead of a plain graduation-cap glyph. */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 10,
         padding: '0 14px', height: 52, flexShrink: 0,
         borderBottom: `1px solid ${dark ? 'rgba(245,158,11,0.12)' : 'rgba(217,119,6,0.18)'}`,
       }}>
-        <div style={{
-          width: 34, height: 34, flexShrink: 0, borderRadius: 10,
-          background: 'linear-gradient(135deg,#f59e0b,#d97706)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 0 14px rgba(245,158,11,0.4)',
-        }}>
-          <GraduationCap size={17} color={dark ? '#0f0c1a' : '#fffbeb'} />
-        </div>
+        <BrandMark size={34} />
         <div style={{
           overflow: 'hidden', whiteSpace: 'nowrap',
           transition: 'opacity 0.26s ease, width 0.26s ease',
@@ -577,20 +573,16 @@ export default function Layout({ children }) {
   const SidebarContent = ({ onNav }) => (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: dark ? '#13161f' : '#ffffff', overflow: 'hidden' }}>
 
-      {/* Logo */}
+      {/* Logo — the real Edupla brand mark, replacing the generic
+          graduation-cap glyph, so this is the single source of the
+          Edupla wordmark lockup shared by desktop, collapsed, and the
+          mobile drawer (all of which render this same component). */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 10,
         padding: '0 14px', height: 52, flexShrink: 0,
         borderBottom: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}`,
       }}>
-        <div style={{
-          width: 34, height: 34, flexShrink: 0, borderRadius: 10,
-          background: 'linear-gradient(135deg,#6366f1,#4f46e5)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 0 0 1px rgba(99,102,241,0.3)',
-        }}>
-          <GraduationCap size={17} color="#fff" />
-        </div>
+        <BrandMark size={34} />
         <div style={{
           overflow: 'hidden', whiteSpace: 'nowrap',
           transition: 'opacity 0.26s ease, width 0.26s ease',

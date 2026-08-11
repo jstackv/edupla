@@ -10,12 +10,6 @@ import BrandMark from '../../components/common/BrandMark';
 /* ─────────────────────────────────────────────
    CONSTANTS
 ───────────────────────────────────────────── */
-const STATS_KEYS = [
-  { valueKey: '2.4K', labelKey: 'auth.stats.students' },
-  { valueKey: '180',  labelKey: 'auth.stats.courses'  },
-  { valueKey: '96%',  labelKey: 'auth.stats.passRate' },
-  { valueKey: '120',  labelKey: 'auth.stats.teachers' },
-];
 
 const FEATURES_KEYS = [
   { labelKey: 'auth.features.smartClassrooms', icon: '📚', color: '#8b5cf6' },
@@ -303,9 +297,15 @@ export default function Login() {
     transform: focused === field ? 'translateY(-1px)' : 'translateY(0)',
   });
 
+  // Icons sit in a positioned span *inside* the relative wrapper, above the
+  // input in the stacking order (explicit z-index) and using a color with
+  // enough contrast against the input background in both themes, so they
+  // stay clearly visible instead of blending into the field.
   const iconStyle = (field) => ({
     position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)',
-    color: focused === field ? C.accent : C.text3,
+    color: focused === field ? C.accent : C.text2,
+    opacity: 1,
+    zIndex: 2,
     pointerEvents: 'none', transition: 'color 0.2s',
     display: 'flex',
   });
@@ -352,18 +352,18 @@ export default function Login() {
           padding: 24px; position: relative; overflow: hidden;
         }
 
-        /* Giant faded wordmark — lives at the root level so it bleeds
-           across BOTH panels and can drift behind the login card itself,
-           instead of being trapped inside the left panel only. */
+        /* Giant faded wordmark — pinned near the top of the panel,
+           independent of the (still vertically-centered) login card, so
+           it reads as a big wide banner approaching the top of the page. */
         .ep-wordmark-ghost {
-          position: absolute; bottom: -7%; left: 50%;
-          transform: translateX(-50%);
+          position: absolute; top: 2%; left: 0;
           width: 100%;
           text-align: center;
-          font-family: 'Instrument Serif', serif; font-style: italic; font-weight: 400;
-          font-size: clamp(6rem, 15vw, 14rem);
-          letter-spacing: -0.04em; line-height: 1; white-space: nowrap;
-          pointer-events: none; user-select: none; z-index: 1;
+          font-family: 'Outfit', sans-serif; font-weight: 900;
+          font-size: clamp(2rem, 7vw, 6.5rem);
+          letter-spacing: -0.02em; line-height: 1; white-space: nowrap;
+          pointer-events: none; user-select: none;
+          z-index: 0;
           animation: ep-wordmark-drift 11s ease-in-out infinite;
         }
 
@@ -480,7 +480,7 @@ export default function Login() {
         @keyframes ep-mesh-drift-a { 0%,100%{ transform:translate(0,0) scale(1); } 50%{ transform:translate(24px,-18px) scale(1.1); } }
         @keyframes ep-mesh-drift-b { 0%,100%{ transform:translate(0,0) scale(1); } 50%{ transform:translate(-20px,16px) scale(1.08); } }
         @keyframes ep-grid-drift { 0%{ background-position:0 0; } 100%{ background-position:44px 44px; } }
-        @keyframes ep-wordmark-drift { 0%,100%{ transform:translateX(-50%); } 50%{ transform:translateX(calc(-50% - 12px)); } }
+        @keyframes ep-wordmark-drift { 0%,100%{ transform:translateX(0); } 50%{ transform:translateX(-8px); } }
         @keyframes ep-chipin { from{opacity:0;transform:translateX(-8px);} to{opacity:1;transform:translateX(0);} }
         @keyframes ep-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
 
@@ -514,7 +514,7 @@ export default function Login() {
         @media (max-width: 860px) {
           .ep-left-panel { display: none !important; }
           .ep-right-panel { padding: 20px 16px; }
-          .ep-wordmark-ghost { font-size: clamp(4.5rem, 22vw, 7rem); bottom: -5%; }
+          .ep-wordmark-ghost { font-size: clamp(3.2rem, 18vw, 5.5rem); top: 3%; }
         }
         @media (max-width: 480px) {
           .ep-badge-float, .ep-badge-float2 { display: none !important; }
@@ -528,12 +528,6 @@ export default function Login() {
         <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0 }}>
           <div className="ep-mesh-a" style={{ position: 'absolute', top: '-14%', left: '4%', width: 520, height: 520, borderRadius: '50%', background: 'radial-gradient(circle,rgba(99,102,241,0.16),transparent 70%)', filter: 'blur(95px)' }} />
           <div className="ep-mesh-b" style={{ position: 'absolute', bottom: '-16%', right: '2%', width: 460, height: 460, borderRadius: '50%', background: 'radial-gradient(circle,rgba(14,165,233,0.13),transparent 70%)', filter: 'blur(85px)' }} />
-        </div>
-
-        {/* giant faded wordmark — root-level so it bleeds across the left
-            panel AND drifts behind the login card on the right */}
-        <div className="ep-wordmark-ghost" style={{ color: dark ? 'rgba(255,255,255,0.035)' : 'rgba(79,70,229,0.045)' }}>
-          Edupla
         </div>
 
         {/* ════════════ LEFT PANEL ════════════ */}
@@ -649,25 +643,6 @@ export default function Login() {
                 ))}
               </div>
             </div>
-
-            {/* stats bar */}
-            <div style={{
-              display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
-              background: dark ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.6)',
-              border: `1px solid ${C.divider}`,
-              borderRadius: 17, overflow: 'hidden',
-            }}>
-              {STATS_KEYS.map((s, i) => (
-                <div key={s.labelKey} className="ep-stat-card" style={{
-                  display: 'flex', flexDirection: 'column', alignItems: 'center',
-                  gap: 3, padding: '13px 4px',
-                  borderRight: i < 3 ? `1px solid ${C.divider}` : 'none',
-                }}>
-                  <span style={{ fontFamily: "'Instrument Serif',serif", fontStyle: 'italic', fontSize: 19, fontWeight: 400, color: C.text, letterSpacing: '-0.02em' }}>{s.valueKey}</span>
-                  <span style={{ fontSize: 9.5, color: C.text3, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{t(s.labelKey)}</span>
-                </div>
-              ))}
-            </div>
           </div>
 
           {/* ticker */}
@@ -706,6 +681,15 @@ export default function Login() {
             <div style={{ position: 'absolute', width: 300, height: 300, bottom: -110, left: -60, borderRadius: '50%', background: dark ? 'radial-gradient(circle,rgba(124,58,237,0.08),transparent 68%)' : 'radial-gradient(circle,rgba(124,58,237,0.05),transparent 68%)' }} />
           </div>
 
+          {/* giant faded wordmark — pinned near the top of the panel,
+              wide and clearly visible above the login card */}
+          <div
+            className="ep-wordmark-ghost"
+            style={{ color: dark ? 'rgba(255,255,255,0.14)' : 'rgba(79,70,229,0.16)' }}
+          >
+            Edupla
+          </div>
+
           <div className="ep-card-wrap" style={{ position: 'relative' }}>
             {/* rotating dashed ring behind the card */}
             <div className="ep-ring-spin" style={{ top: '50%', left: '50%', width: 560, height: 560, transform: 'translate(-50%,-50%)', border: `1px dashed ${dark ? 'rgba(99,102,241,0.14)' : 'rgba(99,102,241,0.1)'}` }} />
@@ -715,7 +699,7 @@ export default function Login() {
                 inputs, or footer */}
             <div className="ep-badge-float" style={{ position: 'absolute', top: -16, right: 20, zIndex: 2, padding: '8px 13px', borderRadius: 12, background: dark ? 'rgba(16,185,129,0.12)' : '#dcfce7', border: '1px solid rgba(16,185,129,0.3)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', gap: 7, boxShadow: '0 8px 24px rgba(16,185,129,0.18)' }}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-              <span style={{ fontSize: 11, fontWeight: 700, color: '#10b981', whiteSpace: 'nowrap' }}>{t('auth.trustStrip.accessGranted', 'Access Granted Instantly')}</span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#10b981', whiteSpace: 'nowrap' }}>{t('auth.trustStrip.accessGranted', 'Access is Granted Instantly')}</span>
             </div>
             <div className="ep-badge-float2" style={{ position: 'absolute', bottom: -16, left: 20, zIndex: 2, padding: '8px 13px', borderRadius: 12, background: dark ? 'rgba(99,102,241,0.12)' : 'rgba(99,102,241,0.07)', border: '1px solid rgba(99,102,241,0.25)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', gap: 7, boxShadow: '0 8px 24px rgba(99,102,241,0.15)' }}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
