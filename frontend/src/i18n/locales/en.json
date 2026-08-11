@@ -19,6 +19,7 @@
   "nav": {
     "dashboard": "Dashboard",
     "myClasses": "My Classes",
+    "modules": "Modules",
     "students": "Students",
     "documents": "Documents",
     "assignments": "Assignments",
@@ -116,21 +117,66 @@
       "subtitle": "Every feature designed with educators in mind — intuitive, fast, and genuinely delightful to use."
     },
     "features": {
-      "documentManagement": { "label": "Document Management", "desc": "Upload, organize and preview notes, PDFs and class resources by module — with inline viewing and download tracking." },
-      "assignmentWorkflow": { "label": "Assignment Workflow", "desc": "Create assignments with deadlines, collect submissions, grade in bulk, and return feedback — all tracked automatically." },
-      "teacherManagement": { "label": "Teacher Management", "desc": "Admins onboard teachers, assign them to classes and modules, and manage extra co-teachers per class." },
-      "studentManagement": { "label": "Student Management", "desc": "Enroll students by level, trade and class year, bulk-import records, and track every learner in one directory." },
-      "assessmentModules": { "label": "Assessment & Modules", "desc": "Configure modules with weighted marks, then run Formative (FA), Integrated (IA) and Comprehensive (CA) assessments per class." },
-      "onlineAssessments": { "label": "Online Assessments & Auto-Grading", "desc": "Build MCQ, matching and open-ended quizzes, share a timed link with an attempt limit — questions and options shuffle per student, the timer auto-submits at the deadline, and answers are auto-graded instantly (with manual grading for open-ended ones)." },
-      "reportManagement": { "label": "Report Management", "desc": "Generate student report cards, per-assessment breakdowns and full class performance reports, ranked automatically." },
-      "tvetCurriculumSetup": { "label": "TVET Curriculum Setup", "desc": "Define Sector, Trade, Qualification Title and RTQF Level per class — fully aligned to competency-based TVET programs." },
-      "markApprovalFlow": { "label": "Mark Approval Flow", "desc": "Marks move through Draft → Submitted → Approved with admin review, so reports always reflect verified results." },
-      "smartAnnouncements": { "label": "Smart Announcements", "desc": "Class-wide or school-wide notifications with read tracking, so nothing important is ever missed." },
-      "groupCollaboration": { "label": "Group Collaboration", "desc": "Teacher-led discussion groups with team leaders, plus optional peer-to-peer messaging within a class." },
-      "enterpriseSecurity": { "label": "Enterprise Security", "desc": "Session-based auth, role permissions, encrypted file storage, and full activity audit trails built in." },
-      "anyDevice": { "label": "Any Device", "desc": "Fully responsive admin, teacher and student portals — flawless on desktop, tablet, and mobile." },
-      "realTimeNotifications": { "label": "Real-Time Notifications", "desc": "A dedicated notification center with unread counts, mark-as-read and clear-all, so every grade, message and alert reaches the right person instantly." },
-      "directMessaging": { "label": "Direct Messaging & Voice Notes", "desc": "Private teacher–student threads and peer chat, with voice notes and media sharing built right into every conversation." }
+      "documentManagement": {
+        "label": "Document Management",
+        "desc": "Upload, organize and preview notes, PDFs and class resources by module — with inline viewing and download tracking."
+      },
+      "assignmentWorkflow": {
+        "label": "Assignment Workflow",
+        "desc": "Create assignments with deadlines, collect submissions, grade in bulk, and return feedback — all tracked automatically."
+      },
+      "teacherManagement": {
+        "label": "Teacher Management",
+        "desc": "Admins onboard teachers, assign them to classes and modules, and manage extra co-teachers per class."
+      },
+      "studentManagement": {
+        "label": "Student Management",
+        "desc": "Enroll students by level, trade and class year, bulk-import records, and track every learner in one directory."
+      },
+      "assessmentModules": {
+        "label": "Assessment & Modules",
+        "desc": "Configure modules with weighted marks, then run Formative (FA), Integrated (IA) and Comprehensive (CA) assessments per class."
+      },
+      "onlineAssessments": {
+        "label": "Online Assessments & Auto-Grading",
+        "desc": "Build MCQ, matching and open-ended quizzes, share a timed link with an attempt limit — questions and options shuffle per student, the timer auto-submits at the deadline, and answers are auto-graded instantly (with manual grading for open-ended ones)."
+      },
+      "reportManagement": {
+        "label": "Report Management",
+        "desc": "Generate student report cards, per-assessment breakdowns and full class performance reports, ranked automatically."
+      },
+      "tvetCurriculumSetup": {
+        "label": "TVET Curriculum Setup",
+        "desc": "Define Sector, Trade, Qualification Title and RTQF Level per class — fully aligned to competency-based TVET programs."
+      },
+      "markApprovalFlow": {
+        "label": "Mark Approval Flow",
+        "desc": "Marks move through Draft → Submitted → Approved with admin review, so reports always reflect verified results."
+      },
+      "smartAnnouncements": {
+        "label": "Smart Announcements",
+        "desc": "Class-wide or school-wide notifications with read tracking, so nothing important is ever missed."
+      },
+      "groupCollaboration": {
+        "label": "Group Collaboration",
+        "desc": "Teacher-led discussion groups with team leaders, plus optional peer-to-peer messaging within a class."
+      },
+      "enterpriseSecurity": {
+        "label": "Enterprise Security",
+        "desc": "Session-based auth, role permissions, encrypted file storage, and full activity audit trails built in."
+      },
+      "anyDevice": {
+        "label": "Any Device",
+        "desc": "Fully responsive admin, teacher and student portals — flawless on desktop, tablet, and mobile."
+      },
+      "realTimeNotifications": {
+        "label": "Real-Time Notifications",
+        "desc": "A dedicated notification center with unread counts, mark-as-read and clear-all, so every grade, message and alert reaches the right person instantly."
+      },
+      "directMessaging": {
+        "label": "Direct Messaging & Voice Notes",
+        "desc": "Private teacher–student threads and peer chat, with voice notes and media sharing built right into every conversation."
+      }
     },
     "curriculumSection": {
       "badge": "Built for TVET",
@@ -142,27 +188,72 @@
       "reportsSubtitle": "Once marks are approved, every report below updates on its own — no spreadsheets required."
     },
     "curriculum": {
-      "sector":              { "label": "Sector",              "example": "e.g. ICT, Construction, Hospitality" },
-      "trade":               { "label": "Trade",                "example": "e.g. Software Development, Electrical" },
-      "qualificationTitle":  { "label": "Qualification Title",  "example": "e.g. Certificate, Diploma programs" },
-      "rtqfLevel":           { "label": "RTQF Level",           "example": "e.g. Level 3, 4, 5" },
-      "modules":             { "label": "Modules",              "example": "Complementary · General · Specific · Elective" }
+      "sector": {
+        "label": "Sector",
+        "example": "e.g. ICT, Construction, Hospitality"
+      },
+      "trade": {
+        "label": "Trade",
+        "example": "e.g. Software Development, Electrical"
+      },
+      "qualificationTitle": {
+        "label": "Qualification Title",
+        "example": "e.g. Certificate, Diploma programs"
+      },
+      "rtqfLevel": {
+        "label": "RTQF Level",
+        "example": "e.g. Level 3, 4, 5"
+      },
+      "modules": {
+        "label": "Modules",
+        "example": "Complementary · General · Specific · Elective"
+      }
     },
     "assessmentTypes": {
-      "fa": { "name": "Formative Assessment", "desc": "Ongoing checks during teaching to track ongoing understanding." },
-      "ia": { "name": "Integrated Assessment", "desc": "Mid-term evaluation combining several learning outcomes." },
-      "ca": { "name": "Comprehensive Assessment", "desc": "End-of-term evaluation covering the full module scope." }
+      "fa": {
+        "name": "Formative Assessment",
+        "desc": "Ongoing checks during teaching to track ongoing understanding."
+      },
+      "ia": {
+        "name": "Integrated Assessment",
+        "desc": "Mid-term evaluation combining several learning outcomes."
+      },
+      "ca": {
+        "name": "Comprehensive Assessment",
+        "desc": "End-of-term evaluation covering the full module scope."
+      }
     },
     "markWorkflow": {
-      "draft":     { "label": "Draft",     "desc": "Teacher enters marks per student for the assessment." },
-      "submitted": { "label": "Submitted", "desc": "Teacher submits the full mark sheet for admin review." },
-      "approved":  { "label": "Approved",  "desc": "Admin approves — marks lock in and reports update instantly." },
-      "rejected":  { "label": "Rejected",  "desc": "Admin sends it back with a review note for correction." }
+      "draft": {
+        "label": "Draft",
+        "desc": "Teacher enters marks per student for the assessment."
+      },
+      "submitted": {
+        "label": "Submitted",
+        "desc": "Teacher submits the full mark sheet for admin review."
+      },
+      "approved": {
+        "label": "Approved",
+        "desc": "Admin approves — marks lock in and reports update instantly."
+      },
+      "rejected": {
+        "label": "Rejected",
+        "desc": "Admin sends it back with a review note for correction."
+      }
     },
     "reportTypes": {
-      "studentReportCard":     { "label": "Student Report Card", "desc": "A full per-student breakdown across every module, term and assessment type." },
-      "assessmentReport":      { "label": "Assessment Report",   "desc": "Ranked results for a single assessment, with class average and percentile." },
-      "classPerformanceReport":{ "label": "Class Performance Report", "desc": "School-wide or per-class analytics across modules, sectors and trades." }
+      "studentReportCard": {
+        "label": "Student Report Card",
+        "desc": "A full per-student breakdown across every module, term and assessment type."
+      },
+      "assessmentReport": {
+        "label": "Assessment Report",
+        "desc": "Ranked results for a single assessment, with class average and percentile."
+      },
+      "classPerformanceReport": {
+        "label": "Class Performance Report",
+        "desc": "School-wide or per-class analytics across modules, sectors and trades."
+      }
     },
     "howItWorksSection": {
       "badge": "Simple Onboarding",
@@ -171,19 +262,40 @@
       "step": "Step"
     },
     "steps": {
-      "adminConfigures": { "title": "Admin Configures", "desc": "Set up classes, enroll students, assign teachers, and configure settings in minutes." },
-      "teachersDeliver":  { "title": "Teachers Deliver",  "desc": "Upload materials, create assignments with due dates, track submissions, and give feedback instantly." },
-      "studentsThrive":   { "title": "Students Thrive",   "desc": "Access everything in one place — notes, assignments, grades, and announcements always up to date." }
+      "adminConfigures": {
+        "title": "Admin Configures",
+        "desc": "Set up classes, enroll students, assign teachers, and configure settings in minutes."
+      },
+      "teachersDeliver": {
+        "title": "Teachers Deliver",
+        "desc": "Upload materials, create assignments with due dates, track submissions, and give feedback instantly."
+      },
+      "studentsThrive": {
+        "title": "Students Thrive",
+        "desc": "Access everything in one place — notes, assignments, grades, and announcements always up to date."
+      }
     },
     "testimonialsSection": {
       "badge": "Testimonials",
       "title": "Loved by Educators Everywhere"
     },
     "testimonials": {
-      "sarahKim":    { "role": "Principal, Westbridge Academy", "text": "EDUPLA transformed how we run our school. Grading, reporting, and communication — all in one beautiful platform." },
-      "marcusReid":  { "role": "Senior Teacher, Lincoln High",  "text": "I used to spend 3 hours on paperwork every evening. Now I upload notes in 30 seconds and students get them instantly." },
-      "aishaJabari": { "role": "Student, Grade 11",             "text": "Finally a school app that feels good to use. I can see all my assignments, grades, and announcements in one place." },
-      "davidLee":    { "role": "District Superintendent",       "text": "The admin analytics dashboard gives us real-time visibility across all campuses. Decision-making has never been this fast." }
+      "sarahKim": {
+        "role": "Principal, Westbridge Academy",
+        "text": "EDUPLA transformed how we run our school. Grading, reporting, and communication — all in one beautiful platform."
+      },
+      "marcusReid": {
+        "role": "Senior Teacher, Lincoln High",
+        "text": "I used to spend 3 hours on paperwork every evening. Now I upload notes in 30 seconds and students get them instantly."
+      },
+      "aishaJabari": {
+        "role": "Student, Grade 11",
+        "text": "Finally a school app that feels good to use. I can see all my assignments, grades, and announcements in one place."
+      },
+      "davidLee": {
+        "role": "District Superintendent",
+        "text": "The admin analytics dashboard gives us real-time visibility across all campuses. Decision-making has never been this fast."
+      }
     },
     "pricingSection": {
       "badge": "Pricing",
@@ -192,21 +304,75 @@
       "mostPopular": "Most Popular"
     },
     "pricing": {
-      "starter":  { "name": "Starter",  "desc": "Perfect for small schools getting started.", "cta": "Get Started Free", "feats": ["Up to 100 students","5 teachers","Basic analytics","2GB storage","Email support"] },
-      "school":   { "name": "School",   "desc": "Everything a growing school needs.", "cta": "Start Free Trial", "feats": ["Unlimited students","Unlimited teachers","Advanced analytics","100GB storage","Priority support","Custom branding","API access"] },
-      "district": { "name": "District", "desc": "Multi-school deployment with full control.", "cta": "Contact Sales", "feats": ["Multiple campuses","SSO integration","Dedicated manager","SLA guarantee","Custom integrations","On-site training"] }
+      "starter": {
+        "name": "Starter",
+        "desc": "Perfect for small schools getting started.",
+        "cta": "Get Started Free",
+        "feats": [
+          "Up to 100 students",
+          "5 teachers",
+          "Basic analytics",
+          "2GB storage",
+          "Email support"
+        ]
+      },
+      "school": {
+        "name": "School",
+        "desc": "Everything a growing school needs.",
+        "cta": "Start Free Trial",
+        "feats": [
+          "Unlimited students",
+          "Unlimited teachers",
+          "Advanced analytics",
+          "100GB storage",
+          "Priority support",
+          "Custom branding",
+          "API access"
+        ]
+      },
+      "district": {
+        "name": "District",
+        "desc": "Multi-school deployment with full control.",
+        "cta": "Contact Sales",
+        "feats": [
+          "Multiple campuses",
+          "SSO integration",
+          "Dedicated manager",
+          "SLA guarantee",
+          "Custom integrations",
+          "On-site training"
+        ]
+      }
     },
     "faqSection": {
       "title": "Frequently Asked Questions",
       "subtitle": "Everything you need to know before getting started."
     },
     "faqs": [
-      { "q": "How quickly can we get started?",   "a": "Most schools are fully set up in under 30 minutes. Our onboarding wizard guides you through creating classes, adding teachers, and enrolling students step by step." },
-      { "q": "Does EDUPLA support TVET curriculum structures?", "a": "Yes — every class can be linked to a Sector, Trade, Qualification Title and RTQF Level. Modules inherit that structure, and Formative, Integrated and Comprehensive assessments are tracked per module automatically." },
-      { "q": "How are reports generated?",        "a": "Once a teacher submits marks and an admin approves them, student report cards, assessment reports and class performance reports are generated automatically — always reflecting the latest approved marks." },
-      { "q": "Is student data kept private?",     "a": "Absolutely. All data is encrypted at rest and in transit. We never sell user data and comply fully with data-privacy best practices." },
-      { "q": "Can teachers work offline?",        "a": "Lesson planning and document drafting work offline. Submissions and grading sync automatically when back online." },
-      { "q": "Do you support multiple campuses?", "a": "Yes — our District plan supports unlimited campuses with centralised reporting and per-campus admin roles." }
+      {
+        "q": "How quickly can we get started?",
+        "a": "Most schools are fully set up in under 30 minutes. Our onboarding wizard guides you through creating classes, adding teachers, and enrolling students step by step."
+      },
+      {
+        "q": "Does EDUPLA support TVET curriculum structures?",
+        "a": "Yes — every class can be linked to a Sector, Trade, Qualification Title and RTQF Level. Modules inherit that structure, and Formative, Integrated and Comprehensive assessments are tracked per module automatically."
+      },
+      {
+        "q": "How are reports generated?",
+        "a": "Once a teacher submits marks and an admin approves them, student report cards, assessment reports and class performance reports are generated automatically — always reflecting the latest approved marks."
+      },
+      {
+        "q": "Is student data kept private?",
+        "a": "Absolutely. All data is encrypted at rest and in transit. We never sell user data and comply fully with data-privacy best practices."
+      },
+      {
+        "q": "Can teachers work offline?",
+        "a": "Lesson planning and document drafting work offline. Submissions and grading sync automatically when back online."
+      },
+      {
+        "q": "Do you support multiple campuses?",
+        "a": "Yes — our District plan supports unlimited campuses with centralised reporting and per-campus admin roles."
+      }
     ],
     "finalCta": {
       "badge": "Join 2,400+ students already learning",

@@ -119,4 +119,59 @@ const getMyClasses = async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
-module.exports = { getClasses, getClass, createClass, updateClass, deleteClass, getClassStudents, getMyClasses };
+// Student: get modules (courses) assigned to the class(es) they're enrolled
+// in, each with the teacher who teaches it. A module may be shared across
+// several classes, so we match on both the legacy class_id and the newer
+// class_ids array.
+const getMyModules = async (req, res) => {
+  try {
+    const { Course } = require('../models/db');
+    const studentId = new mongoose.Types.ObjectId(req.session.user.id);
+
+    const classes = await Class.find({ students: studentId }, 'name level trade').lean();
+    if (!classes.length) return res.json({ modules: [] });
+
+    const classIds = classes.map(c => c._id);
+    const classById = {};
+    classes.forEach(c => { classById[c._id.toString()] = c; });
+
+    const courses = await Course.find({
+      is_active: true,
+      $or: [
+        { class_id:  { $in: classIds } },
+        { class_ids: { $in: classIds } },
+      ],
+    })
+      .populate('teacher_id', 'name email')
+      .sort({ name: 1 })
+      .lean();
+
+    const modules = courses.map(c => {
+      // A module can span multiple of the student's classes; list the ones
+      // relevant to this student specifically.
+      const ownClassIds = [
+        ...(c.class_id ? [c.class_id.toString()] : []),
+        ...(c.class_ids || []).map(id => id.toString()),
+      ];
+      const relevantClasses = [...new Set(ownClassIds)]
+        .filter(id => classById[id])
+        .map(id => ({ id, name: classById[id].name }));
+
+      return {
+        id: c._id,
+        name: c.name,
+        code: c.code,
+        description: c.description,
+        category: c.category,
+        total_marks: c.total_marks,
+        teacher_name: c.teacher_id?.name || null,
+        teacher_email: c.teacher_id?.email || null,
+        classes: relevantClasses,
+      };
+    });
+
+    res.json({ modules });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+module.exports = { getClasses, getClass, createClass, updateClass, deleteClass, getClassStudents, getMyClasses, getMyModules };

@@ -2021,3 +2021,539 @@ html { scroll-behavior: smooth; }
     transition: none !important;
   }
 }
+
+/* ═══════════════════════════════════════════════
+   STUDENT MODULES PAGE — signature interaction layer.
+   Every module card carries its category's accent color
+   (--modx-accent, set inline per-card) through its top
+   bar, icon badge, teacher avatar and hover glow, so the
+   grid reads as color-coded at a glance rather than a
+   flat list.
+   ═══════════════════════════════════════════════ */
+
+@keyframes modxRise {
+  from { opacity: 0; transform: translateY(14px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes modxDrift {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); }
+  50%      { transform: translate(-50%, -46%) scale(1.06); }
+}
+@keyframes modxShimmer {
+  0%   { transform: translateX(-130%) skewX(-14deg); opacity: 0; }
+  15%  { opacity: 1; }
+  100% { transform: translateX(230%) skewX(-14deg); opacity: 0; }
+}
+@keyframes modxPillIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes modxCountUp {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Hero banner */
+.modx-hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: 26px;
+  padding: 30px 32px;
+  background: linear-gradient(135deg, #211d4f 0%, #362a72 46%, #4338ca 100%);
+  color: #fff;
+  isolation: isolate;
+}
+.dark .modx-hero {
+  background: linear-gradient(135deg, #0f0c28 0%, #201a49 46%, #322169 100%);
+}
+.modx-hero-glow {
+  position: absolute;
+  top: 50%; left: 18%;
+  width: 460px; height: 460px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(129,140,248,0.45), transparent 70%);
+  filter: blur(10px);
+  pointer-events: none;
+  animation: modxDrift 9s ease-in-out infinite;
+  z-index: 0;
+}
+.modx-hero-glow-2 {
+  position: absolute;
+  top: 30%; right: 6%;
+  width: 320px; height: 320px;
+  transform: translate(0, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(236,72,153,0.28), transparent 72%);
+  filter: blur(8px);
+  pointer-events: none;
+  animation: modxDrift 11s ease-in-out infinite reverse;
+  z-index: 0;
+}
+.modx-hero-dots {
+  position: absolute; inset: 0;
+  background-image: radial-gradient(circle, rgba(255,255,255,0.09) 1px, transparent 1px);
+  background-size: 22px 22px;
+  mask-image: linear-gradient(180deg, rgba(0,0,0,0.7), transparent 85%);
+  pointer-events: none;
+  z-index: 0;
+}
+.modx-hero-content { position: relative; z-index: 1; }
+
+.modx-hero-icon {
+  width: 46px; height: 46px;
+  border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,0.14);
+  border: 1px solid rgba(255,255,255,0.22);
+  backdrop-filter: blur(6px);
+  animation: modxRise 0.4s cubic-bezier(0.16,1,0.3,1) both;
+}
+
+.modx-hero-stat {
+  position: relative;
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 16px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.16);
+  backdrop-filter: blur(6px);
+  animation: modxPillIn 0.4s cubic-bezier(0.16,1,0.3,1) both;
+  transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), background 0.2s ease;
+}
+.modx-hero-stat:hover { transform: translateY(-2px); background: rgba(255,255,255,0.13); }
+.modx-hero-stat-num {
+  font-family: 'Sora', sans-serif;
+  font-weight: 800; font-size: 20px; line-height: 1;
+  animation: modxCountUp 0.5s cubic-bezier(0.16,1,0.3,1) both;
+}
+
+/* Search + filters */
+.modx-toolbar {
+  display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+  animation: modxRise 0.35s cubic-bezier(0.16,1,0.3,1) both;
+}
+.modx-search-wrap { position: relative; flex: 1 1 240px; min-width: 200px; }
+.modx-search-input {
+  width: 100%;
+  padding: 10px 14px 10px 38px;
+  border-radius: 13px;
+  font-size: 13px;
+  background: var(--input-bg);
+  border: 1.5px solid var(--input-border);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.modx-search-input:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.14);
+}
+.modx-search-icon {
+  position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+  color: var(--text-secondary); pointer-events: none;
+}
+.modx-search-clear {
+  position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+  width: 20px; height: 20px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-secondary); cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.modx-search-clear:hover { background: var(--surface-100); color: var(--text-primary); }
+
+.modx-filter-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.modx-filter-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 13px;
+  border-radius: 999px;
+  font-size: 12px; font-weight: 700;
+  border: 1.5px solid var(--card-border);
+  background: var(--card-bg);
+  color: var(--text-secondary);
+  cursor: pointer; white-space: nowrap;
+  transition: transform 0.18s cubic-bezier(0.34,1.56,0.64,1), border-color 0.18s ease, color 0.18s ease, background 0.18s ease;
+}
+.modx-filter-pill:hover { transform: translateY(-1px); color: var(--text-primary); }
+.modx-filter-pill.modx-filter-active {
+  color: #fff;
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--modx-accent, #6366f1), color-mix(in srgb, var(--modx-accent, #6366f1) 70%, #000 30%));
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--modx-accent, #6366f1) 40%, transparent);
+}
+.modx-filter-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+
+/* Grid + staggered entrance */
+.modx-grid > * {
+  animation: modxRise 0.4s cubic-bezier(0.16,1,0.3,1) both;
+  animation-delay: calc(var(--i, 0) * 55ms);
+}
+
+/* Module card */
+.modx-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 20px;
+  padding: 20px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  transition: transform 0.25s cubic-bezier(0.16,1,0.3,1), box-shadow 0.25s ease, border-color 0.25s ease;
+}
+.modx-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 4px;
+  background: linear-gradient(90deg, var(--modx-accent, #6366f1), color-mix(in srgb, var(--modx-accent, #6366f1) 55%, #fff 20%));
+}
+.modx-card::after {
+  content: '';
+  position: absolute; top: 0; left: 0; bottom: 0; width: 40%;
+  background: linear-gradient(100deg, transparent, color-mix(in srgb, var(--modx-accent, #6366f1) 18%, transparent), transparent);
+  pointer-events: none;
+  opacity: 0;
+}
+.modx-card:hover {
+  transform: translateY(-4px);
+  border-color: color-mix(in srgb, var(--modx-accent, #6366f1) 45%, var(--card-border));
+  box-shadow: 0 16px 34px color-mix(in srgb, var(--modx-accent, #6366f1) 20%, transparent), 0 2px 8px rgba(0,0,0,0.06);
+}
+.modx-card:hover::after { animation: modxShimmer 0.9s ease forwards; }
+
+.modx-icon-badge {
+  width: 44px; height: 44px;
+  border-radius: 13px;
+  display: flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--modx-accent, #6366f1) 16%, var(--card-bg));
+  color: var(--modx-accent, #6366f1);
+  flex-shrink: 0;
+  transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
+}
+.modx-card:hover .modx-icon-badge { transform: scale(1.12) rotate(-6deg); }
+
+.modx-cat-pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 9px;
+  border-radius: 8px;
+  font-size: 10.5px; font-weight: 700;
+  letter-spacing: 0.02em;
+  background: color-mix(in srgb, var(--modx-accent, #6366f1) 14%, var(--card-bg));
+  color: var(--modx-accent, #6366f1);
+}
+
+.modx-divider { height: 1px; background: var(--card-border); margin: 14px 0 12px; }
+
+.modx-avatar {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10.5px; font-weight: 800; color: #fff;
+  background: linear-gradient(135deg, var(--modx-accent, #6366f1), color-mix(in srgb, var(--modx-accent, #6366f1) 65%, #000 25%));
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--modx-accent, #6366f1) 45%, transparent);
+}
+
+.modx-class-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 10.5px; font-weight: 600;
+  background: var(--surface-100);
+  color: var(--text-secondary);
+  border: 1px solid var(--card-border);
+  transition: transform 0.18s cubic-bezier(0.34,1.56,0.64,1), border-color 0.18s ease;
+}
+.modx-card:hover .modx-class-chip { border-color: color-mix(in srgb, var(--modx-accent, #6366f1) 35%, var(--card-border)); }
+
+/* Empty / no-results state */
+.modx-empty {
+  position: relative;
+  overflow: hidden;
+  border-radius: 22px;
+  padding: 56px 24px;
+  text-align: center;
+  border: 1.5px dashed var(--card-border);
+  background: var(--card-bg);
+  animation: modxRise 0.4s cubic-bezier(0.16,1,0.3,1) both;
+}
+.modx-empty-icon {
+  width: 64px; height: 64px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 16px;
+  background: linear-gradient(135deg, rgba(99,102,241,0.14), rgba(99,102,241,0.06));
+  border: 1.5px solid rgba(99,102,241,0.2);
+  color: #6366f1;
+}
+
+/* Skeleton loading cards */
+.modx-skel-card {
+  border-radius: 20px;
+  padding: 20px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  animation: modxRise 0.3s ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modx-hero-glow, .modx-hero-glow-2, .modx-hero-icon, .modx-hero-stat, .modx-hero-stat-num,
+  .modx-toolbar, .modx-filter-pill, .modx-grid > *, .modx-card, .modx-card::after,
+  .modx-icon-badge, .modx-class-chip, .modx-empty, .modx-skel-card {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   STUDENT "MY CLASS" PAGE — a class is treated as a
+   certificate/enrollment card rather than a plain tile:
+   a colored banner carries a fine security-print stripe
+   texture and a rotated "seal" badge (the class level),
+   with a ghost class-icon watermark drifting behind the
+   title. --clsx-from/--clsx-to/--clsx-accent are set
+   per-card so each class gets its own stable identity.
+   ═══════════════════════════════════════════════ */
+
+@keyframes clsxRise {
+  from { opacity: 0; transform: translateY(16px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes clsxFloat {
+  0%, 100% { transform: translateY(0) rotate(-8deg); }
+  50%      { transform: translateY(-6px) rotate(-5deg); }
+}
+@keyframes clsxSealPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0.0); }
+  50%      { box-shadow: 0 0 0 6px rgba(255,255,255,0.06); }
+}
+@keyframes clsxShine {
+  0%   { transform: translateX(-140%) skewX(-16deg); opacity: 0; }
+  20%  { opacity: 0.9; }
+  100% { transform: translateX(220%) skewX(-16deg); opacity: 0; }
+}
+@keyframes clsxStatPop {
+  from { opacity: 0; transform: translateY(6px) scale(0.94); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.clsx-stack > * {
+  animation: clsxRise 0.45s cubic-bezier(0.16,1,0.3,1) both;
+  animation-delay: calc(var(--i, 0) * 90ms);
+}
+
+.clsx-card {
+  position: relative;
+  border-radius: 26px;
+  overflow: hidden;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  transition: transform 0.3s cubic-bezier(0.16,1,0.3,1), box-shadow 0.3s ease, border-color 0.3s ease;
+}
+.clsx-card:hover {
+  transform: translateY(-4px);
+  border-color: color-mix(in srgb, var(--clsx-accent, #818cf8) 45%, var(--card-border));
+  box-shadow: 0 22px 46px color-mix(in srgb, var(--clsx-accent, #818cf8) 22%, transparent), 0 2px 10px rgba(0,0,0,0.08);
+}
+
+/* Banner (top, colored) */
+.clsx-banner {
+  position: relative;
+  overflow: hidden;
+  padding: 26px 26px 22px;
+  color: #fff;
+  background: linear-gradient(135deg, var(--clsx-from, #4338ca) 0%, var(--clsx-to, #7c3aed) 100%);
+  isolation: isolate;
+}
+.clsx-stripes {
+  position: absolute; inset: 0;
+  background-image: repeating-linear-gradient(
+    115deg,
+    rgba(255,255,255,0.07) 0px, rgba(255,255,255,0.07) 1.5px,
+    transparent 1.5px, transparent 13px
+  );
+  mask-image: radial-gradient(circle at 30% 30%, black, transparent 85%);
+  pointer-events: none;
+  z-index: 0;
+}
+.clsx-watermark {
+  position: absolute;
+  right: -18px; bottom: -26px;
+  opacity: 0.16;
+  color: #fff;
+  pointer-events: none;
+  z-index: 0;
+  animation: clsxFloat 7s ease-in-out infinite;
+}
+.clsx-card:hover .clsx-watermark { opacity: 0.24; }
+
+.clsx-shine {
+  position: absolute; top: 0; left: 0; bottom: 0; width: 45%;
+  background: linear-gradient(100deg, transparent, rgba(255,255,255,0.16), transparent);
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0;
+}
+.clsx-card:hover .clsx-shine { animation: clsxShine 1s ease forwards; }
+
+.clsx-seal {
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+  width: 58px; height: 58px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column;
+  background: rgba(255,255,255,0.14);
+  border: 1.5px dashed rgba(255,255,255,0.55);
+  backdrop-filter: blur(4px);
+  transform: rotate(-8deg);
+  animation: clsxSealPulse 3s ease-in-out infinite;
+  transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+}
+.clsx-card:hover .clsx-seal { transform: rotate(0deg) scale(1.05); }
+.clsx-seal-label { font-size: 7.5px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.85; line-height: 1; }
+.clsx-seal-value { font-family: 'Sora', sans-serif; font-size: 13px; font-weight: 800; line-height: 1.1; }
+
+.clsx-glass-pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 11px;
+  border-radius: 999px;
+  font-size: 11px; font-weight: 700;
+  background: rgba(255,255,255,0.16);
+  border: 1px solid rgba(255,255,255,0.28);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  position: relative; z-index: 1;
+}
+
+/* Bottom panel (teacher + stats, plain surface) */
+.clsx-panel {
+  position: relative;
+  padding: 18px 26px 22px;
+  border-top: 1px solid var(--card-border);
+}
+
+.clsx-teacher-row {
+  display: flex; align-items: center; gap: 12px;
+}
+.clsx-teacher-avatar {
+  width: 46px; height: 46px;
+  border-radius: 15px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Sora', sans-serif;
+  font-size: 15px; font-weight: 800; color: #fff;
+  background: linear-gradient(135deg, var(--clsx-from, #4338ca), var(--clsx-to, #7c3aed));
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--clsx-accent, #818cf8) 45%, transparent);
+  flex-shrink: 0;
+  transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+}
+.clsx-card:hover .clsx-teacher-avatar { transform: scale(1.06) rotate(-3deg); }
+
+.clsx-stat-row { display: flex; gap: 10px; margin-top: 16px; }
+.clsx-stat-tile {
+  flex: 1;
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 13px;
+  border-radius: 14px;
+  background: var(--surface-100);
+  border: 1px solid var(--card-border);
+  animation: clsxStatPop 0.4s cubic-bezier(0.16,1,0.3,1) both;
+  transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), border-color 0.2s ease, background 0.2s ease;
+}
+.clsx-stat-tile:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--clsx-accent, #818cf8) 40%, var(--card-border));
+  background: color-mix(in srgb, var(--clsx-accent, #818cf8) 8%, var(--surface-100));
+}
+.clsx-stat-icon {
+  width: 32px; height: 32px;
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--clsx-accent, #818cf8) 18%, var(--card-bg));
+  color: var(--clsx-accent, #818cf8);
+  flex-shrink: 0;
+}
+.clsx-stat-num { font-family: 'Sora', sans-serif; font-weight: 800; font-size: 15px; line-height: 1.1; color: var(--text-primary); }
+.clsx-stat-label { font-size: 10.5px; color: var(--text-secondary); font-weight: 600; }
+
+/* Empty state + skeleton reuse modx-empty; dedicated skeleton banner below */
+.clsx-skel-card {
+  border-radius: 26px;
+  overflow: hidden;
+  border: 1px solid var(--card-border);
+  background: var(--card-bg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .clsx-stack > *, .clsx-card, .clsx-watermark, .clsx-shine, .clsx-seal,
+  .clsx-teacher-avatar, .clsx-stat-tile {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ── Teacher profile block within the class card ─────────────────────
+   A distinct, slightly elevated panel (not just a plain row) so the class
+   teacher reads as a real profile — avatar with a role badge, name, and a
+   one-click copy on the email — rather than a caption line. */
+.clsx-teacher-card {
+  position: relative;
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--clsx-accent, #818cf8) 7%, var(--card-bg));
+  border: 1px solid color-mix(in srgb, var(--clsx-accent, #818cf8) 18%, var(--card-border));
+  transition: transform 0.22s cubic-bezier(0.34,1.56,0.64,1), border-color 0.22s ease, background 0.22s ease;
+}
+.clsx-teacher-card:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--clsx-accent, #818cf8) 38%, var(--card-border));
+  background: color-mix(in srgb, var(--clsx-accent, #818cf8) 11%, var(--card-bg));
+}
+.clsx-teacher-avatar-wrap { position: relative; flex-shrink: 0; }
+.clsx-role-badge {
+  position: absolute; right: -3px; bottom: -3px;
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--clsx-accent, #818cf8);
+  color: #fff;
+  border: 2px solid var(--card-bg);
+}
+.clsx-role-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 9.5px; font-weight: 800; letter-spacing: 0.03em; text-transform: uppercase;
+  background: color-mix(in srgb, var(--clsx-accent, #818cf8) 18%, transparent);
+  color: var(--clsx-accent, #818cf8);
+}
+.clsx-email-row {
+  display: inline-flex; align-items: center; gap: 5px;
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+.clsx-email-row:hover { color: var(--clsx-accent, #818cf8); }
+.clsx-copy-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px;
+  border-radius: 9px;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+.clsx-copy-btn:hover {
+  background: color-mix(in srgb, var(--clsx-accent, #818cf8) 14%, transparent);
+  border-color: color-mix(in srgb, var(--clsx-accent, #818cf8) 30%, transparent);
+  color: var(--clsx-accent, #818cf8);
+}
+.clsx-copy-btn:active { transform: scale(0.92); }
+.clsx-copy-btn.clsx-copied { color: #10b981; }
+
+@media (prefers-reduced-motion: reduce) {
+  .clsx-teacher-card, .clsx-copy-btn { transition: none !important; }
+}

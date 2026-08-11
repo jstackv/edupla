@@ -37,6 +37,7 @@ const TeacherGroups = lazy(() => import('./pages/teacher/Groups'));
 
 const StudentDashboard = lazy(() => import('./pages/student/Dashboard'));
 const StudentClasses = lazy(() => import('./pages/student/Classes'));
+const StudentModules = lazy(() => import('./pages/student/Modules'));
 const StudentDocuments = lazy(() => import('./pages/student/Documents'));
 const StudentAssignments = lazy(() => import('./pages/student/Assignments'));
 const StudentAnnouncements = lazy(() => import('./pages/student/Announcements'));
@@ -287,6 +288,7 @@ function AppRoutes() {
       {/* Student routes */}
       <Route path="/student/dashboard"     element={<StudentRoute><StudentDashboard /></StudentRoute>} />
       <Route path="/student/classes"       element={<StudentRoute><StudentClasses /></StudentRoute>} />
+      <Route path="/student/modules"       element={<StudentRoute><StudentModules /></StudentRoute>} />
       <Route path="/student/documents"     element={<StudentRoute><StudentDocuments /></StudentRoute>} />
       <Route path="/student/assignments"   element={<StudentRoute><StudentAssignments /></StudentRoute>} />
       <Route path="/student/announcements" element={<StudentRoute><StudentAnnouncements /></StudentRoute>} />

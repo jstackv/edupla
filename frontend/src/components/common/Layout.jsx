@@ -12,6 +12,7 @@ import {
   GraduationCap, BookMarked, Notebook, Shield, UserCheck,
   UserCircle, Settings, Bell, Search, Home,
   Layers, UserPlus, AlertTriangle, X, Crown, ClipboardCheck,
+  LibraryBig,
 } from 'lucide-react';
 import NotificationPanel from './NotificationPanel';
 import LanguageSwitcher from './LanguageSwitcher';
@@ -34,6 +35,7 @@ const TeacherLinks = [
 const StudentLinks = [
   { to: '/student/dashboard',     icon: LayoutDashboard, labelKey: 'nav.dashboard',     section: 'main' },
   { to: '/student/classes',       icon: BookMarked,      labelKey: 'nav.myClasses',     section: 'main' },
+  { to: '/student/modules',       icon: LibraryBig,      labelKey: 'nav.modules',       section: 'main' },
   { to: '/student/documents',     icon: Notebook,        labelKey: 'nav.notesAndDocs',  section: 'manage' },
   { to: '/student/assignments',   icon: ClipboardList,   labelKey: 'nav.assignments',   section: 'manage' },
   { to: '/student/assessments',   icon: ClipboardCheck,  labelKey: 'nav.assessments',   section: 'manage' },

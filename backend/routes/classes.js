@@ -1,10 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const { isAuthenticated, isTeacher } = require('../middleware/auth');
-const { getClasses, getClass, updateClass, deleteClass, getClassStudents, getMyClasses } = require('../controllers/classController');
+const { getClasses, getClass, updateClass, deleteClass, getClassStudents, getMyClasses, getMyModules } = require('../controllers/classController');
 
 // Student endpoint - get classes they're enrolled in
 router.get('/my', isAuthenticated, getMyClasses);
+// Student endpoint - get modules assigned to their class(es), with teachers
+router.get('/my/modules', isAuthenticated, getMyModules);
 
 // Teacher endpoints - view their assigned classes & students
 router.get('/', isAuthenticated, isTeacher, getClasses);

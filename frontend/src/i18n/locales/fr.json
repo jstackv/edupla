@@ -19,6 +19,7 @@
   "nav": {
     "dashboard": "Tableau de bord",
     "myClasses": "Mes classes",
+    "modules": "Modules",
     "students": "Étudiants",
     "documents": "Documents",
     "assignments": "Devoirs",
@@ -116,21 +117,66 @@
       "subtitle": "Chaque fonctionnalité pensée pour les éducateurs — intuitive, rapide et vraiment agréable à utiliser."
     },
     "features": {
-      "documentManagement": { "label": "Gestion des documents", "desc": "Téléchargez, organisez et prévisualisez notes, PDF et ressources de classe par module — avec aperçu intégré et suivi des téléchargements." },
-      "assignmentWorkflow": { "label": "Flux de travail des devoirs", "desc": "Créez des devoirs avec échéances, collectez les soumissions, corrigez en masse et renvoyez des commentaires — tout est suivi automatiquement." },
-      "teacherManagement": { "label": "Gestion des enseignants", "desc": "Les administrateurs intègrent les enseignants, les affectent aux classes et modules, et gèrent des co-enseignants supplémentaires par classe." },
-      "studentManagement": { "label": "Gestion des étudiants", "desc": "Inscrivez les étudiants par niveau, filière et année, importez des dossiers en masse et suivez chaque apprenant dans un seul annuaire." },
-      "assessmentModules": { "label": "Évaluations et modules", "desc": "Configurez des modules avec notes pondérées, puis exécutez des évaluations Formatives (FA), Intégrées (IA) et Complètes (CA) par classe." },
-      "onlineAssessments": { "label": "Évaluations en ligne et correction automatique", "desc": "Créez des quiz à choix multiples, d'association et à réponses ouvertes, partagez un lien chronométré avec un nombre de tentatives limité — les questions et options sont mélangées pour chaque étudiant, le minuteur soumet automatiquement à l'échéance, et les réponses sont corrigées instantanément (avec correction manuelle pour les questions ouvertes)." },
-      "reportManagement": { "label": "Gestion des rapports", "desc": "Générez des bulletins d'étudiants, des analyses par évaluation et des rapports complets de performance de classe, classés automatiquement." },
-      "tvetCurriculumSetup": { "label": "Configuration du programme EFTP", "desc": "Définissez le Secteur, la Filière, le Titre de qualification et le Niveau RTQF par classe — entièrement aligné sur les programmes EFTP basés sur les compétences." },
-      "markApprovalFlow": { "label": "Flux d'approbation des notes", "desc": "Les notes passent par Brouillon → Soumis → Approuvé avec révision administrative, afin que les rapports reflètent toujours des résultats vérifiés." },
-      "smartAnnouncements": { "label": "Annonces intelligentes", "desc": "Notifications à l'échelle de la classe ou de l'école avec suivi de lecture, afin que rien d'important ne soit jamais manqué." },
-      "groupCollaboration": { "label": "Collaboration de groupe", "desc": "Groupes de discussion animés par les enseignants avec chefs d'équipe, plus messagerie optionnelle entre pairs au sein d'une classe." },
-      "enterpriseSecurity": { "label": "Sécurité d'entreprise", "desc": "Authentification par session, permissions par rôle, stockage de fichiers chiffré et pistes d'audit complètes intégrées." },
-      "anyDevice": { "label": "Tous les appareils", "desc": "Portails admin, enseignant et étudiant entièrement réactifs — parfaits sur ordinateur, tablette et mobile." },
-      "realTimeNotifications": { "label": "Notifications en temps réel", "desc": "Un centre de notifications dédié avec compteurs non lus, marquage comme lu et effacement global, afin que chaque note, message et alerte atteigne instantanément la bonne personne." },
-      "directMessaging": { "label": "Messagerie directe et notes vocales", "desc": "Fils privés enseignant-étudiant et discussion entre pairs, avec notes vocales et partage de médias intégrés à chaque conversation." }
+      "documentManagement": {
+        "label": "Gestion des documents",
+        "desc": "Téléchargez, organisez et prévisualisez notes, PDF et ressources de classe par module — avec aperçu intégré et suivi des téléchargements."
+      },
+      "assignmentWorkflow": {
+        "label": "Flux de travail des devoirs",
+        "desc": "Créez des devoirs avec échéances, collectez les soumissions, corrigez en masse et renvoyez des commentaires — tout est suivi automatiquement."
+      },
+      "teacherManagement": {
+        "label": "Gestion des enseignants",
+        "desc": "Les administrateurs intègrent les enseignants, les affectent aux classes et modules, et gèrent des co-enseignants supplémentaires par classe."
+      },
+      "studentManagement": {
+        "label": "Gestion des étudiants",
+        "desc": "Inscrivez les étudiants par niveau, filière et année, importez des dossiers en masse et suivez chaque apprenant dans un seul annuaire."
+      },
+      "assessmentModules": {
+        "label": "Évaluations et modules",
+        "desc": "Configurez des modules avec notes pondérées, puis exécutez des évaluations Formatives (FA), Intégrées (IA) et Complètes (CA) par classe."
+      },
+      "onlineAssessments": {
+        "label": "Évaluations en ligne et correction automatique",
+        "desc": "Créez des quiz à choix multiples, d'association et à réponses ouvertes, partagez un lien chronométré avec un nombre de tentatives limité — les questions et options sont mélangées pour chaque étudiant, le minuteur soumet automatiquement à l'échéance, et les réponses sont corrigées instantanément (avec correction manuelle pour les questions ouvertes)."
+      },
+      "reportManagement": {
+        "label": "Gestion des rapports",
+        "desc": "Générez des bulletins d'étudiants, des analyses par évaluation et des rapports complets de performance de classe, classés automatiquement."
+      },
+      "tvetCurriculumSetup": {
+        "label": "Configuration du programme EFTP",
+        "desc": "Définissez le Secteur, la Filière, le Titre de qualification et le Niveau RTQF par classe — entièrement aligné sur les programmes EFTP basés sur les compétences."
+      },
+      "markApprovalFlow": {
+        "label": "Flux d'approbation des notes",
+        "desc": "Les notes passent par Brouillon → Soumis → Approuvé avec révision administrative, afin que les rapports reflètent toujours des résultats vérifiés."
+      },
+      "smartAnnouncements": {
+        "label": "Annonces intelligentes",
+        "desc": "Notifications à l'échelle de la classe ou de l'école avec suivi de lecture, afin que rien d'important ne soit jamais manqué."
+      },
+      "groupCollaboration": {
+        "label": "Collaboration de groupe",
+        "desc": "Groupes de discussion animés par les enseignants avec chefs d'équipe, plus messagerie optionnelle entre pairs au sein d'une classe."
+      },
+      "enterpriseSecurity": {
+        "label": "Sécurité d'entreprise",
+        "desc": "Authentification par session, permissions par rôle, stockage de fichiers chiffré et pistes d'audit complètes intégrées."
+      },
+      "anyDevice": {
+        "label": "Tous les appareils",
+        "desc": "Portails admin, enseignant et étudiant entièrement réactifs — parfaits sur ordinateur, tablette et mobile."
+      },
+      "realTimeNotifications": {
+        "label": "Notifications en temps réel",
+        "desc": "Un centre de notifications dédié avec compteurs non lus, marquage comme lu et effacement global, afin que chaque note, message et alerte atteigne instantanément la bonne personne."
+      },
+      "directMessaging": {
+        "label": "Messagerie directe et notes vocales",
+        "desc": "Fils privés enseignant-étudiant et discussion entre pairs, avec notes vocales et partage de médias intégrés à chaque conversation."
+      }
     },
     "curriculumSection": {
       "badge": "Conçu pour l'EFTP",
@@ -142,27 +188,72 @@
       "reportsSubtitle": "Une fois les notes approuvées, chaque rapport ci-dessous se met à jour automatiquement — aucun tableur requis."
     },
     "curriculum": {
-      "sector":              { "label": "Secteur",              "example": "ex. TIC, Construction, Hôtellerie" },
-      "trade":               { "label": "Filière",               "example": "ex. Développement logiciel, Électricité" },
-      "qualificationTitle":  { "label": "Titre de qualification", "example": "ex. Programmes de certificat, diplôme" },
-      "rtqfLevel":           { "label": "Niveau RTQF",            "example": "ex. Niveau 3, 4, 5" },
-      "modules":             { "label": "Modules",                "example": "Complémentaire · Général · Spécifique · Optionnel" }
+      "sector": {
+        "label": "Secteur",
+        "example": "ex. TIC, Construction, Hôtellerie"
+      },
+      "trade": {
+        "label": "Filière",
+        "example": "ex. Développement logiciel, Électricité"
+      },
+      "qualificationTitle": {
+        "label": "Titre de qualification",
+        "example": "ex. Programmes de certificat, diplôme"
+      },
+      "rtqfLevel": {
+        "label": "Niveau RTQF",
+        "example": "ex. Niveau 3, 4, 5"
+      },
+      "modules": {
+        "label": "Modules",
+        "example": "Complémentaire · Général · Spécifique · Optionnel"
+      }
     },
     "assessmentTypes": {
-      "fa": { "name": "Évaluation formative", "desc": "Contrôles continus pendant l'enseignement pour suivre la compréhension." },
-      "ia": { "name": "Évaluation intégrée", "desc": "Évaluation de mi-parcours combinant plusieurs résultats d'apprentissage." },
-      "ca": { "name": "Évaluation complète", "desc": "Évaluation de fin de trimestre couvrant l'ensemble du module." }
+      "fa": {
+        "name": "Évaluation formative",
+        "desc": "Contrôles continus pendant l'enseignement pour suivre la compréhension."
+      },
+      "ia": {
+        "name": "Évaluation intégrée",
+        "desc": "Évaluation de mi-parcours combinant plusieurs résultats d'apprentissage."
+      },
+      "ca": {
+        "name": "Évaluation complète",
+        "desc": "Évaluation de fin de trimestre couvrant l'ensemble du module."
+      }
     },
     "markWorkflow": {
-      "draft":     { "label": "Brouillon",  "desc": "L'enseignant saisit les notes par étudiant pour l'évaluation." },
-      "submitted": { "label": "Soumis",     "desc": "L'enseignant soumet la feuille de notes complète pour révision." },
-      "approved":  { "label": "Approuvé",   "desc": "L'administrateur approuve — les notes sont verrouillées et les rapports mis à jour instantanément." },
-      "rejected":  { "label": "Rejeté",     "desc": "L'administrateur renvoie avec une note de révision pour correction." }
+      "draft": {
+        "label": "Brouillon",
+        "desc": "L'enseignant saisit les notes par étudiant pour l'évaluation."
+      },
+      "submitted": {
+        "label": "Soumis",
+        "desc": "L'enseignant soumet la feuille de notes complète pour révision."
+      },
+      "approved": {
+        "label": "Approuvé",
+        "desc": "L'administrateur approuve — les notes sont verrouillées et les rapports mis à jour instantanément."
+      },
+      "rejected": {
+        "label": "Rejeté",
+        "desc": "L'administrateur renvoie avec une note de révision pour correction."
+      }
     },
     "reportTypes": {
-      "studentReportCard":     { "label": "Bulletin de l'étudiant", "desc": "Un aperçu complet par étudiant à travers chaque module, trimestre et type d'évaluation." },
-      "assessmentReport":      { "label": "Rapport d'évaluation",   "desc": "Résultats classés pour une seule évaluation, avec moyenne de classe et percentile." },
-      "classPerformanceReport":{ "label": "Rapport de performance de classe", "desc": "Analyses à l'échelle de l'école ou par classe, réparties par modules, secteurs et filières." }
+      "studentReportCard": {
+        "label": "Bulletin de l'étudiant",
+        "desc": "Un aperçu complet par étudiant à travers chaque module, trimestre et type d'évaluation."
+      },
+      "assessmentReport": {
+        "label": "Rapport d'évaluation",
+        "desc": "Résultats classés pour une seule évaluation, avec moyenne de classe et percentile."
+      },
+      "classPerformanceReport": {
+        "label": "Rapport de performance de classe",
+        "desc": "Analyses à l'échelle de l'école ou par classe, réparties par modules, secteurs et filières."
+      }
     },
     "howItWorksSection": {
       "badge": "Intégration simple",
@@ -171,19 +262,40 @@
       "step": "Étape"
     },
     "steps": {
-      "adminConfigures": { "title": "L'administrateur configure", "desc": "Créez des classes, inscrivez des étudiants, affectez des enseignants et configurez les paramètres en quelques minutes." },
-      "teachersDeliver":  { "title": "Les enseignants enseignent",  "desc": "Téléchargez des supports, créez des devoirs avec échéances, suivez les soumissions et donnez des retours instantanément." },
-      "studentsThrive":   { "title": "Les étudiants s'épanouissent",   "desc": "Accédez à tout au même endroit — notes, devoirs, notes de classe et annonces toujours à jour." }
+      "adminConfigures": {
+        "title": "L'administrateur configure",
+        "desc": "Créez des classes, inscrivez des étudiants, affectez des enseignants et configurez les paramètres en quelques minutes."
+      },
+      "teachersDeliver": {
+        "title": "Les enseignants enseignent",
+        "desc": "Téléchargez des supports, créez des devoirs avec échéances, suivez les soumissions et donnez des retours instantanément."
+      },
+      "studentsThrive": {
+        "title": "Les étudiants s'épanouissent",
+        "desc": "Accédez à tout au même endroit — notes, devoirs, notes de classe et annonces toujours à jour."
+      }
     },
     "testimonialsSection": {
       "badge": "Témoignages",
       "title": "Aimé par les éducateurs partout"
     },
     "testimonials": {
-      "sarahKim":    { "role": "Principale, Westbridge Academy", "text": "EDUPLA a transformé la gestion de notre école. Notation, rapports et communication — tout sur une seule et magnifique plateforme." },
-      "marcusReid":  { "role": "Enseignant principal, Lincoln High",  "text": "Je passais 3 heures sur la paperasse chaque soir. Maintenant je télécharge les notes en 30 secondes et les étudiants les reçoivent instantanément." },
-      "aishaJabari": { "role": "Étudiante, 11e année",             "text": "Enfin une application scolaire agréable à utiliser. Je vois tous mes devoirs, notes et annonces au même endroit." },
-      "davidLee":    { "role": "Surintendant du district",       "text": "Le tableau de bord analytique administrateur nous donne une visibilité en temps réel sur tous les campus. La prise de décision n'a jamais été aussi rapide." }
+      "sarahKim": {
+        "role": "Principale, Westbridge Academy",
+        "text": "EDUPLA a transformé la gestion de notre école. Notation, rapports et communication — tout sur une seule et magnifique plateforme."
+      },
+      "marcusReid": {
+        "role": "Enseignant principal, Lincoln High",
+        "text": "Je passais 3 heures sur la paperasse chaque soir. Maintenant je télécharge les notes en 30 secondes et les étudiants les reçoivent instantanément."
+      },
+      "aishaJabari": {
+        "role": "Étudiante, 11e année",
+        "text": "Enfin une application scolaire agréable à utiliser. Je vois tous mes devoirs, notes et annonces au même endroit."
+      },
+      "davidLee": {
+        "role": "Surintendant du district",
+        "text": "Le tableau de bord analytique administrateur nous donne une visibilité en temps réel sur tous les campus. La prise de décision n'a jamais été aussi rapide."
+      }
     },
     "pricingSection": {
       "badge": "Tarifs",
@@ -192,21 +304,75 @@
       "mostPopular": "Le plus populaire"
     },
     "pricing": {
-      "starter":  { "name": "Starter",  "desc": "Parfait pour les petites écoles qui débutent.", "cta": "Commencer gratuitement", "feats": ["Jusqu'à 100 étudiants","5 enseignants","Analyses de base","2 Go de stockage","Support par e-mail"] },
-      "school":   { "name": "École",   "desc": "Tout ce dont une école en croissance a besoin.", "cta": "Essai gratuit", "feats": ["Étudiants illimités","Enseignants illimités","Analyses avancées","100 Go de stockage","Support prioritaire","Image de marque personnalisée","Accès API"] },
-      "district": { "name": "District", "desc": "Déploiement multi-écoles avec contrôle total.", "cta": "Contacter les ventes", "feats": ["Campus multiples","Intégration SSO","Gestionnaire dédié","Garantie SLA","Intégrations personnalisées","Formation sur site"] }
+      "starter": {
+        "name": "Starter",
+        "desc": "Parfait pour les petites écoles qui débutent.",
+        "cta": "Commencer gratuitement",
+        "feats": [
+          "Jusqu'à 100 étudiants",
+          "5 enseignants",
+          "Analyses de base",
+          "2 Go de stockage",
+          "Support par e-mail"
+        ]
+      },
+      "school": {
+        "name": "École",
+        "desc": "Tout ce dont une école en croissance a besoin.",
+        "cta": "Essai gratuit",
+        "feats": [
+          "Étudiants illimités",
+          "Enseignants illimités",
+          "Analyses avancées",
+          "100 Go de stockage",
+          "Support prioritaire",
+          "Image de marque personnalisée",
+          "Accès API"
+        ]
+      },
+      "district": {
+        "name": "District",
+        "desc": "Déploiement multi-écoles avec contrôle total.",
+        "cta": "Contacter les ventes",
+        "feats": [
+          "Campus multiples",
+          "Intégration SSO",
+          "Gestionnaire dédié",
+          "Garantie SLA",
+          "Intégrations personnalisées",
+          "Formation sur site"
+        ]
+      }
     },
     "faqSection": {
       "title": "Questions fréquentes",
       "subtitle": "Tout ce que vous devez savoir avant de commencer."
     },
     "faqs": [
-      { "q": "À quelle vitesse pouvons-nous démarrer ?",   "a": "La plupart des écoles sont entièrement configurées en moins de 30 minutes. Notre assistant d'intégration vous guide pas à pas dans la création de classes, l'ajout d'enseignants et l'inscription d'étudiants." },
-      { "q": "EDUPLA prend-il en charge les structures de programme EFTP ?", "a": "Oui — chaque classe peut être liée à un Secteur, une Filière, un Titre de qualification et un Niveau RTQF. Les modules héritent de cette structure, et les évaluations Formatives, Intégrées et Complètes sont suivies automatiquement par module." },
-      { "q": "Comment les rapports sont-ils générés ?",        "a": "Une fois qu'un enseignant soumet les notes et qu'un administrateur les approuve, les bulletins, rapports d'évaluation et rapports de performance de classe sont générés automatiquement — reflétant toujours les dernières notes approuvées." },
-      { "q": "Les données des étudiants restent-elles privées ?",     "a": "Absolument. Toutes les données sont chiffrées au repos et en transit. Nous ne vendons jamais les données des utilisateurs et respectons pleinement les meilleures pratiques de confidentialité." },
-      { "q": "Les enseignants peuvent-ils travailler hors ligne ?",        "a": "La planification des leçons et la rédaction de documents fonctionnent hors ligne. Les soumissions et la notation se synchronisent automatiquement à la reconnexion." },
-      { "q": "Prenez-vous en charge plusieurs campus ?", "a": "Oui — notre offre District prend en charge un nombre illimité de campus avec rapports centralisés et rôles d'administration par campus." }
+      {
+        "q": "À quelle vitesse pouvons-nous démarrer ?",
+        "a": "La plupart des écoles sont entièrement configurées en moins de 30 minutes. Notre assistant d'intégration vous guide pas à pas dans la création de classes, l'ajout d'enseignants et l'inscription d'étudiants."
+      },
+      {
+        "q": "EDUPLA prend-il en charge les structures de programme EFTP ?",
+        "a": "Oui — chaque classe peut être liée à un Secteur, une Filière, un Titre de qualification et un Niveau RTQF. Les modules héritent de cette structure, et les évaluations Formatives, Intégrées et Complètes sont suivies automatiquement par module."
+      },
+      {
+        "q": "Comment les rapports sont-ils générés ?",
+        "a": "Une fois qu'un enseignant soumet les notes et qu'un administrateur les approuve, les bulletins, rapports d'évaluation et rapports de performance de classe sont générés automatiquement — reflétant toujours les dernières notes approuvées."
+      },
+      {
+        "q": "Les données des étudiants restent-elles privées ?",
+        "a": "Absolument. Toutes les données sont chiffrées au repos et en transit. Nous ne vendons jamais les données des utilisateurs et respectons pleinement les meilleures pratiques de confidentialité."
+      },
+      {
+        "q": "Les enseignants peuvent-ils travailler hors ligne ?",
+        "a": "La planification des leçons et la rédaction de documents fonctionnent hors ligne. Les soumissions et la notation se synchronisent automatiquement à la reconnexion."
+      },
+      {
+        "q": "Prenez-vous en charge plusieurs campus ?",
+        "a": "Oui — notre offre District prend en charge un nombre illimité de campus avec rapports centralisés et rôles d'administration par campus."
+      }
     ],
     "finalCta": {
       "badge": "Rejoignez plus de 2 400 étudiants qui apprennent déjà",

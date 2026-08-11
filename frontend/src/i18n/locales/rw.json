@@ -19,6 +19,7 @@
   "nav": {
     "dashboard": "Imbonerahamwe",
     "myClasses": "Amashuri yanjye",
+    "modules": "Modire",
     "students": "Abanyeshuri",
     "documents": "Inyandiko",
     "assignments": "Imirimo",
@@ -116,21 +117,66 @@
       "subtitle": "Buri kiranga cyateguwe hagamijwe abarimu — byoroshye, byihuse, kandi bishimisha koresha."
     },
     "features": {
-      "documentManagement": { "label": "Imicungire y'Inyandiko", "desc": "Shyiraho, tunganya kandi urebe inyandiko, PDF n'ibikoresho by'ishuri hakurikijwe modire — hamwe no kubona mu buryo bwihuse no gukurikirana ababikuye." },
-      "assignmentWorkflow": { "label": "Imikorere y'Imirimo", "desc": "Kora imirimo ifite igihe ntarengwa, wakire ibyatanzwe, usuzume byinshi icyarimwe, kandi usubize ibitekerezo — byose bikurikiranwa mu buryo bwikora." },
-      "teacherManagement": { "label": "Imicungire y'Abarimu", "desc": "Abakuriye binjiza abarimu, bakabashyira mu mashuri na modire, kandi bagacunga abarimu bafasha muri buri shuri." },
-      "studentManagement": { "label": "Imicungire y'Abanyeshuri", "desc": "Andika abanyeshuri hakurikijwe urwego, umwuga n'umwaka w'ishuri, injiza amadosiye byinshi icyarimwe, kandi ukurikirane buri munyeshuri mu ilisiti imwe." },
-      "assessmentModules": { "label": "Ibizamini na Modire", "desc": "Tegura modire zifite amanota afite uburemere, hanyuma ukore ibizamini bya Formative (FA), Integrated (IA) na Comprehensive (CA) muri buri shuri." },
-      "onlineAssessments": { "label": "Ibizamini kuri Interineti no Gusuzuma Byikora", "desc": "Kora ibibazo byo guhitamo, guhuza n'ibisubizo bifunguye, usangire ihuza rifite igihe n'umubare w'inshuro wemewe — ibibazo n'ibisubizo bivangwa kuri buri munyeshuri, isaha isuzumisha byikora igihe kirangiye, kandi ibisubizo bikasuzumwa ako kanya (hakiyongeraho isuzuma ry'intoki ku bibazo bifunguye)." },
-      "reportManagement": { "label": "Imicungire y'Amaraporo", "desc": "Kora raporo z'abanyeshuri, isesengura rya buri kizamini n'amaraporo yuzuye y'imikorere y'amashuri, biratondekanywa mu buryo bwikora." },
-      "tvetCurriculumSetup": { "label": "Igenamiterere rya Porogaramu ya TVET", "desc": "Shyiraho Umwuga, Icyerekezo, Impamyabumenyi n'Urwego rwa RTQF kuri buri shuri — bijyanye na porogaramu za TVET zishingiye ku bumenyi." },
-      "markApprovalFlow": { "label": "Imikorere yo Kwemeza Amanota", "desc": "Amanota anyura mu byiciro Draft → Yoherejwe → Byemejwe hamwe n'isuzuma ry'ubuyobozi, kugira ngo amaraporo agaragaze ibyemejwe gusa." },
-      "smartAnnouncements": { "label": "Amatangazo Yubwenge", "desc": "Amatangazo y'ishuri cyangwa ay'ikigo yose hamwe no gukurikirana abayasomye, kugira ngo nta kintu cy'ingenzi kizigera kibura." },
-      "groupCollaboration": { "label": "Gukorera Hamwe mu Matsinda", "desc": "Amatsinda yo kuganira ayoborwa n'abarimu afite abayobozi, hamwe n'uburyo bwo kuganira hagati y'abanyeshuri muri buri shuri." },
-      "enterpriseSecurity": { "label": "Umutekano Ukomeye", "desc": "Kwinjira gushingiye ku gihe, uburenganzira hakurikijwe uruhare, ububiko bw'inyandiko bufunze, n'amateka yose y'ibikorwa arimo." },
-      "anyDevice": { "label": "Ikoranabuhanga Ryose", "desc": "Urubuga rw'ubuyobozi, urw'umwarimu n'urw'umunyeshuri bikora neza — kuri mudasobwa, tablet, cyangwa telefoni." },
-      "realTimeNotifications": { "label": "Amakuru Ahita Agera", "desc": "Ikigo cy'amakuru cyihariye gifite umubare w'ibitarasomwa, gushyira ko byasomwe no gusiba byose, kugira ngo buri nota, ubutumwa n'itangazo bigere ku muntu ubikwiye ako kanya." },
-      "directMessaging": { "label": "Ubutumwa Butaziguye n'Amajwi", "desc": "Ubutumwa bwihariye hagati y'umwarimu n'umunyeshuri no kuganira hagati y'abanyeshuri, hamwe n'amajwi n'ibindi bikoresho bishyirwa muri buri kiganiro." }
+      "documentManagement": {
+        "label": "Imicungire y'Inyandiko",
+        "desc": "Shyiraho, tunganya kandi urebe inyandiko, PDF n'ibikoresho by'ishuri hakurikijwe modire — hamwe no kubona mu buryo bwihuse no gukurikirana ababikuye."
+      },
+      "assignmentWorkflow": {
+        "label": "Imikorere y'Imirimo",
+        "desc": "Kora imirimo ifite igihe ntarengwa, wakire ibyatanzwe, usuzume byinshi icyarimwe, kandi usubize ibitekerezo — byose bikurikiranwa mu buryo bwikora."
+      },
+      "teacherManagement": {
+        "label": "Imicungire y'Abarimu",
+        "desc": "Abakuriye binjiza abarimu, bakabashyira mu mashuri na modire, kandi bagacunga abarimu bafasha muri buri shuri."
+      },
+      "studentManagement": {
+        "label": "Imicungire y'Abanyeshuri",
+        "desc": "Andika abanyeshuri hakurikijwe urwego, umwuga n'umwaka w'ishuri, injiza amadosiye byinshi icyarimwe, kandi ukurikirane buri munyeshuri mu ilisiti imwe."
+      },
+      "assessmentModules": {
+        "label": "Ibizamini na Modire",
+        "desc": "Tegura modire zifite amanota afite uburemere, hanyuma ukore ibizamini bya Formative (FA), Integrated (IA) na Comprehensive (CA) muri buri shuri."
+      },
+      "onlineAssessments": {
+        "label": "Ibizamini kuri Interineti no Gusuzuma Byikora",
+        "desc": "Kora ibibazo byo guhitamo, guhuza n'ibisubizo bifunguye, usangire ihuza rifite igihe n'umubare w'inshuro wemewe — ibibazo n'ibisubizo bivangwa kuri buri munyeshuri, isaha isuzumisha byikora igihe kirangiye, kandi ibisubizo bikasuzumwa ako kanya (hakiyongeraho isuzuma ry'intoki ku bibazo bifunguye)."
+      },
+      "reportManagement": {
+        "label": "Imicungire y'Amaraporo",
+        "desc": "Kora raporo z'abanyeshuri, isesengura rya buri kizamini n'amaraporo yuzuye y'imikorere y'amashuri, biratondekanywa mu buryo bwikora."
+      },
+      "tvetCurriculumSetup": {
+        "label": "Igenamiterere rya Porogaramu ya TVET",
+        "desc": "Shyiraho Umwuga, Icyerekezo, Impamyabumenyi n'Urwego rwa RTQF kuri buri shuri — bijyanye na porogaramu za TVET zishingiye ku bumenyi."
+      },
+      "markApprovalFlow": {
+        "label": "Imikorere yo Kwemeza Amanota",
+        "desc": "Amanota anyura mu byiciro Draft → Yoherejwe → Byemejwe hamwe n'isuzuma ry'ubuyobozi, kugira ngo amaraporo agaragaze ibyemejwe gusa."
+      },
+      "smartAnnouncements": {
+        "label": "Amatangazo Yubwenge",
+        "desc": "Amatangazo y'ishuri cyangwa ay'ikigo yose hamwe no gukurikirana abayasomye, kugira ngo nta kintu cy'ingenzi kizigera kibura."
+      },
+      "groupCollaboration": {
+        "label": "Gukorera Hamwe mu Matsinda",
+        "desc": "Amatsinda yo kuganira ayoborwa n'abarimu afite abayobozi, hamwe n'uburyo bwo kuganira hagati y'abanyeshuri muri buri shuri."
+      },
+      "enterpriseSecurity": {
+        "label": "Umutekano Ukomeye",
+        "desc": "Kwinjira gushingiye ku gihe, uburenganzira hakurikijwe uruhare, ububiko bw'inyandiko bufunze, n'amateka yose y'ibikorwa arimo."
+      },
+      "anyDevice": {
+        "label": "Ikoranabuhanga Ryose",
+        "desc": "Urubuga rw'ubuyobozi, urw'umwarimu n'urw'umunyeshuri bikora neza — kuri mudasobwa, tablet, cyangwa telefoni."
+      },
+      "realTimeNotifications": {
+        "label": "Amakuru Ahita Agera",
+        "desc": "Ikigo cy'amakuru cyihariye gifite umubare w'ibitarasomwa, gushyira ko byasomwe no gusiba byose, kugira ngo buri nota, ubutumwa n'itangazo bigere ku muntu ubikwiye ako kanya."
+      },
+      "directMessaging": {
+        "label": "Ubutumwa Butaziguye n'Amajwi",
+        "desc": "Ubutumwa bwihariye hagati y'umwarimu n'umunyeshuri no kuganira hagati y'abanyeshuri, hamwe n'amajwi n'ibindi bikoresho bishyirwa muri buri kiganiro."
+      }
     },
     "curriculumSection": {
       "badge": "Yakorewe TVET",
@@ -142,27 +188,72 @@
       "reportsSubtitle": "Igihe amanota yemejwe, buri raporo ikurikira ikavugururwa ubwayo — nta mbonerahamwe ikeneye gukoreshwa."
     },
     "curriculum": {
-      "sector":              { "label": "Umwuga",              "example": "urugero: TIC, Ubwubatsi, Ubukerarugendo" },
-      "trade":               { "label": "Icyerekezo",           "example": "urugero: Iterambere rya Software, Amashanyarazi" },
-      "qualificationTitle":  { "label": "Impamyabumenyi",       "example": "urugero: Icyemezo, Impamyabumenyi y'ikirenga" },
-      "rtqfLevel":           { "label": "Urwego rwa RTQF",      "example": "urugero: Urwego 3, 4, 5" },
-      "modules":             { "label": "Modire",               "example": "Inyongera · Rusange · Byihariye · Bihitamo" }
+      "sector": {
+        "label": "Umwuga",
+        "example": "urugero: TIC, Ubwubatsi, Ubukerarugendo"
+      },
+      "trade": {
+        "label": "Icyerekezo",
+        "example": "urugero: Iterambere rya Software, Amashanyarazi"
+      },
+      "qualificationTitle": {
+        "label": "Impamyabumenyi",
+        "example": "urugero: Icyemezo, Impamyabumenyi y'ikirenga"
+      },
+      "rtqfLevel": {
+        "label": "Urwego rwa RTQF",
+        "example": "urugero: Urwego 3, 4, 5"
+      },
+      "modules": {
+        "label": "Modire",
+        "example": "Inyongera · Rusange · Byihariye · Bihitamo"
+      }
     },
     "assessmentTypes": {
-      "fa": { "name": "Isuzuma Rigenda Rigendura", "desc": "Isuzuma rikomeza mu gihe cyo kwigisha kugira ngo hakurikiranwe ubumenyi bugenda bwiyongera." },
-      "ia": { "name": "Isuzuma Rihuriweho", "desc": "Isuzuma ryo hagati y'igihembwe rihuza ibyagezweho byinshi mu kwiga." },
-      "ca": { "name": "Isuzuma Ryuzuye", "desc": "Isuzuma ryo mu mpera z'igihembwe risuzuma modire yose." }
+      "fa": {
+        "name": "Isuzuma Rigenda Rigendura",
+        "desc": "Isuzuma rikomeza mu gihe cyo kwigisha kugira ngo hakurikiranwe ubumenyi bugenda bwiyongera."
+      },
+      "ia": {
+        "name": "Isuzuma Rihuriweho",
+        "desc": "Isuzuma ryo hagati y'igihembwe rihuza ibyagezweho byinshi mu kwiga."
+      },
+      "ca": {
+        "name": "Isuzuma Ryuzuye",
+        "desc": "Isuzuma ryo mu mpera z'igihembwe risuzuma modire yose."
+      }
     },
     "markWorkflow": {
-      "draft":     { "label": "Umukono w'Ibanze",  "desc": "Umwarimu yandika amanota ya buri munyeshuri ku kizamini." },
-      "submitted": { "label": "Byoherejwe",     "desc": "Umwarimu yohereza urutonde rwuzuye rw'amanota kugira ngo rusuzumwe n'ubuyobozi." },
-      "approved":  { "label": "Byemejwe",   "desc": "Ubuyobozi bwemeje — amanota arafata kandi amaraporo agavugururwa ako kanya." },
-      "rejected":  { "label": "Byanzwe",     "desc": "Ubuyobozi busubiza hamwe n'inyandiko isobanura ikosa kugira ngo hakosorwe." }
+      "draft": {
+        "label": "Umukono w'Ibanze",
+        "desc": "Umwarimu yandika amanota ya buri munyeshuri ku kizamini."
+      },
+      "submitted": {
+        "label": "Byoherejwe",
+        "desc": "Umwarimu yohereza urutonde rwuzuye rw'amanota kugira ngo rusuzumwe n'ubuyobozi."
+      },
+      "approved": {
+        "label": "Byemejwe",
+        "desc": "Ubuyobozi bwemeje — amanota arafata kandi amaraporo agavugururwa ako kanya."
+      },
+      "rejected": {
+        "label": "Byanzwe",
+        "desc": "Ubuyobozi busubiza hamwe n'inyandiko isobanura ikosa kugira ngo hakosorwe."
+      }
     },
     "reportTypes": {
-      "studentReportCard":     { "label": "Raporo y'Umunyeshuri", "desc": "Isesengura ryuzuye rya buri munyeshuri mu buri modire, igihembwe n'ubwoko bw'ikizamini." },
-      "assessmentReport":      { "label": "Raporo y'Ikizamini",   "desc": "Ibisubizo byatondekanijwe by'ikizamini kimwe, hamwe n'impuzandengo y'ishuri na pasenta." },
-      "classPerformanceReport":{ "label": "Raporo y'Imikorere y'Ishuri", "desc": "Isesengura ry'ikigo cyose cyangwa ry'ishuri, ritondekanywa hakurikijwe modire, imyuga n'ibyerekezo." }
+      "studentReportCard": {
+        "label": "Raporo y'Umunyeshuri",
+        "desc": "Isesengura ryuzuye rya buri munyeshuri mu buri modire, igihembwe n'ubwoko bw'ikizamini."
+      },
+      "assessmentReport": {
+        "label": "Raporo y'Ikizamini",
+        "desc": "Ibisubizo byatondekanijwe by'ikizamini kimwe, hamwe n'impuzandengo y'ishuri na pasenta."
+      },
+      "classPerformanceReport": {
+        "label": "Raporo y'Imikorere y'Ishuri",
+        "desc": "Isesengura ry'ikigo cyose cyangwa ry'ishuri, ritondekanywa hakurikijwe modire, imyuga n'ibyerekezo."
+      }
     },
     "howItWorksSection": {
       "badge": "Gutangira Byoroshye",
@@ -171,19 +262,40 @@
       "step": "Intambwe"
     },
     "steps": {
-      "adminConfigures": { "title": "Ubuyobozi Bwitegura", "desc": "Shyiraho amashuri, wandikishe abanyeshuri, ushyireho abarimu, kandi utegure igenamiterere mu minota micye." },
-      "teachersDeliver":  { "title": "Abarimu Batanga Amasomo",  "desc": "Shyiraho ibikoresho, kora imirimo ifite igihe ntarengwa, ukurikirane ibyatanzwe, kandi utange ibitekerezo ako kanya." },
-      "studentsThrive":   { "title": "Abanyeshuri Batera Imbere",   "desc": "Bonera ahantu hamwe ibintu byose — inyandiko, imirimo, amanota, n'amatangazo bihora bivugururwa." }
+      "adminConfigures": {
+        "title": "Ubuyobozi Bwitegura",
+        "desc": "Shyiraho amashuri, wandikishe abanyeshuri, ushyireho abarimu, kandi utegure igenamiterere mu minota micye."
+      },
+      "teachersDeliver": {
+        "title": "Abarimu Batanga Amasomo",
+        "desc": "Shyiraho ibikoresho, kora imirimo ifite igihe ntarengwa, ukurikirane ibyatanzwe, kandi utange ibitekerezo ako kanya."
+      },
+      "studentsThrive": {
+        "title": "Abanyeshuri Batera Imbere",
+        "desc": "Bonera ahantu hamwe ibintu byose — inyandiko, imirimo, amanota, n'amatangazo bihora bivugururwa."
+      }
     },
     "testimonialsSection": {
       "badge": "Ubuhamya",
       "title": "Bikundwa n'Abarimu Hose"
     },
     "testimonials": {
-      "sarahKim":    { "role": "Umuyobozi Mukuru, Westbridge Academy", "text": "EDUPLA yahinduye uko dutunganya ishuri ryacu. Gusuzuma, gukora raporo, no kuvugana — byose ku rubuga rumwe rwiza." },
-      "marcusReid":  { "role": "Umwarimu Mukuru, Lincoln High",  "text": "Nashoraga amasaha 3 buri mugoroba nkora impapuro. Ubu nashyiraho inyandiko mu masegonda 30 kandi abanyeshuri bakabihabwa ako kanya." },
-      "aishaJabari": { "role": "Umunyeshuri, Umwaka wa 11",             "text": "Amaherezo porogaramu y'ishuri ishimishije gukoresha. Mbona imirimo yanjye yose, amanota, n'amatangazo ahantu hamwe." },
-      "davidLee":    { "role": "Umuyobozi w'Uturere tw'Amashuri",       "text": "Imbonerahamwe y'isesengura y'ubuyobozi iduha ubushobozi bwo kubona ibirori ku ngingo ku bigo byose ako kanya. Gufata ibyemezo ntibyigeze bihuta gutya." }
+      "sarahKim": {
+        "role": "Umuyobozi Mukuru, Westbridge Academy",
+        "text": "EDUPLA yahinduye uko dutunganya ishuri ryacu. Gusuzuma, gukora raporo, no kuvugana — byose ku rubuga rumwe rwiza."
+      },
+      "marcusReid": {
+        "role": "Umwarimu Mukuru, Lincoln High",
+        "text": "Nashoraga amasaha 3 buri mugoroba nkora impapuro. Ubu nashyiraho inyandiko mu masegonda 30 kandi abanyeshuri bakabihabwa ako kanya."
+      },
+      "aishaJabari": {
+        "role": "Umunyeshuri, Umwaka wa 11",
+        "text": "Amaherezo porogaramu y'ishuri ishimishije gukoresha. Mbona imirimo yanjye yose, amanota, n'amatangazo ahantu hamwe."
+      },
+      "davidLee": {
+        "role": "Umuyobozi w'Uturere tw'Amashuri",
+        "text": "Imbonerahamwe y'isesengura y'ubuyobozi iduha ubushobozi bwo kubona ibirori ku ngingo ku bigo byose ako kanya. Gufata ibyemezo ntibyigeze bihuta gutya."
+      }
     },
     "pricingSection": {
       "badge": "Ibiciro",
@@ -192,21 +304,75 @@
       "mostPopular": "Bikunzwe Cyane"
     },
     "pricing": {
-      "starter":  { "name": "Gutangira",  "desc": "Byiza ku mashuri mato atangira.", "cta": "Tangira ku Buntu", "feats": ["Kugeza ku banyeshuri 100","Abarimu 5","Isesengura ry'ibanze","Ubuiko bwa 2GB","Ubufasha ku meli"] },
-      "school":   { "name": "Ishuri",   "desc": "Ibyo ishuri rikura rikeneye byose.", "cta": "Gerageza ku Buntu", "feats": ["Abanyeshuri batagira umubare ntarengwa","Abarimu batagira umubare ntarengwa","Isesengura rikomeye","Ubuiko bwa 100GB","Ubufasha bwihutirwa","Ikirango cyihariye","Uburenganzira bwa API"] },
-      "district": { "name": "Uturere", "desc": "Gushyira mu bikorwa ku mashuri menshi hamwe n'igenzura ryuzuye.", "cta": "Vugana n'Abadukorana", "feats": ["Ibigo byinshi","Kwinjira kumwe (SSO)","Umuyobozi wihariye","Ingwate ya SLA","Ihuzabikorwa ryihariye","Amahugurwa aho biherereye"] }
+      "starter": {
+        "name": "Gutangira",
+        "desc": "Byiza ku mashuri mato atangira.",
+        "cta": "Tangira ku Buntu",
+        "feats": [
+          "Kugeza ku banyeshuri 100",
+          "Abarimu 5",
+          "Isesengura ry'ibanze",
+          "Ubuiko bwa 2GB",
+          "Ubufasha ku meli"
+        ]
+      },
+      "school": {
+        "name": "Ishuri",
+        "desc": "Ibyo ishuri rikura rikeneye byose.",
+        "cta": "Gerageza ku Buntu",
+        "feats": [
+          "Abanyeshuri batagira umubare ntarengwa",
+          "Abarimu batagira umubare ntarengwa",
+          "Isesengura rikomeye",
+          "Ubuiko bwa 100GB",
+          "Ubufasha bwihutirwa",
+          "Ikirango cyihariye",
+          "Uburenganzira bwa API"
+        ]
+      },
+      "district": {
+        "name": "Uturere",
+        "desc": "Gushyira mu bikorwa ku mashuri menshi hamwe n'igenzura ryuzuye.",
+        "cta": "Vugana n'Abadukorana",
+        "feats": [
+          "Ibigo byinshi",
+          "Kwinjira kumwe (SSO)",
+          "Umuyobozi wihariye",
+          "Ingwate ya SLA",
+          "Ihuzabikorwa ryihariye",
+          "Amahugurwa aho biherereye"
+        ]
+      }
     },
     "faqSection": {
       "title": "Ibibazo Bikunze Kubazwa",
       "subtitle": "Ibyo ukeneye kumenya byose mbere yo gutangira."
     },
     "faqs": [
-      { "q": "Ni mu gihe kingana iki dushobora gutangira?",   "a": "Amashuri menshi ategurwa yose mu minota itarenze 30. Umuyobozi wo gutangira azajya akuyobora intambwe ku yindi mu gukora amashuri, kwongeraho abarimu, no kwandikisha abanyeshuri." },
-      { "q": "Ese EDUPLA ishyigikira imiterere ya porogaramu ya TVET?", "a": "Yego — buri shuri rishobora guhuzwa n'Umwuga, Icyerekezo, Impamyabumenyi n'Urwego rwa RTQF. Modire ziragwa iyo miterere, kandi ibizamini bya Formative, Integrated na Comprehensive bikurikiranwa mu buryo bwikora muri buri modire." },
-      { "q": "Amaraporo akorwa gute?",        "a": "Igihe umwarimu yohereje amanota kandi umuyobozi ayemeje, raporo z'abanyeshuri, iz'ibizamini n'iz'imikorere y'amashuri zikorwa mu buryo bwikora — zihora zigaragaza amanota aheruka kwemezwa." },
-      { "q": "Ese amakuru y'abanyeshuri arindwa?",     "a": "Yego rwose. Amakuru yose arafunzwe mu buryo bw'umutekano igihe cyose. Ntabwo dutunganya amakuru y'abakoresha kandi dukurikiza rwose imikorere myiza yo kurinda ibanga." },
-      { "q": "Ese abarimu bashobora gukora badafite interineti?",        "a": "Gutegura amasomo no gukora inyandiko bikora nta interineti. Ibyatanzwe n'amanota bihuzwa mu buryo bwikora igihe interineti isubiye." },
-      { "q": "Ese mushyigikira ibigo byinshi?", "a": "Yego — igicunga cy'Uturere gishyigikira ibigo bitagira umubare ntarengwa hamwe n'amaraporo ahurizwa hamwe n'uruhare rw'ubuyobozi kuri buri kigo." }
+      {
+        "q": "Ni mu gihe kingana iki dushobora gutangira?",
+        "a": "Amashuri menshi ategurwa yose mu minota itarenze 30. Umuyobozi wo gutangira azajya akuyobora intambwe ku yindi mu gukora amashuri, kwongeraho abarimu, no kwandikisha abanyeshuri."
+      },
+      {
+        "q": "Ese EDUPLA ishyigikira imiterere ya porogaramu ya TVET?",
+        "a": "Yego — buri shuri rishobora guhuzwa n'Umwuga, Icyerekezo, Impamyabumenyi n'Urwego rwa RTQF. Modire ziragwa iyo miterere, kandi ibizamini bya Formative, Integrated na Comprehensive bikurikiranwa mu buryo bwikora muri buri modire."
+      },
+      {
+        "q": "Amaraporo akorwa gute?",
+        "a": "Igihe umwarimu yohereje amanota kandi umuyobozi ayemeje, raporo z'abanyeshuri, iz'ibizamini n'iz'imikorere y'amashuri zikorwa mu buryo bwikora — zihora zigaragaza amanota aheruka kwemezwa."
+      },
+      {
+        "q": "Ese amakuru y'abanyeshuri arindwa?",
+        "a": "Yego rwose. Amakuru yose arafunzwe mu buryo bw'umutekano igihe cyose. Ntabwo dutunganya amakuru y'abakoresha kandi dukurikiza rwose imikorere myiza yo kurinda ibanga."
+      },
+      {
+        "q": "Ese abarimu bashobora gukora badafite interineti?",
+        "a": "Gutegura amasomo no gukora inyandiko bikora nta interineti. Ibyatanzwe n'amanota bihuzwa mu buryo bwikora igihe interineti isubiye."
+      },
+      {
+        "q": "Ese mushyigikira ibigo byinshi?",
+        "a": "Yego — igicunga cy'Uturere gishyigikira ibigo bitagira umubare ntarengwa hamwe n'amaraporo ahurizwa hamwe n'uruhare rw'ubuyobozi kuri buri kigo."
+      }
     ],
     "finalCta": {
       "badge": "Ifatanye n'abanyeshuri barenga 2,400 basanzwe biga",

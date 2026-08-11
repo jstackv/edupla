@@ -1,31 +1,69 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
-import { BookMarked, Users, FileText, User } from 'lucide-react';
+import { BookMarked, Users, ClipboardCheck, GraduationCap, Award, Mail, Copy, Check } from 'lucide-react';
 
-const LEVEL_CLASSES = [
-  'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
-  'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300',
-  'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300',
-  'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
-  'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300',
-  'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300',
+/* Each class gets a stable two-tone identity + accent, hashed from its id so
+   the same class always renders the same way, and multiple classes read as
+   visually distinct from one another. */
+const CLASS_PALETTES = [
+  { from: '#4338ca', to: '#7c3aed', accent: '#818cf8' }, // indigo → violet
+  { from: '#0369a1', to: '#0891b2', accent: '#38bdf8' }, // ocean
+  { from: '#047857', to: '#059669', accent: '#34d399' }, // emerald
+  { from: '#b45309', to: '#ea580c', accent: '#fbbf24' }, // amber
+  { from: '#be123c', to: '#db2777', accent: '#fb7185' }, // rose
+  { from: '#0f766e', to: '#115e59', accent: '#2dd4bf' }, // teal
 ];
-const TRADE_CLASSES = [
-  'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300',
-  'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300',
-  'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300',
-  'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
-  'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300',
-  'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300',
-];
-// Returns a Tailwind class string for any arbitrary level/trade value
-const getLevelClass = (val) => LEVEL_CLASSES[(val?.charCodeAt(0) || 0) % LEVEL_CLASSES.length];
-const getTradeClass = (val) => TRADE_CLASSES[(val?.charCodeAt(0) || 0) % TRADE_CLASSES.length];
+const hashStr = (s) => {
+  let h = 0;
+  for (let i = 0; i < (s || '').length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return h;
+};
+const getPalette = (id) => CLASS_PALETTES[hashStr(String(id)) % CLASS_PALETTES.length];
+
+const getInitials = (name) => {
+  if (!name) return '?';
+  const parts = name.trim().split(/\s+/);
+  return ((parts[0]?.[0] || '') + (parts[1]?.[0] || '')).toUpperCase() || name[0].toUpperCase();
+};
+
+function SkeletonStack() {
+  return (
+    <div className="space-y-5">
+      {Array.from({ length: 1 }).map((_, i) => (
+        <div key={i} className="clsx-skel-card">
+          <div className="skeleton" style={{ height: 128, borderRadius: 0 }} />
+          <div className="p-5 space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="skeleton" style={{ width: 46, height: 46, borderRadius: 15 }} />
+              <div className="flex-1 space-y-2">
+                <div className="skeleton" style={{ height: 12, width: '40%' }} />
+                <div className="skeleton" style={{ height: 10, width: '25%' }} />
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <div className="skeleton" style={{ height: 52, flex: 1, borderRadius: 14 }} />
+              <div className="skeleton" style={{ height: 52, flex: 1, borderRadius: 14 }} />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function StudentClasses() {
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [copiedId, setCopiedId] = useState(null);
+
+  const copyEmail = (email, id) => {
+    navigator.clipboard.writeText(email).then(() => {
+      setCopiedId(id);
+      toast.success('Email copied');
+      setTimeout(() => setCopiedId(prev => (prev === id ? null : prev)), 1600);
+    }).catch(() => toast.error('Could not copy email'));
+  };
 
   useEffect(() => {
     api.get('/classes/my')
@@ -34,9 +72,18 @@ export default function StudentClasses() {
       .finally(() => setLoading(false));
   }, []);
 
+  const palettes = useMemo(
+    () => Object.fromEntries(classes.map(c => [c.id, getPalette(c.id)])),
+    [classes]
+  );
+
   if (loading) return (
-    <div className="flex items-center justify-center py-20">
-      <div className="animate-spin w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full" />
+    <div className="space-y-5">
+      <div>
+        <h2 className="font-display font-bold text-lg" style={{ color: 'var(--text-primary)' }}>My Class</h2>
+        <p className="text-sm text-muted">class enrolled</p>
+      </div>
+      <SkeletonStack />
     </div>
   );
 
@@ -48,40 +95,118 @@ export default function StudentClasses() {
       </div>
 
       {classes.length === 0 ? (
-        <div className="card text-center py-16">
-          <BookMarked className="w-12 h-12 mx-auto mb-3 text-muted opacity-30" />
-          <p className="font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>No classes yet</p>
+        <div className="modx-empty">
+          <div className="modx-empty-icon">
+            <BookMarked className="w-7 h-7" />
+          </div>
+          <p className="font-display font-bold mb-1" style={{ color: 'var(--text-primary)' }}>No classes yet</p>
           <p className="text-sm text-muted">Your teacher will enroll you in classes.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {classes.map(cls => (
-            <div key={cls.id} className="card hover:shadow-soft transition-all hover:-translate-y-0.5">
-              <div className="flex items-start gap-3 mb-3">
-                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center flex-shrink-0">
-                  <BookMarked className="w-5 h-5 text-white" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-display font-bold text-sm truncate" style={{ color: 'var(--text-primary)' }}>{cls.name}</h3>
-                  {cls.description && (
-                    <p className="text-xs text-muted line-clamp-2 mt-0.5">{cls.description}</p>
-                  )}
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-1.5 mb-3">
-                {cls.level && <span className={`badge text-xs ${getLevelClass(cls.level) || ''}`}>{cls.level}</span>}
-                {cls.trade && <span className={`badge text-xs ${getTradeClass(cls.trade) || ''}`}>{cls.trade}</span>}
-              </div>
-              <div className="pt-3 space-y-2" style={{ borderTop: '1px solid var(--card-border)' }}>
-                {cls.teacher_name && (
-                  <div className="flex items-center gap-2 text-xs text-muted">
-                    <User className="w-3.5 h-3.5" />Class Teacher:
-                    <span>{cls.teacher_name}</span>
+        <div className="clsx-stack space-y-5">
+          {classes.map((cls, i) => {
+            const pal = palettes[cls.id];
+            const sealText = cls.level || cls.trade;
+            const sealLabel = cls.level ? 'Level' : 'Trade';
+            return (
+              <div
+                key={cls.id}
+                className="clsx-card"
+                style={{ '--clsx-from': pal.from, '--clsx-to': pal.to, '--clsx-accent': pal.accent, '--i': i }}
+              >
+                {/* ── Banner ─────────────────────────────────── */}
+                <div className="clsx-banner">
+                  <div className="clsx-stripes" />
+                  <BookMarked className="clsx-watermark" size={150} strokeWidth={1.2} />
+                  <div className="clsx-shine" />
+
+                  <div className="flex items-start justify-between gap-4" style={{ position: 'relative', zIndex: 1 }}>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Award className="w-3.5 h-3.5" style={{ opacity: 0.75 }} />
+                        <span className="text-[10px] font-bold uppercase tracking-widest" style={{ opacity: 0.75 }}>
+                          Enrolled Class
+                        </span>
+                      </div>
+                      <h3 className="font-display font-extrabold text-2xl leading-tight truncate" style={{ letterSpacing: '-0.02em' }}>
+                        {cls.name}
+                      </h3>
+                      {cls.description && (
+                        <p className="text-xs mt-1.5 max-w-md" style={{ opacity: 0.8 }}>{cls.description}</p>
+                      )}
+
+                      <div className="flex flex-wrap gap-1.5 mt-3.5">
+                        {cls.level && <span className="clsx-glass-pill"><GraduationCap className="w-3 h-3" />{cls.level}</span>}
+                        {cls.trade && <span className="clsx-glass-pill"><BookMarked className="w-3 h-3" />{cls.trade}</span>}
+                      </div>
+                    </div>
+
+                    {sealText && (
+                      <div className="clsx-seal" title={`${sealLabel}: ${sealText}`}>
+                        <span className="clsx-seal-label">{sealLabel}</span>
+                        <span className="clsx-seal-value">{sealText}</span>
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
+
+                {/* ── Panel: teacher profile + stats ────────────────── */}
+                <div className="clsx-panel">
+                  {cls.teacher_name ? (
+                    <div className="clsx-teacher-card">
+                      <div className="clsx-teacher-avatar-wrap">
+                        <div className="clsx-teacher-avatar">{getInitials(cls.teacher_name)}</div>
+                        <div className="clsx-role-badge" title="Class Teacher">
+                          <GraduationCap className="w-3 h-3" />
+                        </div>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <span className="clsx-role-pill">Class Teacher</span>
+                        <p className="font-display font-bold text-sm truncate mt-1" style={{ color: 'var(--text-primary)' }}>
+                          {cls.teacher_name}
+                        </p>
+                        {cls.teacher_email && (
+                          <a href={`mailto:${cls.teacher_email}`} className="clsx-email-row">
+                            <Mail className="w-3 h-3" />
+                            <span className="truncate">{cls.teacher_email}</span>
+                          </a>
+                        )}
+                      </div>
+                      {cls.teacher_email && (
+                        <button
+                          type="button"
+                          className={`clsx-copy-btn ${copiedId === cls.id ? 'clsx-copied' : ''}`}
+                          title="Copy email"
+                          onClick={() => copyEmail(cls.teacher_email, cls.id)}
+                        >
+                          {copiedId === cls.id ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted italic">No class teacher assigned yet</p>
+                  )}
+
+                  <div className="clsx-stat-row">
+                    <div className="clsx-stat-tile" style={{ animationDelay: '80ms' }}>
+                      <div className="clsx-stat-icon"><Users className="w-4 h-4" /></div>
+                      <div>
+                        <div className="clsx-stat-num">{cls.student_count ?? 0}</div>
+                        <div className="clsx-stat-label">Classmates</div>
+                      </div>
+                    </div>
+                    <div className="clsx-stat-tile" style={{ animationDelay: '140ms' }}>
+                      <div className="clsx-stat-icon"><ClipboardCheck className="w-4 h-4" /></div>
+                      <div>
+                        <div className="clsx-stat-num">{cls.assessment_count ?? 0}</div>
+                        <div className="clsx-stat-label">Assessments</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
