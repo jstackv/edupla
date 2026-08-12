@@ -108,19 +108,26 @@ function fmtDateSep(ts) {
   return d.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' });
 }
 
+/* Palette: no green, no sky-blue/cyan anywhere on this page — graphite/black
+   as the base "chrome" everywhere, with a small set of warm/violet accent
+   hues reserved for functional identification only (avatars, small badges). */
+const NEUTRAL_HEADER = 'linear-gradient(135deg, #101216 0%, #181b21 50%, #20242c 100%)';
+const CHAT_NEUTRAL = ['#2f3543', '#1a1d24']; // used for "my" bubble, composer, pin rail, search, reply borders
+const UNREAD_COLORS = ['#ef4444', '#dc2626'];
+
 const GROUP_COLORS = [
-  ['#6366f1', '#4f46e5'], ['#0891b2', '#0e7490'], ['#d97706', '#b45309'],
-  ['#dc2626', '#b91c1c'], ['#7c3aed', '#6d28d9'], ['#0284c7', '#0369a1'],
+  ['#7c3aed', '#6d28d9'], ['#d97706', '#b45309'], ['#dc2626', '#b91c1c'],
+  ['#db2777', '#be185d'], ['#78716c', '#57534e'], ['#a855f7', '#9333ea'],
 ];
 function groupColor(id) {
   const idx = id ? parseInt(String(id).slice(-2), 16) % GROUP_COLORS.length : 0;
   return GROUP_COLORS[idx];
 }
-const DM_COLORS = ['#128C7E', '#075E54'];
+const DM_COLORS = ['#4b5563', '#33383f'];
 const LEADER_COLORS = ['#7c3aed', '#6d28d9'];
 const TEACHER_DM_COLORS = ['#9333ea', '#7e22ce'];
 
-const SENDER_COLORS = ['#0ea5e9', '#d97706', '#db2777', '#0891b2', '#7c3aed', '#dc2626', '#0284c7', '#475569'];
+const SENDER_COLORS = ['#a855f7', '#d97706', '#db2777', '#f97316', '#7c3aed', '#dc2626', '#78716c', '#e11d48'];
 function senderColor(seed) {
   const s = String(seed || '');
   let hash = 0;
@@ -460,7 +467,7 @@ function MembersPanel({ group, onClose }) {
           const isLeader = group.team_leader?.id === m.id;
           return (
             <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 14, marginBottom: 6, background: 'var(--surface-100)', border: isLeader ? `1.5px solid ${a}40` : '1.5px solid transparent', animation: 'memberSlideIn 260ms ease both', animationDelay: `${i * 40}ms` }}>
-              <div style={{ width: 42, height: 42, borderRadius: '50%', flexShrink: 0, background: isLeader ? `linear-gradient(135deg, ${a}, ${b})` : 'linear-gradient(135deg, #0891b2, #0369a1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 15 }}>{m.name[0].toUpperCase()}</div>
+              <div style={{ width: 42, height: 42, borderRadius: '50%', flexShrink: 0, background: isLeader ? `linear-gradient(135deg, ${a}, ${b})` : 'linear-gradient(135deg, #4b5563, #33383f)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 15 }}>{m.name[0].toUpperCase()}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</div>
                 {isLeader && <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}><Crown style={{ width: 11, height: 11, color: '#d97706' }} /><span style={{ fontSize: 11, fontWeight: 600, color: '#b45309' }}>Team Leader</span></div>}
@@ -469,11 +476,11 @@ function MembersPanel({ group, onClose }) {
           );
         })}
         {group.teacher_name && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 14, background: 'rgba(99,102,241,0.06)', border: '1.5px solid rgba(99,102,241,0.2)' }}>
-            <div style={{ width: 42, height: 42, borderRadius: '50%', flexShrink: 0, background: 'linear-gradient(135deg, #6366f1, #4f46e5)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 15 }}>{group.teacher_name[0].toUpperCase()}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 14, background: 'rgba(124,58,237,0.06)', border: '1.5px solid rgba(124,58,237,0.2)' }}>
+            <div style={{ width: 42, height: 42, borderRadius: '50%', flexShrink: 0, background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 15 }}>{group.teacher_name[0].toUpperCase()}</div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--text-primary)' }}>{group.teacher_name}</div>
-              <div style={{ fontSize: 11, fontWeight: 600, color: '#6366f1', marginTop: 2 }}>Teacher</div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: '#7c3aed', marginTop: 2 }}>Teacher</div>
             </div>
           </div>
         )}
@@ -1088,14 +1095,25 @@ function ThreadPane({ entry, myId, myName, onBack, onOpenTeacherDm, onEntryActiv
 /* ════════════════════════════════════════════════════════════════════
    Inbox row
 ═════════════════════════════════════════════════════════════════════ */
-function InboxRow({ entry, active, onClick }) {
+function InboxRow({ entry, active, onClick, index }) {
   const accent = entry.type === 'group' ? groupColor(entry.id) : entry.type === 'leaderdm' ? LEADER_COLORS : entry.type === 'teacherdm' ? TEACHER_DM_COLORS : DM_COLORS;
   const [a, b] = accent;
   return (
-    <div onClick={onClick} className="discussion-list-item flex items-center gap-3 px-3.5 py-3 cursor-pointer transition-all"
-      style={{ borderBottom: '1px solid var(--card-border)', background: active ? `linear-gradient(135deg, ${a}12, ${b}08)` : 'transparent', borderLeft: active ? `3px solid ${a}` : '3px solid transparent' }}>
+    <div
+      onClick={onClick}
+      className="discussion-list-item flex items-center gap-3 px-3.5 py-3 cursor-pointer transition-all"
+      style={{
+        borderBottom: '1px solid var(--card-border)',
+        background: active ? `linear-gradient(135deg, ${a}14, ${b}09)` : 'transparent',
+        borderLeft: active ? `3px solid ${a}` : '3px solid transparent',
+        animation: 'ibxRowIn 320ms cubic-bezier(0.16,1,0.3,1) both',
+        animationDelay: `${Math.min(index, 14) * 35}ms`,
+      }}
+      onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--surface-100)'; e.currentTarget.style.transform = 'translateX(2px)'; }}
+      onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent'; e.currentTarget.style.transform = 'translateX(0)'; }}
+    >
       <div className="relative flex-shrink-0">
-        <div style={{ width: 44, height: 44, borderRadius: entry.type === 'group' ? 14 : '50%', background: `linear-gradient(135deg, ${a}, ${b})`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 15 }}>
+        <div style={{ width: 44, height: 44, borderRadius: entry.type === 'group' ? 14 : '50%', background: `linear-gradient(135deg, ${a}, ${b})`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 15, boxShadow: active ? `0 4px 14px ${a}45` : 'none', transition: 'box-shadow 0.2s ease' }}>
           {entry.type === 'group' ? (entry.name || 'G').slice(0, 2).toUpperCase() : entry.name[0]?.toUpperCase()}
         </div>
         {entry.type === 'leaderdm' && (
@@ -1109,7 +1127,7 @@ function InboxRow({ entry, active, onClick }) {
           </div>
         )}
         {entry.type === 'group' && (
-          <div style={{ position: 'absolute', bottom: -2, right: -2, width: 16, height: 16, borderRadius: '50%', background: '#0891b2', border: '2px solid var(--card-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ position: 'absolute', bottom: -2, right: -2, width: 16, height: 16, borderRadius: '50%', background: '#0d9488', border: '2px solid var(--card-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Users style={{ width: 8, height: 8, color: '#fff' }} />
           </div>
         )}
@@ -1126,7 +1144,7 @@ function InboxRow({ entry, active, onClick }) {
               : <span className="italic">{entry.type === 'leaderdm' ? 'Private line to your teacher' : entry.type === 'teacherdm' ? 'Private message from your teacher' : 'No messages yet — say hello!'}</span>}
           </p>
           {entry.unreadCount > 0 && (
-            <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full text-[10px] font-bold flex items-center justify-center px-1.5 text-white" style={{ background: `linear-gradient(135deg, ${a}, ${b})` }}>{entry.unreadCount > 9 ? '9+' : entry.unreadCount}</span>
+            <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full text-[10px] font-bold flex items-center justify-center px-1.5 text-white" style={{ background: `linear-gradient(135deg, ${a}, ${b})`, animation: 'ibxBadgePulse 1.8s ease-in-out infinite' }}>{entry.unreadCount > 9 ? '9+' : entry.unreadCount}</span>
           )}
         </div>
         {entry.type === 'group' && (
@@ -1180,7 +1198,7 @@ function NewMessagePicker({ classes, onPick, onClose }) {
         {classes.length > 1 && (
           <div style={{ padding: '0 18px 10px', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {classes.map(c => (
-              <button key={c.id} onClick={() => setClassId(c.id)} style={{ fontSize: 11.5, fontWeight: 700, padding: '5px 10px', borderRadius: 20, border: 'none', cursor: 'pointer', background: classId === c.id ? 'rgba(99,102,241,0.14)' : 'var(--surface-100)', color: classId === c.id ? '#6366f1' : 'var(--text-secondary)' }}>{c.name}</button>
+              <button key={c.id} onClick={() => setClassId(c.id)} style={{ fontSize: 11.5, fontWeight: 700, padding: '5px 10px', borderRadius: 20, border: 'none', cursor: 'pointer', background: classId === c.id ? 'rgba(13,148,136,0.14)' : 'var(--surface-100)', color: classId === c.id ? '#0d9488' : 'var(--text-secondary)' }}>{c.name}</button>
             ))}
           </div>
         )}
@@ -1191,7 +1209,7 @@ function NewMessagePicker({ classes, onPick, onClose }) {
           </div>
         </div>
         <div style={{ maxHeight: '50vh', overflowY: 'auto', padding: '0 10px 12px' }}>
-          {loading ? <div className="flex justify-center py-8"><div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" /></div>
+          {loading ? <div className="flex justify-center py-8"><div className="w-5 h-5 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" /></div>
             : filtered.length === 0 ? <p style={{ textAlign: 'center', fontSize: 12.5, color: 'var(--text-secondary)', padding: '20px 0' }}>No classmates found</p>
             : filtered.map(c => (
               <button key={c.id} onClick={() => onPick(classId, c)} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '9px 10px', borderRadius: 12, background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
@@ -1408,28 +1426,37 @@ export default function StudentGroups() {
 
         {/* ── Inbox pane ─────────────────────────────────────────── */}
         <div className={`flex flex-col flex-shrink-0 w-full lg:w-[340px] min-h-0 ${mobileShowThread ? 'hidden lg:flex' : 'flex'}`} style={{ borderRight: '1px solid var(--card-border)' }}>
-          <div style={{ background: 'linear-gradient(135deg, #0891b2 0%, #0369a1 100%)', padding: '16px 16px 12px', flexShrink: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-              <h2 style={{ color: '#fff', fontWeight: 800, fontSize: 17, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ width: 30, height: 30, borderRadius: 10, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Inbox style={{ width: 15, height: 15, color: '#fff' }} /></div>
-                Inbox
-              </h2>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                {totalUnread > 0 && <span style={{ fontWeight: 800, fontSize: 11, padding: '3px 9px', borderRadius: 20, background: '#dc2626', color: '#fff' }}>{totalUnread}</span>}
-                {collabClasses.length > 0 && (
-                  <button onClick={() => setNewMsgOpen(true)} title="New message" style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Plus style={{ width: 15, height: 15 }} /></button>
-                )}
+          <div style={{ position: 'relative', overflow: 'hidden', background: 'linear-gradient(135deg, #04120f 0%, #0a2e29 45%, #0f6a5f 100%)', padding: '16px 16px 12px', flexShrink: 0, isolation: 'isolate' }}>
+            <div style={{ position: 'absolute', top: '-30%', right: '-10%', width: 220, height: 220, borderRadius: '50%', background: 'radial-gradient(circle, rgba(45,212,191,0.35), transparent 70%)', filter: 'blur(6px)', pointerEvents: 'none', zIndex: 0, animation: 'ibxGlowDrift 8s ease-in-out infinite' }} />
+            <div style={{ position: 'absolute', bottom: '-40%', left: '10%', width: 180, height: 180, borderRadius: '50%', background: 'radial-gradient(circle, rgba(251,191,36,0.14), transparent 72%)', filter: 'blur(6px)', pointerEvents: 'none', zIndex: 0, animation: 'ibxGlowDrift 10s ease-in-out infinite reverse' }} />
+            <div style={{ position: 'relative', zIndex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                <h2 style={{ color: '#fff', fontWeight: 800, fontSize: 17, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ width: 30, height: 30, borderRadius: 10, background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Inbox style={{ width: 15, height: 15, color: '#fff' }} /></div>
+                  Inbox
+                </h2>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {totalUnread > 0 && <span style={{ fontWeight: 800, fontSize: 11, padding: '3px 9px', borderRadius: 20, background: '#dc2626', color: '#fff', animation: 'ibxBadgePulse 1.8s ease-in-out infinite' }}>{totalUnread}</span>}
+                  {collabClasses.length > 0 && (
+                    <button
+                      onClick={() => setNewMsgOpen(true)} title="New message"
+                      style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(255,255,255,0.16)', border: '1px solid rgba(255,255,255,0.24)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.18s cubic-bezier(0.34,1.56,0.64,1), background 0.18s ease' }}
+                      onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.1) rotate(90deg)'; e.currentTarget.style.background = 'rgba(255,255,255,0.26)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1) rotate(0deg)'; e.currentTarget.style.background = 'rgba(255,255,255,0.16)'; }}
+                    ><Plus style={{ width: 15, height: 15 }} /></button>
+                  )}
+                </div>
               </div>
-            </div>
-            <div className="relative mb-2">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: 'rgba(255,255,255,0.6)' }} />
-              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search everything…"
-                className="w-full pl-8 pr-3 py-2 rounded-xl text-sm outline-none" style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff' }} />
-            </div>
-            <div style={{ display: 'flex', gap: 4 }}>
-              {[['all', 'All'], ['groups', 'Groups'], ['dms', 'Direct'], ['unread', 'Unread']].map(([val, label]) => (
-                <button key={val} onClick={() => setFilter(val)} style={{ fontSize: 11, fontWeight: 700, padding: '5px 10px', borderRadius: 20, border: 'none', cursor: 'pointer', background: filter === val ? '#fff' : 'rgba(255,255,255,0.15)', color: filter === val ? '#0891b2' : 'rgba(255,255,255,0.85)' }}>{label}</button>
-              ))}
+              <div className="relative mb-2">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: 'rgba(255,255,255,0.6)' }} />
+                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search everything…"
+                  className="w-full pl-8 pr-3 py-2 rounded-xl text-sm outline-none" style={{ background: 'rgba(255,255,255,0.13)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff' }} />
+              </div>
+              <div style={{ display: 'flex', gap: 4 }}>
+                {[['all', 'All'], ['groups', 'Groups'], ['dms', 'Direct'], ['unread', 'Unread']].map(([val, label]) => (
+                  <button key={val} onClick={() => setFilter(val)} style={{ fontSize: 11, fontWeight: 700, padding: '5px 10px', borderRadius: 20, border: 'none', cursor: 'pointer', background: filter === val ? '#fff' : 'rgba(255,255,255,0.14)', color: filter === val ? '#0f6a5f' : 'rgba(255,255,255,0.85)', transition: 'background 0.15s ease, color 0.15s ease' }}>{label}</button>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -1437,11 +1464,11 @@ export default function StudentGroups() {
             {loading ? [0, 1, 2, 3, 4].map(i => <InboxRowSkeleton key={i} delay={i * 60} />)
               : filtered.length === 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '70px 24px', textAlign: 'center' }}>
-                  <div style={{ width: 60, height: 60, borderRadius: 16, marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(8,145,178,0.08)' }}><MessageSquare style={{ width: 28, height: 28, color: '#0891b2', opacity: 0.5 }} /></div>
+                  <div style={{ width: 60, height: 60, borderRadius: 16, marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(13,148,136,0.08)' }}><MessageSquare style={{ width: 28, height: 28, color: '#0d9488', opacity: 0.5 }} /></div>
                   <p style={{ fontWeight: 700, marginBottom: 6, color: 'var(--text-primary)' }}>{inbox.length === 0 ? 'Nothing here yet' : 'No matches'}</p>
                   <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{inbox.length === 0 ? 'Groups and chats will show up here once your teacher sets them up.' : 'Try a different search or filter.'}</p>
                 </div>
-              ) : filtered.map(entry => <InboxRow key={entry.key} entry={entry} active={entry.key === selectedKey} onClick={() => openEntry(entry)} />)}
+              ) : filtered.map((entry, idx) => <InboxRow key={entry.key} entry={entry} active={entry.key === selectedKey} onClick={() => openEntry(entry)} index={idx} />)}
           </div>
         </div>
 
@@ -1461,7 +1488,7 @@ export default function StudentGroups() {
           ) : (
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <div style={{ textAlign: 'center', padding: '0 32px' }}>
-                <div style={{ width: 68, height: 68, borderRadius: 20, margin: '0 auto 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(99,102,241,0.08)' }}><MessageCircle style={{ width: 32, height: 32, color: '#6366f1', opacity: 0.6 }} /></div>
+                <div style={{ width: 68, height: 68, borderRadius: 20, margin: '0 auto 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(13,148,136,0.08)', animation: 'ibxIconFloat 4s ease-in-out infinite' }}><MessageCircle style={{ width: 32, height: 32, color: '#0d9488', opacity: 0.7 }} /></div>
                 <p style={{ fontWeight: 800, marginBottom: 4, color: 'var(--text-primary)' }}>Pick a conversation</p>
                 <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Groups, classmates, and your private teacher line all live in one place now.</p>
               </div>
@@ -1477,6 +1504,13 @@ export default function StudentGroups() {
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
         @keyframes memberSlideIn { from { opacity: 0; transform: translateX(-12px); } to { opacity: 1; transform: translateX(0); } }
         @keyframes slideInFromRight { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes ibxRowIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes ibxBadgePulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(220,38,38,0.35); } 50% { box-shadow: 0 0 0 5px rgba(220,38,38,0); } }
+        @keyframes ibxGlowDrift { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-8px, 6px) scale(1.08); } }
+        @keyframes ibxIconFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+        @media (prefers-reduced-motion: reduce) {
+          .discussion-list-item, .discussion-list-item * { animation: none !important; }
+        }
       `}</style>
     </div>
   );
