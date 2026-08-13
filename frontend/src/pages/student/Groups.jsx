@@ -108,16 +108,25 @@ function fmtDateSep(ts) {
   return d.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' });
 }
 
-/* Palette: no green, no sky-blue/cyan anywhere on this page — graphite/black
-   as the base "chrome" everywhere, with a small set of warm/violet accent
-   hues reserved for functional identification only (avatars, small badges). */
-const NEUTRAL_HEADER = 'linear-gradient(135deg, #101216 0%, #181b21 50%, #20242c 100%)';
+/* Palette: no green, no sky-blue/cyan, no orange/amber, no teal anywhere on
+   this page — graphite/black is the base "chrome" everywhere (headers, rails,
+   panels), with a curated set of jewel-tone accents (violet, indigo, fuchsia,
+   rose, crimson, slate) reserved for functional identification only
+   (avatars, badges, "my message" bubbles, active-state glows). */
+const NEUTRAL_HEADER = 'linear-gradient(135deg, #0a0b0f 0%, #14161d 45%, #1c2029 100%)';
 const CHAT_NEUTRAL = ['#2f3543', '#1a1d24']; // used for "my" bubble, composer, pin rail, search, reply borders
 const UNREAD_COLORS = ['#ef4444', '#dc2626'];
+const GOLD = '#eab308'; // reserved solely for the "team leader" crown identity — never used as chrome
 
 const GROUP_COLORS = [
-  ['#7c3aed', '#6d28d9'], ['#d97706', '#b45309'], ['#dc2626', '#b91c1c'],
-  ['#db2777', '#be185d'], ['#78716c', '#57534e'], ['#a855f7', '#9333ea'],
+  ['#7c3aed', '#6d28d9'], // violet
+  ['#4f46e5', '#4338ca'], // indigo
+  ['#dc2626', '#b91c1c'], // crimson
+  ['#db2777', '#be185d'], // rose
+  ['#57534e', '#3f3d38'], // graphite
+  ['#a855f7', '#9333ea'], // purple
+  ['#c026d3', '#a21caf'], // fuchsia
+  ['#475569', '#334155'], // slate
 ];
 function groupColor(id) {
   const idx = id ? parseInt(String(id).slice(-2), 16) % GROUP_COLORS.length : 0;
@@ -127,7 +136,7 @@ const DM_COLORS = ['#4b5563', '#33383f'];
 const LEADER_COLORS = ['#7c3aed', '#6d28d9'];
 const TEACHER_DM_COLORS = ['#9333ea', '#7e22ce'];
 
-const SENDER_COLORS = ['#a855f7', '#d97706', '#db2777', '#f97316', '#7c3aed', '#dc2626', '#78716c', '#e11d48'];
+const SENDER_COLORS = ['#a855f7', '#4f46e5', '#db2777', '#c026d3', '#7c3aed', '#dc2626', '#78716c', '#e11d48'];
 function senderColor(seed) {
   const s = String(seed || '');
   let hash = 0;
@@ -161,6 +170,41 @@ function MentionText({ text, accent }) {
 }
 
 /* ════════════════════════════════════════════════════════════════════
+   Waveform helpers — a deterministic bar pattern per voice note (so the
+   same message always renders the same "shape", like a real waveform)
+   plus a shared bar-renderer used by both the sent bubble and the
+   composer's record/preview states.
+═════════════════════════════════════════════════════════════════════ */
+function seededBars(seed, count = 32) {
+  let h = 0;
+  const s = String(seed || 'voice');
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  let x = h || 7;
+  const bars = [];
+  for (let i = 0; i < count; i++) {
+    x = (x * 1103515245 + 12345) & 0x7fffffff;
+    bars.push(0.22 + ((x % 1000) / 1000) * 0.78); // 0.22–1.0
+  }
+  return bars;
+}
+
+function Waveform({ bars, progress = 0, color, mutedColor, playing, onSeek }) {
+  const activeIndex = Math.floor(progress * bars.length);
+  return (
+    <div className="wa-voice-wave" onClick={onSeek} style={{ cursor: onSeek ? 'pointer' : 'default' }}>
+      {bars.map((h, i) => {
+        const isPast = i <= activeIndex;
+        const isLive = playing && isPast && i === activeIndex;
+        return (
+          <span key={i} className={`wa-voice-bar${isLive ? ' wa-voice-bar-live' : ''}`}
+            style={{ height: `${7 + h * 17}px`, background: isPast ? color : mutedColor }} />
+        );
+      })}
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════════
    Exclusive audio playback (only one voice note plays at a time)
 ═════════════════════════════════════════════════════════════════════ */
 const AudioPlaybackContext = createContext(null);
@@ -177,9 +221,11 @@ function AudioPlaybackProvider({ children }) {
 function VoiceBubble({ url, duration, isMine, accent }) {
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
+  const [loaded, setLoaded] = useState(false);
   const audioRef = useRef(null);
   const ctx = useContext(AudioPlaybackContext);
   const totalDuration = duration || 0;
+  const bars = useMemo(() => seededBars(url || duration, 30), [url, duration]);
 
   useEffect(() => {
     const el = audioRef.current;
@@ -197,22 +243,44 @@ function VoiceBubble({ url, duration, isMine, accent }) {
     else { ctx?.stopOthers(el); el.play(); setPlaying(true); }
   };
   const fmtDur = (s) => { const t = Math.round(s || 0); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; };
-  const progress = totalDuration > 0 ? Math.min((currentTime / totalDuration) * 100, 100) : 0;
+  const progress = totalDuration > 0 ? Math.min(currentTime / totalDuration, 1) : 0;
+
+  const seek = (e) => {
+    const el = audioRef.current;
+    if (!el || !totalDuration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const ratio = Math.min(Math.max((e.clientX - rect.left) / rect.width, 0), 1);
+    el.currentTime = ratio * totalDuration;
+    setCurrentTime(ratio * totalDuration);
+    if (!playing) { ctx?.stopOthers(el); el.play(); setPlaying(true); }
+  };
+
+  const barColor = isMine ? 'rgba(255,255,255,0.95)' : accent;
+  const barMuted = isMine ? 'rgba(255,255,255,0.32)' : `${accent}38`;
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 180 }}>
-      <audio ref={audioRef} src={url} onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)}
+    <div className="wa-voice-bubble" style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 216 }}>
+      <audio ref={audioRef} src={url} preload="metadata"
+        onLoadedMetadata={() => setLoaded(true)}
+        onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)}
         onEnded={() => { setPlaying(false); setCurrentTime(0); }} style={{ display: 'none' }} />
-      <button onClick={toggle} style={{ width: 32, height: 32, borderRadius: '50%', border: 'none', cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', background: isMine ? 'rgba(255,255,255,0.3)' : `${accent}b0` }}>
-        {playing ? <Pause style={{ width: 14, height: 14 }} /> : <Play style={{ width: 14, height: 14 }} />}
+
+      <button onClick={toggle} title={playing ? 'Pause' : 'Play'}
+        className={`wa-voice-play-btn${playing ? ' wa-voice-play-btn-active' : ''}`}
+        style={{ background: isMine ? 'rgba(255,255,255,0.24)' : `${accent}22`, color: isMine ? '#fff' : accent }}>
+        {playing ? <Pause style={{ width: 15, height: 15 }} fill="currentColor" />
+          : <Play style={{ width: 15, height: 15, marginLeft: 1.5 }} fill="currentColor" />}
       </button>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 3 }}>
-        <div style={{ height: 3, borderRadius: 2, background: isMine ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.12)', position: 'relative', overflow: 'hidden' }}>
-          <div style={{ height: '100%', width: `${progress}%`, background: isMine ? 'rgba(255,255,255,0.7)' : accent, borderRadius: 2, transition: 'width 0.1s linear' }} />
+
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
+        <Waveform bars={bars} progress={progress} color={barColor} mutedColor={barMuted} playing={playing} onSeek={seek} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <span style={{ fontSize: 10, opacity: 0.72, fontVariantNumeric: 'tabular-nums' }}>
+            {fmtDur(playing || currentTime > 0 ? currentTime : totalDuration)}
+          </span>
+          {playing && <span className="wa-voice-live-dot" style={{ background: isMine ? '#fff' : accent }} />}
         </div>
-        <span style={{ fontSize: 10, opacity: 0.7 }}>{playing ? fmtDur(currentTime) : fmtDur(totalDuration)}</span>
       </div>
-      <Mic style={{ width: 13, height: 13, opacity: 0.5, flexShrink: 0 }} />
     </div>
   );
 }
@@ -272,25 +340,18 @@ function MessageBubble({
   const [pickerOpen, setPickerOpen] = useState(false);
   const isMine = item.isMine;
   const isTeacherMsg = teacherBadge && item.author_role === 'teacher';
-  const bubbleBg = isMine ? `linear-gradient(135deg, ${accent[0]}, ${accent[1]})`
-    : isTeacherMsg ? 'linear-gradient(135deg, #7c3aed, #6d28d9)' : 'var(--surface-100)';
-  const bubbleColor = isMine || isTeacherMsg ? '#fff' : 'var(--text-primary)';
+  const bubbleBg = isMine ? 'var(--wa-bubble-sent-bg)'
+    : isTeacherMsg ? 'linear-gradient(135deg, #7c3aed, #6d28d9)' : 'var(--wa-bubble-received-bg)';
+  const bubbleColor = isMine || isTeacherMsg ? '#fff' : 'var(--wa-bubble-received-text)';
   const isMedia = item.message_type === 'image' || item.message_type === 'file';
 
   return (
     <div id={`msg-${item.id}`} className="group" style={{
       display: 'flex', marginBottom: 4, alignItems: 'flex-end', gap: 6, justifyContent: isMine ? 'flex-end' : 'flex-start',
       transition: 'background 0.6s ease', background: highlighted ? `${accent[0]}22` : 'transparent', borderRadius: 12,
+      animation: 'msgBubbleIn 0.22s cubic-bezier(0.2,0.8,0.2,1) both',
     }}>
-      {isMine && (
-        <div className="opacity-0 group-hover:opacity-100 transition-opacity" style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-          <button onClick={() => onDelete(item.id)} disabled={deletingId === item.id} title="Delete"
-            style={{ color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer' }}>
-            <Trash2 style={{ width: 12, height: 12 }} />
-          </button>
-        </div>
-      )}
-      <div style={{ maxWidth: '72%', position: 'relative' }}>
+      <div style={{ maxWidth: '72%' }}>
         {item.isFirst && !item.isMine && item.author_name && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, marginLeft: 4 }}>
             <span style={{ fontSize: 11, fontWeight: 700, color: isTeacherMsg ? '#7c3aed' : senderColor(item.author_id || item.author_name) }}>{item.author_name}</span>
@@ -298,49 +359,75 @@ function MessageBubble({
           </div>
         )}
 
-        {/* reply-to quoted preview */}
+        {/* reply-to quoted preview — tap to jump to the original message */}
         {item.reply_to && (
-          <button onClick={() => onJumpTo(item.reply_to.id)} style={{
-            display: 'block', width: '100%', textAlign: 'left', marginBottom: 3, padding: '5px 9px', borderRadius: 10,
-            background: isMine ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.05)', border: `2px solid ${accent[0]}`, borderWidth: '0 0 0 3px',
-            cursor: 'pointer', fontSize: 11.5,
+          <button onClick={() => onJumpTo(item.reply_to.id)} className="wa-reply-quote" style={{
+            width: '100%', textAlign: 'left', marginBottom: 3, borderRadius: '10px 10px 4px 4px',
+            background: isMine ? 'rgba(255,255,255,0.16)' : `${accent[0]}0f`, borderLeft: `3px solid ${isMine ? 'rgba(255,255,255,0.7)' : accent[0]}`,
           }}>
-            <div style={{ fontWeight: 700, color: isMine ? 'rgba(255,255,255,0.85)' : accent[0] }}>{item.reply_to.author_name}</div>
-            <div style={{ opacity: 0.8, color: isMine ? '#fff' : 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.reply_to.preview}</div>
+            <Reply style={{ width: 11, height: 11, flexShrink: 0, marginTop: 2, opacity: 0.75, color: isMine ? '#fff' : accent[0] }} />
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ fontWeight: 700, fontSize: 11, color: isMine ? 'rgba(255,255,255,0.9)' : accent[0] }}>{item.reply_to.author_name}</div>
+              <div style={{ opacity: 0.85, fontSize: 11.5, color: isMine ? '#fff' : 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.reply_to.preview}</div>
+            </div>
           </button>
         )}
 
-        <div style={{ position: 'relative' }}
-          onMouseEnter={e => e.currentTarget.querySelector('.hover-actions')?.style.setProperty('opacity', '1')}
-          onMouseLeave={e => e.currentTarget.querySelector('.hover-actions')?.style.setProperty('opacity', '0')}>
-          <div style={{
-            background: isMedia ? 'transparent' : bubbleBg, color: bubbleColor, padding: isMedia ? 0 : '9px 13px',
-            borderRadius: isMine ? '18px 18px 4px 18px' : '18px 18px 18px 4px', fontSize: 13.5, lineHeight: 1.5, wordBreak: 'break-word',
-            boxShadow: isMedia ? 'none' : '0 1px 3px rgba(0,0,0,0.08)',
-          }}>
-            {item.message_type === 'voice' ? <VoiceBubble url={item.voice_url} duration={item.voice_duration} isMine={isMine} accent={accent[0]} />
-              : item.message_type === 'image' ? <ChatImageBubble url={item.file_url} name={item.file_name} mimeType={item.mime_type} />
-              : item.message_type === 'file' ? <ChatFileBubble url={item.file_url} name={item.file_name} size={item.file_size} mimeType={item.mime_type} />
-              : <MentionText text={item.content} accent={isMine ? '#fff' : accent[0]} />}
+        {/* ── Bubble line: delete / reply controls sit here as normal flex
+           siblings of the bubble, so they're vertically centered against the
+           actual message — never floating above or below it. ── */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: isMine ? 'flex-end' : 'flex-start' }}>
+          {isMine && (
+            <button onClick={() => onDelete(item.id)} disabled={deletingId === item.id} title="Delete message"
+              className="wa-msg-delete-btn opacity-0 group-hover:opacity-100 transition-opacity">
+              {deletingId === item.id
+                ? <div style={{ width: 12, height: 12, border: '2px solid rgba(220,38,38,0.3)', borderTopColor: '#dc2626', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+                : <Trash2 style={{ width: 13, height: 13 }} />}
+            </button>
+          )}
+
+          {isMine && (
+            <button onClick={() => onReply(item)} title="Reply" className="wa-reply-side-btn opacity-0 group-hover:opacity-100 transition-opacity"
+              style={{ background: `${accent[0]}18`, color: accent[0] }}>
+              <Reply style={{ width: 14, height: 14 }} />
+            </button>
+          )}
+
+          <div style={{ position: 'relative', minWidth: 0 }}>
+            <div style={{
+              background: isMedia ? 'transparent' : bubbleBg, color: bubbleColor, padding: isMedia ? 0 : '9px 13px',
+              borderRadius: isMine ? '18px 18px 4px 18px' : '18px 18px 18px 4px', fontSize: 13.5, lineHeight: 1.5, wordBreak: 'break-word',
+              boxShadow: isMedia ? 'none' : isMine ? '0 1px 3px rgba(0,0,0,0.08)' : '0 1px 3px rgba(0,0,0,0.06)',
+              border: !isMedia && !isMine && !isTeacherMsg ? '1px solid var(--wa-bubble-received-border)' : 'none',
+            }}>
+              {item.message_type === 'voice' ? <VoiceBubble url={item.voice_url} duration={item.voice_duration} isMine={isMine} accent={accent[0]} />
+                : item.message_type === 'image' ? <ChatImageBubble url={item.file_url} name={item.file_name} mimeType={item.mime_type} />
+                : item.message_type === 'file' ? <ChatFileBubble url={item.file_url} name={item.file_name} size={item.file_size} mimeType={item.mime_type} />
+                : <MentionText text={item.content} accent={isMine ? '#fff' : accent[0]} />}
+            </div>
+
+            {/* Hover toolbar: react / pin — reply now lives beside the bubble instead */}
+            <div className="opacity-0 group-hover:opacity-100 transition-opacity" style={{
+              position: 'absolute', top: -14, [isMine ? 'left' : 'right']: 4, display: 'flex', gap: 2,
+              background: 'var(--card-bg)', border: '1px solid var(--card-border)',
+              borderRadius: 20, padding: 2, boxShadow: '0 2px 10px rgba(0,0,0,0.12)',
+            }}>
+              <button onClick={() => setPickerOpen(o => !o)} title="React" style={{ width: 22, height: 22, borderRadius: '50%', border: 'none', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
+                <SmilePlus style={{ width: 13, height: 13 }} />
+              </button>
+              <button onClick={() => onTogglePin(item)} title={isPinned ? 'Unpin' : 'Pin'} style={{ width: 22, height: 22, borderRadius: '50%', border: 'none', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isPinned ? accent[0] : 'var(--text-secondary)' }}>
+                {isPinned ? <PinOff style={{ width: 12, height: 12 }} /> : <Pin style={{ width: 12, height: 12 }} />}
+              </button>
+            </div>
+            {pickerOpen && <ReactionPicker onPick={(emoji) => onReact(item.id, emoji)} onClose={() => setPickerOpen(false)} />}
           </div>
 
-          {/* Hover toolbar: react / reply / pin */}
-          <div className="hover-actions" style={{
-            position: 'absolute', top: -14, [isMine ? 'left' : 'right']: 4, display: 'flex', gap: 2, opacity: 0,
-            transition: 'opacity 0.12s ease', background: 'var(--card-bg)', border: '1px solid var(--card-border)',
-            borderRadius: 20, padding: 2, boxShadow: '0 2px 10px rgba(0,0,0,0.12)',
-          }}>
-            <button onClick={() => setPickerOpen(o => !o)} title="React" style={{ width: 22, height: 22, borderRadius: '50%', border: 'none', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
-              <SmilePlus style={{ width: 13, height: 13 }} />
+          {!isMine && (
+            <button onClick={() => onReply(item)} title="Reply" className="wa-reply-side-btn opacity-0 group-hover:opacity-100 transition-opacity"
+              style={{ background: `${accent[0]}18`, color: accent[0] }}>
+              <Reply style={{ width: 14, height: 14 }} />
             </button>
-            <button onClick={() => onReply(item)} title="Reply" style={{ width: 22, height: 22, borderRadius: '50%', border: 'none', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
-              <Reply style={{ width: 13, height: 13 }} />
-            </button>
-            <button onClick={() => onTogglePin(item)} title={isPinned ? 'Unpin' : 'Pin'} style={{ width: 22, height: 22, borderRadius: '50%', border: 'none', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isPinned ? accent[0] : 'var(--text-secondary)' }}>
-              {isPinned ? <PinOff style={{ width: 12, height: 12 }} /> : <Pin style={{ width: 12, height: 12 }} />}
-            </button>
-          </div>
-          {pickerOpen && <ReactionPicker onPick={(emoji) => onReact(item.id, emoji)} onClose={() => setPickerOpen(false)} />}
+          )}
         </div>
 
         <ReactionBar reactions={item.reactions} myId={item._myId} onToggle={(emoji) => onReact(item.id, emoji)} accent={accent[0]} />
@@ -470,7 +557,7 @@ function MembersPanel({ group, onClose }) {
               <div style={{ width: 42, height: 42, borderRadius: '50%', flexShrink: 0, background: isLeader ? `linear-gradient(135deg, ${a}, ${b})` : 'linear-gradient(135deg, #4b5563, #33383f)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 15 }}>{m.name[0].toUpperCase()}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</div>
-                {isLeader && <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}><Crown style={{ width: 11, height: 11, color: '#d97706' }} /><span style={{ fontSize: 11, fontWeight: 600, color: '#b45309' }}>Team Leader</span></div>}
+                {isLeader && <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}><Crown style={{ width: 11, height: 11, color: GOLD }} /><span style={{ fontSize: 11, fontWeight: 600, color: '#a16207' }}>Team Leader</span></div>}
               </div>
             </div>
           );
@@ -500,9 +587,11 @@ function Composer({
   const [text, setText] = useState('');
   const [recording, setRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
+  const [liveLevels, setLiveLevels] = useState(() => new Array(28).fill(0.15));
   const [audioBlob, setAudioBlob] = useState(null);
   const [audioDuration, setAudioDuration] = useState(0);
   const [audioPlaying, setAudioPlaying] = useState(false);
+  const [previewTime, setPreviewTime] = useState(0);
   const [selectedFile, setSelectedFile] = useState(null);
   const [filePreviewUrl, setFilePreviewUrl] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -519,6 +608,50 @@ function Composer({
   const fileInputRef = useRef(null);
   const imageInputRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+  // Live waveform while recording: an AnalyserNode sampled on every animation
+  // frame, bucketed down to a small bar count so the composer's recording
+  // pill reacts to the person's actual voice instead of just pulsing blindly.
+  const audioCtxRef = useRef(null);
+  const analyserRef = useRef(null);
+  const levelRafRef = useRef(null);
+  const previewBars = useMemo(() => seededBars(audioBlob ? `${audioDuration}-preview` : 'preview', 26), [audioBlob, audioDuration]);
+
+  const startLevelMeter = (stream) => {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      const audioCtx = new AudioCtx();
+      const source = audioCtx.createMediaStreamSource(stream);
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 64;
+      source.connect(analyser);
+      audioCtxRef.current = audioCtx;
+      analyserRef.current = analyser;
+      const data = new Uint8Array(analyser.frequencyBinCount);
+      const barCount = 28;
+      const tick = () => {
+        analyser.getByteFrequencyData(data);
+        const step = Math.max(1, Math.floor(data.length / barCount));
+        const next = new Array(barCount);
+        for (let i = 0; i < barCount; i++) {
+          const slice = data.slice(i * step, i * step + step);
+          const avg = slice.reduce((a, b) => a + b, 0) / (slice.length || 1);
+          next[i] = Math.min(1, 0.12 + (avg / 255) * 1.4);
+        }
+        setLiveLevels(next);
+        levelRafRef.current = requestAnimationFrame(tick);
+      };
+      levelRafRef.current = requestAnimationFrame(tick);
+    } catch { /* AnalyserNode unsupported — recording still works, just no live bars */ }
+  };
+  const stopLevelMeter = () => {
+    if (levelRafRef.current) cancelAnimationFrame(levelRafRef.current);
+    levelRafRef.current = null;
+    audioCtxRef.current?.close().catch(() => {});
+    audioCtxRef.current = null;
+    analyserRef.current = null;
+    setLiveLevels(new Array(28).fill(0.15));
+  };
+  useEffect(() => () => stopLevelMeter(), []);
 
   const handleTyping = (e) => {
     const val = e.target.value;
@@ -552,8 +685,14 @@ function Composer({
     if (inputRef.current) inputRef.current.style.height = 'auto';
     setPosting(true);
     onTypingChange && onTypingChange(false);
-    try { await onSendText(content); }
-    finally { setPosting(false); }
+    try {
+      await onSendText(content);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Message failed to send. Please try again.');
+      setText(content); // don't lose what they typed
+    } finally {
+      setPosting(false);
+    }
   };
 
   const handleKey = (e) => {
@@ -578,31 +717,53 @@ function Composer({
       recorder.onstop = () => { setAudioBlob(new Blob(audioChunksRef.current, { type: mimeType })); setAudioDuration(recordingTime); stream.getTracks().forEach(t => t.stop()); };
       recorder.start(); mediaRecorderRef.current = recorder; setRecording(true); setRecordingTime(0);
       recordTimerRef.current = setInterval(() => setRecordingTime(t => t + 1), 1000);
+      startLevelMeter(stream);
     } catch { toast.error('Microphone access denied. Please allow mic permission.'); }
   };
-  const stopRecording = () => { if (mediaRecorderRef.current && recording) { mediaRecorderRef.current.stop(); clearInterval(recordTimerRef.current); setRecording(false); } };
+  const stopRecording = () => { if (mediaRecorderRef.current && recording) { mediaRecorderRef.current.stop(); clearInterval(recordTimerRef.current); stopLevelMeter(); setRecording(false); } };
   const stopAndSendVoice = () => {
     if (!mediaRecorderRef.current || !recording) return;
     mediaRecorderRef.current.onstop = () => {
       const mimeType = mediaRecorderRef.current.mimeType || 'audio/webm';
       const blob = new Blob(audioChunksRef.current, { type: mimeType });
       const duration = recordingTime;
-      clearInterval(recordTimerRef.current); setRecording(false); setAudioBlob(null);
-      (async () => { setPosting(true); try { await onSendVoice(blob, duration); } finally { setPosting(false); } })();
+      clearInterval(recordTimerRef.current); stopLevelMeter(); setRecording(false); setAudioBlob(null);
+      (async () => {
+        setPosting(true);
+        try {
+          await onSendVoice(blob, duration);
+        } catch (err) {
+          toast.error(err.response?.data?.message || 'Voice note failed to send. Tap send to try again.');
+          // Don't lose the recording — drop it back into the preview state so
+          // the person can retry instead of having to re-record from scratch.
+          setAudioBlob(blob); setAudioDuration(duration);
+        } finally {
+          setPosting(false);
+        }
+      })();
     };
     mediaRecorderRef.current.stop();
   };
-  const cancelVoice = () => { if (recording) stopRecording(); setAudioBlob(null); setRecordingTime(0); setAudioPlaying(false); };
+  const cancelVoice = () => { if (recording) stopRecording(); setAudioBlob(null); setRecordingTime(0); setAudioPlaying(false); setPreviewTime(0); };
   const toggleAudioPreview = () => {
     if (!audioPreviewRef.current) return;
     if (audioPlaying) { audioPreviewRef.current.pause(); setAudioPlaying(false); }
-    else { audioPreviewRef.current.play(); setAudioPlaying(true); audioPreviewRef.current.onended = () => setAudioPlaying(false); }
+    else { audioPreviewRef.current.play(); setAudioPlaying(true); audioPreviewRef.current.onended = () => { setAudioPlaying(false); setPreviewTime(0); }; }
   };
   const sendVoicePreview = async () => {
     if (!audioBlob || posting) return;
     const blob = audioBlob, duration = audioDuration;
-    setAudioBlob(null); setRecordingTime(0); setAudioPlaying(false);
-    setPosting(true); try { await onSendVoice(blob, duration); } finally { setPosting(false); }
+    setAudioPlaying(false);
+    setPosting(true);
+    try {
+      await onSendVoice(blob, duration);
+      setAudioBlob(null); setRecordingTime(0); setPreviewTime(0);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Voice note failed to send. Tap send to try again.');
+      // Keep the recording in place on failure instead of discarding it.
+    } finally {
+      setPosting(false);
+    }
   };
   const fmtDuration = (s) => { const t = Math.round(s || 0); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; };
 
@@ -617,7 +778,15 @@ function Composer({
   const sendFilePreview = async () => {
     if (!selectedFile || uploading) return;
     setUploading(true);
-    try { await onSendFile(selectedFile); cancelFile(); } finally { setUploading(false); }
+    try {
+      await onSendFile(selectedFile);
+      cancelFile();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'File failed to send. Please try again.');
+      // Keep the selected file in place so the person can retry without re-picking it.
+    } finally {
+      setUploading(false);
+    }
   };
 
   useEffect(() => () => clearTimeout(typingTimeoutRef.current), []);
@@ -636,13 +805,14 @@ function Composer({
       <input ref={imageInputRef} type="file" accept="image/*" onChange={handleFilePick} style={{ display: 'none' }} />
 
       {replyTo && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderBottom: '1px solid var(--card-border)', background: `${accent[0]}08` }}>
-          <Reply style={{ width: 13, height: 13, color: accent[0], flexShrink: 0 }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', borderBottom: '1px solid var(--card-border)', background: `${accent[0]}0a`, animation: 'replyBarIn 0.16s ease both' }}>
+          <div style={{ width: 3, alignSelf: 'stretch', borderRadius: 3, background: accent[0], flexShrink: 0 }} />
+          <Reply style={{ width: 15, height: 15, color: accent[0], flexShrink: 0 }} />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: accent[0] }}>Replying to {replyTo.author_name}</div>
-            <div style={{ fontSize: 11.5, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{replyTo.content || 'Attachment'}</div>
+            <div style={{ fontSize: 11.5, fontWeight: 700, color: accent[0] }}>Replying to {replyTo.author_name}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{replyTo.content || 'Attachment'}</div>
           </div>
-          <button onClick={onCancelReply} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', flexShrink: 0 }}><X style={{ width: 14, height: 14 }} /></button>
+          <button onClick={onCancelReply} title="Cancel reply" style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--surface-100)', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X style={{ width: 13, height: 13 }} /></button>
         </div>
       )}
 
@@ -663,24 +833,39 @@ function Composer({
             </button>
           </div>
         ) : recording ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <button onClick={cancelVoice} style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: 'rgba(220,38,38,0.1)', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}><X style={{ width: 16, height: 16 }} /></button>
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface-100)', borderRadius: 20, padding: '8px 14px', border: '1.5px solid #dc262630' }}>
-              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#dc2626', animation: 'pulse 1s infinite' }} />
-              <span style={{ fontSize: 13, color: '#dc2626', fontWeight: 600 }}>Recording… {fmtDuration(recordingTime)}</span>
+          <div className="wa-recording-pill" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <button onClick={cancelVoice} title="Cancel" className="wa-voice-cancel-btn"><X style={{ width: 16, height: 16 }} /></button>
+            <div className="wa-recording-panel">
+              <span className="wa-rec-dot" />
+              <span className="wa-recording-time">{fmtDuration(recordingTime)}</span>
+              <div className="wa-live-wave">
+                {liveLevels.map((v, i) => (
+                  <span key={i} className="wa-live-bar" style={{ height: `${6 + v * 22}px` }} />
+                ))}
+              </div>
             </div>
-            <button onClick={stopAndSendVoice} style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: `linear-gradient(135deg, ${accent[0]}, ${accent[1]})`, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}><Send style={{ width: 16, height: 16 }} /></button>
+            <button onClick={stopAndSendVoice} title="Send" className="wa-voice-send-btn" style={{ background: `linear-gradient(135deg, ${accent[0]}, ${accent[1]})` }}>
+              <Send style={{ width: 16, height: 16 }} />
+            </button>
           </div>
         ) : audioBlob ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <button onClick={cancelVoice} style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: 'rgba(220,38,38,0.1)', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}><Trash2 style={{ width: 16, height: 16 }} /></button>
-            <audio ref={audioPreviewRef} src={URL.createObjectURL(audioBlob)} style={{ display: 'none' }} />
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface-100)', borderRadius: 20, padding: '8px 14px', border: `1.5px solid ${accent[0]}40` }}>
-              <button onClick={toggleAudioPreview} style={{ width: 28, height: 28, borderRadius: '50%', border: 'none', background: `${accent[0]}20`, color: accent[0], display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>{audioPlaying ? <Pause style={{ width: 12, height: 12 }} /> : <Play style={{ width: 12, height: 12 }} />}</button>
-              <Mic style={{ width: 13, height: 13, color: accent[0], opacity: 0.7 }} />
-              <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500 }}>Voice note · {fmtDuration(audioDuration)}</span>
+            <button onClick={cancelVoice} title="Discard" className="wa-voice-cancel-btn"><Trash2 style={{ width: 16, height: 16 }} /></button>
+            <audio ref={audioPreviewRef} src={URL.createObjectURL(audioBlob)}
+              onTimeUpdate={() => setPreviewTime(audioPreviewRef.current?.currentTime || 0)}
+              style={{ display: 'none' }} />
+            <div className="wa-recording-panel" style={{ border: `1.5px solid ${accent[0]}40` }}>
+              <button onClick={toggleAudioPreview} title={audioPlaying ? 'Pause' : 'Play'}
+                className={`wa-voice-play-btn${audioPlaying ? ' wa-voice-play-btn-active' : ''}`}
+                style={{ width: 28, height: 28, background: `${accent[0]}20`, color: accent[0], flexShrink: 0 }}>
+                {audioPlaying ? <Pause style={{ width: 12, height: 12 }} fill="currentColor" /> : <Play style={{ width: 12, height: 12, marginLeft: 1 }} fill="currentColor" />}
+              </button>
+              <Waveform bars={previewBars} progress={audioDuration ? Math.min(previewTime / audioDuration, 1) : 0}
+                color={accent[0]} mutedColor={`${accent[0]}30`} playing={audioPlaying} />
+              <span className="wa-recording-time" style={{ color: accent[0] }}>{fmtDuration(audioPlaying ? previewTime : audioDuration)}</span>
             </div>
-            <button onClick={sendVoicePreview} disabled={posting} style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: `linear-gradient(135deg, ${accent[0]}, ${accent[1]})`, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, opacity: posting ? 0.6 : 1 }}>
+            <button onClick={sendVoicePreview} disabled={posting} title="Send" className="wa-voice-send-btn"
+              style={{ background: `linear-gradient(135deg, ${accent[0]}, ${accent[1]})`, opacity: posting ? 0.6 : 1 }}>
               {posting ? <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> : <Send style={{ width: 16, height: 16 }} />}
             </button>
           </div>
@@ -728,11 +913,19 @@ function useThread(entry, myId) {
   const [groupMeta, setGroupMeta] = useState(null); // full group object once loaded (members, leader, etc.)
   const [reactions, setReactions] = useState(() => localStore.get(`reactions:${entry.key}`, {}));
   const [pinnedIds, setPinnedIds] = useState(() => localStore.get(`pinned:${entry.key}`, []));
+  // The backend accepts reply_to_id but doesn't (yet) echo back a resolved
+  // reply_to object on every fetch — only the optimistic message right after
+  // sending has it in memory. Without this, the quote would vanish the next
+  // time the thread reloads (tab revisit, navigation, page refresh) even
+  // though the message itself is still there. Persist it locally, same as
+  // reactions/pins, keyed by message id, so it survives reloads.
+  const [replyMeta, setReplyMeta] = useState(() => localStore.get(`replies:${entry.key}`, {}));
   const lastMsgTimeRef = useRef(null);
   const pollRef = useRef(null);
 
   useEffect(() => { localStore.set(`reactions:${entry.key}`, reactions); }, [reactions, entry.key]);
   useEffect(() => { localStore.set(`pinned:${entry.key}`, pinnedIds); }, [pinnedIds, entry.key]);
+  useEffect(() => { localStore.set(`replies:${entry.key}`, replyMeta); }, [replyMeta, entry.key]);
 
   const basePath = entry.type === 'group' ? `/group-discussions/${entry.id}/messages`
     : entry.type === 'leaderdm' ? `/group-discussions/${entry.id}/leader-dm`
@@ -807,6 +1000,7 @@ function useThread(entry, myId) {
     setMessages([]); setLoading(true); setIsEnded(false); setHidden(false); lastMsgTimeRef.current = null;
     setReactions(localStore.get(`reactions:${entry.key}`, {}));
     setPinnedIds(localStore.get(`pinned:${entry.key}`, []));
+    setReplyMeta(localStore.get(`replies:${entry.key}`, {}));
     load();
     pollRef.current = setInterval(() => poll(true), 3000);
     return () => clearInterval(pollRef.current);
@@ -824,7 +1018,11 @@ function useThread(entry, myId) {
     try {
       const res = await api.post(path, body);
       const newMsg = res.data.msg;
-      if (replyTo) newMsg.reply_to = { id: replyTo.id, author_name: replyTo.author_name || replyTo.sender_name, preview: replyTo.content || 'Attachment' };
+      if (replyTo) {
+        const quote = { id: replyTo.id, author_name: replyTo.author_name || replyTo.sender_name, preview: replyTo.content || 'Attachment' };
+        newMsg.reply_to = quote;
+        setReplyMeta(prev => ({ ...prev, [newMsg.id]: quote }));
+      }
       setMessages(prev => [...prev, { ...newMsg, sender_name: entry.type === 'dm' ? 'You' : newMsg.sender_name }]);
       lastMsgTimeRef.current = newMsg.created_at;
       return newMsg;
@@ -841,13 +1039,27 @@ function useThread(entry, myId) {
     formData.append('audio', blob, `voice-note-${Date.now()}.${ext}`);
     formData.append('duration', String(duration));
     if (entry.type === 'dm') formData.append('receiverId', entry.peerId);
+    // IMPORTANT: leaderdm must hit its own nested endpoint, never the plain
+    // group one — posting to /group-discussions/:id/voice-notes here would
+    // silently deliver a "private" voice note to the whole group instead of
+    // just the teacher.
     const path = entry.type === 'group' ? `/group-discussions/${entry.id}/voice-notes`
-      : entry.type === 'leaderdm' ? `/group-discussions/${entry.id}/voice-notes` // falls back gracefully if not implemented for leader-dm
+      : entry.type === 'leaderdm' ? `/group-discussions/${entry.id}/leader-dm/voice-notes`
       : `/collaborations/class/${entry.classId}/voice-notes`;
-    const res = await api.post(path, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
-    const newMsg = res.data.msg;
-    setMessages(prev => [...prev, { ...newMsg, sender_name: entry.type === 'dm' ? 'You' : newMsg.sender_name }]);
-    lastMsgTimeRef.current = newMsg.created_at;
+    try {
+      const res = await api.post(path, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+      const newMsg = res.data.msg;
+      setMessages(prev => [...prev, { ...newMsg, sender_name: entry.type === 'dm' ? 'You' : newMsg.sender_name }]);
+      lastMsgTimeRef.current = newMsg.created_at;
+    } catch (err) {
+      if (entry.type === 'leaderdm' && err.response?.status === 404) {
+        // Fail loudly rather than silently falling back to the group endpoint
+        // and misdelivering a private voice note to every group member.
+        toast.error("Voice notes aren't available in your private teacher line yet.");
+        return;
+      }
+      throw err;
+    }
   };
 
   const sendFile = async (file) => {
@@ -855,17 +1067,26 @@ function useThread(entry, myId) {
     const formData = new FormData();
     formData.append('file', file);
     if (entry.type === 'dm') formData.append('receiverId', entry.peerId);
+    // Same rule as sendVoice above — never fall through to the shared group
+    // media endpoint for a leaderdm thread.
     const path = entry.type === 'group' ? `/group-discussions/${entry.id}/media`
-      : entry.type === 'leaderdm' ? `/group-discussions/${entry.id}/media`
+      : entry.type === 'leaderdm' ? `/group-discussions/${entry.id}/leader-dm/media`
       : `/collaborations/class/${entry.classId}/media`;
-    const res = await api.post(path, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
-    const newMsg = res.data.msg;
-    setMessages(prev => [...prev, { ...newMsg, sender_name: entry.type === 'dm' ? 'You' : newMsg.sender_name }]);
-    lastMsgTimeRef.current = newMsg.created_at;
+    try {
+      const res = await api.post(path, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+      const newMsg = res.data.msg;
+      setMessages(prev => [...prev, { ...newMsg, sender_name: entry.type === 'dm' ? 'You' : newMsg.sender_name }]);
+      lastMsgTimeRef.current = newMsg.created_at;
+    } catch (err) {
+      if (entry.type === 'leaderdm' && err.response?.status === 404) {
+        toast.error("File sharing isn't available in your private teacher line yet.");
+        return;
+      }
+      throw err;
+    }
   };
 
   const deleteMessage = async (messageId) => {
-    if (!window.confirm('Delete this message?')) return;
     const path = entry.type === 'group' ? `/group-discussions/${entry.id}/messages/${messageId}`
       : entry.type === 'leaderdm' ? `/group-discussions/${entry.id}/leader-dm/${messageId}`
       : entry.type === 'teacherdm' ? `/teacher-messages/teacher/${entry.id}/messages/${messageId}`
@@ -907,7 +1128,7 @@ function useThread(entry, myId) {
 
   return {
     messages, setMessages, loading, isEnded, hidden, groupMeta, peerTyping,
-    reactions, pinnedIds, pinnedMessages,
+    reactions, pinnedIds, pinnedMessages, replyMeta,
     sendText, sendVoice, sendFile, deleteMessage, clearMine, toggleReaction, togglePin, setTyping,
   };
 }
@@ -917,9 +1138,10 @@ function useThread(entry, myId) {
 ═════════════════════════════════════════════════════════════════════ */
 function ThreadPane({ entry, myId, myName, onBack, onOpenTeacherDm, onEntryActivity, onThreadHidden }) {
   const thread = useThread(entry, myId);
-  const [deletingId, setDeletingId] = useState(null);
   const [clearConfirm, setClearConfirm] = useState(false);
   const [clearing, setClearing] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
   const [membersOpen, setMembersOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [replyTo, setReplyTo] = useState(null);
@@ -970,15 +1192,25 @@ function ThreadPane({ entry, myId, myName, onBack, onOpenTeacherDm, onEntryActiv
         author_name: m[nameField] || (isMine ? 'You' : entry.name),
         author_id: m[senderField],
         reactions: thread.reactions[m.id || m._id],
+        reply_to: m.reply_to || thread.replyMeta[m.id || m._id],
         isFirst: entry.type !== 'group' ? false : (!prev || prev.author_name !== m.author_name),
         isLast: entry.type !== 'group' ? true : (!next || next.author_name !== m.author_name),
         key: m.id || m._id || `m${i}`,
       });
     });
     return out;
-  }, [thread.messages, thread.reactions, myId, entry]);
+  }, [thread.messages, thread.reactions, thread.replyMeta, myId, entry]);
 
-  const handleDelete = async (id) => { setDeletingId(id); await thread.deleteMessage(id); setDeletingId(null); };
+  const requestDelete = (id) => {
+    const msg = thread.messages.find(m => String(m.id || m._id) === String(id));
+    setDeleteTarget({ id, preview: msg?.content || (msg?.message_type === 'voice' ? '🎤 Voice note' : msg?.message_type === 'image' ? '📷 Photo' : msg?.message_type === 'file' ? '📎 File' : '') });
+  };
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try { await thread.deleteMessage(deleteTarget.id); setDeleteTarget(null); }
+    finally { setDeleting(false); }
+  };
   const handleClear = async () => {
     setClearing(true);
     try { await thread.clearMine(); toast.success('Your messages were cleared'); setClearConfirm(false); }
@@ -1027,13 +1259,13 @@ function ThreadPane({ entry, myId, myName, onBack, onOpenTeacherDm, onEntryActiv
           <StopCircle style={{ width: 13, height: 13, color: '#dc2626' }} /><span style={{ fontSize: 11, fontWeight: 700, color: '#dc2626' }}>The teacher ended this conversation</span>
         </div>
       ) : entry.type === 'group' && thread.groupMeta?.team_leader ? (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '6px 14px', background: 'rgba(245,158,11,0.06)', borderBottom: '1px solid var(--card-border)', flexShrink: 0 }}>
-          <span style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 5, fontWeight: 600, color: '#b45309' }}><Crown style={{ width: 13, height: 13, color: '#d97706' }} /> Team leader: <strong>{thread.groupMeta.team_leader.name}</strong></span>
-          <button onClick={() => setClearConfirm(true)} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 600, color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer' }}><Trash2 style={{ width: 10, height: 10 }} /> Clear mine</button>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '6px 14px', background: 'var(--surface-100)', borderBottom: '1px solid var(--card-border)', flexShrink: 0 }}>
+          <span style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 5, fontWeight: 600, color: 'var(--text-secondary)' }}><Crown style={{ width: 13, height: 13, color: GOLD }} /> Team leader: <strong style={{ color: 'var(--text-primary)' }}>{thread.groupMeta.team_leader.name}</strong></span>
+          <button onClick={() => setClearConfirm(true)} className="wa-clear-mine-btn"><Trash2 style={{ width: 10, height: 10 }} /> Clear mine</button>
         </div>
       ) : (
         <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '4px 14px', borderBottom: '1px solid var(--card-border)', flexShrink: 0 }}>
-          <button onClick={() => setClearConfirm(true)} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 600, color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer' }}><Trash2 style={{ width: 10, height: 10 }} /> Clear mine</button>
+          <button onClick={() => setClearConfirm(true)} className="wa-clear-mine-btn"><Trash2 style={{ width: 10, height: 10 }} /> Clear mine</button>
         </div>
       )}
 
@@ -1056,7 +1288,7 @@ function ThreadPane({ entry, myId, myName, onBack, onOpenTeacherDm, onEntryActiv
             </div>
           ) : (
             <MessageBubble
-              key={item.key} item={item} accent={accent} onDelete={handleDelete} deletingId={deletingId}
+              key={item.key} item={item} accent={accent} onDelete={requestDelete} deletingId={deleting ? deleteTarget?.id : null}
               onReply={setReplyTo} onReact={thread.toggleReaction} onTogglePin={thread.togglePin}
               isPinned={thread.pinnedIds.includes(item.id || item._id)} onJumpTo={jumpTo}
               highlighted={highlightId === (item.id || item._id)} teacherBadge={entry.type === 'group'}
@@ -1087,6 +1319,13 @@ function ThreadPane({ entry, myId, myName, onBack, onOpenTeacherDm, onEntryActiv
         title="Clear My Messages"
         message={entry.type === 'group' ? "This deletes every message you've sent in this group. Other members' messages stay." : `This deletes every message you've sent to ${entry.name}. Their messages stay.`}
         confirmText="Clear" cancelText="Cancel"
+      />
+
+      <ConfirmModal
+        open={!!deleteTarget} onClose={() => setDeleteTarget(null)} onConfirm={confirmDelete} loading={deleting} variant="danger"
+        title="Delete Message"
+        message={deleteTarget?.preview ? `Delete "${deleteTarget.preview.length > 60 ? deleteTarget.preview.slice(0, 60) + '…' : deleteTarget.preview}"? This can't be undone.` : "This can't be undone."}
+        confirmText="Delete" cancelText="Cancel"
       />
     </div>
   );
@@ -1127,7 +1366,7 @@ function InboxRow({ entry, active, onClick, index }) {
           </div>
         )}
         {entry.type === 'group' && (
-          <div style={{ position: 'absolute', bottom: -2, right: -2, width: 16, height: 16, borderRadius: '50%', background: '#0d9488', border: '2px solid var(--card-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ position: 'absolute', bottom: -2, right: -2, width: 16, height: 16, borderRadius: '50%', background: 'linear-gradient(135deg, #64748b, #334155)', border: '2px solid var(--card-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Users style={{ width: 8, height: 8, color: '#fff' }} />
           </div>
         )}
@@ -1150,7 +1389,7 @@ function InboxRow({ entry, active, onClick, index }) {
         {entry.type === 'group' && (
           <div className="flex items-center gap-1.5 flex-wrap mt-1">
             <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ background: `${a}18`, color: a }}>{entry.className}</span>
-            {entry.isLeader && <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold flex items-center gap-1" style={{ background: 'rgba(245,158,11,0.12)', color: '#b45309' }}><Crown className="w-2.5 h-2.5" /> Leader</span>}
+            {entry.isLeader && <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold flex items-center gap-1" style={{ background: 'rgba(234,179,8,0.14)', color: '#a16207' }}><Crown className="w-2.5 h-2.5" /> Leader</span>}
             {entry.mentionCount > 0 && <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold flex items-center gap-1" style={{ background: 'rgba(220,38,38,0.1)', color: '#dc2626' }}><AtSign className="w-2.5 h-2.5" /> {entry.mentionCount}</span>}
           </div>
         )}
@@ -1198,7 +1437,7 @@ function NewMessagePicker({ classes, onPick, onClose }) {
         {classes.length > 1 && (
           <div style={{ padding: '0 18px 10px', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {classes.map(c => (
-              <button key={c.id} onClick={() => setClassId(c.id)} style={{ fontSize: 11.5, fontWeight: 700, padding: '5px 10px', borderRadius: 20, border: 'none', cursor: 'pointer', background: classId === c.id ? 'rgba(13,148,136,0.14)' : 'var(--surface-100)', color: classId === c.id ? '#0d9488' : 'var(--text-secondary)' }}>{c.name}</button>
+              <button key={c.id} onClick={() => setClassId(c.id)} style={{ fontSize: 11.5, fontWeight: 700, padding: '5px 10px', borderRadius: 20, border: 'none', cursor: 'pointer', background: classId === c.id ? 'rgba(124,58,237,0.14)' : 'var(--surface-100)', color: classId === c.id ? '#7c3aed' : 'var(--text-secondary)' }}>{c.name}</button>
             ))}
           </div>
         )}
@@ -1214,7 +1453,7 @@ function NewMessagePicker({ classes, onPick, onClose }) {
             : filtered.map(c => (
               <button key={c.id} onClick={() => onPick(classId, c)} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '9px 10px', borderRadius: 12, background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
                 onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-100)'} onMouseLeave={e => e.currentTarget.style.background = 'none'}>
-                <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg, #128C7E, #075E54)', color: '#fff', fontWeight: 800, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{c.name[0].toUpperCase()}</div>
+                <div style={{ width: 36, height: 36, borderRadius: '50%', background: `linear-gradient(135deg, ${senderColor(c.id || c.name)}, color-mix(in srgb, ${senderColor(c.id || c.name)} 65%, #000))`, color: '#fff', fontWeight: 800, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{c.name[0].toUpperCase()}</div>
                 <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-primary)' }}>{c.name}</span>
               </button>
             ))}
@@ -1426,9 +1665,9 @@ export default function StudentGroups() {
 
         {/* ── Inbox pane ─────────────────────────────────────────── */}
         <div className={`flex flex-col flex-shrink-0 w-full lg:w-[340px] min-h-0 ${mobileShowThread ? 'hidden lg:flex' : 'flex'}`} style={{ borderRight: '1px solid var(--card-border)' }}>
-          <div style={{ position: 'relative', overflow: 'hidden', background: 'linear-gradient(135deg, #04120f 0%, #0a2e29 45%, #0f6a5f 100%)', padding: '16px 16px 12px', flexShrink: 0, isolation: 'isolate' }}>
-            <div style={{ position: 'absolute', top: '-30%', right: '-10%', width: 220, height: 220, borderRadius: '50%', background: 'radial-gradient(circle, rgba(45,212,191,0.35), transparent 70%)', filter: 'blur(6px)', pointerEvents: 'none', zIndex: 0, animation: 'ibxGlowDrift 8s ease-in-out infinite' }} />
-            <div style={{ position: 'absolute', bottom: '-40%', left: '10%', width: 180, height: 180, borderRadius: '50%', background: 'radial-gradient(circle, rgba(251,191,36,0.14), transparent 72%)', filter: 'blur(6px)', pointerEvents: 'none', zIndex: 0, animation: 'ibxGlowDrift 10s ease-in-out infinite reverse' }} />
+          <div className="ibx-header-chrome" style={{ position: 'relative', overflow: 'hidden', padding: '16px 16px 12px', flexShrink: 0, isolation: 'isolate' }}>
+            <div style={{ position: 'absolute', top: '-30%', right: '-10%', width: 220, height: 220, borderRadius: '50%', background: 'radial-gradient(circle, rgba(124,58,237,0.4), transparent 70%)', filter: 'blur(6px)', pointerEvents: 'none', zIndex: 0, animation: 'ibxGlowDrift 8s ease-in-out infinite' }} />
+            <div style={{ position: 'absolute', bottom: '-40%', left: '10%', width: 180, height: 180, borderRadius: '50%', background: 'radial-gradient(circle, rgba(219,39,119,0.22), transparent 72%)', filter: 'blur(6px)', pointerEvents: 'none', zIndex: 0, animation: 'ibxGlowDrift 10s ease-in-out infinite reverse' }} />
             <div style={{ position: 'relative', zIndex: 1 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                 <h2 style={{ color: '#fff', fontWeight: 800, fontSize: 17, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1454,7 +1693,7 @@ export default function StudentGroups() {
               </div>
               <div style={{ display: 'flex', gap: 4 }}>
                 {[['all', 'All'], ['groups', 'Groups'], ['dms', 'Direct'], ['unread', 'Unread']].map(([val, label]) => (
-                  <button key={val} onClick={() => setFilter(val)} style={{ fontSize: 11, fontWeight: 700, padding: '5px 10px', borderRadius: 20, border: 'none', cursor: 'pointer', background: filter === val ? '#fff' : 'rgba(255,255,255,0.14)', color: filter === val ? '#0f6a5f' : 'rgba(255,255,255,0.85)', transition: 'background 0.15s ease, color 0.15s ease' }}>{label}</button>
+                  <button key={val} onClick={() => setFilter(val)} style={{ fontSize: 11, fontWeight: 700, padding: '5px 10px', borderRadius: 20, border: 'none', cursor: 'pointer', background: filter === val ? '#fff' : 'rgba(255,255,255,0.14)', color: filter === val ? '#5b21b6' : 'rgba(255,255,255,0.85)', transition: 'background 0.15s ease, color 0.15s ease, transform 0.15s ease', transform: filter === val ? 'scale(1.04)' : 'scale(1)' }}>{label}</button>
                 ))}
               </div>
             </div>
@@ -1464,7 +1703,7 @@ export default function StudentGroups() {
             {loading ? [0, 1, 2, 3, 4].map(i => <InboxRowSkeleton key={i} delay={i * 60} />)
               : filtered.length === 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '70px 24px', textAlign: 'center' }}>
-                  <div style={{ width: 60, height: 60, borderRadius: 16, marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(13,148,136,0.08)' }}><MessageSquare style={{ width: 28, height: 28, color: '#0d9488', opacity: 0.5 }} /></div>
+                  <div style={{ width: 60, height: 60, borderRadius: 16, marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(124,58,237,0.1)' }}><MessageSquare style={{ width: 28, height: 28, color: '#7c3aed', opacity: 0.6 }} /></div>
                   <p style={{ fontWeight: 700, marginBottom: 6, color: 'var(--text-primary)' }}>{inbox.length === 0 ? 'Nothing here yet' : 'No matches'}</p>
                   <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{inbox.length === 0 ? 'Groups and chats will show up here once your teacher sets them up.' : 'Try a different search or filter.'}</p>
                 </div>
@@ -1488,7 +1727,7 @@ export default function StudentGroups() {
           ) : (
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <div style={{ textAlign: 'center', padding: '0 32px' }}>
-                <div style={{ width: 68, height: 68, borderRadius: 20, margin: '0 auto 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(13,148,136,0.08)', animation: 'ibxIconFloat 4s ease-in-out infinite' }}><MessageCircle style={{ width: 32, height: 32, color: '#0d9488', opacity: 0.7 }} /></div>
+                <div style={{ width: 68, height: 68, borderRadius: 20, margin: '0 auto 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, rgba(124,58,237,0.14), rgba(219,39,119,0.1))', animation: 'ibxIconFloat 4s ease-in-out infinite' }}><MessageCircle style={{ width: 32, height: 32, color: '#7c3aed', opacity: 0.85 }} /></div>
                 <p style={{ fontWeight: 800, marginBottom: 4, color: 'var(--text-primary)' }}>Pick a conversation</p>
                 <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Groups, classmates, and your private teacher line all live in one place now.</p>
               </div>
@@ -1500,6 +1739,176 @@ export default function StudentGroups() {
       {newMsgOpen && <NewMessagePicker classes={collabClasses} onPick={startNewDm} onClose={() => setNewMsgOpen(false)} />}
 
       <style>{`
+        .ibx-header-chrome {
+          background: linear-gradient(120deg, #08090c 0%, #101319 35%, #171b24 65%, #0d0f14 100%);
+          background-size: 200% 200%;
+          animation: ibxChromeShimmer 14s ease-in-out infinite;
+        }
+
+        /* ── Sent vs received bubble colors, both fixed and deliberately
+           distinct — sent messages always use this same signature
+           indigo-violet gradient no matter which thread you're in (so a
+           graphite/slate-accented DM never ends up the same gray as a
+           received bubble); received bubbles use their own fixed tokens
+           instead of var(--surface-100). ── */
+        :root {
+          --wa-bubble-sent-bg: linear-gradient(135deg, #6d5bff, #9333ea);
+          --wa-bubble-received-bg: #ffffff;
+          --wa-bubble-received-text: #1f2430;
+          --wa-bubble-received-border: rgba(15,17,23,0.08);
+        }
+        [data-theme='dark'], .dark {
+          --wa-bubble-sent-bg: linear-gradient(135deg, #7c6bff, #a855f7);
+          --wa-bubble-received-bg: #242834;
+          --wa-bubble-received-text: #eef0f5;
+          --wa-bubble-received-border: rgba(255,255,255,0.07);
+        }
+
+        /* ── Wallpaper: a soft indigo/violet doodle field behind every thread,
+           in the spirit of WhatsApp's chat backdrop but drawn from Edupla's
+           own palette instead of a stock pattern. Two layers: a faint SVG
+           motif of school/chat glyphs, plus slow-drifting ambient blobs
+           underneath so the surface never feels static. Dark and light
+           themes get their own tuned opacity via [data-theme]. ── */
+        .chat-wallpaper {
+          position: relative;
+          background-color: var(--surface-100);
+          background-image:
+            radial-gradient(circle at 12% 8%, rgba(124,58,237,0.10), transparent 40%),
+            radial-gradient(circle at 88% 92%, rgba(219,39,119,0.08), transparent 42%),
+            url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220' viewBox='0 0 220 220'%3E%3Cg fill='none' stroke='%237c3aed' stroke-width='1.4' opacity='0.055'%3E%3Ccircle cx='30' cy='30' r='11'/%3E%3Cpath d='M85 20 l10 18 l-20 0 z'/%3E%3Crect x='140' y='15' width='22' height='16' rx='3'/%3E%3Cpath d='M20 95 q10 -14 20 0 q10 14 20 0' /%3E%3Cpath d='M105 90 h26 M118 78 v24'/%3E%3Ccircle cx='185' cy='95' r='9'/%3E%3Cpath d='M40 150 l16 -16 l16 16 l-16 16 z'/%3E%3Cpath d='M100 160 q0 -18 18 -18 q18 0 18 18 q0 10 -9 14 l-9 6 l-9 -6 q-9 -4 -9 -14z'/%3E%3Crect x='160' y='150' width='18' height='24' rx='3'/%3E%3Cpath d='M15 195 h30 M15 202 h20'/%3E%3Ccircle cx='120' cy='200' r='7'/%3E%3Cpath d='M175 190 l8 14 h-16 z'/%3E%3C/g%3E%3C/svg%3E");
+          background-size: auto, auto, 220px 220px;
+          background-repeat: no-repeat, no-repeat, repeat;
+          background-attachment: fixed, fixed, local;
+        }
+        [data-theme='dark'] .chat-wallpaper, .dark .chat-wallpaper {
+          background-color: #0f1015;
+          background-image:
+            radial-gradient(circle at 12% 8%, rgba(124,58,237,0.16), transparent 42%),
+            radial-gradient(circle at 88% 92%, rgba(219,39,119,0.12), transparent 44%),
+            url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220' viewBox='0 0 220 220'%3E%3Cg fill='none' stroke='%23a855f7' stroke-width='1.4' opacity='0.07'%3E%3Ccircle cx='30' cy='30' r='11'/%3E%3Cpath d='M85 20 l10 18 l-20 0 z'/%3E%3Crect x='140' y='15' width='22' height='16' rx='3'/%3E%3Cpath d='M20 95 q10 -14 20 0 q10 14 20 0' /%3E%3Cpath d='M105 90 h26 M118 78 v24'/%3E%3Ccircle cx='185' cy='95' r='9'/%3E%3Cpath d='M40 150 l16 -16 l16 16 l-16 16 z'/%3E%3Cpath d='M100 160 q0 -18 18 -18 q18 0 18 18 q0 10 -9 14 l-9 6 l-9 -6 q-9 -4 -9 -14z'/%3E%3Crect x='160' y='150' width='18' height='24' rx='3'/%3E%3Cpath d='M15 195 h30 M15 202 h20'/%3E%3Ccircle cx='120' cy='200' r='7'/%3E%3Cpath d='M175 190 l8 14 h-16 z'/%3E%3C/g%3E%3C/svg%3E");
+          background-size: auto, auto, 220px 220px;
+          background-repeat: no-repeat, no-repeat, repeat;
+        }
+
+        /* ── Single-message delete: a real circular control, not a bare icon.
+           Quiet by default, warms to red chrome on hover, spins while busy. ── */
+        .wa-msg-delete-btn {
+          width: 26px; height: 26px; border-radius: 50%; border: none; cursor: pointer;
+          display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+          color: #dc2626; background: rgba(220,38,38,0.08);
+          transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .wa-msg-delete-btn:hover:not(:disabled) {
+          background: rgba(220,38,38,0.16);
+          transform: scale(1.08);
+          box-shadow: 0 2px 10px rgba(220,38,38,0.25);
+        }
+        .wa-msg-delete-btn:active:not(:disabled) { transform: scale(0.94); }
+        .wa-msg-delete-btn:disabled { opacity: 0.6; cursor: default; }
+
+        /* ── Reply-beside-bubble control — sits inline with the message, at
+           the same vertical center, never floating above/below it. ── */
+        .wa-reply-side-btn {
+          width: 28px; height: 28px; border-radius: 50%; border: none; cursor: pointer;
+          display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+          transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+        }
+        .wa-reply-side-btn:hover {
+          transform: scale(1.12);
+          box-shadow: 0 2px 10px rgba(0,0,0,0.18);
+          filter: brightness(1.1);
+        }
+        .wa-reply-side-btn:active { transform: scale(0.96); }
+
+        /* ── "Clear mine" — same red family, pill-shaped, a touch of lift on hover ── */
+        .wa-clear-mine-btn {
+          display: flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 700;
+          color: #dc2626; background: rgba(220,38,38,0.08); border: 1px solid rgba(220,38,38,0.18);
+          border-radius: 20px; padding: 4px 10px; cursor: pointer;
+          transition: background 0.15s ease, transform 0.15s ease;
+        }
+        .wa-clear-mine-btn:hover { background: rgba(220,38,38,0.16); transform: translateY(-1px); }
+        .wa-clear-mine-btn:active { transform: translateY(0); }
+
+        /* ── Reply quote card inside a bubble — tappable, feels like a real citation ── */
+        .wa-reply-quote {
+          display: flex; align-items: flex-start; gap: 6px;
+          padding: 6px 9px; cursor: pointer; font-size: 11.5px;
+          transition: filter 0.15s ease;
+        }
+        .wa-reply-quote:hover { filter: brightness(1.08); }
+
+        /* ── Voice notes — sent bubble + composer record/preview all share
+           this visual language: a circular play control with a soft pulse
+           while active, and a bar-based waveform standing in for a real
+           audio waveform (deterministic per message, live-reactive while
+           actually recording). ── */
+        .wa-voice-play-btn {
+          width: 34px; height: 34px; border-radius: 50%; border: none; cursor: pointer; flex-shrink: 0;
+          display: flex; align-items: center; justify-content: center;
+          transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .wa-voice-play-btn:hover { transform: scale(1.08); }
+        .wa-voice-play-btn:active { transform: scale(0.94); }
+        .wa-voice-play-btn-active { animation: voicePlayPulse 1.6s ease-in-out infinite; }
+        @keyframes voicePlayPulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0.16); }
+          50% { box-shadow: 0 0 0 7px rgba(255,255,255,0.02); }
+        }
+
+        .wa-voice-wave {
+          display: flex; align-items: center; gap: 2.5px; height: 26px; padding: 1px 0;
+        }
+        .wa-voice-bar {
+          width: 3px; border-radius: 3px; flex-shrink: 0;
+          transition: height 0.18s ease, background 0.18s ease, transform 0.15s ease;
+        }
+        .wa-voice-bar-live { animation: voiceBarPulse 0.55s ease-in-out infinite alternate; transform-origin: center; }
+        @keyframes voiceBarPulse { from { transform: scaleY(0.8); } to { transform: scaleY(1.25); } }
+
+        .wa-voice-live-dot {
+          width: 5px; height: 5px; border-radius: 50%; display: inline-block;
+          animation: pulse 1s infinite;
+        }
+
+        /* ── Composer: recording pill + pre-send preview share this panel ── */
+        .wa-recording-panel {
+          flex: 1; display: flex; align-items: center; gap: 9px;
+          background: var(--surface-100); border-radius: 22px; padding: 7px 14px;
+          border: 1.5px solid rgba(220,38,38,0.2);
+          animation: recordingPanelIn 0.18s ease both;
+        }
+        @keyframes recordingPanelIn { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: scale(1); } }
+        .wa-rec-dot {
+          width: 9px; height: 9px; border-radius: 50%; background: #dc2626; flex-shrink: 0;
+          animation: recDotPulse 1.1s ease-in-out infinite;
+        }
+        @keyframes recDotPulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(220,38,38,0.45); transform: scale(1); }
+          50% { box-shadow: 0 0 0 6px rgba(220,38,38,0); transform: scale(1.15); }
+        }
+        .wa-recording-time { font-size: 13px; font-weight: 700; color: #dc2626; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+        .wa-live-wave { flex: 1; display: flex; align-items: center; gap: 2.5px; height: 26px; min-width: 0; overflow: hidden; }
+        .wa-live-bar {
+          width: 3px; min-width: 3px; border-radius: 3px; flex-shrink: 0;
+          background: linear-gradient(180deg, #ef4444, #dc2626);
+          transition: height 0.08s ease-out;
+        }
+        .wa-voice-cancel-btn, .wa-voice-send-btn {
+          width: 38px; height: 38px; border-radius: 50%; border: none; cursor: pointer; flex-shrink: 0;
+          display: flex; align-items: center; justify-content: center; color: #fff;
+          transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .wa-voice-cancel-btn { background: rgba(220,38,38,0.1); color: #dc2626; }
+        .wa-voice-cancel-btn:hover { background: rgba(220,38,38,0.18); transform: scale(1.06); }
+        .wa-voice-send-btn:hover { transform: scale(1.08); box-shadow: 0 4px 14px rgba(0,0,0,0.22); }
+        .wa-voice-send-btn:active, .wa-voice-cancel-btn:active { transform: scale(0.92); }
+
+        @keyframes ibxChromeShimmer { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+        @keyframes msgBubbleIn { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        @keyframes replyBarIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes avatarGlowPulse { 0%, 100% { box-shadow: 0 0 0 0 var(--glow-color, rgba(124,58,237,0.45)); } 50% { box-shadow: 0 0 0 6px rgba(124,58,237,0); } }
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
         @keyframes memberSlideIn { from { opacity: 0; transform: translateX(-12px); } to { opacity: 1; transform: translateX(0); } }
@@ -1509,7 +1918,10 @@ export default function StudentGroups() {
         @keyframes ibxGlowDrift { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-8px, 6px) scale(1.08); } }
         @keyframes ibxIconFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
         @media (prefers-reduced-motion: reduce) {
-          .discussion-list-item, .discussion-list-item * { animation: none !important; }
+          .discussion-list-item, .discussion-list-item *,
+          .wa-msg-delete-btn, .wa-clear-mine-btn, .wa-reply-quote, .wa-reply-side-btn,
+          .wa-voice-play-btn-active, .wa-voice-bar-live, .wa-voice-live-dot,
+          .wa-rec-dot, .wa-recording-panel { animation: none !important; }
         }
       `}</style>
     </div>
