@@ -67,6 +67,10 @@ function groupColor(id) {
 const DM_COLORS = ['#4b5563', '#33383f'];
 const LEADER_COLORS = ['#7c3aed', '#6d28d9'];
 const TEACHER_DM_COLORS = ['#9333ea', '#7e22ce'];
+// "Mine" bubble color across all of the student's chat — a polished
+// neutral gray, consistent everywhere (group chat, leader DM, teacher DM,
+// peer DM) rather than switching with the thread's own accent color.
+const MINE_ACCENT = ['#52525b', '#3f3f46'];
 
 const SENDER_COLORS = ['#a855f7', '#9d174d', '#db2777', '#c026d3', '#7c3aed', '#dc2626', '#78716c', '#e11d48'];
 function senderColor(seed) {
@@ -140,7 +144,7 @@ function AudioPlaybackProvider({ children }) {
   return <AudioPlaybackContext.Provider value={{ register, unregister, stopOthers }}>{children}</AudioPlaybackContext.Provider>;
 }
 
-function VoiceBubble({ url, duration, isMine, accent }) {
+function VoiceBubble({ url, duration, isMine, otherAccent }) {
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [loaded, setLoaded] = useState(false);
@@ -177,9 +181,14 @@ function VoiceBubble({ url, duration, isMine, accent }) {
     if (!playing) { ctx?.stopOthers(el); el.play(); setPlaying(true); }
   };
 
-  const barColor = isMine ? 'rgba(255,255,255,0.95)' : 'var(--wa-voice-accent)';
-  const barMuted = isMine ? 'rgba(255,255,255,0.32)' : 'rgba(245,158,11,0.22)';
-  const glowColor = isMine ? `${accent[0]}66` : 'rgba(245,158,11,0.45)';
+  // "Mine" always renders as a polished neutral gray, consistent everywhere.
+  // Received notes get the sender's own identity color in group threads
+  // (so each classmate's voice notes are visually distinct, matching the
+  // teacher's group-chat design); outside group threads they fall back to
+  // the single amber "received" tone.
+  const barColor = isMine ? 'rgba(255,255,255,0.95)' : (otherAccent || 'var(--wa-voice-accent)');
+  const barMuted = isMine ? 'rgba(255,255,255,0.32)' : (otherAccent ? `${otherAccent}38` : 'rgba(245,158,11,0.22)');
+  const glowColor = isMine ? `${MINE_ACCENT[1]}66` : (otherAccent ? `${otherAccent}66` : 'rgba(245,158,11,0.45)');
 
   return (
     <div
@@ -189,10 +198,14 @@ function VoiceBubble({ url, duration, isMine, accent }) {
         padding: '7px 15px 7px 7px',
         borderRadius: 999,
         background: isMine
-          ? `linear-gradient(135deg, ${accent[0]}, ${accent[1]})`
-          : 'linear-gradient(135deg, rgba(24,17,10,0.72), rgba(12,9,6,0.82))',
-        border: isMine ? 'none' : '1.5px solid var(--wa-bubble-received-border)',
-        boxShadow: isMine ? '0 2px 10px rgba(0,0,0,0.2)' : '0 3px 14px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(245,158,11,0.06)',
+          ? `linear-gradient(135deg, ${MINE_ACCENT[0]}, ${MINE_ACCENT[1]})`
+          : otherAccent
+            ? `linear-gradient(135deg, ${otherAccent}26, ${otherAccent}14)`
+            : 'linear-gradient(135deg, rgba(24,17,10,0.72), rgba(12,9,6,0.82))',
+        border: isMine ? 'none' : otherAccent ? `1.5px solid ${otherAccent}55` : '1.5px solid var(--wa-bubble-received-border)',
+        boxShadow: isMine
+          ? `0 3px 12px -3px ${MINE_ACCENT[1]}99`
+          : otherAccent ? `0 3px 14px -3px ${otherAccent}55` : '0 3px 14px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(245,158,11,0.06)',
         '--voice-glow-color': glowColor,
       }}
     >
@@ -203,7 +216,7 @@ function VoiceBubble({ url, duration, isMine, accent }) {
 
       <button onClick={toggle} title={playing ? 'Pause' : 'Play'}
         className={`wa-voice-play-btn${playing ? ' wa-voice-play-btn-active' : ''}`}
-        style={{ background: isMine ? 'rgba(255,255,255,0.24)' : 'rgba(245,158,11,0.16)', color: isMine ? '#fff' : 'var(--wa-voice-accent)', '--voice-glow-color': glowColor }}>
+        style={{ background: isMine ? 'rgba(255,255,255,0.24)' : otherAccent ? `${otherAccent}22` : 'rgba(245,158,11,0.16)', color: isMine ? '#fff' : (otherAccent || 'var(--wa-voice-accent)'), '--voice-glow-color': glowColor }}>
         {playing ? <Pause style={{ width: 15, height: 15 }} fill="currentColor" />
           : <Play style={{ width: 15, height: 15, marginLeft: 1.5 }} fill="currentColor" />}
       </button>
@@ -211,10 +224,10 @@ function VoiceBubble({ url, duration, isMine, accent }) {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
         <Waveform bars={bars} progress={progress} color={barColor} mutedColor={barMuted} playing={playing} onSeek={seek} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <span style={{ fontSize: 10, opacity: 0.85, fontVariantNumeric: 'tabular-nums', color: isMine ? '#fff' : 'var(--wa-voice-accent)', fontWeight: isMine ? 500 : 600 }}>
+          <span style={{ fontSize: 10, opacity: 0.85, fontVariantNumeric: 'tabular-nums', color: isMine ? '#fff' : (otherAccent || 'var(--wa-voice-accent)'), fontWeight: isMine ? 500 : 600 }}>
             {fmtDur(playing || currentTime > 0 ? currentTime : totalDuration)}
           </span>
-          {playing && <span className="wa-voice-live-dot" style={{ background: isMine ? '#fff' : 'var(--wa-voice-accent)' }} />}
+          {playing && <span className="wa-voice-live-dot" style={{ background: isMine ? '#fff' : (otherAccent || 'var(--wa-voice-accent)') }} />}
         </div>
       </div>
     </div>
@@ -263,16 +276,39 @@ function ReactionPicker({ onPick, onClose }) {
 
 function MessageBubble({
   item, accent, onDelete, deletingId, onReply, onReact, onTogglePin, isPinned,
-  onJumpTo, highlighted, teacherBadge, leaderId,
+  onJumpTo, highlighted, teacherBadge, leaderId, isGroupThread,
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const isMine = item.isMine;
   const isTeacherMsg = item.author_role === 'teacher';
   const isLeaderMsg = !isMine && !isTeacherMsg && leaderId != null && String(item.author_id) === String(leaderId);
-  const senderTint = !isMine && !isTeacherMsg && !isLeaderMsg ? senderColor(item.author_id || item.author_name) : null;
+  // Per-sender identity color — every group member gets their own distinct
+  // tint (mirrors the teacher's own group-chat bubble design), while the
+  // teacher always reads as violet. Used for both the name label and,
+  // in group threads, the bubble itself.
+  const senderTint = !isMine && !isTeacherMsg ? senderColor(item.author_id || item.author_name) : null;
   const nameColor = isTeacherMsg ? '#7c3aed' : isLeaderMsg ? GOLD : senderTint;
-  const bubbleBg = isMine ? 'var(--wa-bubble-sent-bg)' : 'var(--wa-bubble-received-bg)';
-  const bubbleColor = isMine ? 'var(--wa-bubble-sent-text)' : 'var(--wa-bubble-received-text)';
+
+  let bubbleBg, bubbleColor, bubbleShadow, bubbleBorder, bubbleBorderLeft;
+  if (isMine) {
+    bubbleBg = `linear-gradient(135deg, ${MINE_ACCENT[0]}, ${MINE_ACCENT[1]})`;
+    bubbleColor = '#fff';
+    bubbleShadow = `0 3px 12px -3px ${MINE_ACCENT[1]}99`;
+    bubbleBorder = 'none';
+    bubbleBorderLeft = undefined;
+  } else if (isGroupThread) {
+    bubbleBg = isTeacherMsg ? 'linear-gradient(135deg, #7c3aed, #6d28d9)' : `linear-gradient(135deg, ${senderTint}17, ${senderTint}0a)`;
+    bubbleColor = isTeacherMsg ? '#fff' : 'var(--text-primary)';
+    bubbleShadow = isTeacherMsg ? '0 3px 12px -3px rgba(124,58,237,0.4)' : `0 1px 6px -2px ${senderTint}30`;
+    bubbleBorder = isTeacherMsg ? 'none' : `1px solid ${senderTint}2a`;
+    bubbleBorderLeft = !isTeacherMsg && item.message_type !== 'image' ? `3px solid ${senderTint}` : undefined;
+  } else {
+    bubbleBg = 'var(--wa-bubble-received-bg)';
+    bubbleColor = 'var(--wa-bubble-received-text)';
+    bubbleShadow = '0 3px 14px rgba(0,0,0,0.32), 0 0 0 1px rgba(245,158,11,0.05)';
+    bubbleBorder = '1.5px solid var(--wa-bubble-received-border)';
+    bubbleBorderLeft = undefined;
+  }
   const isMedia = item.message_type === 'image' || item.message_type === 'file' || item.message_type === 'voice';
 
   return (
@@ -323,11 +359,14 @@ function MessageBubble({
           <div style={{ position: 'relative', minWidth: 0 }}>
             <div style={{
               background: isMedia ? 'transparent' : bubbleBg, color: bubbleColor, padding: isMedia ? 0 : '9px 14px',
-              borderRadius: 16, fontSize: 13.5, lineHeight: 1.5, wordBreak: 'break-word',
-              boxShadow: isMedia ? 'none' : (isMine ? '0 1px 2px rgba(0,0,0,0.18)' : '0 3px 14px rgba(0,0,0,0.32), 0 0 0 1px rgba(245,158,11,0.05)'),
-              border: !isMedia && !isMine ? '1.5px solid var(--wa-bubble-received-border)' : 'none',
+              borderRadius: isMine ? '18px 18px 4px 18px' : '18px 18px 18px 4px', fontSize: 13.5, lineHeight: 1.5, wordBreak: 'break-word',
+              boxShadow: isMedia ? 'none' : bubbleShadow,
+              border: isMedia ? 'none' : bubbleBorder,
+              borderLeft: isMedia ? undefined : bubbleBorderLeft,
             }}>
-              {item.message_type === 'voice' ? <VoiceBubble url={item.voice_url} duration={item.voice_duration} isMine={isMine} accent={accent} />
+              {item.message_type === 'voice'
+                ? <VoiceBubble url={item.voice_url} duration={item.voice_duration} isMine={isMine}
+                    otherAccent={isGroupThread ? (isTeacherMsg ? '#7c3aed' : senderTint) : null} />
                 : item.message_type === 'image' ? <ChatImageBubble url={item.file_url} name={item.file_name} mimeType={item.mime_type} />
                 : item.message_type === 'file' ? <ChatFileBubble url={item.file_url} name={item.file_name} size={item.file_size} mimeType={item.mime_type} />
                 : <MentionText text={item.content} accent={isMine ? '#fff' : accent[0]} />}
@@ -1163,6 +1202,7 @@ function ThreadPane({ entry, myId, myName, onBack, onOpenTeacherDm, onEntryActiv
               isPinned={thread.pinnedIds.includes(item.id || item._id)} onJumpTo={jumpTo}
               highlighted={highlightId === (item.id || item._id)} teacherBadge={entry.type === 'group'}
               leaderId={entry.type === 'group' ? thread.groupMeta?.team_leader?.id : null}
+              isGroupThread={entry.type === 'group'}
             />
           ))}
           <div ref={messagesEndRef} />
@@ -1586,12 +1626,14 @@ export default function StudentGroups() {
           animation: ibxChromeShimmer 14s ease-in-out infinite;
         }
 
-        /* ── Sent vs received bubble colors. Sent stays WhatsApp green.
-           Received now uses a dark, glassy panel with a warm amber border
-           to match the target design — same look for text AND voice notes. ── */
+        /* ── Sent vs received bubble colors. Sent now matches the teacher's
+           own "mine" bubble exactly (indigo gradient, white text) instead of
+           WhatsApp green. Received uses a dark, glassy panel with a warm
+           amber border to match the teacher's "other" bubble — same look
+           for text AND voice notes, on both sides of the conversation. ── */
         :root {
-          --wa-bubble-sent-bg: #d9fdd3;
-          --wa-bubble-sent-text: #111b21;
+          --wa-bubble-sent-bg: linear-gradient(135deg, #52525b 0%, #3f3f46 100%);
+          --wa-bubble-sent-text: #ffffff;
           --wa-bubble-received-bg: linear-gradient(135deg, rgba(24,17,10,0.7), rgba(12,9,6,0.8));
           --wa-bubble-received-text: #fbf1e3;
           --wa-bubble-received-border: rgba(217,119,6,0.55);
@@ -1599,8 +1641,8 @@ export default function StudentGroups() {
           --wa-voice-accent-2: #d97706;
         }
         [data-theme='dark'], .dark {
-          --wa-bubble-sent-bg: #005c4b;
-          --wa-bubble-sent-text: #e9edef;
+          --wa-bubble-sent-bg: linear-gradient(135deg, #52525b 0%, #3f3f46 100%);
+          --wa-bubble-sent-text: #ffffff;
           --wa-bubble-received-bg: linear-gradient(135deg, rgba(24,17,10,0.7), rgba(12,9,6,0.8));
           --wa-bubble-received-text: #fbf1e3;
           --wa-bubble-received-border: rgba(217,119,6,0.55);
