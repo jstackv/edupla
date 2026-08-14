@@ -12,74 +12,12 @@ import {
   PinOff, Reply, SmilePlus, AtSign, ChevronDown, Menu, Inbox,
 } from 'lucide-react';
 
-/* ════════════════════════════════════════════════════════════════════
-   OVERVIEW OF THIS REWRITE
-   ------------------------------------------------------------------
-   The old version of this page was three separate stacked modals
-   (group chat / leader-teacher DM / peer DM), each re-implementing its
-   own message list, composer, voice recorder and file picker. This
-   version:
-
-   1. Merges groups, peer DMs and leader<->teacher DMs into ONE inbox
-      list sorted by last activity ("unified inbox"), instead of three
-      separate surfaces behind three separate entry points.
-   2. Replaces the modal stack with a real two-pane layout (list +
-      thread), the way a native messaging app works — no dialog ever
-      sits "on top of" another one.
-   3. Adds reactions, reply-to/threading, a per-thread search + pinned
-      message rail, @mentions with autocomplete, and typing indicators
-      / read receipts, implemented so they degrade gracefully if the
-      backend doesn't yet expose the corresponding endpoints (each
-      "advanced" call is wrapped so a 404 just falls back to local
-      state instead of breaking the thread).
-
-   Endpoints assumed to exist already (unchanged from the old file):
-     GET    /group-discussions/my/groups
-     GET    /group-discussions/:id
-     GET    /group-discussions/:id/messages
-     POST   /group-discussions/:id/messages
-     DELETE /group-discussions/:id/messages/:msgId
-     DELETE /group-discussions/:id/messages
-     POST   /group-discussions/:id/voice-notes
-     POST   /group-discussions/:id/media
-     GET    /group-discussions/:id/leader-dm
-     POST   /group-discussions/:id/leader-dm
-     DELETE /group-discussions/:id/leader-dm/:msgId
-     DELETE /group-discussions/:id/leader-dm
-     GET    /collaborations/my-class-status
-     GET    /collaborations/class/:id/students
-     GET    /collaborations/class/:id/conversations
-     GET    /collaborations/class/:id/messages/:peerId
-     POST   /collaborations/class/:id/messages
-     DELETE /collaborations/class/:id/messages/:msgId
-     DELETE /collaborations/class/:id/messages/peer/:peerId
-     POST   /collaborations/class/:id/voice-notes
-     POST   /collaborations/class/:id/media
-
-   New, optional endpoints this file will *try* (best-effort, silent
-   fallback to local-only state if they don't exist yet):
-     POST   /messages/:id/reactions          { emoji }
-     DELETE /messages/:id/reactions          { emoji }
-     POST   /messages/:id/pin  | DELETE /messages/:id/pin
-     POST   /threads/:key/typing             { typing: true|false }
-   Wiring these up server-side will make reactions/pins/typing sync
-   across users instead of being local to the current browser.
-═════════════════════════════════════════════════════════════════════ */
-
 const MAX_CHAT_FILE_MB = 25;
 
-/* ── best-effort "optional feature" API wrapper ─────────────────────
-   Advanced features (reactions, pins, typing) call these. If the
-   route isn't implemented server-side yet, we swallow the error and
-   let the caller keep its optimistic local state — nothing breaks. */
 async function tryApi(fn) {
   try { return await fn(); } catch { return null; }
 }
 
-/* ── tiny local persistence for client-only state (reactions/pins
-   fall back to this if the server doesn't support them yet — so a
-   student doesn't lose their pins/reactions on refresh even before
-   the backend catches up) ─────────────────────────────────────── */
 const localStore = {
   get(key, fallback) {
     try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch { return fallback; }
@@ -89,7 +27,6 @@ const localStore = {
   },
 };
 
-/* ── helpers ─────────────────────────────────────────────────────── */
 function timeAgo(ts) {
   if (!ts) return '';
   const diff = Date.now() - new Date(ts).getTime();
@@ -108,25 +45,20 @@ function fmtDateSep(ts) {
   return d.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short' });
 }
 
-/* Palette: no green, no sky-blue/cyan, no orange/amber, no teal anywhere on
-   this page — graphite/black is the base "chrome" everywhere (headers, rails,
-   panels), with a curated set of jewel-tone accents (violet, indigo, fuchsia,
-   rose, crimson, slate) reserved for functional identification only
-   (avatars, badges, "my message" bubbles, active-state glows). */
 const NEUTRAL_HEADER = 'linear-gradient(135deg, #0a0b0f 0%, #14161d 45%, #1c2029 100%)';
-const CHAT_NEUTRAL = ['#2f3543', '#1a1d24']; // used for "my" bubble, composer, pin rail, search, reply borders
+const CHAT_NEUTRAL = ['#2f3543', '#1a1d24'];
 const UNREAD_COLORS = ['#ef4444', '#dc2626'];
-const GOLD = '#eab308'; // reserved solely for the "team leader" crown identity — never used as chrome
+const GOLD = '#eab308';
 
 const GROUP_COLORS = [
-  ['#7c3aed', '#6d28d9'], // violet
-  ['#4f46e5', '#4338ca'], // indigo
-  ['#dc2626', '#b91c1c'], // crimson
-  ['#db2777', '#be185d'], // rose
-  ['#57534e', '#3f3d38'], // graphite
-  ['#a855f7', '#9333ea'], // purple
-  ['#c026d3', '#a21caf'], // fuchsia
-  ['#475569', '#334155'], // slate
+  ['#7c3aed', '#6d28d9'],
+  ['#9d174d', '#831843'],
+  ['#dc2626', '#b91c1c'],
+  ['#db2777', '#be185d'],
+  ['#57534e', '#3f3d38'],
+  ['#a855f7', '#9333ea'],
+  ['#c026d3', '#a21caf'],
+  ['#475569', '#334155'],
 ];
 function groupColor(id) {
   const idx = id ? parseInt(String(id).slice(-2), 16) % GROUP_COLORS.length : 0;
@@ -136,7 +68,7 @@ const DM_COLORS = ['#4b5563', '#33383f'];
 const LEADER_COLORS = ['#7c3aed', '#6d28d9'];
 const TEACHER_DM_COLORS = ['#9333ea', '#7e22ce'];
 
-const SENDER_COLORS = ['#a855f7', '#4f46e5', '#db2777', '#c026d3', '#7c3aed', '#dc2626', '#78716c', '#e11d48'];
+const SENDER_COLORS = ['#a855f7', '#9d174d', '#db2777', '#c026d3', '#7c3aed', '#dc2626', '#78716c', '#e11d48'];
 function senderColor(seed) {
   const s = String(seed || '');
   let hash = 0;
@@ -157,7 +89,6 @@ function extractMentions(text, memberNames) {
   return found;
 }
 
-/* Renders text with @mentions highlighted */
 function MentionText({ text, accent }) {
   const parts = String(text || '').split(/(@[A-Za-z][\w'-]*)/g);
   return (
@@ -169,12 +100,6 @@ function MentionText({ text, accent }) {
   );
 }
 
-/* ════════════════════════════════════════════════════════════════════
-   Waveform helpers — a deterministic bar pattern per voice note (so the
-   same message always renders the same "shape", like a real waveform)
-   plus a shared bar-renderer used by both the sent bubble and the
-   composer's record/preview states.
-═════════════════════════════════════════════════════════════════════ */
 function seededBars(seed, count = 32) {
   let h = 0;
   const s = String(seed || 'voice');
@@ -183,7 +108,7 @@ function seededBars(seed, count = 32) {
   const bars = [];
   for (let i = 0; i < count; i++) {
     x = (x * 1103515245 + 12345) & 0x7fffffff;
-    bars.push(0.22 + ((x % 1000) / 1000) * 0.78); // 0.22–1.0
+    bars.push(0.22 + ((x % 1000) / 1000) * 0.78);
   }
   return bars;
 }
@@ -204,9 +129,6 @@ function Waveform({ bars, progress = 0, color, mutedColor, playing, onSeek }) {
   );
 }
 
-/* ════════════════════════════════════════════════════════════════════
-   Exclusive audio playback (only one voice note plays at a time)
-═════════════════════════════════════════════════════════════════════ */
 const AudioPlaybackContext = createContext(null);
 function AudioPlaybackProvider({ children }) {
   const registry = useRef(new Set());
@@ -255,11 +177,25 @@ function VoiceBubble({ url, duration, isMine, accent }) {
     if (!playing) { ctx?.stopOthers(el); el.play(); setPlaying(true); }
   };
 
-  const barColor = isMine ? 'rgba(255,255,255,0.95)' : accent;
-  const barMuted = isMine ? 'rgba(255,255,255,0.32)' : `${accent}38`;
+  const barColor = isMine ? 'rgba(255,255,255,0.95)' : 'var(--wa-voice-accent)';
+  const barMuted = isMine ? 'rgba(255,255,255,0.32)' : 'rgba(245,158,11,0.22)';
+  const glowColor = isMine ? `${accent[0]}66` : 'rgba(245,158,11,0.45)';
 
   return (
-    <div className="wa-voice-bubble" style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 216 }}>
+    <div
+      className={`wa-voice-capsule${playing ? ' wa-voice-capsule-playing' : ''}`}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 9, minWidth: 224,
+        padding: '7px 15px 7px 7px',
+        borderRadius: 999,
+        background: isMine
+          ? `linear-gradient(135deg, ${accent[0]}, ${accent[1]})`
+          : 'linear-gradient(135deg, rgba(24,17,10,0.72), rgba(12,9,6,0.82))',
+        border: isMine ? 'none' : '1.5px solid var(--wa-bubble-received-border)',
+        boxShadow: isMine ? '0 2px 10px rgba(0,0,0,0.2)' : '0 3px 14px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(245,158,11,0.06)',
+        '--voice-glow-color': glowColor,
+      }}
+    >
       <audio ref={audioRef} src={url} preload="metadata"
         onLoadedMetadata={() => setLoaded(true)}
         onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)}
@@ -267,7 +203,7 @@ function VoiceBubble({ url, duration, isMine, accent }) {
 
       <button onClick={toggle} title={playing ? 'Pause' : 'Play'}
         className={`wa-voice-play-btn${playing ? ' wa-voice-play-btn-active' : ''}`}
-        style={{ background: isMine ? 'rgba(255,255,255,0.24)' : `${accent}22`, color: isMine ? '#fff' : accent }}>
+        style={{ background: isMine ? 'rgba(255,255,255,0.24)' : 'rgba(245,158,11,0.16)', color: isMine ? '#fff' : 'var(--wa-voice-accent)', '--voice-glow-color': glowColor }}>
         {playing ? <Pause style={{ width: 15, height: 15 }} fill="currentColor" />
           : <Play style={{ width: 15, height: 15, marginLeft: 1.5 }} fill="currentColor" />}
       </button>
@@ -275,19 +211,16 @@ function VoiceBubble({ url, duration, isMine, accent }) {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
         <Waveform bars={bars} progress={progress} color={barColor} mutedColor={barMuted} playing={playing} onSeek={seek} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <span style={{ fontSize: 10, opacity: 0.72, fontVariantNumeric: 'tabular-nums' }}>
+          <span style={{ fontSize: 10, opacity: 0.85, fontVariantNumeric: 'tabular-nums', color: isMine ? '#fff' : 'var(--wa-voice-accent)', fontWeight: isMine ? 500 : 600 }}>
             {fmtDur(playing || currentTime > 0 ? currentTime : totalDuration)}
           </span>
-          {playing && <span className="wa-voice-live-dot" style={{ background: isMine ? '#fff' : accent }} />}
+          {playing && <span className="wa-voice-live-dot" style={{ background: isMine ? '#fff' : 'var(--wa-voice-accent)' }} />}
         </div>
       </div>
     </div>
   );
 }
 
-/* ════════════════════════════════════════════════════════════════════
-   Reaction bar + picker (shared by every message bubble, any thread type)
-═════════════════════════════════════════════════════════════════════ */
 function ReactionBar({ reactions, myId, onToggle, accent }) {
   const entries = Object.entries(reactions || {}).filter(([, uids]) => uids.length > 0);
   if (entries.length === 0) return null;
@@ -328,22 +261,19 @@ function ReactionPicker({ onPick, onClose }) {
   );
 }
 
-/* ════════════════════════════════════════════════════════════════════
-   Unified message bubble — used for group / dm / leader-dm alike.
-   Adds: reactions, reply-to preview + jump, pin/unpin, read ticks,
-   mention highlighting.
-═════════════════════════════════════════════════════════════════════ */
 function MessageBubble({
   item, accent, onDelete, deletingId, onReply, onReact, onTogglePin, isPinned,
-  onJumpTo, highlighted, teacherBadge,
+  onJumpTo, highlighted, teacherBadge, leaderId,
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const isMine = item.isMine;
-  const isTeacherMsg = teacherBadge && item.author_role === 'teacher';
-  const bubbleBg = isMine ? 'var(--wa-bubble-sent-bg)'
-    : isTeacherMsg ? 'linear-gradient(135deg, #7c3aed, #6d28d9)' : 'var(--wa-bubble-received-bg)';
-  const bubbleColor = isMine || isTeacherMsg ? '#fff' : 'var(--wa-bubble-received-text)';
-  const isMedia = item.message_type === 'image' || item.message_type === 'file';
+  const isTeacherMsg = item.author_role === 'teacher';
+  const isLeaderMsg = !isMine && !isTeacherMsg && leaderId != null && String(item.author_id) === String(leaderId);
+  const senderTint = !isMine && !isTeacherMsg && !isLeaderMsg ? senderColor(item.author_id || item.author_name) : null;
+  const nameColor = isTeacherMsg ? '#7c3aed' : isLeaderMsg ? GOLD : senderTint;
+  const bubbleBg = isMine ? 'var(--wa-bubble-sent-bg)' : 'var(--wa-bubble-received-bg)';
+  const bubbleColor = isMine ? 'var(--wa-bubble-sent-text)' : 'var(--wa-bubble-received-text)';
+  const isMedia = item.message_type === 'image' || item.message_type === 'file' || item.message_type === 'voice';
 
   return (
     <div id={`msg-${item.id}`} className="group" style={{
@@ -354,12 +284,12 @@ function MessageBubble({
       <div style={{ maxWidth: '72%' }}>
         {item.isFirst && !item.isMine && item.author_name && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, marginLeft: 4 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: isTeacherMsg ? '#7c3aed' : senderColor(item.author_id || item.author_name) }}>{item.author_name}</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: nameColor }}>{item.author_name}</span>
             {isTeacherMsg && <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 10, fontWeight: 700, background: 'rgba(124,58,237,0.12)', color: '#7c3aed' }}>Teacher</span>}
+            {isLeaderMsg && <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 10, fontWeight: 700, background: 'rgba(234,179,8,0.14)', color: GOLD, display: 'inline-flex', alignItems: 'center', gap: 2 }}><Crown style={{ width: 8, height: 8 }} /> Leader</span>}
           </div>
         )}
 
-        {/* reply-to quoted preview — tap to jump to the original message */}
         {item.reply_to && (
           <button onClick={() => onJumpTo(item.reply_to.id)} className="wa-reply-quote" style={{
             width: '100%', textAlign: 'left', marginBottom: 3, borderRadius: '10px 10px 4px 4px',
@@ -373,9 +303,6 @@ function MessageBubble({
           </button>
         )}
 
-        {/* ── Bubble line: delete / reply controls sit here as normal flex
-           siblings of the bubble, so they're vertically centered against the
-           actual message — never floating above or below it. ── */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: isMine ? 'flex-end' : 'flex-start' }}>
           {isMine && (
             <button onClick={() => onDelete(item.id)} disabled={deletingId === item.id} title="Delete message"
@@ -395,18 +322,17 @@ function MessageBubble({
 
           <div style={{ position: 'relative', minWidth: 0 }}>
             <div style={{
-              background: isMedia ? 'transparent' : bubbleBg, color: bubbleColor, padding: isMedia ? 0 : '9px 13px',
-              borderRadius: isMine ? '18px 18px 4px 18px' : '18px 18px 18px 4px', fontSize: 13.5, lineHeight: 1.5, wordBreak: 'break-word',
-              boxShadow: isMedia ? 'none' : isMine ? '0 1px 3px rgba(0,0,0,0.08)' : '0 1px 3px rgba(0,0,0,0.06)',
-              border: !isMedia && !isMine && !isTeacherMsg ? '1px solid var(--wa-bubble-received-border)' : 'none',
+              background: isMedia ? 'transparent' : bubbleBg, color: bubbleColor, padding: isMedia ? 0 : '9px 14px',
+              borderRadius: 16, fontSize: 13.5, lineHeight: 1.5, wordBreak: 'break-word',
+              boxShadow: isMedia ? 'none' : (isMine ? '0 1px 2px rgba(0,0,0,0.18)' : '0 3px 14px rgba(0,0,0,0.32), 0 0 0 1px rgba(245,158,11,0.05)'),
+              border: !isMedia && !isMine ? '1.5px solid var(--wa-bubble-received-border)' : 'none',
             }}>
-              {item.message_type === 'voice' ? <VoiceBubble url={item.voice_url} duration={item.voice_duration} isMine={isMine} accent={accent[0]} />
+              {item.message_type === 'voice' ? <VoiceBubble url={item.voice_url} duration={item.voice_duration} isMine={isMine} accent={accent} />
                 : item.message_type === 'image' ? <ChatImageBubble url={item.file_url} name={item.file_name} mimeType={item.mime_type} />
                 : item.message_type === 'file' ? <ChatFileBubble url={item.file_url} name={item.file_name} size={item.file_size} mimeType={item.mime_type} />
                 : <MentionText text={item.content} accent={isMine ? '#fff' : accent[0]} />}
             </div>
 
-            {/* Hover toolbar: react / pin — reply now lives beside the bubble instead */}
             <div className="opacity-0 group-hover:opacity-100 transition-opacity" style={{
               position: 'absolute', top: -14, [isMine ? 'left' : 'right']: 4, display: 'flex', gap: 2,
               background: 'var(--card-bg)', border: '1px solid var(--card-border)',
@@ -436,7 +362,7 @@ function MessageBubble({
           <div style={{ fontSize: 10, marginTop: 3, display: 'flex', alignItems: 'center', gap: 3, justifyContent: isMine ? 'flex-end' : 'flex-start', paddingLeft: isMine ? 0 : 4, paddingRight: isMine ? 4 : 0, color: 'var(--text-secondary)', opacity: 0.6 }}>
             {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             {isMine && item.read !== undefined && (item.read
-              ? <CheckCheck style={{ width: 12, height: 12, color: accent[0] }} />
+              ? <CheckCheck style={{ width: 12, height: 12, color: '#53bdeb' }} />
               : <Check style={{ width: 12, height: 12 }} />)}
           </div>
         )}
@@ -445,9 +371,6 @@ function MessageBubble({
   );
 }
 
-/* ════════════════════════════════════════════════════════════════════
-   Pinned messages rail — collapses into a single strip under the header
-═════════════════════════════════════════════════════════════════════ */
 function PinnedRail({ pinned, onJump, onUnpin, accent }) {
   const [open, setOpen] = useState(false);
   if (!pinned || pinned.length === 0) return null;
@@ -477,9 +400,6 @@ function PinnedRail({ pinned, onJump, onUnpin, accent }) {
   );
 }
 
-/* ════════════════════════════════════════════════════════════════════
-   In-thread search overlay
-═════════════════════════════════════════════════════════════════════ */
 function ThreadSearch({ messages, onJump, onClose, accent }) {
   const [q, setQ] = useState('');
   const results = useMemo(() => {
@@ -515,9 +435,6 @@ function ThreadSearch({ messages, onJump, onClose, accent }) {
   );
 }
 
-/* ════════════════════════════════════════════════════════════════════
-   Mention autocomplete popover
-═════════════════════════════════════════════════════════════════════ */
 function MentionAutocomplete({ candidates, onPick, accent }) {
   if (!candidates.length) return null;
   return (
@@ -534,9 +451,6 @@ function MentionAutocomplete({ candidates, onPick, accent }) {
   );
 }
 
-/* ════════════════════════════════════════════════════════════════════
-   Members panel (slide-over instead of a stacked modal)
-═════════════════════════════════════════════════════════════════════ */
 function MembersPanel({ group, onClose }) {
   const [a, b] = groupColor(group.id);
   const members = group.members || [];
@@ -576,10 +490,6 @@ function MembersPanel({ group, onClose }) {
   );
 }
 
-/* ════════════════════════════════════════════════════════════════════
-   Unified composer — text / @mention / emoji / voice / file, shared
-   by every thread type.
-═════════════════════════════════════════════════════════════════════ */
 function Composer({
   accent, disabled, disabledLabel, onSendText, onSendVoice, onSendFile, onTypingChange,
   replyTo, onCancelReply, mentionCandidates, textOnly,
@@ -608,9 +518,6 @@ function Composer({
   const fileInputRef = useRef(null);
   const imageInputRef = useRef(null);
   const typingTimeoutRef = useRef(null);
-  // Live waveform while recording: an AnalyserNode sampled on every animation
-  // frame, bucketed down to a small bar count so the composer's recording
-  // pill reacts to the person's actual voice instead of just pulsing blindly.
   const audioCtxRef = useRef(null);
   const analyserRef = useRef(null);
   const levelRafRef = useRef(null);
@@ -658,7 +565,6 @@ function Composer({
     setText(val);
     e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
 
-    // @mention detection: look backwards from caret for "@word"
     const caret = e.target.selectionStart;
     const upToCaret = val.slice(0, caret);
     const match = upToCaret.match(/@([A-Za-z]*)$/);
@@ -689,7 +595,7 @@ function Composer({
       await onSendText(content);
     } catch (err) {
       toast.error(err.response?.data?.message || 'Message failed to send. Please try again.');
-      setText(content); // don't lose what they typed
+      setText(content);
     } finally {
       setPosting(false);
     }
@@ -734,8 +640,6 @@ function Composer({
           await onSendVoice(blob, duration);
         } catch (err) {
           toast.error(err.response?.data?.message || 'Voice note failed to send. Tap send to try again.');
-          // Don't lose the recording — drop it back into the preview state so
-          // the person can retry instead of having to re-record from scratch.
           setAudioBlob(blob); setAudioDuration(duration);
         } finally {
           setPosting(false);
@@ -760,7 +664,6 @@ function Composer({
       setAudioBlob(null); setRecordingTime(0); setPreviewTime(0);
     } catch (err) {
       toast.error(err.response?.data?.message || 'Voice note failed to send. Tap send to try again.');
-      // Keep the recording in place on failure instead of discarding it.
     } finally {
       setPosting(false);
     }
@@ -783,7 +686,6 @@ function Composer({
       cancelFile();
     } catch (err) {
       toast.error(err.response?.data?.message || 'File failed to send. Please try again.');
-      // Keep the selected file in place so the person can retry without re-picking it.
     } finally {
       setUploading(false);
     }
@@ -835,7 +737,7 @@ function Composer({
         ) : recording ? (
           <div className="wa-recording-pill" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <button onClick={cancelVoice} title="Cancel" className="wa-voice-cancel-btn"><X style={{ width: 16, height: 16 }} /></button>
-            <div className="wa-recording-panel">
+            <div className="wa-recording-panel wa-recording-panel-live">
               <span className="wa-rec-dot" />
               <span className="wa-recording-time">{fmtDuration(recordingTime)}</span>
               <div className="wa-live-wave">
@@ -844,7 +746,7 @@ function Composer({
                 ))}
               </div>
             </div>
-            <button onClick={stopAndSendVoice} title="Send" className="wa-voice-send-btn" style={{ background: `linear-gradient(135deg, ${accent[0]}, ${accent[1]})` }}>
+            <button onClick={stopAndSendVoice} title="Send" className="wa-voice-send-btn wa-voice-send-btn-amber">
               <Send style={{ width: 16, height: 16 }} />
             </button>
           </div>
@@ -854,18 +756,18 @@ function Composer({
             <audio ref={audioPreviewRef} src={URL.createObjectURL(audioBlob)}
               onTimeUpdate={() => setPreviewTime(audioPreviewRef.current?.currentTime || 0)}
               style={{ display: 'none' }} />
-            <div className="wa-recording-panel" style={{ border: `1.5px solid ${accent[0]}40` }}>
+            <div className="wa-recording-panel">
               <button onClick={toggleAudioPreview} title={audioPlaying ? 'Pause' : 'Play'}
                 className={`wa-voice-play-btn${audioPlaying ? ' wa-voice-play-btn-active' : ''}`}
-                style={{ width: 28, height: 28, background: `${accent[0]}20`, color: accent[0], flexShrink: 0 }}>
+                style={{ width: 28, height: 28, background: 'rgba(245,158,11,0.16)', color: 'var(--wa-voice-accent)', flexShrink: 0 }}>
                 {audioPlaying ? <Pause style={{ width: 12, height: 12 }} fill="currentColor" /> : <Play style={{ width: 12, height: 12, marginLeft: 1 }} fill="currentColor" />}
               </button>
               <Waveform bars={previewBars} progress={audioDuration ? Math.min(previewTime / audioDuration, 1) : 0}
-                color={accent[0]} mutedColor={`${accent[0]}30`} playing={audioPlaying} />
-              <span className="wa-recording-time" style={{ color: accent[0] }}>{fmtDuration(audioPlaying ? previewTime : audioDuration)}</span>
+                color="var(--wa-voice-accent)" mutedColor="rgba(245,158,11,0.22)" playing={audioPlaying} />
+              <span className="wa-recording-time" style={{ color: 'var(--wa-voice-accent)' }}>{fmtDuration(audioPlaying ? previewTime : audioDuration)}</span>
             </div>
-            <button onClick={sendVoicePreview} disabled={posting} title="Send" className="wa-voice-send-btn"
-              style={{ background: `linear-gradient(135deg, ${accent[0]}, ${accent[1]})`, opacity: posting ? 0.6 : 1 }}>
+            <button onClick={sendVoicePreview} disabled={posting} title="Send" className="wa-voice-send-btn wa-voice-send-btn-amber"
+              style={{ opacity: posting ? 0.6 : 1 }}>
               {posting ? <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> : <Send style={{ width: 16, height: 16 }} />}
             </button>
           </div>
@@ -899,26 +801,15 @@ function Composer({
   );
 }
 
-/* ════════════════════════════════════════════════════════════════════
-   useThread — data + actions for a single open conversation, unified
-   across group / dm / leaderdm. Handles fetch, polling, send, delete,
-   clear, reactions, pins, replies, typing, read state.
-═════════════════════════════════════════════════════════════════════ */
 function useThread(entry, myId) {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isEnded, setIsEnded] = useState(false);
-  const [hidden, setHidden] = useState(false); // teacherdm: teacher paused it — thread must disappear, not just lock
+  const [hidden, setHidden] = useState(false);
   const [peerTyping, setPeerTyping] = useState(false);
-  const [groupMeta, setGroupMeta] = useState(null); // full group object once loaded (members, leader, etc.)
+  const [groupMeta, setGroupMeta] = useState(null);
   const [reactions, setReactions] = useState(() => localStore.get(`reactions:${entry.key}`, {}));
   const [pinnedIds, setPinnedIds] = useState(() => localStore.get(`pinned:${entry.key}`, []));
-  // The backend accepts reply_to_id but doesn't (yet) echo back a resolved
-  // reply_to object on every fetch — only the optimistic message right after
-  // sending has it in memory. Without this, the quote would vanish the next
-  // time the thread reloads (tab revisit, navigation, page refresh) even
-  // though the message itself is still there. Persist it locally, same as
-  // reactions/pins, keyed by message id, so it survives reloads.
   const [replyMeta, setReplyMeta] = useState(() => localStore.get(`replies:${entry.key}`, {}));
   const lastMsgTimeRef = useRef(null);
   const pollRef = useRef(null);
@@ -955,8 +846,6 @@ function useThread(entry, myId) {
         lastMsgTimeRef.current = msgs.length ? msgs[msgs.length - 1].created_at : null;
       }
     } catch (err) {
-      // A paused teacherdm thread looks exactly like one that never started —
-      // treat it as gone rather than surfacing an error that hints it exists.
       if (entry.type === 'teacherdm' && err.response?.status === 403) { setHidden(true); }
       else { toast.error(err.response?.data?.message || 'Failed to load conversation'); }
     }
@@ -984,15 +873,12 @@ function useThread(entry, myId) {
           lastMsgTimeRef.current = fresh[fresh.length - 1].created_at;
           return [...prev, ...toAdd];
         });
-        setPeerTyping(false); // a real message arriving supersedes a stale typing flag
+        setPeerTyping(false);
       }
       if (typeof res.data.is_ended === 'boolean') setIsEnded(res.data.is_ended);
-      // Best-effort: if the API ever starts returning peer typing state, pick it up.
       if (typeof res.data.peer_typing === 'boolean') setPeerTyping(res.data.peer_typing);
     } catch (err) {
-      // Teacher paused the thread mid-session — quietly disappear, same as load().
       if (entry.type === 'teacherdm' && err.response?.status === 403) { setHidden(true); }
-      /* otherwise keep last known state on transient poll errors */
     }
   }, [basePath, entry, myId]);
 
@@ -1009,7 +895,7 @@ function useThread(entry, myId) {
 
   const sendText = async (content, replyTo) => {
     const payload = { content };
-    if (replyTo) payload.reply_to_id = replyTo.id; // best-effort: ignored server-side if unsupported
+    if (replyTo) payload.reply_to_id = replyTo.id;
     const path = entry.type === 'group' ? `/group-discussions/${entry.id}/messages`
       : entry.type === 'leaderdm' ? `/group-discussions/${entry.id}/leader-dm`
       : entry.type === 'teacherdm' ? `/teacher-messages/teacher/${entry.id}`
@@ -1039,10 +925,6 @@ function useThread(entry, myId) {
     formData.append('audio', blob, `voice-note-${Date.now()}.${ext}`);
     formData.append('duration', String(duration));
     if (entry.type === 'dm') formData.append('receiverId', entry.peerId);
-    // IMPORTANT: leaderdm must hit its own nested endpoint, never the plain
-    // group one — posting to /group-discussions/:id/voice-notes here would
-    // silently deliver a "private" voice note to the whole group instead of
-    // just the teacher.
     const path = entry.type === 'group' ? `/group-discussions/${entry.id}/voice-notes`
       : entry.type === 'leaderdm' ? `/group-discussions/${entry.id}/leader-dm/voice-notes`
       : `/collaborations/class/${entry.classId}/voice-notes`;
@@ -1053,8 +935,6 @@ function useThread(entry, myId) {
       lastMsgTimeRef.current = newMsg.created_at;
     } catch (err) {
       if (entry.type === 'leaderdm' && err.response?.status === 404) {
-        // Fail loudly rather than silently falling back to the group endpoint
-        // and misdelivering a private voice note to every group member.
         toast.error("Voice notes aren't available in your private teacher line yet.");
         return;
       }
@@ -1067,8 +947,6 @@ function useThread(entry, myId) {
     const formData = new FormData();
     formData.append('file', file);
     if (entry.type === 'dm') formData.append('receiverId', entry.peerId);
-    // Same rule as sendVoice above — never fall through to the shared group
-    // media endpoint for a leaderdm thread.
     const path = entry.type === 'group' ? `/group-discussions/${entry.id}/media`
       : entry.type === 'leaderdm' ? `/group-discussions/${entry.id}/leader-dm/media`
       : `/collaborations/class/${entry.classId}/media`;
@@ -1133,9 +1011,6 @@ function useThread(entry, myId) {
   };
 }
 
-/* ════════════════════════════════════════════════════════════════════
-   Thread pane — renders whichever entry is selected in the inbox
-═════════════════════════════════════════════════════════════════════ */
 function ThreadPane({ entry, myId, myName, onBack, onOpenTeacherDm, onEntryActivity, onThreadHidden }) {
   const thread = useThread(entry, myId);
   const [clearConfirm, setClearConfirm] = useState(false);
@@ -1158,8 +1033,6 @@ function ThreadPane({ entry, myId, myName, onBack, onOpenTeacherDm, onEntryActiv
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [thread.messages.length]);
 
-  // Teacher paused this thread — it must vanish, not just lock. Bounce back
-  // to the inbox and let the parent drop it from the list, quietly.
   useEffect(() => {
     if (thread.hidden) { onThreadHidden && onThreadHidden(entry.key); onBack(); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1222,7 +1095,6 @@ function ThreadPane({ entry, myId, myName, onBack, onOpenTeacherDm, onEntryActiv
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative', minWidth: 0 }}>
-      {/* Header */}
       <div style={{ background: `linear-gradient(135deg, ${accent[0]}, ${accent[1]})`, padding: '12px 14px', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <button onClick={onBack} className="lg:hidden" style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><ArrowLeft style={{ width: 14, height: 14 }} /></button>
@@ -1253,7 +1125,6 @@ function ThreadPane({ entry, myId, myName, onBack, onOpenTeacherDm, onEntryActiv
         </div>
       </div>
 
-      {/* status bar */}
       {isEndedGroup ? (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '6px 16px', background: 'rgba(220,38,38,0.08)', borderBottom: '1px solid var(--card-border)', flexShrink: 0 }}>
           <StopCircle style={{ width: 13, height: 13, color: '#dc2626' }} /><span style={{ fontSize: 11, fontWeight: 700, color: '#dc2626' }}>The teacher ended this conversation</span>
@@ -1271,7 +1142,6 @@ function ThreadPane({ entry, myId, myName, onBack, onOpenTeacherDm, onEntryActiv
 
       <PinnedRail pinned={thread.pinnedMessages} onJump={jumpTo} onUnpin={thread.togglePin} accent={accent} />
 
-      {/* messages */}
       <AudioPlaybackProvider>
         <div ref={scrollRef} className="chat-wallpaper flex-1 overflow-y-auto" style={{ padding: '14px 14px 6px' }}>
           {thread.loading ? (
@@ -1292,6 +1162,7 @@ function ThreadPane({ entry, myId, myName, onBack, onOpenTeacherDm, onEntryActiv
               onReply={setReplyTo} onReact={thread.toggleReaction} onTogglePin={thread.togglePin}
               isPinned={thread.pinnedIds.includes(item.id || item._id)} onJumpTo={jumpTo}
               highlighted={highlightId === (item.id || item._id)} teacherBadge={entry.type === 'group'}
+              leaderId={entry.type === 'group' ? thread.groupMeta?.team_leader?.id : null}
             />
           ))}
           <div ref={messagesEndRef} />
@@ -1331,9 +1202,6 @@ function ThreadPane({ entry, myId, myName, onBack, onOpenTeacherDm, onEntryActiv
   );
 }
 
-/* ════════════════════════════════════════════════════════════════════
-   Inbox row
-═════════════════════════════════════════════════════════════════════ */
 function InboxRow({ entry, active, onClick, index }) {
   const accent = entry.type === 'group' ? groupColor(entry.id) : entry.type === 'leaderdm' ? LEADER_COLORS : entry.type === 'teacherdm' ? TEACHER_DM_COLORS : DM_COLORS;
   const [a, b] = accent;
@@ -1410,9 +1278,6 @@ function InboxRowSkeleton({ delay = 0 }) {
   );
 }
 
-/* ════════════════════════════════════════════════════════════════════
-   New message picker — start a DM with a classmate not yet in the inbox
-═════════════════════════════════════════════════════════════════════ */
 function NewMessagePicker({ classes, onPick, onClose }) {
   const [classId, setClassId] = useState(classes[0]?.id || null);
   const [classmates, setClassmates] = useState([]);
@@ -1463,9 +1328,6 @@ function NewMessagePicker({ classes, onPick, onClose }) {
   );
 }
 
-/* ════════════════════════════════════════════════════════════════════
-   MAIN PAGE — unified inbox + split-pane thread
-═════════════════════════════════════════════════════════════════════ */
 export default function StudentGroups() {
   const { user } = useAuth();
   const myName = user?.name || '';
@@ -1473,12 +1335,12 @@ export default function StudentGroups() {
 
   const [groups, setGroups] = useState([]);
   const [collabClasses, setCollabClasses] = useState([]);
-  const [dmEntries, setDmEntries] = useState({}); // key -> entry, built from conversations per class
-  const [teacherDmEntries, setTeacherDmEntries] = useState({}); // key -> entry, built from teachers who've DM'd me
-  const [activityOverrides, setActivityOverrides] = useState({}); // key -> { lastMessage, lastAt } from live thread updates
+  const [dmEntries, setDmEntries] = useState({});
+  const [teacherDmEntries, setTeacherDmEntries] = useState({});
+  const [activityOverrides, setActivityOverrides] = useState({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState('all'); // all | groups | dms | unread
+  const [filter, setFilter] = useState('all');
   const [selectedKey, setSelectedKey] = useState(null);
   const [newMsgOpen, setNewMsgOpen] = useState(false);
   const [mobileShowThread, setMobileShowThread] = useState(false);
@@ -1494,12 +1356,6 @@ export default function StudentGroups() {
       const active = (res.data.classes || []).filter(c => c.collaboration_active);
       setCollabClasses(active);
       const perClass = await Promise.all(active.map(cls => api.get(`/collaborations/class/${cls.id}/conversations`).then(r => ({ cls, conversations: r.data.conversations || [] })).catch(() => ({ cls, conversations: [] }))));
-      // IMPORTANT: merge into the existing map rather than replacing it wholesale.
-      // A chat the student just started (picked from "New message" but hasn't sent
-      // a first message yet) has no server-side conversation row, so it would never
-      // appear in this response — overwriting state here would silently delete it
-      // out from under an open thread. Merging keeps any locally-known entry alive
-      // until the server actually has something to say about it.
       setDmEntries(prev => {
         const next = { ...prev };
         perClass.forEach(({ cls, conversations }) => {
@@ -1517,11 +1373,6 @@ export default function StudentGroups() {
     } catch { /* collaboration may simply be inactive for this student */ }
   }, []);
 
-  // Teachers who've started a private DM with me — only a teacher can start
-  // this thread, so this list only ever contains teachers who reached out first.
-  // Full replace (not merge): the server is the sole source of truth for which
-  // threads are visible, so a thread the teacher pauses disappears on the next
-  // fetch instead of lingering in local state.
   const fetchTeacherDms = useCallback(async () => {
     try {
       const res = await api.get('/teacher-messages/my');
@@ -1546,7 +1397,6 @@ export default function StudentGroups() {
   useEffect(() => { const t = setInterval(fetchCollab, 8000); return () => clearInterval(t); }, [fetchCollab]);
   useEffect(() => { const t = setInterval(fetchGroups, 8000); return () => clearInterval(t); }, [fetchGroups]);
 
-  /* ── build the unified, recency-sorted inbox ─────────────────── */
   const inbox = useMemo(() => {
     const rows = [];
 
@@ -1561,12 +1411,10 @@ export default function StudentGroups() {
           : null),
         lastAuthor: override?.lastAuthor ?? g.last_message?.author_name,
         lastAt: override?.lastAt ?? (g.updated_at || g.created_at),
-        unreadCount: 0, // group unread counts aren't tracked server-side yet in this API surface
+        unreadCount: 0,
         mentionCount: (activityOverrides[`${key}:mentions`]) || 0,
       });
 
-      // Team leaders also get a private line to the teacher, surfaced as its
-      // own inbox row instead of being buried behind a button inside the group.
       if (g.is_team_leader) {
         const ldKey = `leaderdm:${g.id}`;
         const ov = activityOverrides[ldKey];
@@ -1602,8 +1450,6 @@ export default function StudentGroups() {
   const openEntry = (entry) => { setSelectedKey(entry.key); setMobileShowThread(true); };
   const openTeacherDm = (groupId) => { const key = `leaderdm:${groupId}`; setSelectedKey(key); setMobileShowThread(true); };
 
-  // Teacher paused their DM thread while the student had it open — drop it
-  // from the inbox immediately so it truly disappears, not just locks.
   const handleThreadHidden = useCallback((key) => {
     setTeacherDmEntries(prev => {
       if (!prev[key]) return prev;
@@ -1618,14 +1464,12 @@ export default function StudentGroups() {
     const nameField = key.startsWith('group:') ? lastMsg.author_name : (lastMsg.sender_name || lastMsg.author_name);
     const preview = lastMsg.message_type === 'voice' ? '🎤 Voice note' : lastMsg.message_type === 'image' ? '📷 Photo' : lastMsg.message_type === 'file' ? '📎 File' : lastMsg.content;
     setActivityOverrides(prev => ({ ...prev, [key]: { lastMessage: preview, lastAuthor: nameField, lastAt: lastMsg.created_at } }));
-    // crude client-side mention tracking for groups: bump a badge when a message mentions me
     if (key.startsWith('group:') && myName && String(lastMsg.author_id) !== String(myId)) {
       const mentioned = extractMentions(lastMsg.content || '', [myName]).length > 0;
       if (mentioned) setActivityOverrides(prev => ({ ...prev, [`${key}:mentions`]: (prev[`${key}:mentions`] || 0) + 1 }));
     }
   }, [myName, myId]);
 
-  // clear mention badge when opening that thread
   useEffect(() => {
     if (selectedKey) setActivityOverrides(prev => ({ ...prev, [`${selectedKey}:mentions`]: 0 }));
   }, [selectedKey]);
@@ -1638,7 +1482,6 @@ export default function StudentGroups() {
     setMobileShowThread(true);
   };
 
-  /* ── deep links from toast clicks (unchanged contract with chatNotify) ── */
   useEffect(() => {
     const applyTarget = (t) => {
       if (!t) return;
@@ -1663,7 +1506,6 @@ export default function StudentGroups() {
     <div style={{ minHeight: 'calc(100vh - 120px)', padding: '16px' }}>
       <div style={{ background: 'var(--card-bg)', borderRadius: 20, overflow: 'hidden', border: '1px solid var(--card-border)', width: '100%', height: 'calc(100vh - 152px)', minHeight: 520, display: 'flex' }}>
 
-        {/* ── Inbox pane ─────────────────────────────────────────── */}
         <div className={`flex flex-col flex-shrink-0 w-full lg:w-[340px] min-h-0 ${mobileShowThread ? 'hidden lg:flex' : 'flex'}`} style={{ borderRight: '1px solid var(--card-border)' }}>
           <div className="ibx-header-chrome" style={{ position: 'relative', overflow: 'hidden', padding: '16px 16px 12px', flexShrink: 0, isolation: 'isolate' }}>
             <div style={{ position: 'absolute', top: '-30%', right: '-10%', width: 220, height: 220, borderRadius: '50%', background: 'radial-gradient(circle, rgba(124,58,237,0.4), transparent 70%)', filter: 'blur(6px)', pointerEvents: 'none', zIndex: 0, animation: 'ibxGlowDrift 8s ease-in-out infinite' }} />
@@ -1711,7 +1553,6 @@ export default function StudentGroups() {
           </div>
         </div>
 
-        {/* ── Thread pane ────────────────────────────────────────── */}
         <div className={`flex-1 min-w-0 min-h-0 ${mobileShowThread ? 'flex' : 'hidden lg:flex'}`} style={{ flexDirection: 'column' }}>
           {selectedEntry ? (
             <ThreadPane
@@ -1745,50 +1586,46 @@ export default function StudentGroups() {
           animation: ibxChromeShimmer 14s ease-in-out infinite;
         }
 
-        /* ── Sent vs received bubble colors, both fixed and deliberately
-           distinct — sent messages always use this same signature
-           indigo-violet gradient no matter which thread you're in (so a
-           graphite/slate-accented DM never ends up the same gray as a
-           received bubble); received bubbles use their own fixed tokens
-           instead of var(--surface-100). ── */
+        /* ── Sent vs received bubble colors. Sent stays WhatsApp green.
+           Received now uses a dark, glassy panel with a warm amber border
+           to match the target design — same look for text AND voice notes. ── */
         :root {
-          --wa-bubble-sent-bg: linear-gradient(135deg, #6d5bff, #9333ea);
-          --wa-bubble-received-bg: #ffffff;
-          --wa-bubble-received-text: #1f2430;
-          --wa-bubble-received-border: rgba(15,17,23,0.08);
+          --wa-bubble-sent-bg: #d9fdd3;
+          --wa-bubble-sent-text: #111b21;
+          --wa-bubble-received-bg: linear-gradient(135deg, rgba(24,17,10,0.7), rgba(12,9,6,0.8));
+          --wa-bubble-received-text: #fbf1e3;
+          --wa-bubble-received-border: rgba(217,119,6,0.55);
+          --wa-voice-accent: #f5a623;
+          --wa-voice-accent-2: #d97706;
         }
         [data-theme='dark'], .dark {
-          --wa-bubble-sent-bg: linear-gradient(135deg, #7c6bff, #a855f7);
-          --wa-bubble-received-bg: #242834;
-          --wa-bubble-received-text: #eef0f5;
-          --wa-bubble-received-border: rgba(255,255,255,0.07);
+          --wa-bubble-sent-bg: #005c4b;
+          --wa-bubble-sent-text: #e9edef;
+          --wa-bubble-received-bg: linear-gradient(135deg, rgba(24,17,10,0.7), rgba(12,9,6,0.8));
+          --wa-bubble-received-text: #fbf1e3;
+          --wa-bubble-received-border: rgba(217,119,6,0.55);
+          --wa-voice-accent: #f5a623;
+          --wa-voice-accent-2: #d97706;
         }
 
-        /* ── Wallpaper: a soft indigo/violet doodle field behind every thread,
-           in the spirit of WhatsApp's chat backdrop but drawn from Edupla's
-           own palette instead of a stock pattern. Two layers: a faint SVG
-           motif of school/chat glyphs, plus slow-drifting ambient blobs
-           underneath so the surface never feels static. Dark and light
-           themes get their own tuned opacity via [data-theme]. ── */
+        /* ── Wallpaper: WhatsApp's own dark chat backdrop — a near-black
+           base with a faint doodle motif, no color blobs. ── */
         .chat-wallpaper {
           position: relative;
-          background-color: var(--surface-100);
+          background-color: #e5ddd5;
           background-image:
-            radial-gradient(circle at 12% 8%, rgba(124,58,237,0.10), transparent 40%),
-            radial-gradient(circle at 88% 92%, rgba(219,39,119,0.08), transparent 42%),
-            url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220' viewBox='0 0 220 220'%3E%3Cg fill='none' stroke='%237c3aed' stroke-width='1.4' opacity='0.055'%3E%3Ccircle cx='30' cy='30' r='11'/%3E%3Cpath d='M85 20 l10 18 l-20 0 z'/%3E%3Crect x='140' y='15' width='22' height='16' rx='3'/%3E%3Cpath d='M20 95 q10 -14 20 0 q10 14 20 0' /%3E%3Cpath d='M105 90 h26 M118 78 v24'/%3E%3Ccircle cx='185' cy='95' r='9'/%3E%3Cpath d='M40 150 l16 -16 l16 16 l-16 16 z'/%3E%3Cpath d='M100 160 q0 -18 18 -18 q18 0 18 18 q0 10 -9 14 l-9 6 l-9 -6 q-9 -4 -9 -14z'/%3E%3Crect x='160' y='150' width='18' height='24' rx='3'/%3E%3Cpath d='M15 195 h30 M15 202 h20'/%3E%3Ccircle cx='120' cy='200' r='7'/%3E%3Cpath d='M175 190 l8 14 h-16 z'/%3E%3C/g%3E%3C/svg%3E");
-          background-size: auto, auto, 220px 220px;
-          background-repeat: no-repeat, no-repeat, repeat;
-          background-attachment: fixed, fixed, local;
+            url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220' viewBox='0 0 220 220'%3E%3Cg fill='none' stroke='%23000000' stroke-width='1.4' opacity='0.045'%3E%3Ccircle cx='30' cy='30' r='11'/%3E%3Cpath d='M85 20 l10 18 l-20 0 z'/%3E%3Crect x='140' y='15' width='22' height='16' rx='3'/%3E%3Cpath d='M20 95 q10 -14 20 0 q10 14 20 0' /%3E%3Cpath d='M105 90 h26 M118 78 v24'/%3E%3Ccircle cx='185' cy='95' r='9'/%3E%3Cpath d='M40 150 l16 -16 l16 16 l-16 16 z'/%3E%3Cpath d='M100 160 q0 -18 18 -18 q18 0 18 18 q0 10 -9 14 l-9 6 l-9 -6 q-9 -4 -9 -14z'/%3E%3Crect x='160' y='150' width='18' height='24' rx='3'/%3E%3Cpath d='M15 195 h30 M15 202 h20'/%3E%3Ccircle cx='120' cy='200' r='7'/%3E%3Cpath d='M175 190 l8 14 h-16 z'/%3E%3C/g%3E%3C/svg%3E");
+          background-size: 220px 220px;
+          background-repeat: repeat;
+          background-attachment: fixed;
         }
         [data-theme='dark'] .chat-wallpaper, .dark .chat-wallpaper {
-          background-color: #0f1015;
+          background-color: #0b141a;
           background-image:
-            radial-gradient(circle at 12% 8%, rgba(124,58,237,0.16), transparent 42%),
-            radial-gradient(circle at 88% 92%, rgba(219,39,119,0.12), transparent 44%),
-            url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220' viewBox='0 0 220 220'%3E%3Cg fill='none' stroke='%23a855f7' stroke-width='1.4' opacity='0.07'%3E%3Ccircle cx='30' cy='30' r='11'/%3E%3Cpath d='M85 20 l10 18 l-20 0 z'/%3E%3Crect x='140' y='15' width='22' height='16' rx='3'/%3E%3Cpath d='M20 95 q10 -14 20 0 q10 14 20 0' /%3E%3Cpath d='M105 90 h26 M118 78 v24'/%3E%3Ccircle cx='185' cy='95' r='9'/%3E%3Cpath d='M40 150 l16 -16 l16 16 l-16 16 z'/%3E%3Cpath d='M100 160 q0 -18 18 -18 q18 0 18 18 q0 10 -9 14 l-9 6 l-9 -6 q-9 -4 -9 -14z'/%3E%3Crect x='160' y='150' width='18' height='24' rx='3'/%3E%3Cpath d='M15 195 h30 M15 202 h20'/%3E%3Ccircle cx='120' cy='200' r='7'/%3E%3Cpath d='M175 190 l8 14 h-16 z'/%3E%3C/g%3E%3C/svg%3E");
-          background-size: auto, auto, 220px 220px;
-          background-repeat: no-repeat, no-repeat, repeat;
+            url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220' viewBox='0 0 220 220'%3E%3Cg fill='none' stroke='%23ffffff' stroke-width='1.4' opacity='0.045'%3E%3Ccircle cx='30' cy='30' r='11'/%3E%3Cpath d='M85 20 l10 18 l-20 0 z'/%3E%3Crect x='140' y='15' width='22' height='16' rx='3'/%3E%3Cpath d='M20 95 q10 -14 20 0 q10 14 20 0' /%3E%3Cpath d='M105 90 h26 M118 78 v24'/%3E%3Ccircle cx='185' cy='95' r='9'/%3E%3Cpath d='M40 150 l16 -16 l16 16 l-16 16 z'/%3E%3Cpath d='M100 160 q0 -18 18 -18 q18 0 18 18 q0 10 -9 14 l-9 6 l-9 -6 q-9 -4 -9 -14z'/%3E%3Crect x='160' y='150' width='18' height='24' rx='3'/%3E%3Cpath d='M15 195 h30 M15 202 h20'/%3E%3Ccircle cx='120' cy='200' r='7'/%3E%3Cpath d='M175 190 l8 14 h-16 z'/%3E%3C/g%3E%3C/svg%3E");
+          background-size: 220px 220px;
+          background-repeat: repeat;
+          background-attachment: fixed;
         }
 
         /* ── Single-message delete: a real circular control, not a bare icon.
@@ -1807,8 +1644,6 @@ export default function StudentGroups() {
         .wa-msg-delete-btn:active:not(:disabled) { transform: scale(0.94); }
         .wa-msg-delete-btn:disabled { opacity: 0.6; cursor: default; }
 
-        /* ── Reply-beside-bubble control — sits inline with the message, at
-           the same vertical center, never floating above/below it. ── */
         .wa-reply-side-btn {
           width: 28px; height: 28px; border-radius: 50%; border: none; cursor: pointer;
           display: flex; align-items: center; justify-content: center; flex-shrink: 0;
@@ -1821,7 +1656,6 @@ export default function StudentGroups() {
         }
         .wa-reply-side-btn:active { transform: scale(0.96); }
 
-        /* ── "Clear mine" — same red family, pill-shaped, a touch of lift on hover ── */
         .wa-clear-mine-btn {
           display: flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 700;
           color: #dc2626; background: rgba(220,38,38,0.08); border: 1px solid rgba(220,38,38,0.18);
@@ -1831,7 +1665,6 @@ export default function StudentGroups() {
         .wa-clear-mine-btn:hover { background: rgba(220,38,38,0.16); transform: translateY(-1px); }
         .wa-clear-mine-btn:active { transform: translateY(0); }
 
-        /* ── Reply quote card inside a bubble — tappable, feels like a real citation ── */
         .wa-reply-quote {
           display: flex; align-items: flex-start; gap: 6px;
           padding: 6px 9px; cursor: pointer; font-size: 11.5px;
@@ -1839,11 +1672,20 @@ export default function StudentGroups() {
         }
         .wa-reply-quote:hover { filter: brightness(1.08); }
 
-        /* ── Voice notes — sent bubble + composer record/preview all share
-           this visual language: a circular play control with a soft pulse
-           while active, and a bar-based waveform standing in for a real
-           audio waveform (deterministic per message, live-reactive while
-           actually recording). ── */
+        /* ── Voice note capsule — the pill-shaped, amber-bordered bubble that
+           matches the target design for received notes, with a subtle
+           breathing glow around the whole capsule while it's playing. ── */
+        .wa-voice-capsule {
+          transition: box-shadow 0.3s ease, transform 0.2s ease;
+        }
+        .wa-voice-capsule-playing {
+          animation: voiceCapsuleGlow 1.9s ease-in-out infinite;
+        }
+        @keyframes voiceCapsuleGlow {
+          0%, 100% { box-shadow: 0 0 0 0 var(--voice-glow-color, rgba(245,158,11,0.4)), 0 3px 14px rgba(0,0,0,0.4); }
+          50% { box-shadow: 0 0 0 9px rgba(245,158,11,0), 0 3px 14px rgba(0,0,0,0.4); }
+        }
+
         .wa-voice-play-btn {
           width: 34px; height: 34px; border-radius: 50%; border: none; cursor: pointer; flex-shrink: 0;
           display: flex; align-items: center; justify-content: center;
@@ -1853,8 +1695,8 @@ export default function StudentGroups() {
         .wa-voice-play-btn:active { transform: scale(0.94); }
         .wa-voice-play-btn-active { animation: voicePlayPulse 1.6s ease-in-out infinite; }
         @keyframes voicePlayPulse {
-          0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0.16); }
-          50% { box-shadow: 0 0 0 7px rgba(255,255,255,0.02); }
+          0%, 100% { box-shadow: 0 0 0 0 var(--voice-glow-color, rgba(245,158,11,0.4)); }
+          50% { box-shadow: 0 0 0 7px rgba(245,158,11,0); }
         }
 
         .wa-voice-wave {
@@ -1872,27 +1714,36 @@ export default function StudentGroups() {
           animation: pulse 1s infinite;
         }
 
-        /* ── Composer: recording pill + pre-send preview share this panel ── */
+        /* ── Composer: recording pill + pre-send preview, now in the same
+           warm amber family as the received voice-note capsules instead
+           of red, with a soft glowing ring while actively recording. ── */
         .wa-recording-panel {
           flex: 1; display: flex; align-items: center; gap: 9px;
           background: var(--surface-100); border-radius: 22px; padding: 7px 14px;
-          border: 1.5px solid rgba(220,38,38,0.2);
+          border: 1.5px solid rgba(245,158,11,0.35);
           animation: recordingPanelIn 0.18s ease both;
         }
+        .wa-recording-panel-live {
+          animation: recordingPanelIn 0.18s ease both, recordingPanelGlow 1.8s ease-in-out infinite;
+        }
         @keyframes recordingPanelIn { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: scale(1); } }
+        @keyframes recordingPanelGlow {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(245,158,11,0.28); border-color: rgba(245,158,11,0.35); }
+          50% { box-shadow: 0 0 0 7px rgba(245,158,11,0); border-color: rgba(245,158,11,0.6); }
+        }
         .wa-rec-dot {
-          width: 9px; height: 9px; border-radius: 50%; background: #dc2626; flex-shrink: 0;
+          width: 9px; height: 9px; border-radius: 50%; background: #f5a623; flex-shrink: 0;
           animation: recDotPulse 1.1s ease-in-out infinite;
         }
         @keyframes recDotPulse {
-          0%, 100% { box-shadow: 0 0 0 0 rgba(220,38,38,0.45); transform: scale(1); }
-          50% { box-shadow: 0 0 0 6px rgba(220,38,38,0); transform: scale(1.15); }
+          0%, 100% { box-shadow: 0 0 0 0 rgba(245,158,11,0.5); transform: scale(1); }
+          50% { box-shadow: 0 0 0 6px rgba(245,158,11,0); transform: scale(1.15); }
         }
-        .wa-recording-time { font-size: 13px; font-weight: 700; color: #dc2626; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+        .wa-recording-time { font-size: 13px; font-weight: 700; color: #f5a623; font-variant-numeric: tabular-nums; flex-shrink: 0; }
         .wa-live-wave { flex: 1; display: flex; align-items: center; gap: 2.5px; height: 26px; min-width: 0; overflow: hidden; }
         .wa-live-bar {
           width: 3px; min-width: 3px; border-radius: 3px; flex-shrink: 0;
-          background: linear-gradient(180deg, #ef4444, #dc2626);
+          background: linear-gradient(180deg, #fbbf24, #d97706);
           transition: height 0.08s ease-out;
         }
         .wa-voice-cancel-btn, .wa-voice-send-btn {
@@ -1900,9 +1751,10 @@ export default function StudentGroups() {
           display: flex; align-items: center; justify-content: center; color: #fff;
           transition: transform 0.15s ease, box-shadow 0.15s ease;
         }
-        .wa-voice-cancel-btn { background: rgba(220,38,38,0.1); color: #dc2626; }
-        .wa-voice-cancel-btn:hover { background: rgba(220,38,38,0.18); transform: scale(1.06); }
-        .wa-voice-send-btn:hover { transform: scale(1.08); box-shadow: 0 4px 14px rgba(0,0,0,0.22); }
+        .wa-voice-cancel-btn { background: rgba(120,113,108,0.16); color: #a8a29e; }
+        .wa-voice-cancel-btn:hover { background: rgba(120,113,108,0.26); transform: scale(1.06); }
+        .wa-voice-send-btn-amber { background: linear-gradient(135deg, #f5a623, #d97706); }
+        .wa-voice-send-btn:hover { transform: scale(1.08); box-shadow: 0 4px 14px rgba(217,119,6,0.35); }
         .wa-voice-send-btn:active, .wa-voice-cancel-btn:active { transform: scale(0.92); }
 
         @keyframes ibxChromeShimmer { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
@@ -1921,7 +1773,7 @@ export default function StudentGroups() {
           .discussion-list-item, .discussion-list-item *,
           .wa-msg-delete-btn, .wa-clear-mine-btn, .wa-reply-quote, .wa-reply-side-btn,
           .wa-voice-play-btn-active, .wa-voice-bar-live, .wa-voice-live-dot,
-          .wa-rec-dot, .wa-recording-panel { animation: none !important; }
+          .wa-rec-dot, .wa-recording-panel, .wa-voice-capsule-playing { animation: none !important; }
         }
       `}</style>
     </div>

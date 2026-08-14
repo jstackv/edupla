@@ -11,8 +11,9 @@ async function destroyMedia(publicId, resourceType = 'raw') {
   catch (err) { console.error('Cloudinary delete error:', err.message); }
 }
 
-// A group message stores only ONE of voice_url/file_url depending on
-// message_type; figure out which, and what resource_type it was uploaded as.
+// A group message (or leader-DM message — same shape) stores only ONE of
+// voice_url/file_url depending on message_type; figure out which, and what
+// resource_type it was uploaded as.
 function destroyMessageMedia(msg) {
   if (!msg || !msg.media_public_id) return Promise.resolve();
   if (msg.message_type === 'voice') return destroyMedia(msg.media_public_id, 'raw');
@@ -143,9 +144,12 @@ const deleteGroup = async (req, res) => {
       teacher_id: req.user.id,
     });
     if (!result) return res.status(404).json({ message: 'Group not found or you are not the owner.' });
-    // Clean up every voice note / photo / file shared in this group's chat
-    // (leader_messages are text-only, so nothing to clean up there).
-    await Promise.all((result.messages || []).map(destroyMessageMedia));
+    // Clean up every voice note / photo / file shared in this group's chat,
+    // plus any shared privately in the leader<->teacher DM.
+    await Promise.all([
+      ...(result.messages || []).map(destroyMessageMedia),
+      ...(result.leader_messages || []).map(destroyMessageMedia),
+    ]);
     res.json({ message: 'Group deleted.' });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
@@ -786,7 +790,14 @@ const getLeaderDm = async (req, res) => {
         sender_id: m.sender_id,
         sender_name: m.sender_name,
         sender_role: m.sender_role,
+        message_type: m.message_type || 'text',
         content: m.content,
+        voice_url: m.voice_url || null,
+        voice_duration: m.voice_duration || null,
+        file_url: m.file_url || null,
+        file_name: m.file_name || null,
+        file_size: m.file_size || null,
+        mime_type: m.mime_type || null,
         created_at: m.created_at,
       })),
     });
@@ -810,10 +821,11 @@ const postLeaderDm = async (req, res) => {
 
     const sender = await User.findById(userId, 'name').lean();
     const msg = {
-      sender_id:   userId,
-      sender_name: sender?.name || 'Unknown',
-      sender_role: myRole,
-      content:     content.trim(),
+      sender_id:    userId,
+      sender_name:  sender?.name || 'Unknown',
+      sender_role:  myRole,
+      message_type: 'text',
+      content:      content.trim(),
     };
 
     group.leader_messages.push(msg);
@@ -827,8 +839,116 @@ const postLeaderDm = async (req, res) => {
         sender_id: saved.sender_id,
         sender_name: saved.sender_name,
         sender_role: saved.sender_role,
+        message_type: saved.message_type,
         content: saved.content,
         created_at: saved.created_at,
+      },
+    });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+/* ── Team leader or owning teacher: send a voice note in the private DM ───
+   Mirrors postVoiceNote, but pushes onto leader_messages instead of the
+   group's shared messages — this is what was missing before, which forced
+   a team leader's "private" voice note to have nowhere to go. ─────────── */
+const postLeaderDmVoiceNote = async (req, res) => {
+  try {
+    const userId = String(req.user.id);
+
+    if (!req.file) {
+      return res.status(400).json({ message: 'No audio file uploaded.' });
+    }
+
+    const group = await DiscussionGroup.findById(req.params.id);
+    if (!group) return res.status(404).json({ message: 'Group not found.' });
+
+    const myRole = leaderDmRole(group, userId, req.user.role);
+    if (!myRole) return res.status(403).json({ message: 'Only the team leader and the group teacher can access this DM.' });
+
+    const sender = await User.findById(userId, 'name').lean();
+    const duration = parseFloat(req.body.duration) || null;
+
+    const msg = {
+      sender_id:       userId,
+      sender_name:     sender?.name || 'Unknown',
+      sender_role:     myRole,
+      message_type:    'voice',
+      content:         '',
+      voice_url:       req.file.path,     // Cloudinary URL returned by multer-storage-cloudinary
+      voice_duration:  duration,
+      media_public_id: req.file.filename, // Cloudinary public_id, needed to delete this asset later
+    };
+
+    group.leader_messages.push(msg);
+    await group.save();
+
+    const saved = group.leader_messages[group.leader_messages.length - 1];
+    res.status(201).json({
+      message: 'Voice note sent',
+      msg: {
+        id:             saved._id,
+        sender_id:      saved.sender_id,
+        sender_name:    saved.sender_name,
+        sender_role:    saved.sender_role,
+        message_type:   saved.message_type,
+        content:        saved.content,
+        voice_url:      saved.voice_url,
+        voice_duration: saved.voice_duration,
+        created_at:     saved.created_at,
+      },
+    });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+/* ── Team leader or owning teacher: share a photo or file in the private DM ── */
+const postLeaderDmMedia = async (req, res) => {
+  try {
+    const userId = String(req.user.id);
+
+    if (!req.file) {
+      return res.status(400).json({ message: 'No file uploaded.' });
+    }
+
+    const group = await DiscussionGroup.findById(req.params.id);
+    if (!group) return res.status(404).json({ message: 'Group not found.' });
+
+    const myRole = leaderDmRole(group, userId, req.user.role);
+    if (!myRole) return res.status(403).json({ message: 'Only the team leader and the group teacher can access this DM.' });
+
+    const sender = await User.findById(userId, 'name').lean();
+    const isImage = (req.file.mimetype || '').startsWith('image/');
+
+    const msg = {
+      sender_id:       userId,
+      sender_name:     sender?.name || 'Unknown',
+      sender_role:     myRole,
+      message_type:    isImage ? 'image' : 'file',
+      content:         '',
+      file_url:        req.file.path,
+      file_name:       req.file.originalname,
+      file_size:       req.file.size,
+      mime_type:       req.file.mimetype,
+      media_public_id: req.file.filename,
+    };
+
+    group.leader_messages.push(msg);
+    await group.save();
+
+    const saved = group.leader_messages[group.leader_messages.length - 1];
+    res.status(201).json({
+      message: isImage ? 'Photo sent' : 'File sent',
+      msg: {
+        id:           saved._id,
+        sender_id:    saved.sender_id,
+        sender_name:  saved.sender_name,
+        sender_role:  saved.sender_role,
+        message_type: saved.message_type,
+        content:      saved.content,
+        file_url:     saved.file_url,
+        file_name:    saved.file_name,
+        file_size:    saved.file_size,
+        mime_type:    saved.mime_type,
+        created_at:   saved.created_at,
       },
     });
   } catch (err) { res.status(500).json({ message: err.message }); }
@@ -851,6 +971,7 @@ const deleteLeaderDmMessage = async (req, res) => {
       return res.status(403).json({ message: 'You can only delete your own messages.' });
     }
 
+    await destroyMessageMedia(msg);
     group.leader_messages.pull({ _id: req.params.messageId });
     await group.save();
 
@@ -869,6 +990,9 @@ const clearMyLeaderDmMessages = async (req, res) => {
     const myRole = leaderDmRole(group, userId, req.user.role);
     if (!myRole) return res.status(403).json({ message: 'Only the team leader and the group teacher can access this DM.' });
 
+    const mine = group.leader_messages.filter(m => String(m.sender_id) === userId);
+    await Promise.all(mine.map(destroyMessageMedia));
+
     const before = group.leader_messages.length;
     group.leader_messages = group.leader_messages.filter(m => String(m.sender_id) !== userId);
     const removed = before - group.leader_messages.length;
@@ -883,5 +1007,6 @@ module.exports = {
   addGroupMembers, removeGroupMember, moveGroupMember,
   postMessage, postVoiceNote, postMedia, deleteMessage, clearMyMessages,
   endConversation, restoreConversation, getGroupMessages,
-  getLeaderDm, postLeaderDm, deleteLeaderDmMessage, clearMyLeaderDmMessages,
+  getLeaderDm, postLeaderDm, postLeaderDmVoiceNote, postLeaderDmMedia,
+  deleteLeaderDmMessage, clearMyLeaderDmMessages,
 };

@@ -6,7 +6,8 @@ const {
   getGroups, createGroup, deleteGroup,
   getGroup,  getMyGroups, postMessage, postVoiceNote, postMedia, deleteMessage, clearMyMessages,
   endConversation, restoreConversation, getGroupMessages,
-  getLeaderDm, postLeaderDm, deleteLeaderDmMessage, clearMyLeaderDmMessages,
+  getLeaderDm, postLeaderDm, postLeaderDmVoiceNote, postLeaderDmMedia,
+  deleteLeaderDmMessage, clearMyLeaderDmMessages,
   addGroupMembers, removeGroupMember, moveGroupMember,
 } = require('../controllers/groupDiscussionController');
 
@@ -47,6 +48,10 @@ router.post('/:id/media', isAuthenticated, chatMediaUpload.single('file'), postM
 // Team leader <-> owning teacher private DM
 router.get('/:id/leader-dm',              isAuthenticated, getLeaderDm);
 router.post('/:id/leader-dm',             isAuthenticated, postLeaderDm);
+// Voice notes & media for the private DM — separate endpoints so a "private"
+// voice note/file can never be routed to the shared group endpoint above.
+router.post('/:id/leader-dm/voice-notes', isAuthenticated, voiceNoteUpload.single('audio'), postLeaderDmVoiceNote);
+router.post('/:id/leader-dm/media',       isAuthenticated, chatMediaUpload.single('file'), postLeaderDmMedia);
 router.delete('/:id/leader-dm',           isAuthenticated, clearMyLeaderDmMessages);
 router.delete('/:id/leader-dm/:messageId', isAuthenticated, deleteLeaderDmMessage);
 

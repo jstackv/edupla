@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, createContext, useContext } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, createContext, useContext } from 'react';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import { showChatToast, markMessageSeen, setActiveConversation, clearActiveConversation, onPendingChatTarget, consumePendingChatTarget } from '../../utils/chatNotify';
@@ -62,6 +62,48 @@ const COLORS = [
 function groupColor(id) {
   const idx = id ? parseInt(String(id).slice(-2), 16) % COLORS.length : 0;
   return COLORS[idx];
+}
+
+/* Distinct per-student accent so received bubbles from different students
+   never look interchangeable with each other or with "mine"/teacher bubbles. */
+const STUDENT_BUBBLE_COLORS = ['#0ea5e9', '#059669', '#d97706', '#db2777', '#8b5cf6', '#e11d48', '#0891b2', '#65a30d'];
+function studentColor(seed) {
+  const s = String(seed || '');
+  let hash = 0;
+  for (let i = 0; i < s.length; i++) hash = (hash * 31 + s.charCodeAt(i)) >>> 0;
+  return STUDENT_BUBBLE_COLORS[hash % STUDENT_BUBBLE_COLORS.length];
+}
+
+/* ── Waveform helpers — a deterministic bar pattern per voice note, plus a
+   shared renderer used by the sent bubble, the live recording meter, and
+   the pre-send preview. ─────────────────────────────────────────────── */
+function seededBars(seed, count = 30) {
+  let h = 0;
+  const s = String(seed || 'voice');
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  let x = h || 7;
+  const bars = [];
+  for (let i = 0; i < count; i++) {
+    x = (x * 1103515245 + 12345) & 0x7fffffff;
+    bars.push(0.22 + ((x % 1000) / 1000) * 0.78);
+  }
+  return bars;
+}
+
+function Waveform({ bars, progress = 0, color, mutedColor, playing, onSeek }) {
+  const activeIndex = Math.floor(progress * bars.length);
+  return (
+    <div className="tg-voice-wave" onClick={onSeek} style={{ cursor: onSeek ? 'pointer' : 'default' }}>
+      {bars.map((h, i) => {
+        const isPast = i <= activeIndex;
+        const isLive = playing && isPast && i === activeIndex;
+        return (
+          <span key={i} className={`tg-voice-bar${isLive ? ' tg-voice-bar-live' : ''}`}
+            style={{ height: `${8 + h * 18}px`, background: isPast ? color : mutedColor }} />
+        );
+      })}
+    </div>
+  );
 }
 
 function OwnerBadge({ isOwner }) {
@@ -339,13 +381,16 @@ function CreateGroupPanel({ onClose, onCreated }) {
   );
 }
 
-/* ── Voice note playback bubble (teacher view) ───────────────────────── */
-function TeacherVoiceBubble({ url, duration, isMine }) {
+/* ── Voice note playback bubble (teacher view) — waveform + seek, more
+   polished than the plain progress-bar it replaces: glowing play control,
+   click-to-seek animated bars, tabular-nums duration. ─────────────────── */
+function TeacherVoiceBubble({ url, duration, isMine, accent = '#6366f1' }) {
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const audioRef = useRef(null);
   const totalDuration = duration || 0;
   const ctx = useContext(AudioPlaybackContext);
+  const bars = useMemo(() => seededBars(url || duration, 28), [url, duration]);
 
   useEffect(() => {
     const el = audioRef.current;
@@ -362,14 +407,8 @@ function TeacherVoiceBubble({ url, duration, isMine }) {
   const toggle = () => {
     const el = audioRef.current;
     if (!el) return;
-    if (playing) {
-      el.pause();
-      setPlaying(false);
-    } else {
-      ctx?.stopOthers(el);
-      el.play();
-      setPlaying(true);
-    }
+    if (playing) { el.pause(); setPlaying(false); }
+    else { ctx?.stopOthers(el); el.play(); setPlaying(true); }
   };
 
   const fmtDur = (s) => {
@@ -377,33 +416,41 @@ function TeacherVoiceBubble({ url, duration, isMine }) {
     return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
   };
 
-  const progress = totalDuration > 0 ? Math.min((currentTime / totalDuration) * 100, 100) : 0;
+  const progress = totalDuration > 0 ? Math.min(currentTime / totalDuration, 1) : 0;
+
+  const seek = (e) => {
+    const el = audioRef.current;
+    if (!el || !totalDuration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const ratio = Math.min(Math.max((e.clientX - rect.left) / rect.width, 0), 1);
+    el.currentTime = ratio * totalDuration;
+    setCurrentTime(ratio * totalDuration);
+    if (!playing) { ctx?.stopOthers(el); el.play(); setPlaying(true); }
+  };
+
+  const barColor = isMine ? 'rgba(255,255,255,0.95)' : accent;
+  const barMuted = isMine ? 'rgba(255,255,255,0.32)' : `${accent}38`;
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 180 }}>
-      <audio
-        ref={audioRef}
-        src={url}
+    <div className="tg-voice-bubble">
+      <audio ref={audioRef} src={url} preload="metadata"
         onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)}
-        onEnded={() => { setPlaying(false); setCurrentTime(0); }}
-        style={{ display: 'none' }}
-      />
-      <button onClick={toggle} style={{
-        width: 32, height: 32, borderRadius: '50%', border: 'none', cursor: 'pointer', flexShrink: 0,
-        display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff',
-        background: isMine ? 'rgba(255,255,255,0.3)' : 'rgba(99,102,241,0.7)',
-      }}>
-        {playing ? <Pause style={{ width: 14, height: 14 }} /> : <Play style={{ width: 14, height: 14 }} />}
+        onEnded={() => { setPlaying(false); setCurrentTime(0); }} style={{ display: 'none' }} />
+
+      <button onClick={toggle} title={playing ? 'Pause' : 'Play'}
+        className={`tg-voice-play-btn${playing ? ' tg-voice-play-btn-active' : ''}`}
+        style={{ background: isMine ? 'rgba(255,255,255,0.24)' : `${accent}22`, color: isMine ? '#fff' : accent }}>
+        {playing ? <Pause style={{ width: 14, height: 14 }} fill="currentColor" /> : <Play style={{ width: 14, height: 14, marginLeft: 1.5 }} fill="currentColor" />}
       </button>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 3 }}>
-        <div style={{ height: 3, borderRadius: 2, background: isMine ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.12)', position: 'relative', overflow: 'hidden' }}>
-          <div style={{ height: '100%', width: `${progress}%`, background: isMine ? 'rgba(255,255,255,0.7)' : '#6366f1', borderRadius: 2, transition: 'width 0.1s linear' }} />
-        </div>
-        <span style={{ fontSize: 10, opacity: 0.7 }}>
-          {playing ? fmtDur(currentTime) : fmtDur(totalDuration)}
-        </span>
-      </div>
-      <Mic style={{ width: 13, height: 13, opacity: 0.5, flexShrink: 0 }} />
+
+      <Waveform bars={bars} progress={progress} color={barColor} mutedColor={barMuted} playing={playing} onSeek={seek} />
+
+      <span style={{
+        fontSize: 11, fontWeight: 700, fontVariantNumeric: 'tabular-nums', flexShrink: 0,
+        opacity: isMine ? 0.85 : 0.65, color: isMine ? '#fff' : 'var(--text-secondary)',
+      }}>
+        {fmtDur(playing ? currentTime : totalDuration)}
+      </span>
     </div>
   );
 }
@@ -835,9 +882,11 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onEnded, onMembersCh
   const [manageOpen, setManageOpen] = useState(false);
   const [recording, setRecording]         = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
+  const [liveLevels, setLiveLevels]       = useState(() => new Array(28).fill(0.15));
   const [audioBlob, setAudioBlob]         = useState(null);
   const [audioDuration, setAudioDuration] = useState(0);
   const [audioPlaying, setAudioPlaying]   = useState(false);
+  const [previewTime, setPreviewTime]     = useState(0);
   const [selectedFile, setSelectedFile]   = useState(null);
   const [filePreviewUrl, setFilePreviewUrl] = useState(null);
   const [uploadingFile, setUploadingFile] = useState(false);
@@ -853,6 +902,50 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onEnded, onMembersCh
   const messagesEndRef = useRef(null);
   const pollRef        = useRef(null);
   const lastMsgTimeRef = useRef(null);
+  // Live waveform while recording: an AnalyserNode sampled on every animation
+  // frame, bucketed down to a small bar count so the recording pill reacts
+  // to the teacher's actual voice instead of pulsing blindly.
+  const audioCtxRef = useRef(null);
+  const analyserRef = useRef(null);
+  const levelRafRef = useRef(null);
+  const previewBars = useMemo(() => seededBars(audioBlob ? `${audioDuration}-preview` : 'preview', 26), [audioBlob, audioDuration]);
+
+  const startLevelMeter = (stream) => {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      const audioCtx = new AudioCtx();
+      const source = audioCtx.createMediaStreamSource(stream);
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 64;
+      source.connect(analyser);
+      audioCtxRef.current = audioCtx;
+      analyserRef.current = analyser;
+      const data = new Uint8Array(analyser.frequencyBinCount);
+      const barCount = 28;
+      const tick = () => {
+        analyser.getByteFrequencyData(data);
+        const step = Math.max(1, Math.floor(data.length / barCount));
+        const next = new Array(barCount);
+        for (let i = 0; i < barCount; i++) {
+          const slice = data.slice(i * step, i * step + step);
+          const avg = slice.reduce((a2, b2) => a2 + b2, 0) / (slice.length || 1);
+          next[i] = Math.min(1, 0.12 + (avg / 255) * 1.4);
+        }
+        setLiveLevels(next);
+        levelRafRef.current = requestAnimationFrame(tick);
+      };
+      levelRafRef.current = requestAnimationFrame(tick);
+    } catch { /* AnalyserNode unsupported — recording still works, just no live bars */ }
+  };
+  const stopLevelMeter = () => {
+    if (levelRafRef.current) cancelAnimationFrame(levelRafRef.current);
+    levelRafRef.current = null;
+    audioCtxRef.current?.close().catch(() => {});
+    audioCtxRef.current = null;
+    analyserRef.current = null;
+    setLiveLevels(new Array(28).fill(0.15));
+  };
+  useEffect(() => () => stopLevelMeter(), []);
 
   useEffect(() => { setMessages(group.messages || []); setIsEnded(group.is_ended || false); }, [group.id]);
 
@@ -992,11 +1085,13 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onEnded, onMembersCh
         setAudioBlob(blob);
         setAudioDuration(recordingTime);
         stream.getTracks().forEach(t => t.stop());
+        stopLevelMeter();
       };
       recorder.start();
       mediaRecorderRef.current = recorder;
       setRecording(true);
       setRecordingTime(0);
+      startLevelMeter(stream);
       recordTimerRef.current = setInterval(() => setRecordingTime(t => t + 1), 1000);
     } catch {
       toast.error('Microphone access denied. Please allow mic permission.');
@@ -1008,6 +1103,7 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onEnded, onMembersCh
       mediaRecorderRef.current.stop();
       clearInterval(recordTimerRef.current);
       setRecording(false);
+      stopLevelMeter();
     }
   };
 
@@ -1020,6 +1116,7 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onEnded, onMembersCh
       clearInterval(recordTimerRef.current);
       setRecording(false);
       setAudioBlob(null);
+      stopLevelMeter();
       (async () => {
         setPosting(true);
         try {
@@ -1047,12 +1144,13 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onEnded, onMembersCh
     setAudioBlob(null);
     setRecordingTime(0);
     setAudioPlaying(false);
+    setPreviewTime(0);
   };
 
   const toggleAudioPreview = () => {
     if (!audioPreviewRef.current) return;
     if (audioPlaying) { audioPreviewRef.current.pause(); setAudioPlaying(false); }
-    else { audioPreviewRef.current.play(); setAudioPlaying(true); audioPreviewRef.current.onended = () => setAudioPlaying(false); }
+    else { audioPreviewRef.current.play(); setAudioPlaying(true); audioPreviewRef.current.onended = () => { setAudioPlaying(false); setPreviewTime(0); }; }
   };
 
   const sendVoiceNote = async () => {
@@ -1233,7 +1331,7 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onEnded, onMembersCh
         </div>
       )}
 
-      <div className="chat-wallpaper tg-scroll flex-1 overflow-y-auto" style={{ padding: '16px 14px 8px' }}>
+      <div className="tg-chat-wallpaper tg-scroll flex-1 overflow-y-auto" style={{ padding: '16px 14px 8px' }}>
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full py-16 text-center">
             <div style={{ fontSize: 36, marginBottom: 10 }}>🤝</div>
@@ -1249,11 +1347,17 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onEnded, onMembersCh
             </div>
           );
           const isTeacherMsg = item.author_role === 'teacher';
+          const senderAccent = item.isMine ? null : isTeacherMsg ? '#7c3aed' : studentColor(item.author_id || item.author_name);
           const bubbleBg = item.isMine
             ? `linear-gradient(135deg, ${a}, ${b})`
             : isTeacherMsg ? 'linear-gradient(135deg, #7c3aed, #6d28d9)'
-            : 'var(--surface-100)';
+            : `linear-gradient(135deg, ${senderAccent}17, ${senderAccent}0a)`;
           const bubbleColor = item.isMine || isTeacherMsg ? '#fff' : 'var(--text-primary)';
+          const bubbleShadow = item.isMine ? `0 3px 12px -3px ${a}55`
+            : isTeacherMsg ? '0 3px 12px -3px rgba(124,58,237,0.4)'
+            : `0 1px 6px -2px ${senderAccent}30`;
+          const bubbleBorder = !item.isMine && !isTeacherMsg ? `1px solid ${senderAccent}2a` : 'none';
+          const bubbleBorderLeft = !item.isMine && !isTeacherMsg && item.message_type !== 'image' ? `3px solid ${senderAccent}` : undefined;
           return (
             <div key={item.key} className={`group flex mb-1 items-center gap-1.5 ${item.isMine ? 'justify-end' : 'justify-start'}`}>
               {item.isMine && (
@@ -1277,10 +1381,12 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onEnded, onMembersCh
                   color: bubbleColor, padding: item.message_type === 'image' || item.message_type === 'file' ? 0 : '8px 12px',
                   borderRadius: item.isMine ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
                   fontSize: 13.5, lineHeight: 1.45, wordBreak: 'break-word',
-                  boxShadow: item.message_type === 'image' || item.message_type === 'file' ? 'none' : '0 1px 2px rgba(0,0,0,0.06)',
+                  boxShadow: item.message_type === 'image' || item.message_type === 'file' ? 'none' : bubbleShadow,
+                  border: item.message_type === 'image' || item.message_type === 'file' ? 'none' : bubbleBorder,
+                  borderLeft: item.message_type === 'image' || item.message_type === 'file' ? undefined : bubbleBorderLeft,
                 }}>
                   {item.message_type === 'voice'
-                    ? <TeacherVoiceBubble url={item.voice_url} duration={item.voice_duration} isMine={item.isMine} />
+                    ? <TeacherVoiceBubble url={item.voice_url} duration={item.voice_duration} isMine={item.isMine} accent={item.isMine ? a : senderAccent} />
                     : item.message_type === 'image'
                     ? <ChatImageBubble url={item.file_url} name={item.file_name} mimeType={item.mime_type} />
                     : item.message_type === 'file'
@@ -1323,25 +1429,38 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onEnded, onMembersCh
         ) :
         recording ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderTop: '1px solid var(--card-border)', padding: '10px 14px', background: 'var(--card-bg)', flexShrink: 0 }}>
-            <button onClick={cancelVoiceNote} style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: 'rgba(220,38,38,0.1)', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}><X style={{ width: 16, height: 16 }} /></button>
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface-100)', borderRadius: 20, padding: '8px 14px', border: '1.5px solid #dc262630' }}>
-              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#dc2626', animation: 'pulse 1s infinite' }} />
-              <span style={{ fontSize: 13, color: '#dc2626', fontWeight: 600 }}>Recording… {fmtDuration(recordingTime)}</span>
+            <button onClick={cancelVoiceNote} title="Cancel" className="tg-voice-cancel-btn"><X style={{ width: 16, height: 16 }} /></button>
+            <div className="tg-rec-panel">
+              <span className="tg-rec-dot" />
+              <span className="tg-rec-time">{fmtDuration(recordingTime)}</span>
+              <div className="tg-live-wave">
+                {liveLevels.map((v, i) => (
+                  <span key={i} className="tg-live-bar" style={{ height: `${7 + v * 22}px` }} />
+                ))}
+              </div>
             </div>
-            <button onClick={stopAndSend} style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: `linear-gradient(135deg, ${a}, ${b})`, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}><Send style={{ width: 16, height: 16 }} /></button>
+            <button onClick={stopAndSend} title="Send" className="tg-voice-send-btn" style={{ background: `linear-gradient(135deg, ${a}, ${b})` }}>
+              <Send style={{ width: 16, height: 16 }} />
+            </button>
           </div>
         ) : audioBlob ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderTop: '1px solid var(--card-border)', padding: '10px 14px', background: 'var(--card-bg)', flexShrink: 0 }}>
-            <button onClick={cancelVoiceNote} style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: 'rgba(220,38,38,0.1)', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}><Trash2 style={{ width: 16, height: 16 }} /></button>
-            {audioBlob && <audio ref={audioPreviewRef} src={URL.createObjectURL(audioBlob)} style={{ display: 'none' }} />}
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface-100)', borderRadius: 20, padding: '8px 14px', border: `1.5px solid ${a}40` }}>
-              <button onClick={toggleAudioPreview} style={{ width: 28, height: 28, borderRadius: '50%', border: 'none', background: `${a}20`, color: a, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
-                {audioPlaying ? <Pause style={{ width: 12, height: 12 }} /> : <Play style={{ width: 12, height: 12 }} />}
+            <button onClick={cancelVoiceNote} title="Discard" className="tg-voice-cancel-btn"><Trash2 style={{ width: 16, height: 16 }} /></button>
+            <audio ref={audioPreviewRef} src={URL.createObjectURL(audioBlob)}
+              onTimeUpdate={() => setPreviewTime(audioPreviewRef.current?.currentTime || 0)}
+              style={{ display: 'none' }} />
+            <div className="tg-rec-panel" style={{ border: `1.5px solid ${a}40` }}>
+              <button onClick={toggleAudioPreview} title={audioPlaying ? 'Pause' : 'Play'}
+                className={`tg-voice-play-btn${audioPlaying ? ' tg-voice-play-btn-active' : ''}`}
+                style={{ width: 28, height: 28, background: `${a}20`, color: a, flexShrink: 0 }}>
+                {audioPlaying ? <Pause style={{ width: 12, height: 12 }} fill="currentColor" /> : <Play style={{ width: 12, height: 12, marginLeft: 1 }} fill="currentColor" />}
               </button>
-              <Mic style={{ width: 13, height: 13, color: a, opacity: 0.7 }} />
-              <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500 }}>Voice note · {fmtDuration(audioDuration)}</span>
+              <Waveform bars={previewBars} progress={audioDuration ? Math.min(previewTime / audioDuration, 1) : 0}
+                color={a} mutedColor={`${a}30`} playing={audioPlaying} />
+              <span className="tg-rec-time" style={{ color: a }}>{fmtDuration(audioPlaying ? previewTime : audioDuration)}</span>
             </div>
-            <button onClick={sendVoiceNote} disabled={posting} style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: `linear-gradient(135deg, ${a}, ${b})`, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, opacity: posting ? 0.6 : 1 }}>
+            <button onClick={sendVoiceNote} disabled={posting} title="Send" className="tg-voice-send-btn"
+              style={{ background: `linear-gradient(135deg, ${a}, ${b})`, opacity: posting ? 0.6 : 1 }}>
               {posting ? <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> : <Send style={{ width: 16, height: 16 }} />}
             </button>
           </div>
@@ -1429,9 +1548,61 @@ function LeaderDmPanel({ groupId, myId, peerName, onClose }) {
   const [deletingId, setDeletingId] = useState(null);
   const [clearConfirm, setClearConfirm] = useState(false);
   const [clearing, setClearing] = useState(false);
+  const [recording, setRecording]         = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [liveLevels, setLiveLevels]       = useState(() => new Array(28).fill(0.15));
+  const [audioBlob, setAudioBlob]         = useState(null);
+  const [audioDuration, setAudioDuration] = useState(0);
+  const [audioPlaying, setAudioPlaying]   = useState(false);
+  const [previewTime, setPreviewTime]     = useState(0);
   const messagesEndRef = useRef(null);
   const pollRef = useRef(null);
   const lastMsgTimeRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef   = useRef([]);
+  const recordTimerRef   = useRef(null);
+  const audioPreviewRef  = useRef(null);
+  const audioCtxRef = useRef(null);
+  const analyserRef = useRef(null);
+  const levelRafRef = useRef(null);
+  const previewBars = useMemo(() => seededBars(audioBlob ? `${audioDuration}-preview` : 'preview', 26), [audioBlob, audioDuration]);
+
+  const startLevelMeter = (stream) => {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      const audioCtx = new AudioCtx();
+      const source = audioCtx.createMediaStreamSource(stream);
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 64;
+      source.connect(analyser);
+      audioCtxRef.current = audioCtx;
+      analyserRef.current = analyser;
+      const data = new Uint8Array(analyser.frequencyBinCount);
+      const barCount = 28;
+      const tick = () => {
+        analyser.getByteFrequencyData(data);
+        const step = Math.max(1, Math.floor(data.length / barCount));
+        const next = new Array(barCount);
+        for (let i = 0; i < barCount; i++) {
+          const slice = data.slice(i * step, i * step + step);
+          const avg = slice.reduce((a2, b2) => a2 + b2, 0) / (slice.length || 1);
+          next[i] = Math.min(1, 0.12 + (avg / 255) * 1.4);
+        }
+        setLiveLevels(next);
+        levelRafRef.current = requestAnimationFrame(tick);
+      };
+      levelRafRef.current = requestAnimationFrame(tick);
+    } catch { /* AnalyserNode unsupported — recording still works, just no live bars */ }
+  };
+  const stopLevelMeter = () => {
+    if (levelRafRef.current) cancelAnimationFrame(levelRafRef.current);
+    levelRafRef.current = null;
+    audioCtxRef.current?.close().catch(() => {});
+    audioCtxRef.current = null;
+    analyserRef.current = null;
+    setLiveLevels(new Array(28).fill(0.15));
+  };
+  useEffect(() => () => stopLevelMeter(), []);
 
   useEffect(() => {
     const key = `leaderdm:${groupId}`;
@@ -1508,6 +1679,97 @@ function LeaderDmPanel({ groupId, myId, peerName, onClose }) {
     finally { setClearing(false); }
   };
 
+  const fmtDuration = (secs) => {
+    const s = Math.round(secs || 0);
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg';
+      const recorder = new MediaRecorder(stream, { mimeType });
+      audioChunksRef.current = [];
+      recorder.ondataavailable = e => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
+      recorder.onstop = () => {
+        const blob = new Blob(audioChunksRef.current, { type: mimeType });
+        setAudioBlob(blob);
+        setAudioDuration(recordingTime);
+        stream.getTracks().forEach(t => t.stop());
+        stopLevelMeter();
+      };
+      recorder.start();
+      mediaRecorderRef.current = recorder;
+      setRecording(true);
+      setRecordingTime(0);
+      startLevelMeter(stream);
+      recordTimerRef.current = setInterval(() => setRecordingTime(t => t + 1), 1000);
+    } catch {
+      toast.error('Microphone access denied. Please allow mic permission.');
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && recording) {
+      mediaRecorderRef.current.stop();
+      clearInterval(recordTimerRef.current);
+      setRecording(false);
+      stopLevelMeter();
+    }
+  };
+
+  const cancelVoiceNote = () => {
+    if (recording) stopRecording();
+    setAudioBlob(null);
+    setRecordingTime(0);
+    setAudioPlaying(false);
+    setPreviewTime(0);
+  };
+
+  const toggleAudioPreview = () => {
+    if (!audioPreviewRef.current) return;
+    if (audioPlaying) { audioPreviewRef.current.pause(); setAudioPlaying(false); }
+    else { audioPreviewRef.current.play(); setAudioPlaying(true); audioPreviewRef.current.onended = () => { setAudioPlaying(false); setPreviewTime(0); }; }
+  };
+
+  const postVoiceNote = async (blob, duration) => {
+    setPosting(true);
+    try {
+      const formData = new FormData();
+      const ext = blob.type.includes('ogg') ? 'ogg' : 'webm';
+      formData.append('audio', blob, `voice-note-${Date.now()}.${ext}`);
+      formData.append('duration', String(duration));
+      const res = await api.post(`/group-discussions/${groupId}/leader-dm/voice-notes`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      setMessages(prev => [...prev, res.data.msg]);
+      lastMsgTimeRef.current = res.data.msg.created_at;
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to send voice note');
+    } finally { setPosting(false); }
+  };
+
+  const stopAndSend = () => {
+    if (!mediaRecorderRef.current || !recording) return;
+    mediaRecorderRef.current.onstop = () => {
+      const mimeType = mediaRecorderRef.current.mimeType || 'audio/webm';
+      const blob = new Blob(audioChunksRef.current, { type: mimeType });
+      const duration = recordingTime;
+      clearInterval(recordTimerRef.current);
+      setRecording(false);
+      setAudioBlob(null);
+      stopLevelMeter();
+      postVoiceNote(blob, duration);
+    };
+    mediaRecorderRef.current.stop();
+  };
+
+  const sendVoiceNote = async () => {
+    if (!audioBlob || posting) return;
+    await postVoiceNote(audioBlob, audioDuration);
+    setAudioBlob(null); setRecordingTime(0); setAudioPlaying(false); setPreviewTime(0);
+  };
+
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
@@ -1543,7 +1805,7 @@ function LeaderDmPanel({ groupId, myId, peerName, onClose }) {
           </button>
         </div>
 
-        <div className="chat-wallpaper tg-scroll flex-1 overflow-y-auto" style={{ padding: '14px 12px' }}>
+        <div className="tg-chat-wallpaper tg-scroll flex-1 overflow-y-auto" style={{ padding: '14px 12px' }}>
           {loading ? (
             <div className="flex justify-center py-10"><div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" /></div>
           ) : messages.length === 0 ? (
@@ -1553,6 +1815,7 @@ function LeaderDmPanel({ groupId, myId, peerName, onClose }) {
             </div>
           ) : messages.map(m => {
             const isMine = String(m.sender_id) === String(myId);
+            const isMedia = m.message_type === 'image' || m.message_type === 'file';
             return (
               <div key={m.id} className={`group flex mb-1.5 items-center gap-1.5 ${isMine ? 'justify-end' : 'justify-start'}`}>
                 {isMine && (
@@ -1564,12 +1827,22 @@ function LeaderDmPanel({ groupId, myId, peerName, onClose }) {
                 )}
                 <div style={{ maxWidth: '78%' }}>
                   <div style={{
-                    background: isMine ? 'linear-gradient(135deg, #6366f1, #4f46e5)' : 'var(--surface-100)',
-                    color: isMine ? '#fff' : 'var(--text-primary)', padding: '8px 12px',
+                    background: isMedia ? 'transparent' : (isMine ? 'linear-gradient(135deg, #6366f1, #4f46e5)' : 'linear-gradient(135deg, #f59e0b1f, #d977060f)'),
+                    color: isMine ? '#fff' : 'var(--text-primary)',
+                    padding: isMedia ? 0 : '8px 12px',
                     borderRadius: isMine ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
                     fontSize: 13.5, lineHeight: 1.45, wordBreak: 'break-word',
+                    boxShadow: isMedia ? 'none' : (isMine ? '0 3px 12px -3px rgba(99,102,241,0.5)' : '0 1px 6px -2px rgba(217,119,6,0.28)'),
+                    border: isMedia ? 'none' : (isMine ? 'none' : '1px solid rgba(217,119,6,0.18)'),
+                    borderLeft: isMedia ? undefined : (isMine ? undefined : '3px solid #d97706'),
                   }}>
-                    {m.content}
+                    {m.message_type === 'voice'
+                      ? <TeacherVoiceBubble url={m.voice_url} duration={m.voice_duration} isMine={isMine} accent={isMine ? '#6366f1' : '#d97706'} />
+                      : m.message_type === 'image'
+                      ? <ChatImageBubble url={m.file_url} name={m.file_name} mimeType={m.mime_type} />
+                      : m.message_type === 'file'
+                      ? <ChatFileBubble url={m.file_url} name={m.file_name} size={m.file_size} mimeType={m.mime_type} />
+                      : m.content}
                   </div>
                   <div className={`text-[10px] mt-0.5 ${isMine ? 'text-right mr-1' : 'ml-1'}`} style={{ color: 'var(--text-secondary)', opacity: 0.6 }}>
                     {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -1581,18 +1854,65 @@ function LeaderDmPanel({ groupId, myId, peerName, onClose }) {
           <div ref={messagesEndRef} />
         </div>
 
-        <div className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0" style={{ borderTop: '1px solid var(--card-border)' }}>
-          <input value={text} onChange={e => setText(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-            placeholder={`Message ${displayName}…`}
-            className="flex-1 px-3.5 py-2 rounded-full text-sm outline-none"
-            style={{ background: 'var(--surface-100)', border: '1.5px solid var(--card-border)', color: 'var(--text-primary)' }} />
-          <button onClick={handleSend} disabled={!text.trim() || posting}
-            className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-all active:scale-95 disabled:opacity-40"
-            style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}>
-            <Send className="w-4 h-4 text-white" />
-          </button>
-        </div>
+        {recording ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderTop: '1px solid var(--card-border)', padding: '10px 14px', background: 'var(--card-bg)', flexShrink: 0 }}>
+            <button onClick={cancelVoiceNote} title="Cancel" className="tg-voice-cancel-btn"><X style={{ width: 16, height: 16 }} /></button>
+            <div className="tg-rec-panel">
+              <span className="tg-rec-dot" />
+              <span className="tg-rec-time">{fmtDuration(recordingTime)}</span>
+              <div className="tg-live-wave">
+                {liveLevels.map((v, i) => (
+                  <span key={i} className="tg-live-bar" style={{ height: `${7 + v * 22}px` }} />
+                ))}
+              </div>
+            </div>
+            <button onClick={stopAndSend} title="Send" className="tg-voice-send-btn" style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}>
+              <Send style={{ width: 16, height: 16 }} />
+            </button>
+          </div>
+        ) : audioBlob ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderTop: '1px solid var(--card-border)', padding: '10px 14px', background: 'var(--card-bg)', flexShrink: 0 }}>
+            <button onClick={cancelVoiceNote} title="Discard" className="tg-voice-cancel-btn"><Trash2 style={{ width: 16, height: 16 }} /></button>
+            <audio ref={audioPreviewRef} src={URL.createObjectURL(audioBlob)}
+              onTimeUpdate={() => setPreviewTime(audioPreviewRef.current?.currentTime || 0)}
+              style={{ display: 'none' }} />
+            <div className="tg-rec-panel" style={{ border: '1.5px solid #6366f140' }}>
+              <button onClick={toggleAudioPreview} title={audioPlaying ? 'Pause' : 'Play'}
+                className={`tg-voice-play-btn${audioPlaying ? ' tg-voice-play-btn-active' : ''}`}
+                style={{ width: 28, height: 28, background: '#6366f120', color: '#6366f1', flexShrink: 0 }}>
+                {audioPlaying ? <Pause style={{ width: 12, height: 12 }} fill="currentColor" /> : <Play style={{ width: 12, height: 12, marginLeft: 1 }} fill="currentColor" />}
+              </button>
+              <Waveform bars={previewBars} progress={audioDuration ? Math.min(previewTime / audioDuration, 1) : 0}
+                color="#6366f1" mutedColor="#6366f130" playing={audioPlaying} />
+              <span className="tg-rec-time" style={{ color: '#6366f1' }}>{fmtDuration(audioPlaying ? previewTime : audioDuration)}</span>
+            </div>
+            <button onClick={sendVoiceNote} disabled={posting} title="Send" className="tg-voice-send-btn"
+              style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)', opacity: posting ? 0.6 : 1 }}>
+              {posting ? <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> : <Send style={{ width: 16, height: 16 }} />}
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0" style={{ borderTop: '1px solid var(--card-border)' }}>
+            <input value={text} onChange={e => setText(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+              placeholder={`Message ${displayName}…`}
+              className="flex-1 px-3.5 py-2 rounded-full text-sm outline-none"
+              style={{ background: 'var(--surface-100)', border: '1.5px solid var(--card-border)', color: 'var(--text-primary)' }} />
+            {text.trim() ? (
+              <button onClick={handleSend} disabled={!text.trim() || posting}
+                className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-all active:scale-95 disabled:opacity-40"
+                style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}>
+                <Send className="w-4 h-4 text-white" />
+              </button>
+            ) : (
+              <button onClick={startRecording} title="Record a voice note"
+                className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-all active:scale-95"
+                style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}>
+                <Mic className="w-4 h-4 text-white" />
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       <ConfirmDialog isOpen={clearConfirm} onClose={() => setClearConfirm(false)} onConfirm={handleClear} loading={clearing}
@@ -1926,6 +2246,86 @@ export default function TeacherGroups() {
         @keyframes tgFadeUp {
           from { opacity: 0; transform: translateY(10px); }
           to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ── Stunning chat wallpaper — layered color mesh + doodle texture,
+           used by both the group chat and the private team-leader DM so
+           the teacher's conversations feel considerably richer than a flat
+           surface color. ─────────────────────────────────────────────── */
+        .tg-chat-wallpaper {
+          background-color: var(--page-bg);
+          background-image:
+            radial-gradient(560px 280px at 12% -8%, rgba(99,102,241,0.11), transparent 62%),
+            radial-gradient(480px 260px at 108% 8%, rgba(124,58,237,0.10), transparent 62%),
+            radial-gradient(440px 240px at 50% 118%, rgba(219,39,119,0.07), transparent 62%),
+            radial-gradient(320px 200px at 85% 85%, rgba(217,119,6,0.06), transparent 65%),
+            url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%236366f1' fill-opacity='0.035'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+          background-attachment: local, local, local, local, local;
+        }
+        .dark .tg-chat-wallpaper {
+          background-image:
+            radial-gradient(560px 280px at 12% -8%, rgba(99,102,241,0.20), transparent 62%),
+            radial-gradient(480px 260px at 108% 8%, rgba(124,58,237,0.18), transparent 62%),
+            radial-gradient(440px 240px at 50% 118%, rgba(219,39,119,0.13), transparent 62%),
+            radial-gradient(320px 200px at 85% 85%, rgba(217,119,6,0.11), transparent 65%),
+            url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        }
+
+        /* ── Voice notes — waveform playback bubble ──────────────────── */
+        .tg-voice-bubble { display: flex; align-items: center; gap: 9px; min-width: 224px; }
+        .tg-voice-play-btn {
+          width: 34px; height: 34px; border-radius: 50%; border: none; cursor: pointer; flex-shrink: 0;
+          display: flex; align-items: center; justify-content: center;
+          transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .tg-voice-play-btn:hover { transform: scale(1.08); }
+        .tg-voice-play-btn:active { transform: scale(0.94); }
+        .tg-voice-play-btn-active { animation: tgVoicePulse 1.6s ease-in-out infinite; }
+        @keyframes tgVoicePulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0.16); }
+          50% { box-shadow: 0 0 0 7px rgba(255,255,255,0.02); }
+        }
+        .tg-voice-wave { display: flex; align-items: center; gap: 2.5px; height: 26px; flex: 1; min-width: 0; padding: 1px 0; }
+        .tg-voice-bar { width: 3px; border-radius: 3px; flex-shrink: 0; transition: height 0.18s ease, background 0.18s ease, transform 0.15s ease; }
+        .tg-voice-bar-live { animation: tgVoiceBarPulse 0.55s ease-in-out infinite alternate; transform-origin: center; }
+        @keyframes tgVoiceBarPulse { from { transform: scaleY(0.8); } to { transform: scaleY(1.25); } }
+
+        /* ── Voice notes — recording pill + pre-send preview panel ───── */
+        .tg-rec-panel {
+          flex: 1; display: flex; align-items: center; gap: 9px;
+          background: var(--surface-100); border-radius: 22px; padding: 8px 15px;
+          border: 1.5px solid rgba(220,38,38,0.2);
+          animation: tgRecPanelIn 0.18s ease both;
+        }
+        @keyframes tgRecPanelIn { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: scale(1); } }
+        .tg-rec-dot {
+          width: 10px; height: 10px; border-radius: 50%; background: #dc2626; flex-shrink: 0;
+          animation: tgRecDotPulse 1.1s ease-in-out infinite;
+        }
+        @keyframes tgRecDotPulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(220,38,38,0.45); transform: scale(1); }
+          50% { box-shadow: 0 0 0 7px rgba(220,38,38,0); transform: scale(1.16); }
+        }
+        .tg-rec-time { font-size: 13.5px; font-weight: 800; color: #dc2626; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+        .tg-live-wave { flex: 1; display: flex; align-items: center; gap: 2.5px; height: 26px; min-width: 0; overflow: hidden; }
+        .tg-live-bar {
+          width: 3px; min-width: 3px; border-radius: 3px; flex-shrink: 0;
+          background: linear-gradient(180deg, #f87171, #dc2626);
+          transition: height 0.08s ease-out;
+        }
+        .tg-voice-cancel-btn, .tg-voice-send-btn {
+          width: 40px; height: 40px; border-radius: 50%; border: none; cursor: pointer; flex-shrink: 0;
+          display: flex; align-items: center; justify-content: center; color: #fff;
+          transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .tg-voice-cancel-btn { background: rgba(220,38,38,0.1); color: #dc2626; }
+        .tg-voice-cancel-btn:hover { background: rgba(220,38,38,0.18); transform: scale(1.06); }
+        .tg-voice-send-btn:hover { transform: scale(1.08); box-shadow: 0 4px 16px -3px rgba(0,0,0,0.25); }
+        .tg-voice-send-btn:active, .tg-voice-cancel-btn:active { transform: scale(0.92); }
+
+        @media (prefers-reduced-motion: reduce) {
+          .tg-voice-play-btn-active, .tg-voice-bar-live,
+          .tg-rec-dot, .tg-rec-panel { animation: none !important; }
         }
 
         /* ── Responsive: group viewer header ─────────────────────── */
