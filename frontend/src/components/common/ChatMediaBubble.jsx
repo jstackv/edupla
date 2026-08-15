@@ -3,8 +3,10 @@ import { createPortal } from 'react-dom';
 import {
   Image as ImageIcon, FileText, File as FileIcon, FileSpreadsheet,
   FileType2, Music, Download, Maximize2, AlertTriangle, X, ExternalLink,
-  ZoomIn, ZoomOut, Play, Pause,
+  ZoomIn, ZoomOut, Play, Pause, Eye,
 } from 'lucide-react';
+import mammoth from 'mammoth';
+import * as XLSX from 'xlsx';
 import { downloadFile, getFileType, toInlineUrl } from './FileViewer';
 
 /* ── Format bytes into a short human label ── */
@@ -30,8 +32,6 @@ const FILE_STYLE = {
   other:      { Icon: FileIcon,       color: '#475569', label: 'FILE' },
 };
 
-const OFFICE_TYPES = new Set(['word', 'excel', 'powerpoint']);
-
 function isLocalOrigin() {
   if (typeof window === 'undefined') return false;
   const o = window.location.origin;
@@ -47,18 +47,27 @@ function extOf(name) {
    In-app file viewer modal. Renders via a portal on document.body so
    it always sits above the chat scroll container, regardless of which
    bubble opened it. Never opens a new tab on its own — but always
-   offers one, since third-party preview services occasionally can't
-   reach a file even when it's perfectly downloadable.
+   offers one, since preview can occasionally fail even when a file is
+   perfectly downloadable.
 
-   BUG FIX: office docs used to go through Microsoft's Office Online
-   viewer (view.officeapps.live.com), which very often threw a "File
-   not found" page for files it could not confidently re-fetch (the
-   exact error the reports came in with) — even though the file was
-   completely accessible. Every other viewer in this app already
-   solved this with Google Docs Viewer + a Cloudinary raw→inline URL
-   fix (see FileViewer.jsx); this modal just never got that fix. It
-   now reuses the same toInlineUrl() helper and the same Google Docs
-   Viewer route, so behavior matches the rest of the app exactly.
+   BUG FIX — round 2: office docs first went through Microsoft's Office
+   Online viewer (view.officeapps.live.com), which returned "File not
+   found" for files it couldn't confidently re-fetch. Swapping to
+   Google Docs Viewer looked like the standard fix... except Google's
+   embed endpoint turned out to be just as unreliable here, failing
+   with its own "Could not preview the file" message for the exact
+   same files. Two different third-party iframe services failing on
+   the same real, publicly-downloadable file (Download always worked)
+   points at the services, not the file.
+
+   So Word (.docx) and Excel (.xlsx/.xls) no longer depend on any
+   external embed service at all — they're fetched and rendered
+   directly in the browser with mammoth.js and SheetJS. That removes
+   the point of failure entirely for the two most common attachment
+   types. PowerPoint has no solid client-side renderer available, so
+   it keeps an opt-in Google Docs Viewer attempt behind a "Try preview"
+   button, with Download/Open always front and center as the reliable
+   path.
    ══════════════════════════════════════════════════════════════════ */
 function FileViewerModal({ file, onClose }) {
   const { url, name, mimeType, fileType, size } = file;
@@ -72,21 +81,17 @@ function FileViewerModal({ file, onClose }) {
   const isVideo = fileType === 'video' || (mimeType || '').startsWith('video/');
   const isAudio = fileType === 'audio' || (mimeType || '').startsWith('audio/');
   const isPdf = fileType === 'pdf';
-  const isOffice = OFFICE_TYPES.has(fileType);
+  const isWord = fileType === 'word';
+  const isExcel = fileType === 'excel';
+  const isPpt = fileType === 'powerpoint';
   const local = isLocalOrigin();
   const { Icon, color, label } = FILE_STYLE[fileType] || FILE_STYLE.other;
 
   // Cloudinary stores everything as resource_type:'raw' by default, which
   // forces a download instead of rendering inline — transform the URL so
-  // images/pdf/video/audio actually preview. (No-op for non-Cloudinary URLs.)
+  // images/pdf/video/audio actually preview. (No-op for non-Cloudinary URLs,
+  // and a no-op for word/excel, which are rendered client-side instead.)
   const displayUrl = toInlineUrl(url, fileType);
-
-  // Office docs preview through Google Docs Viewer, which can fetch the
-  // Cloudinary URL directly. Google's viewer can't reach a local dev server,
-  // so on localhost we skip straight to the fallback panel.
-  const officeViewerUrl = isOffice && !local
-    ? `https://docs.google.com/viewer?url=${encodeURIComponent(displayUrl)}&embedded=true`
-    : null;
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose(); };
@@ -245,33 +250,19 @@ function FileViewerModal({ file, onClose }) {
             </div>
           )}
 
-          {isOffice && (
-            local ? (
-              <ViewerFallback color={color} Icon={Icon}
-                message="Live preview needs a public URL, so it isn't available on a local server."
-                onDownload={handleDownload} onOpenExternal={handleOpenExternal} downloading={downloading} />
-            ) : (
-              <div style={{ width: '100%', height: '78vh', display: 'flex', flexDirection: 'column' }}>
-                <div style={{ position: 'relative', flex: 1, minHeight: 0 }}>
-                  {!docLoaded && <DocSkeleton color={color} label="Opening document" />}
-                  <iframe
-                    title={name || 'Document preview'}
-                    src={officeViewerUrl}
-                    onLoad={() => setDocLoaded(true)}
-                    style={{ width: '100%', height: '100%', border: 'none', opacity: docLoaded ? 1 : 0, transition: 'opacity 0.25s ease' }}
-                  />
-                </div>
-                <div style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14,
-                  padding: '9px 10px', fontSize: 11.5, color: 'var(--text-secondary)',
-                  borderTop: '1px solid var(--card-border)', flexShrink: 0,
-                }}>
-                  <span>Preview not loading?</span>
-                  <FooterLink color={color} onClick={handleOpenExternal} Icon={ExternalLink}>Open in new tab</FooterLink>
-                  <FooterLink color={color} onClick={handleDownload} Icon={Download}>Download instead</FooterLink>
-                </div>
-              </div>
-            )
+          {isWord && (
+            <WordStage url={displayUrl} color={color} Icon={Icon}
+              onDownload={handleDownload} onOpenExternal={handleOpenExternal} downloading={downloading} />
+          )}
+
+          {isExcel && (
+            <ExcelStage url={displayUrl} color={color} Icon={Icon}
+              onDownload={handleDownload} onOpenExternal={handleOpenExternal} downloading={downloading} />
+          )}
+
+          {isPpt && (
+            <SlidesStage url={displayUrl} name={name} color={color} Icon={Icon} local={local}
+              onDownload={handleDownload} onOpenExternal={handleOpenExternal} downloading={downloading} />
           )}
 
           {(fileType === 'text' || fileType === 'other') && (
@@ -406,6 +397,278 @@ function AudioStage({ url, name, color, Icon }) {
         }}
         style={{ display: 'none' }}
       />
+    </div>
+  );
+}
+
+/* ── Fetches an attachment as an ArrayBuffer with a hard timeout, so a
+   stalled network request degrades to the error state instead of
+   spinning forever. Shared by WordStage and ExcelStage. ── */
+function useDocumentBuffer(url, { timeoutMs = 20000 } = {}) {
+  const [state, setState] = useState('loading'); // 'loading' | 'ready' | 'error'
+  const [buffer, setBuffer] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setState('loading');
+    setBuffer(null);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+    fetch(url, { signal: controller.signal })
+      .then((res) => { if (!res.ok) throw new Error(`HTTP ${res.status}`); return res.arrayBuffer(); })
+      .then((buf) => { if (!cancelled) { setBuffer(buf); setState('ready'); } })
+      .catch(() => { if (!cancelled) setState('error'); })
+      .finally(() => clearTimeout(timer));
+
+    return () => { cancelled = true; clearTimeout(timer); controller.abort(); };
+  }, [url, timeoutMs]);
+
+  return { state, buffer };
+}
+
+/* ── Word (.docx) preview — converted to HTML with mammoth.js and laid
+   out as a paper page, entirely client-side. No third-party iframe
+   service involved, so nothing outside this browser can reject the
+   file. ── */
+function WordStage({ url, color, Icon, onDownload, onOpenExternal, downloading }) {
+  const { state, buffer } = useDocumentBuffer(url);
+  const [html, setHtml] = useState('');
+  const [convertError, setConvertError] = useState(false);
+
+  useEffect(() => {
+    if (state !== 'ready' || !buffer) return;
+    let cancelled = false;
+    mammoth.convertToHtml(
+      { arrayBuffer: buffer },
+      { convertImage: mammoth.images.imgElement((image) => image.read('base64').then((b64) => ({ src: `data:${image.contentType};base64,${b64}` }))) }
+    )
+      .then((result) => { if (!cancelled) setHtml(result.value); })
+      .catch(() => { if (!cancelled) setConvertError(true); });
+    return () => { cancelled = true; };
+  }, [state, buffer]);
+
+  if (state === 'loading') {
+    return (
+      <div style={{ position: 'relative', width: '100%', height: '78vh' }}>
+        <DocSkeleton color={color} label="Opening document" />
+      </div>
+    );
+  }
+  if (state === 'error' || convertError) {
+    return (
+      <ViewerFallback color={color} Icon={Icon} message="Couldn't read this document — the connection may have dropped."
+        onDownload={onDownload} onOpenExternal={onOpenExternal} downloading={downloading} />
+    );
+  }
+  if (!html) {
+    return (
+      <div style={{ position: 'relative', width: '100%', height: '78vh' }}>
+        <DocSkeleton color={color} label="Formatting document" />
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ width: '100%', height: '78vh', overflow: 'auto', padding: '32px 16px', background: 'var(--stage-bg, var(--surface-100))' }}>
+      <div
+        className="fv-docx-page"
+        style={{
+          maxWidth: 680, margin: '0 auto', background: '#ffffff', color: '#1a1a1a',
+          borderRadius: 4, padding: '56px 60px', boxShadow: '0 12px 34px rgba(0,0,0,0.22), 0 0 0 1px rgba(0,0,0,0.04)',
+          minHeight: 400,
+        }}
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+      <style>{`
+        .fv-docx-page { font-family: Georgia, 'Times New Roman', serif; font-size: 14.5px; line-height: 1.65; }
+        .fv-docx-page h1, .fv-docx-page h2, .fv-docx-page h3 { font-family: system-ui, -apple-system, sans-serif; font-weight: 700; color: #111; margin: 1.4em 0 0.5em; }
+        .fv-docx-page h1 { font-size: 1.7em; } .fv-docx-page h2 { font-size: 1.4em; } .fv-docx-page h3 { font-size: 1.15em; }
+        .fv-docx-page p { margin: 0 0 1em; }
+        .fv-docx-page table { border-collapse: collapse; width: 100%; margin: 1em 0; font-size: 0.92em; }
+        .fv-docx-page td, .fv-docx-page th { border: 1px solid #d8d8d8; padding: 6px 9px; }
+        .fv-docx-page img { max-width: 100%; height: auto; border-radius: 4px; margin: 0.5em 0; }
+        .fv-docx-page ul, .fv-docx-page ol { margin: 0 0 1em; padding-left: 1.6em; }
+        .fv-docx-page a { color: ${color}; }
+        .fv-docx-page strong { font-weight: 700; }
+      `}</style>
+    </div>
+  );
+}
+
+/* ── Excel (.xlsx/.xls) preview — parsed with SheetJS into a real,
+   zebra-striped table with tabs for multi-sheet workbooks. Also fully
+   client-side, no iframe embed involved. ── */
+const EXCEL_ROW_CAP = 500;
+const EXCEL_COL_CAP = 60;
+
+function ExcelStage({ url, color, Icon, onDownload, onOpenExternal, downloading }) {
+  const { state, buffer } = useDocumentBuffer(url);
+  const [sheets, setSheets] = useState(null);      // { names, rowsByName }
+  const [activeSheet, setActiveSheet] = useState(null);
+  const [parseError, setParseError] = useState(false);
+
+  useEffect(() => {
+    if (state !== 'ready' || !buffer) return;
+    try {
+      const wb = XLSX.read(buffer, { type: 'array' });
+      const rowsByName = {};
+      wb.SheetNames.forEach((n) => {
+        rowsByName[n] = XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: false, defval: '' });
+      });
+      setSheets({ names: wb.SheetNames, rowsByName });
+      setActiveSheet(wb.SheetNames[0]);
+    } catch {
+      setParseError(true);
+    }
+  }, [state, buffer]);
+
+  if (state === 'loading') {
+    return (
+      <div style={{ position: 'relative', width: '100%', height: '78vh' }}>
+        <DocSkeleton color={color} label="Opening spreadsheet" />
+      </div>
+    );
+  }
+  if (state === 'error' || parseError) {
+    return (
+      <ViewerFallback color={color} Icon={Icon} message="Couldn't read this spreadsheet — the connection may have dropped."
+        onDownload={onDownload} onOpenExternal={onOpenExternal} downloading={downloading} />
+    );
+  }
+  if (!sheets) {
+    return (
+      <div style={{ position: 'relative', width: '100%', height: '78vh' }}>
+        <DocSkeleton color={color} label="Reading rows" />
+      </div>
+    );
+  }
+
+  const rows = sheets.rowsByName[activeSheet] || [];
+  const shownRows = rows.slice(0, EXCEL_ROW_CAP);
+  const colCount = Math.min(EXCEL_COL_CAP, shownRows.reduce((m, r) => Math.max(m, r.length), 0));
+  const truncatedRows = rows.length > EXCEL_ROW_CAP;
+
+  return (
+    <div style={{ width: '100%', height: '78vh', display: 'flex', flexDirection: 'column' }}>
+      {sheets.names.length > 1 && (
+        <div style={{ display: 'flex', gap: 4, padding: '8px 10px 0', overflowX: 'auto', flexShrink: 0 }}>
+          {sheets.names.map((n) => (
+            <button
+              key={n}
+              onClick={() => setActiveSheet(n)}
+              style={{
+                padding: '6px 12px', borderRadius: '8px 8px 0 0', border: 'none', cursor: 'pointer',
+                fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap',
+                background: n === activeSheet ? `${color}18` : 'transparent',
+                color: n === activeSheet ? color : 'var(--text-secondary)',
+              }}
+            >
+              {n}
+            </button>
+          ))}
+        </div>
+      )}
+      <div style={{ flex: 1, minHeight: 0, overflow: 'auto', border: '1px solid var(--card-border)', margin: '0 10px 10px', borderRadius: 10 }}>
+        <table style={{ borderCollapse: 'collapse', fontSize: 12.5, width: '100%' }}>
+          <tbody>
+            {shownRows.map((row, ri) => (
+              <tr key={ri} style={{ background: ri === 0 ? `${color}14` : ri % 2 === 0 ? 'var(--card-bg)' : 'var(--surface-100)' }}>
+                {Array.from({ length: colCount }).map((_, ci) => (
+                  <td
+                    key={ci}
+                    style={{
+                      padding: '6px 12px', borderBottom: '1px solid var(--card-border)', borderRight: '1px solid var(--card-border)',
+                      whiteSpace: 'nowrap', color: 'var(--text-primary)',
+                      fontWeight: ri === 0 ? 700 : 400,
+                    }}
+                  >
+                    {row[ci] ?? ''}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {truncatedRows && (
+        <div style={{ padding: '0 10px 10px', fontSize: 11, color: 'var(--text-secondary)', textAlign: 'center', flexShrink: 0 }}>
+          Showing first {EXCEL_ROW_CAP} rows of {rows.length} — download for the full sheet.
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── PowerPoint preview — there's no dependable client-side .pptx
+   renderer, so this leads with the reliable actions (Download / Open)
+   and offers a Google Docs Viewer attempt only as an opt-in, rather
+   than auto-loading an iframe that may just show its own error. ── */
+function SlidesStage({ url, name, color, Icon, local, onDownload, onOpenExternal, downloading }) {
+  const [tryPreview, setTryPreview] = useState(false);
+  const [docLoaded, setDocLoaded] = useState(false);
+  const officeViewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
+
+  if (tryPreview && !local) {
+    return (
+      <div style={{ width: '100%', height: '78vh', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ position: 'relative', flex: 1, minHeight: 0 }}>
+          {!docLoaded && <DocSkeleton color={color} label="Opening slides" />}
+          <iframe
+            title={name || 'Slides preview'}
+            src={officeViewerUrl}
+            onLoad={() => setDocLoaded(true)}
+            style={{ width: '100%', height: '100%', border: 'none', opacity: docLoaded ? 1 : 0, transition: 'opacity 0.25s ease' }}
+          />
+        </div>
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14,
+          padding: '9px 10px', fontSize: 11.5, color: 'var(--text-secondary)',
+          borderTop: '1px solid var(--card-border)', flexShrink: 0,
+        }}>
+          <span>Preview not loading?</span>
+          <FooterLink color={color} onClick={onOpenExternal} Icon={ExternalLink}>Open in new tab</FooterLink>
+          <FooterLink color={color} onClick={onDownload} Icon={Download}>Download instead</FooterLink>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ textAlign: 'center', padding: '52px 32px' }}>
+      <div style={{ position: 'relative', width: 60, height: 60, margin: '0 auto 16px' }}>
+        <div style={{ position: 'absolute', inset: -10, borderRadius: 20, background: `radial-gradient(circle, ${color}28, transparent 70%)` }} />
+        <div style={{ position: 'relative', width: 60, height: 60, borderRadius: 18, background: `${color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Icon style={{ width: 27, height: 27, color }} />
+        </div>
+      </div>
+      <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginBottom: 18, maxWidth: 280, marginLeft: 'auto', marginRight: 'auto' }}>
+        Slide decks don't have a dependable inline preview yet — download or open the file directly for the best result.
+      </p>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <button
+          onClick={onDownload}
+          disabled={downloading}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 20, border: 'none', background: color, color: '#fff', fontWeight: 700, fontSize: 12.5, cursor: 'pointer' }}
+        >
+          {downloading ? <Spinner size={13} color="#fff" trackAlpha={0.35} /> : <Download style={{ width: 14, height: 14 }} />}
+          Download
+        </button>
+        <button
+          onClick={onOpenExternal}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 20, border: `1px solid ${color}40`, background: 'transparent', color, fontWeight: 700, fontSize: 12.5, cursor: 'pointer' }}
+        >
+          <ExternalLink style={{ width: 13, height: 13 }} /> Open
+        </button>
+        {!local && (
+          <button
+            onClick={() => setTryPreview(true)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 20, border: 'none', background: 'var(--surface-100)', color: 'var(--text-secondary)', fontWeight: 700, fontSize: 12.5, cursor: 'pointer' }}
+          >
+            <Eye style={{ width: 13, height: 13 }} /> Try preview
+          </button>
+        )}
+      </div>
     </div>
   );
 }
