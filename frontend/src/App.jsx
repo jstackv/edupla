@@ -64,11 +64,11 @@ function getDefaultRoute(role) {
 // ── Loading screen ──────────────────────────────────────────────────────
 // "Ember & Current" splash treatment, matching the BrandMark redesign:
 // a floating badge held inside three counter-rotating gradient halo rings
-// (dark orange + dark teal + a fine slate orbit carrying a single spark
+// (dark orange + indigo + a fine slate orbit carrying a single spark
 // particle — echoing the shard and spark in the mark itself), ambient
-// slate/orange/teal background glow, a gradient-shimmer label, and a
+// slate/orange/indigo background glow, a gradient-shimmer label, and a
 // slim indeterminate progress thread underneath that carries the same
-// teal -> orange ramp as the badge's "growth path" — the loading state
+// indigo -> orange ramp as the badge's "growth path" — the loading state
 // literally continues the logo's story instead of bolting on a generic
 // spinner.
 const LoadingScreen = () => {
@@ -130,9 +130,9 @@ const LoadingScreen = () => {
           mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px));
           animation: edupla-loader-ringspin 3.2s linear infinite;
         }
-        .edupla-loader-ring.teal {
+        .edupla-loader-ring.indigo {
           inset: -20px;
-          background: conic-gradient(from 200deg, transparent 0deg, rgba(45,212,191,0.75) 45deg, transparent 110deg, transparent 360deg);
+          background: conic-gradient(from 200deg, transparent 0deg, rgba(99,102,241,0.75) 45deg, transparent 110deg, transparent 360deg);
           animation: edupla-loader-ringspin-rev 4.6s linear infinite;
         }
         .edupla-loader-ring.slate {
@@ -151,7 +151,7 @@ const LoadingScreen = () => {
 
         .edupla-loader-badge-glow {
           position: absolute; inset: -34px; border-radius: 9999px; z-index: -1;
-          background: radial-gradient(circle, rgba(45,212,191,0.22), rgba(249,115,22,0.10) 55%, transparent 75%);
+          background: radial-gradient(circle, rgba(99,102,241,0.22), rgba(249,115,22,0.10) 55%, transparent 75%);
           filter: blur(6px);
           animation: edupla-loader-glowpulse 3.2s ease-in-out infinite;
         }
@@ -159,13 +159,13 @@ const LoadingScreen = () => {
         .edupla-loader-content { animation: edupla-loader-fadeup 0.5s ease both; }
 
         .edupla-loader-label {
-          background: linear-gradient(90deg, var(--text-muted, #64748b) 0%, #0F766E 22%, #2DD4BF 40%, #F97316 60%, #FDBA74 78%, var(--text-muted, #64748b) 100%);
+          background: linear-gradient(90deg, var(--text-muted, #64748b) 0%, #4338CA 22%, #6366F1 40%, #F97316 60%, #FDBA74 78%, var(--text-muted, #64748b) 100%);
           background-size: 220% auto;
           -webkit-background-clip: text; background-clip: text; color: transparent;
           animation: edupla-loader-shimmer 3s linear infinite;
         }
         .edupla-loader-dot { animation: edupla-loader-dot 1.4s ease-in-out infinite; color: #F97316; }
-        .edupla-loader-dot:nth-child(2) { animation-delay: 0.2s; color: #2DD4BF; }
+        .edupla-loader-dot:nth-child(2) { animation-delay: 0.2s; color: #6366F1; }
         .edupla-loader-dot:nth-child(3) { animation-delay: 0.4s; color: #F97316; }
 
         .edupla-loader-track {
@@ -174,7 +174,7 @@ const LoadingScreen = () => {
         }
         .edupla-loader-bar {
           position: absolute; top: 0; bottom: 0; left: -45%; width: 45%; border-radius: 999px;
-          background: linear-gradient(90deg, transparent, #0F766E, #2DD4BF, #F97316, transparent);
+          background: linear-gradient(90deg, transparent, #4338CA, #6366F1, #F97316, transparent);
           animation: edupla-loader-slide 1.7s ease-in-out infinite;
         }
 
@@ -184,12 +184,12 @@ const LoadingScreen = () => {
         }
       `}</style>
 
-      {/* Ambient glow blobs — slate, dark teal and dark orange, echoing the
+      {/* Ambient glow blobs — slate, indigo and dark orange, echoing the
           landing page's background treatment */}
       <div
         aria-hidden="true"
         className="edupla-loader-blob"
-        style={{ position: 'absolute', width: 480, height: 480, borderRadius: '50%', top: '-10%', left: '-8%', background: 'radial-gradient(circle,rgba(15,118,110,0.20),transparent)', filter: 'blur(90px)' }}
+        style={{ position: 'absolute', width: 480, height: 480, borderRadius: '50%', top: '-10%', left: '-8%', background: 'radial-gradient(circle,rgba(67,56,202,0.22),transparent)', filter: 'blur(90px)' }}
       />
       <div
         aria-hidden="true"
@@ -206,7 +206,7 @@ const LoadingScreen = () => {
         <div className="relative inline-block mb-7 edupla-loader-badge-wrap">
           <span className="edupla-loader-badge-glow" aria-hidden="true" />
           <span className="edupla-loader-ring slate" aria-hidden="true" />
-          <span className="edupla-loader-ring teal" aria-hidden="true" />
+          <span className="edupla-loader-ring indigo" aria-hidden="true" />
           <span className="edupla-loader-ring" aria-hidden="true" />
           <span className="edupla-loader-orbit-wrap" aria-hidden="true">
             <span className="edupla-loader-orbit-dot" />

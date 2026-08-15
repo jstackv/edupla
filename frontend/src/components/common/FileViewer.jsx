@@ -90,7 +90,7 @@ export function getFileType(filename, mimeType) {
  *              /raw/upload/ → /video/upload/
  *  - Others → keep as-is (will go through Google Docs Viewer or download)
  */
-function toInlineUrl(cloudUrl, fileType) {
+export function toInlineUrl(cloudUrl, fileType) {
   if (!cloudUrl) return cloudUrl;
   if (!cloudUrl.includes('res.cloudinary.com')) return cloudUrl; // not Cloudinary, leave alone
 
