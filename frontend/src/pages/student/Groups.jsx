@@ -65,14 +65,15 @@ function groupColor(id) {
   return GROUP_COLORS[idx];
 }
 const DM_COLORS = ['#4b5563', '#33383f'];
+// Received-message accent for a plain 1:1 peer DM (no group, no teacher) —
+// there's no per-sender identity color to fall back on there, so this
+// warm, vivid orange carries the "received" identity instead, especially
+// striking on the dark theme.
+const DM_RECEIVED_ACCENT = '#fb923c';
 const LEADER_COLORS = ['#7c3aed', '#6d28d9'];
 const TEACHER_DM_COLORS = ['#9333ea', '#7e22ce'];
-// "Mine" bubble color across all of the student's chat — a polished
-// neutral gray, consistent everywhere (group chat, leader DM, teacher DM,
-// peer DM) rather than switching with the thread's own accent color.
-const MINE_ACCENT = ['#52525b', '#3f3f46'];
 
-const SENDER_COLORS = ['#a855f7', '#9d174d', '#db2777', '#c026d3', '#7c3aed', '#dc2626', '#78716c', '#e11d48'];
+const SENDER_COLORS = ['#38bdf8', '#34d399', '#fb923c', '#f472b6', '#a78bfa', '#fbbf24', '#4ade80', '#60a5fa'];
 function senderColor(seed) {
   const s = String(seed || '');
   let hash = 0;
@@ -147,11 +148,10 @@ function AudioPlaybackProvider({ children }) {
 function VoiceBubble({ url, duration, isMine, otherAccent }) {
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
-  const [loaded, setLoaded] = useState(false);
   const audioRef = useRef(null);
   const ctx = useContext(AudioPlaybackContext);
   const totalDuration = duration || 0;
-  const bars = useMemo(() => seededBars(url || duration, 30), [url, duration]);
+  const bars = useMemo(() => seededBars(url || duration, 28), [url, duration]);
 
   useEffect(() => {
     const el = audioRef.current;
@@ -181,55 +181,31 @@ function VoiceBubble({ url, duration, isMine, otherAccent }) {
     if (!playing) { ctx?.stopOthers(el); el.play(); setPlaying(true); }
   };
 
-  // "Mine" always renders as a polished neutral gray, consistent everywhere.
-  // Received notes get the sender's own identity color in group threads
-  // (so each classmate's voice notes are visually distinct, matching the
-  // teacher's group-chat design); outside group threads they fall back to
-  // the single amber "received" tone.
-  const barColor = isMine ? 'rgba(255,255,255,0.95)' : (otherAccent || 'var(--wa-voice-accent)');
-  const barMuted = isMine ? 'rgba(255,255,255,0.32)' : (otherAccent ? `${otherAccent}38` : 'rgba(245,158,11,0.22)');
-  const glowColor = isMine ? `${MINE_ACCENT[1]}66` : (otherAccent ? `${otherAccent}66` : 'rgba(245,158,11,0.45)');
+  // No pill/capsule of its own — the play button, waveform, and duration
+  // sit directly inside the message bubble, which already supplies the
+  // background/border (mine = solid accent, received = sender's tint).
+  // This matches the teacher's voice-note treatment exactly.
+  const barColor = isMine ? 'rgba(255,255,255,0.95)' : (otherAccent || '#a5b4fc');
+  const barMuted = isMine ? 'rgba(255,255,255,0.32)' : `${otherAccent || '#a5b4fc'}50`;
 
   return (
-    <div
-      className={`wa-voice-capsule${playing ? ' wa-voice-capsule-playing' : ''}`}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 9, minWidth: 224,
-        padding: '7px 15px 7px 7px',
-        borderRadius: 999,
-        background: isMine
-          ? `linear-gradient(135deg, ${MINE_ACCENT[0]}, ${MINE_ACCENT[1]})`
-          : otherAccent
-            ? `linear-gradient(135deg, ${otherAccent}26, ${otherAccent}14)`
-            : 'linear-gradient(135deg, rgba(24,17,10,0.72), rgba(12,9,6,0.82))',
-        border: isMine ? 'none' : otherAccent ? `1.5px solid ${otherAccent}55` : '1.5px solid var(--wa-bubble-received-border)',
-        boxShadow: isMine
-          ? `0 3px 12px -3px ${MINE_ACCENT[1]}99`
-          : otherAccent ? `0 3px 14px -3px ${otherAccent}55` : '0 3px 14px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(245,158,11,0.06)',
-        '--voice-glow-color': glowColor,
-      }}
-    >
+    <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 224 }}>
       <audio ref={audioRef} src={url} preload="metadata"
-        onLoadedMetadata={() => setLoaded(true)}
         onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)}
         onEnded={() => { setPlaying(false); setCurrentTime(0); }} style={{ display: 'none' }} />
 
       <button onClick={toggle} title={playing ? 'Pause' : 'Play'}
         className={`wa-voice-play-btn${playing ? ' wa-voice-play-btn-active' : ''}`}
-        style={{ background: isMine ? 'rgba(255,255,255,0.24)' : otherAccent ? `${otherAccent}22` : 'rgba(245,158,11,0.16)', color: isMine ? '#fff' : (otherAccent || 'var(--wa-voice-accent)'), '--voice-glow-color': glowColor }}>
-        {playing ? <Pause style={{ width: 15, height: 15 }} fill="currentColor" />
-          : <Play style={{ width: 15, height: 15, marginLeft: 1.5 }} fill="currentColor" />}
+        style={{ background: isMine ? 'rgba(255,255,255,0.24)' : `${otherAccent || '#818cf8'}22`, color: isMine ? '#fff' : (otherAccent || '#a5b4fc'), '--voice-glow-color': isMine ? 'rgba(255,255,255,0.35)' : `${otherAccent || '#818cf8'}70` }}>
+        {playing ? <Pause style={{ width: 14, height: 14 }} fill="currentColor" />
+          : <Play style={{ width: 14, height: 14, marginLeft: 1.5 }} fill="currentColor" />}
       </button>
 
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
-        <Waveform bars={bars} progress={progress} color={barColor} mutedColor={barMuted} playing={playing} onSeek={seek} />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <span style={{ fontSize: 10, opacity: 0.85, fontVariantNumeric: 'tabular-nums', color: isMine ? '#fff' : (otherAccent || 'var(--wa-voice-accent)'), fontWeight: isMine ? 500 : 600 }}>
-            {fmtDur(playing || currentTime > 0 ? currentTime : totalDuration)}
-          </span>
-          {playing && <span className="wa-voice-live-dot" style={{ background: isMine ? '#fff' : (otherAccent || 'var(--wa-voice-accent)') }} />}
-        </div>
-      </div>
+      <Waveform bars={bars} progress={progress} color={barColor} mutedColor={barMuted} playing={playing} onSeek={seek} />
+
+      <span style={{ fontSize: 11, fontWeight: 700, fontVariantNumeric: 'tabular-nums', flexShrink: 0, opacity: isMine ? 0.85 : 0.65, color: isMine ? '#fff' : 'var(--text-secondary)' }}>
+        {fmtDur(playing ? currentTime : totalDuration)}
+      </span>
     </div>
   );
 }
@@ -283,38 +259,34 @@ function MessageBubble({
   const isTeacherMsg = item.author_role === 'teacher';
   const isLeaderMsg = !isMine && !isTeacherMsg && leaderId != null && String(item.author_id) === String(leaderId);
   // Per-sender identity color — every group member gets their own distinct
-  // tint (mirrors the teacher's own group-chat bubble design), while the
-  // teacher always reads as violet. Used for both the name label and,
-  // in group threads, the bubble itself.
+  // hashed tint, used for the name label everywhere and for the bubble
+  // itself in group threads.
   const senderTint = !isMine && !isTeacherMsg ? senderColor(item.author_id || item.author_name) : null;
+  // Identity color used for received bubbles — the teacher always reads
+  // as violet; in group threads, each classmate gets their own distinct
+  // hashed color; in 1:1 threads, the thread's own single accent color
+  // (teacher DM purple, leader DM violet, peer DM gray) is used, since
+  // there's only one other person to color-code.
+  const otherAccent = isMine ? null : isTeacherMsg ? '#7c3aed' : isGroupThread ? senderTint : DM_RECEIVED_ACCENT;
   const nameColor = isTeacherMsg ? '#7c3aed' : isLeaderMsg ? GOLD : senderTint;
 
-  let bubbleBg, bubbleColor, bubbleShadow, bubbleBorder, bubbleBorderLeft;
-  if (isMine) {
-    bubbleBg = `linear-gradient(135deg, ${MINE_ACCENT[0]}, ${MINE_ACCENT[1]})`;
-    bubbleColor = '#fff';
-    bubbleShadow = `0 3px 12px -3px ${MINE_ACCENT[1]}99`;
-    bubbleBorder = 'none';
-    bubbleBorderLeft = undefined;
-  } else if (isGroupThread) {
-    bubbleBg = isTeacherMsg ? 'linear-gradient(135deg, #7c3aed, #6d28d9)' : `linear-gradient(135deg, ${senderTint}17, ${senderTint}0a)`;
-    bubbleColor = isTeacherMsg ? '#fff' : 'var(--text-primary)';
-    bubbleShadow = isTeacherMsg ? '0 3px 12px -3px rgba(124,58,237,0.4)' : `0 1px 6px -2px ${senderTint}30`;
-    bubbleBorder = isTeacherMsg ? 'none' : `1px solid ${senderTint}2a`;
-    bubbleBorderLeft = !isTeacherMsg && item.message_type !== 'image' ? `3px solid ${senderTint}` : undefined;
-  } else {
-    bubbleBg = 'var(--wa-bubble-received-bg)';
-    bubbleColor = 'var(--wa-bubble-received-text)';
-    bubbleShadow = '0 3px 14px rgba(0,0,0,0.32), 0 0 0 1px rgba(245,158,11,0.05)';
-    bubbleBorder = '1.5px solid var(--wa-bubble-received-border)';
-    bubbleBorderLeft = undefined;
-  }
-  const isMedia = item.message_type === 'image' || item.message_type === 'file' || item.message_type === 'voice';
+  const bubbleBg = isMine
+    ? `linear-gradient(135deg, ${accent[0]}, ${accent[1]})`
+    : isTeacherMsg ? 'linear-gradient(135deg, #7c3aed, #6d28d9)'
+    : `linear-gradient(135deg, ${otherAccent}38, ${otherAccent}1c)`;
+  const bubbleColor = isMine || isTeacherMsg ? '#fff' : 'var(--text-primary)';
+  const bubbleShadow = isMine ? `0 3px 12px -3px ${accent[0]}55`
+    : isTeacherMsg ? '0 3px 12px -3px rgba(124,58,237,0.4)'
+    : `0 1px 6px -2px ${otherAccent}30`;
+  const bubbleBorder = !isMine && !isTeacherMsg ? `1px solid ${otherAccent}55` : 'none';
+  const bubbleBorderLeft = !isMine && !isTeacherMsg && item.message_type !== 'image' ? `3px solid ${otherAccent}` : undefined;
+  const isMedia = item.message_type === 'image' || item.message_type === 'file';
 
   return (
     <div id={`msg-${item.id}`} className="group" style={{
       display: 'flex', marginBottom: 4, alignItems: 'flex-end', gap: 6, justifyContent: isMine ? 'flex-end' : 'flex-start',
-      transition: 'background 0.6s ease', background: highlighted ? `${accent[0]}22` : 'transparent', borderRadius: 12,
+      transition: 'background 0.6s ease, opacity 0.2s ease', background: highlighted ? `${accent[0]}22` : 'transparent', borderRadius: 12,
+      opacity: item.pending ? 0.7 : 1,
       animation: 'msgBubbleIn 0.22s cubic-bezier(0.2,0.8,0.2,1) both',
     }}>
       <div style={{ maxWidth: '72%' }}>
@@ -340,7 +312,7 @@ function MessageBubble({
         )}
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: isMine ? 'flex-end' : 'flex-start' }}>
-          {isMine && (
+          {isMine && !item.pending && (
             <button onClick={() => onDelete(item.id)} disabled={deletingId === item.id} title="Delete message"
               className="wa-msg-delete-btn opacity-0 group-hover:opacity-100 transition-opacity">
               {deletingId === item.id
@@ -349,7 +321,7 @@ function MessageBubble({
             </button>
           )}
 
-          {isMine && (
+          {isMine && !item.pending && (
             <button onClick={() => onReply(item)} title="Reply" className="wa-reply-side-btn opacity-0 group-hover:opacity-100 transition-opacity"
               style={{ background: `${accent[0]}18`, color: accent[0] }}>
               <Reply style={{ width: 14, height: 14 }} />
@@ -357,37 +329,39 @@ function MessageBubble({
           )}
 
           <div style={{ position: 'relative', minWidth: 0 }}>
-            <div style={{
-              background: isMedia ? 'transparent' : bubbleBg, color: bubbleColor, padding: isMedia ? 0 : '9px 14px',
+            <div className={!isMine && !isMedia ? 'wa-bubble-received-glow' : undefined} style={{
+              background: isMedia ? 'transparent' : bubbleBg, color: bubbleColor, padding: isMedia ? 0 : '8px 12px',
               borderRadius: isMine ? '18px 18px 4px 18px' : '18px 18px 18px 4px', fontSize: 13.5, lineHeight: 1.5, wordBreak: 'break-word',
               boxShadow: isMedia ? 'none' : bubbleShadow,
               border: isMedia ? 'none' : bubbleBorder,
               borderLeft: isMedia ? undefined : bubbleBorderLeft,
+              ...(!isMine && !isMedia ? { '--bubble-accent': otherAccent } : {}),
             }}>
               {item.message_type === 'voice'
-                ? <VoiceBubble url={item.voice_url} duration={item.voice_duration} isMine={isMine}
-                    otherAccent={isGroupThread ? (isTeacherMsg ? '#7c3aed' : senderTint) : null} />
+                ? <VoiceBubble url={item.voice_url} duration={item.voice_duration} isMine={isMine} otherAccent={otherAccent} />
                 : item.message_type === 'image' ? <ChatImageBubble url={item.file_url} name={item.file_name} mimeType={item.mime_type} />
                 : item.message_type === 'file' ? <ChatFileBubble url={item.file_url} name={item.file_name} size={item.file_size} mimeType={item.mime_type} />
-                : <MentionText text={item.content} accent={isMine ? '#fff' : accent[0]} />}
+                : <MentionText text={item.content} accent={isMine ? '#fff' : otherAccent} />}
             </div>
 
-            <div className="opacity-0 group-hover:opacity-100 transition-opacity" style={{
-              position: 'absolute', top: -14, [isMine ? 'left' : 'right']: 4, display: 'flex', gap: 2,
-              background: 'var(--card-bg)', border: '1px solid var(--card-border)',
-              borderRadius: 20, padding: 2, boxShadow: '0 2px 10px rgba(0,0,0,0.12)',
-            }}>
-              <button onClick={() => setPickerOpen(o => !o)} title="React" style={{ width: 22, height: 22, borderRadius: '50%', border: 'none', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
-                <SmilePlus style={{ width: 13, height: 13 }} />
-              </button>
-              <button onClick={() => onTogglePin(item)} title={isPinned ? 'Unpin' : 'Pin'} style={{ width: 22, height: 22, borderRadius: '50%', border: 'none', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isPinned ? accent[0] : 'var(--text-secondary)' }}>
-                {isPinned ? <PinOff style={{ width: 12, height: 12 }} /> : <Pin style={{ width: 12, height: 12 }} />}
-              </button>
-            </div>
+            {!item.pending && (
+              <div className="opacity-0 group-hover:opacity-100 transition-opacity" style={{
+                position: 'absolute', top: -14, [isMine ? 'left' : 'right']: 4, display: 'flex', gap: 2,
+                background: 'var(--card-bg)', border: '1px solid var(--card-border)',
+                borderRadius: 20, padding: 2, boxShadow: '0 2px 10px rgba(0,0,0,0.12)',
+              }}>
+                <button onClick={() => setPickerOpen(o => !o)} title="React" style={{ width: 22, height: 22, borderRadius: '50%', border: 'none', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
+                  <SmilePlus style={{ width: 13, height: 13 }} />
+                </button>
+                <button onClick={() => onTogglePin(item)} title={isPinned ? 'Unpin' : 'Pin'} style={{ width: 22, height: 22, borderRadius: '50%', border: 'none', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isPinned ? accent[0] : 'var(--text-secondary)' }}>
+                  {isPinned ? <PinOff style={{ width: 12, height: 12 }} /> : <Pin style={{ width: 12, height: 12 }} />}
+                </button>
+              </div>
+            )}
             {pickerOpen && <ReactionPicker onPick={(emoji) => onReact(item.id, emoji)} onClose={() => setPickerOpen(false)} />}
           </div>
 
-          {!isMine && (
+          {!isMine && !item.pending && (
             <button onClick={() => onReply(item)} title="Reply" className="wa-reply-side-btn opacity-0 group-hover:opacity-100 transition-opacity"
               style={{ background: `${accent[0]}18`, color: accent[0] }}>
               <Reply style={{ width: 14, height: 14 }} />
@@ -398,11 +372,20 @@ function MessageBubble({
         <ReactionBar reactions={item.reactions} myId={item._myId} onToggle={(emoji) => onReact(item.id, emoji)} accent={accent[0]} />
 
         {item.isLast && (
-          <div style={{ fontSize: 10, marginTop: 3, display: 'flex', alignItems: 'center', gap: 3, justifyContent: isMine ? 'flex-end' : 'flex-start', paddingLeft: isMine ? 0 : 4, paddingRight: isMine ? 4 : 0, color: 'var(--text-secondary)', opacity: 0.6 }}>
-            {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            {isMine && item.read !== undefined && (item.read
-              ? <CheckCheck style={{ width: 12, height: 12, color: '#53bdeb' }} />
-              : <Check style={{ width: 12, height: 12 }} />)}
+          <div style={{ fontSize: 10, marginTop: 3, display: 'flex', alignItems: 'center', gap: 4, justifyContent: isMine ? 'flex-end' : 'flex-start', paddingLeft: isMine ? 0 : 4, paddingRight: isMine ? 4 : 0, color: 'var(--text-secondary)', opacity: 0.6 }}>
+            {item.pending ? (
+              <>
+                <div style={{ width: 9, height: 9, border: '1.5px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+                Sending…
+              </>
+            ) : (
+              <>
+                {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                {isMine && item.read !== undefined && (item.read
+                  ? <CheckCheck style={{ width: 12, height: 12, color: '#53bdeb' }} />
+                  : <Check style={{ width: 12, height: 12 }} />)}
+              </>
+            )}
           </div>
         )}
       </div>
@@ -543,7 +526,6 @@ function Composer({
   const [previewTime, setPreviewTime] = useState(0);
   const [selectedFile, setSelectedFile] = useState(null);
   const [filePreviewUrl, setFilePreviewUrl] = useState(null);
-  const [uploading, setUploading] = useState(false);
   const [posting, setPosting] = useState(false);
   const [attachOpen, setAttachOpen] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
@@ -651,6 +633,25 @@ function Composer({
     if (e.key === 'Escape') onCancelReply && onCancelReply();
   };
 
+  // The textarea (and its onKeyDown above) isn't rendered while recording,
+  // previewing a voice note, or previewing a file — the composer swaps to
+  // a different panel in those states. Without a window-level listener,
+  // pressing Enter did nothing until focus moved back to the textarea.
+  useEffect(() => {
+    if (!recording && !audioBlob && !selectedFile) return;
+    const onWindowKey = (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        if (recording) stopAndSendVoice();
+        else if (audioBlob) sendVoicePreview();
+        else if (selectedFile) sendFilePreview();
+      }
+    };
+    window.addEventListener('keydown', onWindowKey);
+    return () => window.removeEventListener('keydown', onWindowKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recording, audioBlob, selectedFile]);
+
   const startRecording = async () => {
     if (disabled) return;
     try {
@@ -672,18 +673,11 @@ function Composer({
       const mimeType = mediaRecorderRef.current.mimeType || 'audio/webm';
       const blob = new Blob(audioChunksRef.current, { type: mimeType });
       const duration = recordingTime;
-      clearInterval(recordTimerRef.current); stopLevelMeter(); setRecording(false); setAudioBlob(null);
-      (async () => {
-        setPosting(true);
-        try {
-          await onSendVoice(blob, duration);
-        } catch (err) {
-          toast.error(err.response?.data?.message || 'Voice note failed to send. Tap send to try again.');
-          setAudioBlob(blob); setAudioDuration(duration);
-        } finally {
-          setPosting(false);
-        }
-      })();
+      clearInterval(recordTimerRef.current); stopLevelMeter(); setRecording(false); setAudioBlob(null); setRecordingTime(0);
+      // Fire-and-forget: the composer resets immediately and the message
+      // appears right away in the thread (as "sending"), instead of the
+      // composer sitting frozen until the upload finishes.
+      onSendVoice(blob, duration);
     };
     mediaRecorderRef.current.stop();
   };
@@ -693,19 +687,12 @@ function Composer({
     if (audioPlaying) { audioPreviewRef.current.pause(); setAudioPlaying(false); }
     else { audioPreviewRef.current.play(); setAudioPlaying(true); audioPreviewRef.current.onended = () => { setAudioPlaying(false); setPreviewTime(0); }; }
   };
-  const sendVoicePreview = async () => {
-    if (!audioBlob || posting) return;
+  const sendVoicePreview = () => {
+    if (!audioBlob) return;
     const blob = audioBlob, duration = audioDuration;
     setAudioPlaying(false);
-    setPosting(true);
-    try {
-      await onSendVoice(blob, duration);
-      setAudioBlob(null); setRecordingTime(0); setPreviewTime(0);
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Voice note failed to send. Tap send to try again.');
-    } finally {
-      setPosting(false);
-    }
+    setAudioBlob(null); setRecordingTime(0); setPreviewTime(0);
+    onSendVoice(blob, duration);
   };
   const fmtDuration = (s) => { const t = Math.round(s || 0); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; };
 
@@ -717,17 +704,11 @@ function Composer({
     setFilePreviewUrl(file.type.startsWith('image/') ? URL.createObjectURL(file) : null);
   };
   const cancelFile = () => { if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl); setSelectedFile(null); setFilePreviewUrl(null); };
-  const sendFilePreview = async () => {
-    if (!selectedFile || uploading) return;
-    setUploading(true);
-    try {
-      await onSendFile(selectedFile);
-      cancelFile();
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'File failed to send. Please try again.');
-    } finally {
-      setUploading(false);
-    }
+  const sendFilePreview = () => {
+    if (!selectedFile) return;
+    const file = selectedFile;
+    cancelFile();
+    onSendFile(file);
   };
 
   useEffect(() => () => clearTimeout(typingTimeoutRef.current), []);
@@ -769,8 +750,8 @@ function Composer({
                 <div style={{ fontSize: 10.5, color: 'var(--text-secondary)' }}>{fmtFileSize(selectedFile.size)}</div>
               </div>
             </div>
-            <button onClick={sendFilePreview} disabled={uploading} style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: `linear-gradient(135deg, ${accent[0]}, ${accent[1]})`, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, opacity: uploading ? 0.6 : 1 }}>
-              {uploading ? <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> : <Send style={{ width: 16, height: 16 }} />}
+            <button onClick={sendFilePreview} style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: `linear-gradient(135deg, ${accent[0]}, ${accent[1]})`, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+              <Send style={{ width: 16, height: 16 }} />
             </button>
           </div>
         ) : recording ? (
@@ -798,16 +779,15 @@ function Composer({
             <div className="wa-recording-panel">
               <button onClick={toggleAudioPreview} title={audioPlaying ? 'Pause' : 'Play'}
                 className={`wa-voice-play-btn${audioPlaying ? ' wa-voice-play-btn-active' : ''}`}
-                style={{ width: 28, height: 28, background: 'rgba(245,158,11,0.16)', color: 'var(--wa-voice-accent)', flexShrink: 0 }}>
+                style={{ width: 28, height: 28, background: 'rgba(129,140,248,0.16)', color: 'var(--wa-voice-accent)', flexShrink: 0 }}>
                 {audioPlaying ? <Pause style={{ width: 12, height: 12 }} fill="currentColor" /> : <Play style={{ width: 12, height: 12, marginLeft: 1 }} fill="currentColor" />}
               </button>
               <Waveform bars={previewBars} progress={audioDuration ? Math.min(previewTime / audioDuration, 1) : 0}
-                color="var(--wa-voice-accent)" mutedColor="rgba(245,158,11,0.22)" playing={audioPlaying} />
+                color="var(--wa-voice-accent)" mutedColor="rgba(129,140,248,0.22)" playing={audioPlaying} />
               <span className="wa-recording-time" style={{ color: 'var(--wa-voice-accent)' }}>{fmtDuration(audioPlaying ? previewTime : audioDuration)}</span>
             </div>
-            <button onClick={sendVoicePreview} disabled={posting} title="Send" className="wa-voice-send-btn wa-voice-send-btn-amber"
-              style={{ opacity: posting ? 0.6 : 1 }}>
-              {posting ? <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> : <Send style={{ width: 16, height: 16 }} />}
+            <button onClick={sendVoicePreview} title="Send" className="wa-voice-send-btn wa-voice-send-btn-amber">
+              <Send style={{ width: 16, height: 16 }} />
             </button>
           </div>
         ) : (
@@ -959,6 +939,16 @@ function useThread(entry, myId) {
 
   const sendVoice = async (blob, duration) => {
     if (entry.type === 'teacherdm') { toast.error('Voice notes are not supported in this conversation.'); return; }
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const localUrl = URL.createObjectURL(blob);
+    const optimisticMsg = {
+      id: tempId, _id: tempId, message_type: 'voice', voice_url: localUrl, voice_duration: duration,
+      content: null, created_at: new Date().toISOString(), pending: true,
+      sender_id: myId, author_id: myId, sender_name: 'You', author_name: 'You',
+    };
+    setMessages(prev => [...prev, optimisticMsg]);
+    lastMsgTimeRef.current = optimisticMsg.created_at;
+
     const formData = new FormData();
     const ext = blob.type.includes('ogg') ? 'ogg' : 'webm';
     formData.append('audio', blob, `voice-note-${Date.now()}.${ext}`);
@@ -970,19 +960,33 @@ function useThread(entry, myId) {
     try {
       const res = await api.post(path, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
       const newMsg = res.data.msg;
-      setMessages(prev => [...prev, { ...newMsg, sender_name: entry.type === 'dm' ? 'You' : newMsg.sender_name }]);
+      setMessages(prev => prev.map(m => m.id === tempId ? { ...newMsg, sender_name: entry.type === 'dm' ? 'You' : newMsg.sender_name } : m));
       lastMsgTimeRef.current = newMsg.created_at;
     } catch (err) {
+      setMessages(prev => prev.filter(m => m.id !== tempId));
       if (entry.type === 'leaderdm' && err.response?.status === 404) {
         toast.error("Voice notes aren't available in your private teacher line yet.");
-        return;
+      } else {
+        toast.error(err.response?.data?.message || 'Voice note failed to send.');
       }
-      throw err;
+    } finally {
+      URL.revokeObjectURL(localUrl);
     }
   };
 
   const sendFile = async (file) => {
     if (entry.type === 'teacherdm') { toast.error('File sharing is not supported in this conversation.'); return; }
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const localUrl = URL.createObjectURL(file);
+    const optimisticMsg = {
+      id: tempId, _id: tempId, message_type: file.type.startsWith('image/') ? 'image' : 'file',
+      file_url: localUrl, file_name: file.name, file_size: file.size, mime_type: file.type,
+      content: null, created_at: new Date().toISOString(), pending: true,
+      sender_id: myId, author_id: myId, sender_name: 'You', author_name: 'You',
+    };
+    setMessages(prev => [...prev, optimisticMsg]);
+    lastMsgTimeRef.current = optimisticMsg.created_at;
+
     const formData = new FormData();
     formData.append('file', file);
     if (entry.type === 'dm') formData.append('receiverId', entry.peerId);
@@ -992,14 +996,17 @@ function useThread(entry, myId) {
     try {
       const res = await api.post(path, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
       const newMsg = res.data.msg;
-      setMessages(prev => [...prev, { ...newMsg, sender_name: entry.type === 'dm' ? 'You' : newMsg.sender_name }]);
+      setMessages(prev => prev.map(m => m.id === tempId ? { ...newMsg, sender_name: entry.type === 'dm' ? 'You' : newMsg.sender_name } : m));
       lastMsgTimeRef.current = newMsg.created_at;
     } catch (err) {
+      setMessages(prev => prev.filter(m => m.id !== tempId));
       if (entry.type === 'leaderdm' && err.response?.status === 404) {
         toast.error("File sharing isn't available in your private teacher line yet.");
-        return;
+      } else {
+        toast.error(err.response?.data?.message || 'File failed to send.');
       }
-      throw err;
+    } finally {
+      URL.revokeObjectURL(localUrl);
     }
   };
 
@@ -1626,35 +1633,36 @@ export default function StudentGroups() {
           animation: ibxChromeShimmer 14s ease-in-out infinite;
         }
 
-        /* ── Sent vs received bubble colors. Sent now matches the teacher's
-           own "mine" bubble exactly (indigo gradient, white text) instead of
-           WhatsApp green. Received uses a dark, glassy panel with a warm
-           amber border to match the teacher's "other" bubble — same look
-           for text AND voice notes, on both sides of the conversation. ── */
+        /* ── Sent vs received bubble colors. Sent is a polished neutral
+           gray. Received (outside group threads, which use per-sender
+           colors instead) is a refined cool-slate glass panel — soft
+           frosted background, a barely-there hairline border, and an
+           indigo-tinted accent for the voice waveform/play button,
+           instead of the old flat amber border. ── */
         :root {
           --wa-bubble-sent-bg: linear-gradient(135deg, #52525b 0%, #3f3f46 100%);
           --wa-bubble-sent-text: #ffffff;
-          --wa-bubble-received-bg: linear-gradient(135deg, rgba(24,17,10,0.7), rgba(12,9,6,0.8));
-          --wa-bubble-received-text: #fbf1e3;
-          --wa-bubble-received-border: rgba(217,119,6,0.55);
-          --wa-voice-accent: #f5a623;
-          --wa-voice-accent-2: #d97706;
+          --wa-bubble-received-bg: linear-gradient(150deg, rgba(51,56,72,0.78) 0%, rgba(23,25,32,0.92) 100%);
+          --wa-bubble-received-text: #eef1f6;
+          --wa-bubble-received-border: rgba(165,180,252,0.16);
+          --wa-voice-accent: #a5b4fc;
+          --wa-voice-accent-2: #818cf8;
         }
         [data-theme='dark'], .dark {
           --wa-bubble-sent-bg: linear-gradient(135deg, #52525b 0%, #3f3f46 100%);
           --wa-bubble-sent-text: #ffffff;
-          --wa-bubble-received-bg: linear-gradient(135deg, rgba(24,17,10,0.7), rgba(12,9,6,0.8));
-          --wa-bubble-received-text: #fbf1e3;
-          --wa-bubble-received-border: rgba(217,119,6,0.55);
-          --wa-voice-accent: #f5a623;
-          --wa-voice-accent-2: #d97706;
+          --wa-bubble-received-bg: linear-gradient(150deg, rgba(51,56,72,0.78) 0%, rgba(23,25,32,0.92) 100%);
+          --wa-bubble-received-text: #eef1f6;
+          --wa-bubble-received-border: rgba(165,180,252,0.16);
+          --wa-voice-accent: #a5b4fc;
+          --wa-voice-accent-2: #818cf8;
         }
 
         /* ── Wallpaper: WhatsApp's own dark chat backdrop — a near-black
            base with a faint doodle motif, no color blobs. ── */
         .chat-wallpaper {
           position: relative;
-          background-color: #e5ddd5;
+          background-color: #ffffff;
           background-image:
             url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220' viewBox='0 0 220 220'%3E%3Cg fill='none' stroke='%23000000' stroke-width='1.4' opacity='0.045'%3E%3Ccircle cx='30' cy='30' r='11'/%3E%3Cpath d='M85 20 l10 18 l-20 0 z'/%3E%3Crect x='140' y='15' width='22' height='16' rx='3'/%3E%3Cpath d='M20 95 q10 -14 20 0 q10 14 20 0' /%3E%3Cpath d='M105 90 h26 M118 78 v24'/%3E%3Ccircle cx='185' cy='95' r='9'/%3E%3Cpath d='M40 150 l16 -16 l16 16 l-16 16 z'/%3E%3Cpath d='M100 160 q0 -18 18 -18 q18 0 18 18 q0 10 -9 14 l-9 6 l-9 -6 q-9 -4 -9 -14z'/%3E%3Crect x='160' y='150' width='18' height='24' rx='3'/%3E%3Cpath d='M15 195 h30 M15 202 h20'/%3E%3Ccircle cx='120' cy='200' r='7'/%3E%3Cpath d='M175 190 l8 14 h-16 z'/%3E%3C/g%3E%3C/svg%3E");
           background-size: 220px 220px;
@@ -1714,20 +1722,6 @@ export default function StudentGroups() {
         }
         .wa-reply-quote:hover { filter: brightness(1.08); }
 
-        /* ── Voice note capsule — the pill-shaped, amber-bordered bubble that
-           matches the target design for received notes, with a subtle
-           breathing glow around the whole capsule while it's playing. ── */
-        .wa-voice-capsule {
-          transition: box-shadow 0.3s ease, transform 0.2s ease;
-        }
-        .wa-voice-capsule-playing {
-          animation: voiceCapsuleGlow 1.9s ease-in-out infinite;
-        }
-        @keyframes voiceCapsuleGlow {
-          0%, 100% { box-shadow: 0 0 0 0 var(--voice-glow-color, rgba(245,158,11,0.4)), 0 3px 14px rgba(0,0,0,0.4); }
-          50% { box-shadow: 0 0 0 9px rgba(245,158,11,0), 0 3px 14px rgba(0,0,0,0.4); }
-        }
-
         .wa-voice-play-btn {
           width: 34px; height: 34px; border-radius: 50%; border: none; cursor: pointer; flex-shrink: 0;
           display: flex; align-items: center; justify-content: center;
@@ -1737,8 +1731,8 @@ export default function StudentGroups() {
         .wa-voice-play-btn:active { transform: scale(0.94); }
         .wa-voice-play-btn-active { animation: voicePlayPulse 1.6s ease-in-out infinite; }
         @keyframes voicePlayPulse {
-          0%, 100% { box-shadow: 0 0 0 0 var(--voice-glow-color, rgba(245,158,11,0.4)); }
-          50% { box-shadow: 0 0 0 7px rgba(245,158,11,0); }
+          0%, 100% { box-shadow: 0 0 0 0 var(--voice-glow-color, rgba(129,140,248,0.4)); }
+          50% { box-shadow: 0 0 0 7px rgba(129,140,248,0); }
         }
 
         .wa-voice-wave {
@@ -1801,6 +1795,18 @@ export default function StudentGroups() {
 
         @keyframes ibxChromeShimmer { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
         @keyframes msgBubbleIn { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        .wa-bubble-received-glow {
+          animation: receivedGlowIn 0.7s cubic-bezier(0.16,1,0.3,1) both, receivedGlowPulse 3.4s ease-in-out 0.7s infinite;
+        }
+        @keyframes receivedGlowIn {
+          0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--bubble-accent, #fb923c) 65%, transparent), 0 4px 16px -4px color-mix(in srgb, var(--bubble-accent, #fb923c) 55%, transparent); }
+          60% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--bubble-accent, #fb923c) 0%, transparent), 0 4px 16px -4px color-mix(in srgb, var(--bubble-accent, #fb923c) 45%, transparent); }
+          100% { box-shadow: 0 0 0 0 transparent, 0 4px 16px -4px color-mix(in srgb, var(--bubble-accent, #fb923c) 30%, transparent); }
+        }
+        @keyframes receivedGlowPulse {
+          0%, 100% { box-shadow: 0 4px 16px -4px color-mix(in srgb, var(--bubble-accent, #fb923c) 30%, transparent); }
+          50% { box-shadow: 0 4px 22px -2px color-mix(in srgb, var(--bubble-accent, #fb923c) 50%, transparent); }
+        }
         @keyframes replyBarIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes avatarGlowPulse { 0%, 100% { box-shadow: 0 0 0 0 var(--glow-color, rgba(124,58,237,0.45)); } 50% { box-shadow: 0 0 0 6px rgba(124,58,237,0); } }
         @keyframes spin { to { transform: rotate(360deg); } }
@@ -1815,7 +1821,7 @@ export default function StudentGroups() {
           .discussion-list-item, .discussion-list-item *,
           .wa-msg-delete-btn, .wa-clear-mine-btn, .wa-reply-quote, .wa-reply-side-btn,
           .wa-voice-play-btn-active, .wa-voice-bar-live, .wa-voice-live-dot,
-          .wa-rec-dot, .wa-recording-panel, .wa-voice-capsule-playing { animation: none !important; }
+          .wa-rec-dot, .wa-recording-panel, .wa-bubble-received-glow { animation: none !important; }
         }
       `}</style>
     </div>

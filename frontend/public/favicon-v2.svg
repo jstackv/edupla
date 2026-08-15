@@ -1,24 +1,24 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
   <defs>
-    <!-- Rich violet -> indigo -> deep blue brand gradient, more saturated & dimensional -->
+    <!-- Slate -> deep charcoal badge base -->
     <linearGradient id="bg" x1="1" y1="0" x2="30" y2="32" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#A78BFA"/>
-      <stop offset="0.3" stop-color="#7C3AED"/>
-      <stop offset="0.62" stop-color="#4338CA"/>
-      <stop offset="1" stop-color="#1E1B4B"/>
+      <stop offset="0" stop-color="#475569"/>
+      <stop offset="0.35" stop-color="#1E293B"/>
+      <stop offset="0.7" stop-color="#0F172A"/>
+      <stop offset="1" stop-color="#04070C"/>
     </linearGradient>
 
     <!-- Glass highlight, upper-left -->
     <radialGradient id="glow" cx="10" cy="7" r="20" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.55"/>
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.5"/>
       <stop offset="0.5" stop-color="#FFFFFF" stop-opacity="0.08"/>
       <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
     </radialGradient>
 
-    <!-- Depth vignette, lower-right -->
+    <!-- Depth vignette, lower-right, teal-tinted -->
     <radialGradient id="vignette" cx="25" cy="27" r="17" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#1E1B4B" stop-opacity="0.5"/>
-      <stop offset="1" stop-color="#1E1B4B" stop-opacity="0"/>
+      <stop offset="0" stop-color="#0F766E" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#0F766E" stop-opacity="0"/>
     </radialGradient>
 
     <!-- Prism shard crossing the badge -->
@@ -28,10 +28,10 @@
       <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
     </linearGradient>
 
-    <!-- Monogram fill -->
+    <!-- Monogram fill: warm white into pale teal -->
     <linearGradient id="glyph" x1="7" y1="7" x2="24" y2="25" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#FFFFFF"/>
-      <stop offset="1" stop-color="#DCD3FF"/>
+      <stop offset="1" stop-color="#CCFBF1"/>
     </linearGradient>
 
     <!-- Thin inner rim light on the glyph's spine -->
@@ -40,18 +40,18 @@
       <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
     </linearGradient>
 
-    <!-- Ember/gold spark accent -->
-    <linearGradient id="gold" x1="19.6" y1="6.2" x2="26.8" y2="13.4" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#FDE9B0"/>
-      <stop offset="0.45" stop-color="#F5B94A"/>
-      <stop offset="1" stop-color="#E0791E"/>
+    <!-- Dark-orange spark accent -->
+    <linearGradient id="ember" x1="19.6" y1="6.2" x2="26.8" y2="13.4" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FDBA74"/>
+      <stop offset="0.45" stop-color="#F97316"/>
+      <stop offset="1" stop-color="#9A3412"/>
     </linearGradient>
 
-    <!-- Ascending progress path, spine -> spark -->
+    <!-- Ascending progress path, teal -> orange -->
     <linearGradient id="path" x1="9" y1="22" x2="23" y2="10" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#7DD3FC" stop-opacity="0"/>
-      <stop offset="0.5" stop-color="#A5F3FC" stop-opacity="0.85"/>
-      <stop offset="1" stop-color="#FDE9B0" stop-opacity="0.95"/>
+      <stop offset="0" stop-color="#2DD4BF" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#5EEAD4" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#FDBA74" stop-opacity="0.95"/>
     </linearGradient>
 
     <clipPath id="roundedSquare">
@@ -59,11 +59,11 @@
     </clipPath>
 
     <filter id="softShadow" x="-40%" y="-40%" width="180%" height="180%">
-      <feDropShadow dx="0" dy="0.9" stdDeviation="1" flood-color="#1E1B4B" flood-opacity="0.4"/>
+      <feDropShadow dx="0" dy="0.9" stdDeviation="1" flood-color="#04070C" flood-opacity="0.45"/>
     </filter>
 
     <filter id="badgeLift" x="-40%" y="-40%" width="180%" height="180%">
-      <feDropShadow dx="0" dy="1.2" stdDeviation="1.4" flood-color="#2E1065" flood-opacity="0.4"/>
+      <feDropShadow dx="0" dy="1.2" stdDeviation="1.4" flood-color="#04070C" flood-opacity="0.45"/>
     </filter>
   </defs>
 
@@ -76,12 +76,10 @@
       <!-- Prism facet shard, top-left corner -->
       <path d="M0 13 L13 0 L20 0 L0 20 Z" fill="url(#shard)"/>
       <!-- Fine inner border for a crisp, premium edge -->
-      <rect x="0.6" y="0.6" width="30.8" height="30.8" rx="8.5" fill="none" stroke="#FFFFFF" stroke-opacity="0.16" stroke-width="0.9"/>
+      <rect x="0.6" y="0.6" width="30.8" height="30.8" rx="8.5" fill="none" stroke="#F97316" stroke-opacity="0.22" stroke-width="0.9"/>
     </g>
 
-    <!-- Ascending progress path from the monogram's base to the spark,
-         a quiet "growth trajectory" thread that ties the glyph to the
-         achievement mark -->
+    <!-- Ascending progress path from the monogram's base to the spark -->
     <path d="M17.1 22.6 C19.4 21.4 20.9 19.4 21.6 16.6 C22.1 14.6 22.4 12.6 23 10.9"
           fill="none" stroke="url(#path)" stroke-width="1" stroke-linecap="round" stroke-dasharray="0.4 2.4"/>
 
@@ -96,10 +94,10 @@
     </g>
 
     <!-- Four-point sparkle: the achievement / insight mark at the growth
-         path's peak -->
+         path's peak, now a dark-orange ember with a teal spark centre -->
     <g filter="url(#softShadow)">
-      <path d="M23.1 6.5 L24.15 9.05 L26.7 10.1 L24.15 11.15 L23.1 13.7 L22.05 11.15 L19.5 10.1 L22.05 9.05 Z" fill="url(#gold)"/>
-      <circle cx="23.1" cy="10.1" r="0.5" fill="#FFFFFF" fill-opacity="0.9"/>
+      <path d="M23.1 6.5 L24.15 9.05 L26.7 10.1 L24.15 11.15 L23.1 13.7 L22.05 11.15 L19.5 10.1 L22.05 9.05 Z" fill="url(#ember)"/>
+      <circle cx="23.1" cy="10.1" r="0.5" fill="#2DD4BF"/>
     </g>
   </g>
 </svg>

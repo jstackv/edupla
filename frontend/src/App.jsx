@@ -62,13 +62,15 @@ function getDefaultRoute(role) {
 }
 
 // ── Loading screen ──────────────────────────────────────────────────────
-// "Prism & Ascent" splash treatment, matching the BrandMark redesign:
-// a floating badge held inside two counter-rotating gradient halo rings
-// (violet + gold, echoing the shard and spark in the mark itself), ambient
-// background glow, gradient-shimmer label text, and a slim indeterminate
-// progress thread underneath that carries the same violet -> gold ramp as
-// the badge's "growth path" — the loading state literally continues the
-// logo's story instead of bolting on a generic spinner.
+// "Ember & Current" splash treatment, matching the BrandMark redesign:
+// a floating badge held inside three counter-rotating gradient halo rings
+// (dark orange + dark teal + a fine slate orbit carrying a single spark
+// particle — echoing the shard and spark in the mark itself), ambient
+// slate/orange/teal background glow, a gradient-shimmer label, and a
+// slim indeterminate progress thread underneath that carries the same
+// teal -> orange ramp as the badge's "growth path" — the loading state
+// literally continues the logo's story instead of bolting on a generic
+// spinner.
 const LoadingScreen = () => {
   const { t } = useTranslation();
   return (
@@ -87,13 +89,16 @@ const LoadingScreen = () => {
         @keyframes edupla-loader-ringspin-rev {
           to { transform: rotate(-360deg); }
         }
+        @keyframes edupla-loader-orbit {
+          to { transform: rotate(360deg); }
+        }
         @keyframes edupla-loader-drift {
           0%, 100% { transform: translate(0, 0) scale(1); }
           50% { transform: translate(2%, -3%) scale(1.06); }
         }
         @keyframes edupla-loader-dot {
-          0%, 80%, 100% { opacity: 0.25; }
-          40% { opacity: 1; }
+          0%, 80%, 100% { opacity: 0.25; transform: scale(0.85); }
+          40% { opacity: 1; transform: scale(1.15); }
         }
         @keyframes edupla-loader-fadeup {
           from { opacity: 0; transform: translateY(8px); }
@@ -107,74 +112,105 @@ const LoadingScreen = () => {
           0% { left: -45%; }
           100% { left: 100%; }
         }
+        @keyframes edupla-loader-glowpulse {
+          0%, 100% { opacity: 0.7; }
+          50% { opacity: 1; }
+        }
 
         .edupla-loader-blob { animation: edupla-loader-drift 9s ease-in-out infinite; }
         .edupla-loader-blob.b2 { animation-delay: -4.5s; }
+        .edupla-loader-blob.b3 { animation-delay: -2.2s; }
 
         .edupla-loader-badge-wrap { animation: edupla-loader-float 3.2s ease-in-out infinite; }
 
         .edupla-loader-ring {
-          position: absolute; inset: -11px; border-radius: 9999px;
-          background: conic-gradient(from 0deg, transparent 0deg, rgba(139,92,246,0.65) 55deg, transparent 130deg, transparent 360deg);
+          position: absolute; inset: -12px; border-radius: 9999px;
+          background: conic-gradient(from 0deg, transparent 0deg, rgba(249,115,22,0.7) 55deg, transparent 130deg, transparent 360deg);
           -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px));
           mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px));
           animation: edupla-loader-ringspin 3.2s linear infinite;
         }
-        .edupla-loader-ring.gold {
-          inset: -18px;
-          background: conic-gradient(from 200deg, transparent 0deg, rgba(245,185,74,0.7) 45deg, transparent 110deg, transparent 360deg);
+        .edupla-loader-ring.teal {
+          inset: -20px;
+          background: conic-gradient(from 200deg, transparent 0deg, rgba(45,212,191,0.75) 45deg, transparent 110deg, transparent 360deg);
           animation: edupla-loader-ringspin-rev 4.6s linear infinite;
+        }
+        .edupla-loader-ring.slate {
+          inset: -28px;
+          background: conic-gradient(from 90deg, transparent 0deg, rgba(148,163,184,0.4) 30deg, transparent 90deg, transparent 360deg);
+          animation: edupla-loader-ringspin 7.5s linear infinite;
+        }
+        .edupla-loader-orbit-wrap {
+          position: absolute; inset: -28px; animation: edupla-loader-orbit 3.6s linear infinite;
+        }
+        .edupla-loader-orbit-dot {
+          position: absolute; top: -3px; left: 50%; width: 6px; height: 6px; margin-left: -3px;
+          border-radius: 9999px; background: radial-gradient(circle, #FDE9C7 0%, #F97316 60%, transparent 100%);
+          box-shadow: 0 0 8px 2px rgba(249,115,22,0.65);
+        }
+
+        .edupla-loader-badge-glow {
+          position: absolute; inset: -34px; border-radius: 9999px; z-index: -1;
+          background: radial-gradient(circle, rgba(45,212,191,0.22), rgba(249,115,22,0.10) 55%, transparent 75%);
+          filter: blur(6px);
+          animation: edupla-loader-glowpulse 3.2s ease-in-out infinite;
         }
 
         .edupla-loader-content { animation: edupla-loader-fadeup 0.5s ease both; }
 
         .edupla-loader-label {
-          background: linear-gradient(90deg, var(--text-muted, #6b7280) 0%, #8B5CF6 25%, #F5B94A 50%, #8B5CF6 75%, var(--text-muted, #6b7280) 100%);
+          background: linear-gradient(90deg, var(--text-muted, #64748b) 0%, #0F766E 22%, #2DD4BF 40%, #F97316 60%, #FDBA74 78%, var(--text-muted, #64748b) 100%);
           background-size: 220% auto;
           -webkit-background-clip: text; background-clip: text; color: transparent;
           animation: edupla-loader-shimmer 3s linear infinite;
         }
-        .edupla-loader-dot { animation: edupla-loader-dot 1.4s ease-in-out infinite; }
-        .edupla-loader-dot:nth-child(2) { animation-delay: 0.2s; }
-        .edupla-loader-dot:nth-child(3) { animation-delay: 0.4s; }
+        .edupla-loader-dot { animation: edupla-loader-dot 1.4s ease-in-out infinite; color: #F97316; }
+        .edupla-loader-dot:nth-child(2) { animation-delay: 0.2s; color: #2DD4BF; }
+        .edupla-loader-dot:nth-child(3) { animation-delay: 0.4s; color: #F97316; }
 
         .edupla-loader-track {
-          width: 156px; height: 3px; border-radius: 999px; margin: 14px auto 0;
-          background: rgba(99,102,241,0.14); overflow: hidden; position: relative;
+          width: 168px; height: 3px; border-radius: 999px; margin: 16px auto 0;
+          background: rgba(100,116,139,0.18); overflow: hidden; position: relative;
         }
         .edupla-loader-bar {
           position: absolute; top: 0; bottom: 0; left: -45%; width: 45%; border-radius: 999px;
-          background: linear-gradient(90deg, transparent, #8B5CF6, #F5B94A, transparent);
+          background: linear-gradient(90deg, transparent, #0F766E, #2DD4BF, #F97316, transparent);
           animation: edupla-loader-slide 1.7s ease-in-out infinite;
         }
 
         @media (prefers-reduced-motion: reduce) {
-          .edupla-loader-badge-wrap, .edupla-loader-blob, .edupla-loader-ring,
-          .edupla-loader-dot, .edupla-loader-label, .edupla-loader-bar { animation: none; }
+          .edupla-loader-badge-wrap, .edupla-loader-blob, .edupla-loader-ring, .edupla-loader-orbit-wrap,
+          .edupla-loader-badge-glow, .edupla-loader-dot, .edupla-loader-label, .edupla-loader-bar { animation: none; }
         }
       `}</style>
 
-      {/* Ambient glow blobs, echoing the landing page's background treatment */}
+      {/* Ambient glow blobs — slate, dark teal and dark orange, echoing the
+          landing page's background treatment */}
       <div
         aria-hidden="true"
         className="edupla-loader-blob"
-        style={{ position: 'absolute', width: 480, height: 480, borderRadius: '50%', top: '-10%', left: '-8%', background: 'radial-gradient(circle,rgba(99,102,241,0.16),transparent)', filter: 'blur(90px)' }}
+        style={{ position: 'absolute', width: 480, height: 480, borderRadius: '50%', top: '-10%', left: '-8%', background: 'radial-gradient(circle,rgba(15,118,110,0.20),transparent)', filter: 'blur(90px)' }}
       />
       <div
         aria-hidden="true"
         className="edupla-loader-blob b2"
-        style={{ position: 'absolute', width: 420, height: 420, borderRadius: '50%', bottom: '-12%', right: '-6%', background: 'radial-gradient(circle,rgba(139,92,246,0.14),transparent)', filter: 'blur(80px)' }}
+        style={{ position: 'absolute', width: 420, height: 420, borderRadius: '50%', bottom: '-12%', right: '-6%', background: 'radial-gradient(circle,rgba(249,115,22,0.16),transparent)', filter: 'blur(80px)' }}
       />
       <div
         aria-hidden="true"
-        className="edupla-loader-blob b2"
-        style={{ position: 'absolute', width: 280, height: 280, borderRadius: '50%', top: '18%', right: '12%', background: 'radial-gradient(circle,rgba(245,185,74,0.10),transparent)', filter: 'blur(70px)' }}
+        className="edupla-loader-blob b3"
+        style={{ position: 'absolute', width: 300, height: 300, borderRadius: '50%', top: '20%', right: '14%', background: 'radial-gradient(circle,rgba(51,65,85,0.22),transparent)', filter: 'blur(70px)' }}
       />
 
       <div className="edupla-loader-content text-center relative">
-        <div className="relative inline-block mb-6 edupla-loader-badge-wrap">
+        <div className="relative inline-block mb-7 edupla-loader-badge-wrap">
+          <span className="edupla-loader-badge-glow" aria-hidden="true" />
+          <span className="edupla-loader-ring slate" aria-hidden="true" />
+          <span className="edupla-loader-ring teal" aria-hidden="true" />
           <span className="edupla-loader-ring" aria-hidden="true" />
-          <span className="edupla-loader-ring gold" aria-hidden="true" />
+          <span className="edupla-loader-orbit-wrap" aria-hidden="true">
+            <span className="edupla-loader-orbit-dot" />
+          </span>
           <BrandMark size={64} animated />
         </div>
 
@@ -182,7 +218,7 @@ const LoadingScreen = () => {
           <span className="edupla-loader-label">
             {t('common.loading').replace(/[.\u2026]+\s*$/, '')}
           </span>
-          <span className="inline-flex ml-0.5 text-muted" aria-hidden="true">
+          <span className="inline-flex ml-0.5" aria-hidden="true">
             <span className="edupla-loader-dot">.</span>
             <span className="edupla-loader-dot">.</span>
             <span className="edupla-loader-dot">.</span>
