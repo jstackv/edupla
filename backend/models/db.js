@@ -70,6 +70,12 @@ const userSchema = new mongoose.Schema(
       // payment form is hidden (this isn't a billing lapse, so paying
       // doesn't get them back in — only a super admin unlock does).
       locked: { type: Boolean, default: false },
+      // Only meaningful while locked === true. true: the school admin can
+      // still pay via MTN MoMo to lift the lock immediately (e.g. "your
+      // trial-less grace period is over, pay now"). false: payment is
+      // disabled entirely — only a super admin unlock can restore access
+      // (e.g. testing, abuse, policy violation).
+      locked_payable: { type: Boolean, default: false },
       locked_reason: { type: String, default: null },
       locked_at: { type: Date, default: null },
       locked_by: {

@@ -54,12 +54,13 @@ function CountdownLabel({ billing }) {
 // ── Lock modal (needs a free-text reason) ───────────────────────────────
 function LockModal({ school, onClose, onDone }) {
   const [reason, setReason] = useState('');
+  const [payable, setPayable] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const submit = async () => {
     setSaving(true);
     try {
-      await api.post(`/system/billing/schools/${school.id}/lock`, { reason: reason.trim() });
+      await api.post(`/system/billing/schools/${school.id}/lock`, { reason: reason.trim(), payable });
       toast.success(`${school.name} has been locked.`);
       onDone();
     } catch (err) {
@@ -79,8 +80,32 @@ function LockModal({ school, onClose, onDone }) {
           <h3 style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Lock {school.name}</h3>
         </div>
         <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', margin: '0 0 14px', lineHeight: 1.6 }}>
-          Everyone at this school — admin, teachers, and students — will immediately see a locked-access screen, regardless of their trial or payment status. Paying won't undo this; only unlocking will.
+          Everyone at this school — admin, teachers, and students — will immediately see a locked-access screen, regardless of their trial or payment status.
         </p>
+
+        {/* Payable vs manual-only toggle */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
+          {[
+            { value: true, title: 'Payment unlocks it', desc: 'The school admin sees the payment form and paying immediately lifts the lock — like a forced early renewal.' },
+            { value: false, title: 'Manual unlock only', desc: 'Payment is disabled entirely. Only you can restore access, regardless of payment — for testing, abuse, or policy holds.' },
+          ].map(opt => (
+            <button
+              key={String(opt.value)}
+              type="button"
+              onClick={() => setPayable(opt.value)}
+              className="sb-btn"
+              style={{
+                textAlign: 'left', padding: '10px 12px', borderRadius: 12, cursor: 'pointer',
+                border: `1.5px solid ${payable === opt.value ? TOKENS.rose : 'var(--card-border)'}`,
+                background: payable === opt.value ? 'rgba(244,63,94,0.06)' : 'var(--surface-100)',
+              }}
+            >
+              <p style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>{opt.title}</p>
+              <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: '2px 0 0', lineHeight: 1.4 }}>{opt.desc}</p>
+            </button>
+          ))}
+        </div>
+
         <label style={{ display: 'block', fontSize: 11.5, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 6 }}>
           Reason (shown to the school admin)
         </label>
@@ -337,6 +362,11 @@ export default function SchoolsBilling() {
                   }}>
                     <StatusIcon size={11} /> {meta.label}
                   </span>
+                  {school.billing.status === 'locked' && (
+                    <p style={{ fontSize: 10, color: 'var(--text-secondary)', margin: '4px 0 0' }}>
+                      {school.billing.locked_payable ? 'Payment allowed' : 'Manual unlock only'}
+                    </p>
+                  )}
                 </div>
 
                 <div style={{ fontSize: 12.5 }}>

@@ -54,6 +54,7 @@ const getStatus = async (req, res) => {
       paid_until: paidUntil,
       days_remaining: daysRemaining,
       locked_reason: isLocked ? billing.locked_reason : null,
+      locked_payable: isLocked ? billing.locked_payable === true : false,
       school_admin_name: owner?.name || null,
       default_phone: req.user.role === "admin" ? owner?.phone || null : null,
       plan,
@@ -76,7 +77,7 @@ const initiatePayment = async (req, res) => {
     const externalId = `EDUPLA-${req.user.id}-${Date.now()}`;
 
     const owner = await User.findById(req.user.id).select("billing").lean();
-    if (owner?.billing?.locked === true) {
+    if (owner?.billing?.locked === true && owner.billing.locked_payable !== true) {
       return res.status(403).json({
         message: "Your school's access has been locked by Edupla administrators. Payment won't restore access — please contact support.",
         code: "ACCOUNT_LOCKED",
@@ -126,9 +127,20 @@ async function applySuccessfulPayment(payment) {
   const base = currentPaidUntil && currentPaidUntil.getTime() > now.getTime() ? currentPaidUntil : now;
   const paidUntilAfter = new Date(base.getTime() + payment.plan_days * 24 * 60 * 60 * 1000);
 
-  await User.findByIdAndUpdate(payment.admin_id, {
-    $set: { "billing.status": "active", "billing.paid_until": paidUntilAfter },
-  });
+  const wasPayableLock = owner?.billing?.locked === true && owner.billing.locked_payable === true;
+
+  const update = { "billing.status": "active", "billing.paid_until": paidUntilAfter };
+  if (wasPayableLock) {
+    // Paying off a payable lock lifts it entirely — same as a super admin
+    // unlock, just triggered by the payment instead.
+    update["billing.locked"] = false;
+    update["billing.locked_payable"] = false;
+    update["billing.locked_reason"] = null;
+    update["billing.locked_at"] = null;
+    update["billing.locked_by"] = null;
+  }
+
+  await User.findByIdAndUpdate(payment.admin_id, { $set: update });
   invalidateBillingCache(String(payment.admin_id));
 
   payment.status = "SUCCESSFUL";

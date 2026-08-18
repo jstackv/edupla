@@ -64,6 +64,8 @@ export default function Billing() {
 
   const isPayer = billing?.is_payer;
   const isLocked = billing?.status === 'locked';
+  const isPayableLock = isLocked && billing?.locked_payable === true;
+  const canShowPaymentForm = isPayer && (!isLocked || isPayableLock);
   const plan = billing?.plan;
 
   const pollStatus = useCallback((referenceId) => {
@@ -187,7 +189,7 @@ export default function Billing() {
           }}>
             {stage === 'success' ? (
               <CheckCircle2 size={26} color="#16a34a" />
-            ) : isLocked ? (
+            ) : isLocked && !isPayableLock ? (
               <ShieldCheck size={26} color="#ef4444" />
             ) : (
               <Clock size={26} color="#f97316" />
@@ -214,19 +216,21 @@ export default function Billing() {
           ) : (
             <>
               <h1 style={{ fontFamily: "'Sora',sans-serif", fontWeight: 800, fontSize: 19, color: dark ? '#f1f5f9' : '#1e1b4b', margin: '0 0 8px' }}>
-                {isLocked ? 'Access locked' : isPayer ? 'Subscription payment needed' : 'Access paused'}
+                {isLocked ? (isPayableLock ? 'Payment required to unlock' : 'Access locked') : isPayer ? 'Subscription payment needed' : 'Access paused'}
               </h1>
               <p style={{ fontSize: 13.5, color: dark ? '#94a3b8' : '#64748b', margin: '0 0 24px', lineHeight: 1.6 }}>
                 {isLocked
-                  ? (billing?.locked_reason
-                      ? `Your school's Edupla access has been locked: ${billing.locked_reason}`
-                      : 'Your school\u2019s Edupla access has been locked by Edupla administrators. Please contact support.')
+                  ? (isPayableLock
+                      ? `${billing?.locked_reason ? billing.locked_reason + '. ' : ''}Pay with MTN Mobile Money to restore access immediately.`
+                      : (billing?.locked_reason
+                          ? `Your school's Edupla access has been locked: ${billing.locked_reason}`
+                          : 'Your school\u2019s Edupla access has been locked by Edupla administrators. Please contact support.'))
                   : isPayer
                     ? 'Your school\u2019s free trial has ended. Pay with MTN Mobile Money to keep using Edupla.'
                     : 'Your school\u2019s Edupla subscription has ended. Only your school administrator can renew it — please reach out to them.'}
               </p>
 
-              {isPayer && !isLocked && plan && (
+              {canShowPaymentForm && plan && (
                 <div style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   background: dark ? 'rgba(255,255,255,0.04)' : '#fff8f2',
@@ -242,7 +246,7 @@ export default function Billing() {
                 </div>
               )}
 
-              {isPayer && !isLocked && (stage === 'idle' || stage === 'requesting' || stage === 'failed') && (
+              {canShowPaymentForm && (stage === 'idle' || stage === 'requesting' || stage === 'failed') && (
                 <form onSubmit={handlePay} style={{ textAlign: 'left' }}>
                   <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: dark ? '#94a3b8' : '#64748b', marginBottom: 6 }}>
                     MTN Mobile Money number
@@ -292,7 +296,7 @@ export default function Billing() {
                 </form>
               )}
 
-              {isPayer && !isLocked && stage === 'awaiting' && (
+              {canShowPaymentForm && stage === 'awaiting' && (
                 <div className="bp-pulse" style={{
                   display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
                   padding: '18px 12px',
