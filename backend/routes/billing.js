@@ -3,7 +3,9 @@ const router = express.Router();
 const { isAuthenticated, isAdmin } = require("../middleware/auth");
 const {
   getStatus,
+  getPlans,
   initiatePayment,
+  submitManualPayment,
   checkPaymentStatus,
   momoWebhook,
   getPaymentHistory,
@@ -14,6 +16,8 @@ const {
 router.get("/status", isAuthenticated, getStatus);
 
 // Only the school admin can actually pay.
+router.get("/plans", isAuthenticated, isAdmin, getPlans);
+router.post("/manual-pay", isAuthenticated, isAdmin, submitManualPayment);
 router.post("/pay", isAuthenticated, isAdmin, initiatePayment);
 router.get("/pay/:referenceId/status", isAuthenticated, isAdmin, checkPaymentStatus);
 router.get("/history", isAuthenticated, isAdmin, getPaymentHistory);

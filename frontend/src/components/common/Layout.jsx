@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useMaintenance } from '../../context/MaintenanceContext';
+import { usePendingPayments } from '../../context/PendingPaymentsContext';
 import { ChatNotifyProvider } from '../../context/ChatNotifyContext';
 import toast from 'react-hot-toast';
 import {
@@ -12,7 +13,7 @@ import {
   GraduationCap, BookMarked, Notebook, Shield, UserCheck,
   UserCircle, Settings, Bell, Search, Home,
   Layers, UserPlus, AlertTriangle, X, Crown, ClipboardCheck,
-  LibraryBig, Building2,
+  LibraryBig, Building2, Wallet,
 } from 'lucide-react';
 import NotificationPanel from './NotificationPanel';
 import LanguageSwitcher from './LanguageSwitcher';
@@ -51,10 +52,11 @@ const AdminLinks = [
   { to: '/admin/settings',    icon: GraduationCap,   labelKey: 'nav.manageTvetInfo',  section: 'manage' },
 ];
 const SuperAdminLinks = [
-  { to: '/admin/dashboard',        icon: LayoutDashboard, labelKey: 'nav.overview',       section: 'main' },
-  { to: '/admin/admins',           icon: Shield,          labelKey: 'nav.manageAdmins',   section: 'main' },
-  { to: '/admin/schools-billing',  icon: Building2,       labelKey: 'nav.schoolsBilling', section: 'main' },
-  { to: '/admin/maintenance',      icon: AlertTriangle,   labelKey: 'nav.systemStatus',   section: 'main' },
+  { to: '/admin/dashboard',        icon: LayoutDashboard, labelKey: 'nav.overview',        section: 'main' },
+  { to: '/admin/admins',           icon: Shield,          labelKey: 'nav.manageAdmins',    section: 'main' },
+  { to: '/admin/schools-billing',  icon: Building2,       labelKey: 'nav.schoolsBilling',  section: 'main' },
+  { to: '/admin/payment-requests', icon: Wallet,          labelKey: 'nav.paymentRequests', section: 'main' },
+  { to: '/admin/maintenance',      icon: AlertTriangle,   labelKey: 'nav.systemStatus',    section: 'main' },
 ];
 
 /* ─── HELPERS ───────────────────────────────────────────────────── */
@@ -410,6 +412,7 @@ export default function Layout({ children }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const { count: pendingPaymentsCount } = usePendingPayments() || {};
 
   const links = user?.role === 'teacher' ? TeacherLinks
     : user?.role === 'admin'   ? (user?.is_super_admin ? SuperAdminLinks : AdminLinks)
@@ -543,7 +546,15 @@ export default function Layout({ children }) {
           {t('nav.control')}
         </div>
         {SuperAdminLinks.map(link => (
-          <SuperAdminNavItem key={link.to} link={link} location={location} collapsed={collapsed} dark={dark} onNav={onNav} />
+          <SuperAdminNavItem
+            key={link.to}
+            link={link}
+            location={location}
+            collapsed={collapsed}
+            dark={dark}
+            onNav={onNav}
+            badge={link.to === '/admin/payment-requests' ? pendingPaymentsCount : 0}
+          />
         ))}
       </nav>
 
@@ -961,7 +972,7 @@ function NavItem({ link, location, collapsed, dark, onNav }) {
   );
 }
 
-function SuperAdminNavItem({ link, location, collapsed, dark, onNav }) {
+function SuperAdminNavItem({ link, location, collapsed, dark, onNav, badge }) {
   const { t } = useTranslation();
   const Icon = link.icon;
   const label = t(link.labelKey);
@@ -1008,6 +1019,21 @@ function SuperAdminNavItem({ link, location, collapsed, dark, onNav }) {
         }}>
           {label}
         </span>
+        {!!badge && !collapsed && (
+          <span style={{
+            flexShrink: 0, minWidth: 18, height: 18, padding: '0 5px', borderRadius: 999,
+            background: '#f43f5e', color: '#fff', fontSize: 10, fontWeight: 800,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            {badge > 99 ? '99+' : badge}
+          </span>
+        )}
+        {!!badge && collapsed && (
+          <span style={{
+            position: 'absolute', top: 4, right: 4, width: 8, height: 8, borderRadius: '50%',
+            background: '#f43f5e', boxShadow: '0 0 0 2px ' + (dark ? '#0f0c1a' : '#ffffff'),
+          }} />
+        )}
         {active && !collapsed && <ChevronRight size={12} style={{ flexShrink: 0, opacity: 0.6 }} />}
       </Link>
       {collapsed && (

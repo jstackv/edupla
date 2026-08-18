@@ -1,7 +1,31 @@
 const crypto = require("crypto");
-const { User, Payment } = require("../models/db");
+const { User, Payment, SubscriptionPlan } = require("../models/db");
 const { getOrInitBilling, invalidateBillingCache } = require("../middleware/billing");
 const momoService = require("../services/momoService");
+
+// Who school admins send manual MoMo payments to. Configurable via env so
+// it can be updated without a code change if the receiving number/owner
+// ever changes.
+function getPayeeContact() {
+  return {
+    name: process.env.EDUPLA_OWNER_NAME || "TWAGIRAYEZU Jean Marie Vianney",
+    phone: process.env.EDUPLA_OWNER_PHONE || "+250785683347",
+    email: process.env.EDUPLA_OWNER_EMAIL || "jstackvm@gmail.com",
+  };
+}
+
+// Lazily seeds the three starter tiers the first time anyone asks for the
+// plan list, so there's no separate seed script to remember to run. Super
+// admins can then edit/add/remove freely from the Schools & Billing page.
+async function ensurePlansSeeded() {
+  const count = await SubscriptionPlan.countDocuments();
+  if (count > 0) return;
+  await SubscriptionPlan.insertMany([
+    { name: "1 Month", amount: 10000, currency: "RWF", days: 30, sort_order: 1 },
+    { name: "6 Months", amount: 50000, currency: "RWF", days: 182, sort_order: 2 },
+    { name: "1 Year", amount: 100000, currency: "RWF", days: 365, sort_order: 3 },
+  ]);
+}
 
 // Single source of truth for what a subscription costs and how long it
 // lasts. Sandbox only accepts EUR, so SUBSCRIPTION_AMOUNT/MOMO_CURRENCY
@@ -47,6 +71,26 @@ const getStatus = async (req, res) => {
       : 0;
 
     const plan = getPlan();
+
+    // If this school has a manual payment claim awaiting super-admin
+    // review, surface it so the paywall can show "pending review" instead
+    // of the payment button again after a page reload.
+    let pendingManualPayment = null;
+    if (req.user.role === "admin") {
+      const pending = await Payment.findOne({ admin_id: ownerId, method: "manual", status: "PENDING" })
+        .sort({ created_at: -1 })
+        .lean();
+      if (pending) {
+        pendingManualPayment = {
+          id: pending._id,
+          plan_name: pending.plan_name,
+          amount: pending.amount,
+          currency: pending.currency,
+          submitted_at: pending.created_at,
+        };
+      }
+    }
+
     res.json({
       status,
       is_payer: req.user.role === "admin",
@@ -58,13 +102,74 @@ const getStatus = async (req, res) => {
       school_admin_name: owner?.name || null,
       default_phone: req.user.role === "admin" ? owner?.phone || null : null,
       plan,
+      payee: getPayeeContact(),
+      pending_manual_payment: pendingManualPayment,
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
 
-// POST /api/billing/pay  — admin (payer) only
+// GET /api/billing/plans — admin (payer) only. The tiers they can choose
+// from for a manual payment — no free-text amount entry allowed, so every
+// claim matches a known, expected amount the super admin can verify.
+const getPlans = async (req, res) => {
+  try {
+    await ensurePlansSeeded();
+    const plans = await SubscriptionPlan.find({ active: true }).sort({ sort_order: 1, amount: 1 }).lean();
+    res.json({ plans, payee: getPayeeContact() });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// POST /api/billing/manual-pay — admin (payer) only. Records a claim that
+// they've sent money directly to the Edupla owner's MoMo number. Access is
+// NOT restored yet — a super admin must confirm it after checking their
+// own wallet (see systemController.confirmManualPayment).
+const submitManualPayment = async (req, res) => {
+  try {
+    const { plan_id, sender_phone } = req.body;
+    if (!plan_id) return res.status(400).json({ message: "Choose a plan first." });
+
+    const plan = await SubscriptionPlan.findOne({ _id: plan_id, active: true }).lean();
+    if (!plan) return res.status(404).json({ message: "That plan is no longer available. Please pick another." });
+
+    const owner = await User.findById(req.user.id).select("billing phone").lean();
+    if (owner?.billing?.locked === true && owner.billing.locked_payable !== true) {
+      return res.status(403).json({
+        message: "Your school's access has been locked by Edupla administrators. Payment won't restore access — please contact support.",
+        code: "ACCOUNT_LOCKED",
+      });
+    }
+
+    const existingPending = await Payment.findOne({ admin_id: req.user.id, method: "manual", status: "PENDING" });
+    if (existingPending) {
+      return res.status(409).json({ message: "You already have a payment awaiting review. Please wait for it to be confirmed." });
+    }
+
+    const payment = await Payment.create({
+      admin_id: req.user.id,
+      method: "manual",
+      reference_id: crypto.randomUUID(),
+      external_id: `EDUPLA-MANUAL-${req.user.id}-${Date.now()}`,
+      amount: plan.amount,
+      currency: plan.currency,
+      phone: (sender_phone && String(sender_phone).trim()) || owner?.phone || "unknown",
+      plan_days: plan.days,
+      plan_name: plan.name,
+      status: "PENDING",
+      paid_until_before: owner?.billing?.paid_until || null,
+    });
+
+    res.status(201).json({
+      message: "Payment claim submitted. Access resumes once an Edupla administrator confirms receipt.",
+      payment_id: payment._id,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
 const initiatePayment = async (req, res) => {
   try {
     const { phone, amount } = req.body;
@@ -240,4 +345,13 @@ const getPaymentHistory = async (req, res) => {
   }
 };
 
-module.exports = { getStatus, initiatePayment, checkPaymentStatus, momoWebhook, getPaymentHistory };
+module.exports = {
+  getStatus,
+  getPlans,
+  initiatePayment,
+  submitManualPayment,
+  checkPaymentStatus,
+  momoWebhook,
+  getPaymentHistory,
+  applySuccessfulPayment,
+};

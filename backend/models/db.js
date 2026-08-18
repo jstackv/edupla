@@ -710,21 +710,55 @@ const paymentSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    // "api": automated MTN MoMo requestToPay flow. "manual": school admin
+    // claims to have sent money directly to the Edupla owner's personal
+    // MoMo number, and a super admin manually confirms it after checking
+    // their own wallet.
+    method: { type: String, enum: ["api", "manual"], default: "api" },
     reference_id: { type: String, required: true, unique: true },
     external_id: { type: String, required: true },
     amount: { type: Number, required: true },
     currency: { type: String, required: true },
     phone: { type: String, required: true },
     plan_days: { type: Number, required: true },
+    // Snapshot of the plan's display name at time of purchase (e.g. "6
+    // Months") — plans can be edited/deleted later without corrupting
+    // historical records.
+    plan_name: { type: String, default: null },
     status: {
       type: String,
-      enum: ["PENDING", "SUCCESSFUL", "FAILED", "EXPIRED"],
+      enum: ["PENDING", "SUCCESSFUL", "FAILED", "EXPIRED", "REJECTED"],
       default: "PENDING",
     },
     momo_status_raw: { type: mongoose.Schema.Types.Mixed, default: null },
     failure_reason: { type: String, default: null },
     paid_until_before: { type: Date, default: null },
     paid_until_after: { type: Date, default: null },
+    // Manual-payment review trail — who confirmed/rejected the claim and
+    // when, plus an optional note (mainly used for rejection reasons).
+    reviewed_by: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    reviewed_at: { type: Date, default: null },
+    review_note: { type: String, default: null },
+  },
+  { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } },
+);
+
+// ── SubscriptionPlan — super-admin-configurable pricing tiers for the
+// manual payment flow (e.g. "1 Month / 10,000 RWF"). School admins can
+// only pick from these — no free-text amount entry — which keeps every
+// manual payment claim matched against a known, expected amount.
+const subscriptionPlanSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true },
+    amount: { type: Number, required: true },
+    currency: { type: String, default: "RWF" },
+    days: { type: Number, required: true },
+    active: { type: Boolean, default: true },
+    sort_order: { type: Number, default: 0 },
   },
   { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } },
 );
@@ -1018,6 +1052,7 @@ const AssessmentAttempt = mongoose.model(
 );
 const Maintenance = mongoose.model("Maintenance", maintenanceSchema);
 const Payment = mongoose.model("Payment", paymentSchema);
+const SubscriptionPlan = mongoose.model("SubscriptionPlan", subscriptionPlanSchema);
 const DiscussionGroup = mongoose.model(
   "DiscussionGroup",
   discussionGroupSchema,
@@ -1057,6 +1092,7 @@ module.exports = {
   AssessmentAttempt,
   Maintenance,
   Payment,
+  SubscriptionPlan,
   DiscussionGroup,
   ClassCollaboration,
   DirectMessage,

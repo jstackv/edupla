@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { MaintenanceProvider, useMaintenance } from './context/MaintenanceContext';
 import { BillingProvider, useBilling } from './context/BillingContext';
+import { PendingPaymentsProvider } from './context/PendingPaymentsContext';
 import { ChatNotifyProvider } from './context/ChatNotifyContext';
 import Layout from './components/common/Layout';
 import BrandMark from './components/common/BrandMark';
@@ -57,6 +58,7 @@ const AdminSettingsPage = lazy(() => import('./pages/admin/AdminSettings'));
 const ManageAdmins = lazy(() => import('./pages/admin/ManageAdmins'));
 const SystemMaintenance = lazy(() => import('./pages/admin/SystemMaintenance'));
 const SchoolsBilling = lazy(() => import('./pages/admin/SchoolsBilling'));
+const PaymentRequests = lazy(() => import('./pages/admin/PaymentRequests'));
 
 function getDefaultRoute(role) {
   if (role === 'teacher') return '/teacher/dashboard';
@@ -345,6 +347,7 @@ function AppRoutes() {
       <Route path="/admin/admins"      element={<SuperAdminRoute><ManageAdmins /></SuperAdminRoute>} />
       <Route path="/admin/maintenance" element={<SuperAdminRoute><SystemMaintenance /></SuperAdminRoute>} />
       <Route path="/admin/schools-billing" element={<SuperAdminRoute><SchoolsBilling /></SuperAdminRoute>} />
+      <Route path="/admin/payment-requests" element={<SuperAdminRoute><PaymentRequests /></SuperAdminRoute>} />
 
       {/* Document viewer — opens in new tab */}
       <Route path="/view-doc" element={<ViewerPage />} />
@@ -406,25 +409,27 @@ export default function App() {
       <AuthProvider>
         <MaintenanceProvider>
           <BillingProvider>
-            <BrowserRouter>
-              <ChatNotifyProvider>
-                <AppGate />
-              </ChatNotifyProvider>
-              <Toaster
-                position="top-right"
-                toastOptions={{
-                  duration: 3500,
-                  style: {
-                    fontFamily: 'Plus Jakarta Sans, sans-serif',
-                    fontSize: '14px',
-                    borderRadius: '12px',
-                    boxShadow: '0 8px 30px rgba(0,0,0,0.15)',
-                  },
-                  success: { iconTheme: { primary: '#10b981', secondary: '#fff' } },
-                  error: { iconTheme: { primary: '#ef4444', secondary: '#fff' } },
-                }}
-              />
-            </BrowserRouter>
+            <PendingPaymentsProvider>
+              <BrowserRouter>
+                <ChatNotifyProvider>
+                  <AppGate />
+                </ChatNotifyProvider>
+                <Toaster
+                  position="top-right"
+                  toastOptions={{
+                    duration: 3500,
+                    style: {
+                      fontFamily: 'Plus Jakarta Sans, sans-serif',
+                      fontSize: '14px',
+                      borderRadius: '12px',
+                      boxShadow: '0 8px 30px rgba(0,0,0,0.15)',
+                    },
+                    success: { iconTheme: { primary: '#10b981', secondary: '#fff' } },
+                    error: { iconTheme: { primary: '#ef4444', secondary: '#fff' } },
+                  }}
+                />
+              </BrowserRouter>
+            </PendingPaymentsProvider>
           </BillingProvider>
         </MaintenanceProvider>
       </AuthProvider>

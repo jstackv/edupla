@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const { Maintenance, User, Payment } = require('../models/db');
+const { Maintenance, User, Payment, SubscriptionPlan } = require('../models/db');
 const { invalidateCache } = require('../middleware/maintenance');
 const { invalidateBillingCache, getOrInitBilling } = require('../middleware/billing');
 const { JWT_SECRET } = require('../middleware/auth');
@@ -262,3 +262,170 @@ module.exports.listSchoolsBilling = listSchoolsBilling;
 module.exports.lockSchool = lockSchool;
 module.exports.unlockSchool = unlockSchool;
 module.exports.extendSchool = extendSchool;
+
+// ── Subscription plans (super admin only) ────────────────────────────────
+// The tiers school admins choose from in the manual-payment flow. Editing
+// these never touches past Payment records — each one snapshots the
+// plan's name/amount/days at the time it was created.
+
+// GET /api/system/billing/plans — includes inactive plans, unlike the
+// school-facing /api/billing/plans which only shows active ones.
+const listPlans = async (req, res) => {
+  try {
+    const plans = await SubscriptionPlan.find().sort({ sort_order: 1, amount: 1 }).lean();
+    res.json({ plans });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+const createPlan = async (req, res) => {
+  try {
+    const { name, amount, currency, days, sort_order } = req.body;
+    if (!name || !String(name).trim()) return res.status(400).json({ message: 'Plan name is required.' });
+    const amt = Number(amount);
+    const d = parseInt(days, 10);
+    if (!Number.isFinite(amt) || amt <= 0) return res.status(400).json({ message: 'Amount must be a positive number.' });
+    if (!Number.isFinite(d) || d <= 0) return res.status(400).json({ message: 'Days must be a positive number.' });
+
+    const plan = await SubscriptionPlan.create({
+      name: String(name).trim(),
+      amount: amt,
+      currency: (currency && String(currency).trim()) || 'RWF',
+      days: d,
+      sort_order: Number.isFinite(Number(sort_order)) ? Number(sort_order) : 0,
+    });
+    res.status(201).json({ plan });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+const updatePlan = async (req, res) => {
+  try {
+    const { name, amount, currency, days, active, sort_order } = req.body;
+    const plan = await SubscriptionPlan.findById(req.params.planId);
+    if (!plan) return res.status(404).json({ message: 'Plan not found.' });
+
+    if (name !== undefined) plan.name = String(name).trim();
+    if (currency !== undefined) plan.currency = String(currency).trim();
+    if (active !== undefined) plan.active = !!active;
+    if (amount !== undefined) {
+      const amt = Number(amount);
+      if (!Number.isFinite(amt) || amt <= 0) return res.status(400).json({ message: 'Amount must be a positive number.' });
+      plan.amount = amt;
+    }
+    if (days !== undefined) {
+      const d = parseInt(days, 10);
+      if (!Number.isFinite(d) || d <= 0) return res.status(400).json({ message: 'Days must be a positive number.' });
+      plan.days = d;
+    }
+    if (sort_order !== undefined && Number.isFinite(Number(sort_order))) plan.sort_order = Number(sort_order);
+
+    await plan.save();
+    res.json({ plan });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+const deletePlan = async (req, res) => {
+  try {
+    const plan = await SubscriptionPlan.findByIdAndDelete(req.params.planId);
+    if (!plan) return res.status(404).json({ message: 'Plan not found.' });
+    res.json({ message: `"${plan.name}" plan deleted.` });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ── Manual payment review (super admin only) ─────────────────────────────
+// The school-facing half of this lives in billingController.submitManualPayment
+// — this is where a super admin, after manually checking their own MoMo
+// wallet, confirms or rejects each claim.
+
+// GET /api/system/billing/manual-payments?status=PENDING
+const listManualPayments = async (req, res) => {
+  try {
+    const filter = { method: 'manual' };
+    if (req.query.status) filter.status = req.query.status;
+
+    const payments = await Payment.find(filter)
+      .sort({ created_at: -1 })
+      .limit(200)
+      .populate('admin_id', 'name email phone')
+      .populate('reviewed_by', 'name')
+      .lean();
+
+    res.json({ payments });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// GET /api/system/billing/manual-payments/pending-count — cheap polling
+// endpoint for the sidebar badge / notification toast.
+const getPendingManualPaymentsCount = async (req, res) => {
+  try {
+    const count = await Payment.countDocuments({ method: 'manual', status: 'PENDING' });
+    res.json({ count });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// POST /api/system/billing/manual-payments/:paymentId/confirm — call this
+// only after verifying the money actually landed in your own MoMo wallet.
+const confirmManualPayment = async (req, res) => {
+  try {
+    const payment = await Payment.findOne({ _id: req.params.paymentId, method: 'manual' });
+    if (!payment) return res.status(404).json({ message: 'Payment claim not found.' });
+    if (payment.status !== 'PENDING') {
+      return res.status(409).json({ message: `This claim was already ${payment.status.toLowerCase()}.` });
+    }
+
+    // Reuse the exact same billing-application logic the automated MTN
+    // flow uses, so manual and API payments extend access identically.
+    const { applySuccessfulPayment } = require('./billingController');
+    const paidUntil = await applySuccessfulPayment(payment);
+
+    payment.reviewed_by = req.user.id;
+    payment.reviewed_at = new Date();
+    await payment.save();
+
+    res.json({ message: 'Payment confirmed. School access has been restored.', paid_until: paidUntil });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// POST /api/system/billing/manual-payments/:paymentId/reject
+const rejectManualPayment = async (req, res) => {
+  try {
+    const { reason } = req.body;
+    const payment = await Payment.findOne({ _id: req.params.paymentId, method: 'manual' });
+    if (!payment) return res.status(404).json({ message: 'Payment claim not found.' });
+    if (payment.status !== 'PENDING') {
+      return res.status(409).json({ message: `This claim was already ${payment.status.toLowerCase()}.` });
+    }
+
+    payment.status = 'REJECTED';
+    payment.review_note = (reason && String(reason).trim()) || null;
+    payment.reviewed_by = req.user.id;
+    payment.reviewed_at = new Date();
+    await payment.save();
+
+    res.json({ message: 'Payment claim rejected. The school remains locked out.' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+module.exports.listPlans = listPlans;
+module.exports.createPlan = createPlan;
+module.exports.updatePlan = updatePlan;
+module.exports.deletePlan = deletePlan;
+module.exports.listManualPayments = listManualPayments;
+module.exports.getPendingManualPaymentsCount = getPendingManualPaymentsCount;
+module.exports.confirmManualPayment = confirmManualPayment;
+module.exports.rejectManualPayment = rejectManualPayment;

@@ -4,6 +4,8 @@ const { isAuthenticated, isSuperAdmin } = require('../middleware/auth');
 const {
   getStatus, updateMaintenance, impersonate,
   listSchoolsBilling, lockSchool, unlockSchool, extendSchool,
+  listPlans, createPlan, updatePlan, deletePlan,
+  listManualPayments, getPendingManualPaymentsCount, confirmManualPayment, rejectManualPayment,
 } = require('../controllers/systemController');
 
 // Public — no auth required. The frontend polls this to know whether to
@@ -24,5 +26,17 @@ router.get('/billing/schools', isAuthenticated, isSuperAdmin, listSchoolsBilling
 router.post('/billing/schools/:adminId/lock', isAuthenticated, isSuperAdmin, lockSchool);
 router.post('/billing/schools/:adminId/unlock', isAuthenticated, isSuperAdmin, unlockSchool);
 router.post('/billing/schools/:adminId/extend', isAuthenticated, isSuperAdmin, extendSchool);
+
+// Super admin only — subscription plan tiers for the manual payment flow.
+router.get('/billing/plans', isAuthenticated, isSuperAdmin, listPlans);
+router.post('/billing/plans', isAuthenticated, isSuperAdmin, createPlan);
+router.put('/billing/plans/:planId', isAuthenticated, isSuperAdmin, updatePlan);
+router.delete('/billing/plans/:planId', isAuthenticated, isSuperAdmin, deletePlan);
+
+// Super admin only — review manual payment claims.
+router.get('/billing/manual-payments', isAuthenticated, isSuperAdmin, listManualPayments);
+router.get('/billing/manual-payments/pending-count', isAuthenticated, isSuperAdmin, getPendingManualPaymentsCount);
+router.post('/billing/manual-payments/:paymentId/confirm', isAuthenticated, isSuperAdmin, confirmManualPayment);
+router.post('/billing/manual-payments/:paymentId/reject', isAuthenticated, isSuperAdmin, rejectManualPayment);
 
 module.exports = router;
