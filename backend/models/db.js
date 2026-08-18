@@ -51,6 +51,33 @@ const userSchema = new mongoose.Schema(
       ref: "User",
       default: null,
     },
+    // ── Billing (only meaningful for role: 'admin' — the school owner) ──
+    // Teachers/students never have their own billing state; they inherit
+    // whichever admin's created_by chain they belong to (see
+    // middleware/billing.js). Lazily initialized on first check rather than
+    // at creation time, so TRIAL_DAYS changes don't retroactively affect
+    // schools that signed up before the change.
+    billing: {
+      status: {
+        type: String,
+        enum: ["trialing", "active", "overdue"],
+        default: "trialing",
+      },
+      trial_ends_at: { type: Date, default: null },
+      paid_until: { type: Date, default: null },
+      // Super-admin manual override — when true, access is blocked no
+      // matter what trial_ends_at/paid_until say, and the admin's own
+      // payment form is hidden (this isn't a billing lapse, so paying
+      // doesn't get them back in — only a super admin unlock does).
+      locked: { type: Boolean, default: false },
+      locked_reason: { type: String, default: null },
+      locked_at: { type: Date, default: null },
+      locked_by: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        default: null,
+      },
+    },
   },
   { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } },
 );
@@ -663,6 +690,39 @@ const maintenanceSchema = new mongoose.Schema(
   { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } },
 );
 
+// ── Payment — one document per MTN MoMo Collections attempt ────────────
+// admin_id is always the paying school owner (see middleware/billing.js —
+// only role:'admin' users can ever initiate a payment). reference_id is
+// the UUID we generate and send to MTN as X-Reference-Id; it's how we look
+// the transaction up again when polling requestToPay's status or when
+// MTN's webhook calls back.
+const paymentSchema = new mongoose.Schema(
+  {
+    admin_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true,
+    },
+    reference_id: { type: String, required: true, unique: true },
+    external_id: { type: String, required: true },
+    amount: { type: Number, required: true },
+    currency: { type: String, required: true },
+    phone: { type: String, required: true },
+    plan_days: { type: Number, required: true },
+    status: {
+      type: String,
+      enum: ["PENDING", "SUCCESSFUL", "FAILED", "EXPIRED"],
+      default: "PENDING",
+    },
+    momo_status_raw: { type: mongoose.Schema.Types.Mixed, default: null },
+    failure_reason: { type: String, default: null },
+    paid_until_before: { type: Date, default: null },
+    paid_until_after: { type: Date, default: null },
+  },
+  { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } },
+);
+
 // ── DiscussionGroup — teacher-created student collaboration groups ──────
 // A teacher picks a class, names the group, assigns a subset of students,
 // and designates one of those students as the team leader.
@@ -951,6 +1011,7 @@ const AssessmentAttempt = mongoose.model(
   assessmentAttemptSchema,
 );
 const Maintenance = mongoose.model("Maintenance", maintenanceSchema);
+const Payment = mongoose.model("Payment", paymentSchema);
 const DiscussionGroup = mongoose.model(
   "DiscussionGroup",
   discussionGroupSchema,
@@ -989,6 +1050,7 @@ module.exports = {
   AssessmentQuestion,
   AssessmentAttempt,
   Maintenance,
+  Payment,
   DiscussionGroup,
   ClassCollaboration,
   DirectMessage,

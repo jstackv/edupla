@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { MaintenanceProvider, useMaintenance } from './context/MaintenanceContext';
+import { BillingProvider, useBilling } from './context/BillingContext';
 import { ChatNotifyProvider } from './context/ChatNotifyContext';
 import Layout from './components/common/Layout';
 import BrandMark from './components/common/BrandMark';
@@ -14,6 +15,7 @@ import BrandMark from './components/common/BrandMark';
 import Login from './pages/auth/Login';
 import Landing from './pages/Landing';
 import Maintenance from './pages/Maintenance';
+import Billing from './pages/Billing';
 
 // Everything below this line is only ever seen after login, so it's
 // code-split with React.lazy: none of it is downloaded on first load of
@@ -54,6 +56,7 @@ const AdminAssessments = lazy(() => import('./pages/admin/Assessments'));
 const AdminSettingsPage = lazy(() => import('./pages/admin/AdminSettings'));
 const ManageAdmins = lazy(() => import('./pages/admin/ManageAdmins'));
 const SystemMaintenance = lazy(() => import('./pages/admin/SystemMaintenance'));
+const SchoolsBilling = lazy(() => import('./pages/admin/SchoolsBilling'));
 
 function getDefaultRoute(role) {
   if (role === 'teacher') return '/teacher/dashboard';
@@ -341,6 +344,7 @@ function AppRoutes() {
       <Route path="/admin/settings"    element={<RegularAdminRoute><AdminSettingsPage /></RegularAdminRoute>} />
       <Route path="/admin/admins"      element={<SuperAdminRoute><ManageAdmins /></SuperAdminRoute>} />
       <Route path="/admin/maintenance" element={<SuperAdminRoute><SystemMaintenance /></SuperAdminRoute>} />
+      <Route path="/admin/schools-billing" element={<SuperAdminRoute><SchoolsBilling /></SuperAdminRoute>} />
 
       {/* Document viewer — opens in new tab */}
       <Route path="/view-doc" element={<ViewerPage />} />
@@ -363,13 +367,17 @@ function AppRoutes() {
 function AppGate() {
   const { user, loading: authLoading } = useAuth();
   const { maintenance, loading: maintLoading } = useMaintenance();
+  const { billing, loading: billingLoading } = useBilling();
 
   // The handoff page must always be reachable — it's how an impersonation
   // session gets established in the first place, even while the rest of
   // the app is showing the maintenance screen to everyone else.
   if (window.location.pathname === '/impersonate-handoff') return <AppRoutes />;
 
-  if (authLoading || maintLoading) return <LoadingScreen />;
+  // Billing status only exists for logged-in users, so only wait on it
+  // once a user is present — otherwise the public landing/login pages
+  // would hang on a request that never fires.
+  if (authLoading || maintLoading || (user && billingLoading)) return <LoadingScreen />;
 
   const isSuperAdmin = user?.role === 'admin' && !!user?.is_super_admin;
   // Mirrors the backend's maintenanceGate: a token carrying
@@ -381,6 +389,14 @@ function AppGate() {
     return <Maintenance />;
   }
 
+  // Mirrors the backend's billingGate: once a school's trial or paid
+  // period has lapsed — or a super admin has manually locked it — everyone
+  // under that admin sees this screen, but only the admin (billing.is_payer)
+  // gets the actual payment form (and not even then, if locked).
+  if (user && (billing?.status === 'overdue' || billing?.status === 'locked') && !isSuperAdmin && !isImpersonating) {
+    return <Billing />;
+  }
+
   return <AppRoutes />;
 }
 
@@ -389,25 +405,27 @@ export default function App() {
     <ThemeProvider>
       <AuthProvider>
         <MaintenanceProvider>
-          <BrowserRouter>
-            <ChatNotifyProvider>
-              <AppGate />
-            </ChatNotifyProvider>
-            <Toaster
-              position="top-right"
-              toastOptions={{
-                duration: 3500,
-                style: {
-                  fontFamily: 'Plus Jakarta Sans, sans-serif',
-                  fontSize: '14px',
-                  borderRadius: '12px',
-                  boxShadow: '0 8px 30px rgba(0,0,0,0.15)',
-                },
-                success: { iconTheme: { primary: '#10b981', secondary: '#fff' } },
-                error: { iconTheme: { primary: '#ef4444', secondary: '#fff' } },
-              }}
-            />
-          </BrowserRouter>
+          <BillingProvider>
+            <BrowserRouter>
+              <ChatNotifyProvider>
+                <AppGate />
+              </ChatNotifyProvider>
+              <Toaster
+                position="top-right"
+                toastOptions={{
+                  duration: 3500,
+                  style: {
+                    fontFamily: 'Plus Jakarta Sans, sans-serif',
+                    fontSize: '14px',
+                    borderRadius: '12px',
+                    boxShadow: '0 8px 30px rgba(0,0,0,0.15)',
+                  },
+                  success: { iconTheme: { primary: '#10b981', secondary: '#fff' } },
+                  error: { iconTheme: { primary: '#ef4444', secondary: '#fff' } },
+                }}
+              />
+            </BrowserRouter>
+          </BillingProvider>
         </MaintenanceProvider>
       </AuthProvider>
     </ThemeProvider>

@@ -12,7 +12,7 @@ import {
   GraduationCap, BookMarked, Notebook, Shield, UserCheck,
   UserCircle, Settings, Bell, Search, Home,
   Layers, UserPlus, AlertTriangle, X, Crown, ClipboardCheck,
-  LibraryBig,
+  LibraryBig, Building2,
 } from 'lucide-react';
 import NotificationPanel from './NotificationPanel';
 import LanguageSwitcher from './LanguageSwitcher';
@@ -51,9 +51,10 @@ const AdminLinks = [
   { to: '/admin/settings',    icon: GraduationCap,   labelKey: 'nav.manageTvetInfo',  section: 'manage' },
 ];
 const SuperAdminLinks = [
-  { to: '/admin/dashboard',   icon: LayoutDashboard, labelKey: 'nav.overview',      section: 'main' },
-  { to: '/admin/admins',      icon: Shield,          labelKey: 'nav.manageAdmins',  section: 'main' },
-  { to: '/admin/maintenance', icon: AlertTriangle,   labelKey: 'nav.systemStatus',  section: 'main' },
+  { to: '/admin/dashboard',        icon: LayoutDashboard, labelKey: 'nav.overview',       section: 'main' },
+  { to: '/admin/admins',           icon: Shield,          labelKey: 'nav.manageAdmins',   section: 'main' },
+  { to: '/admin/schools-billing',  icon: Building2,       labelKey: 'nav.schoolsBilling', section: 'main' },
+  { to: '/admin/maintenance',      icon: AlertTriangle,   labelKey: 'nav.systemStatus',   section: 'main' },
 ];
 
 /* ─── HELPERS ───────────────────────────────────────────────────── */

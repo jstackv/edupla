@@ -1555,12 +1555,12 @@ export default function StudentGroups() {
 
         <div className={`flex flex-col flex-shrink-0 w-full lg:w-[340px] min-h-0 ${mobileShowThread ? 'hidden lg:flex' : 'flex'}`} style={{ borderRight: '1px solid var(--card-border)' }}>
           <div className="ibx-header-chrome" style={{ position: 'relative', overflow: 'hidden', padding: '16px 16px 12px', flexShrink: 0, isolation: 'isolate' }}>
-            <div style={{ position: 'absolute', top: '-30%', right: '-10%', width: 220, height: 220, borderRadius: '50%', background: 'radial-gradient(circle, rgba(124,58,237,0.4), transparent 70%)', filter: 'blur(6px)', pointerEvents: 'none', zIndex: 0, animation: 'ibxGlowDrift 8s ease-in-out infinite' }} />
-            <div style={{ position: 'absolute', bottom: '-40%', left: '10%', width: 180, height: 180, borderRadius: '50%', background: 'radial-gradient(circle, rgba(219,39,119,0.22), transparent 72%)', filter: 'blur(6px)', pointerEvents: 'none', zIndex: 0, animation: 'ibxGlowDrift 10s ease-in-out infinite reverse' }} />
+            <div style={{ position: 'absolute', top: '-30%', right: '-10%', width: 220, height: 220, borderRadius: '50%', background: 'radial-gradient(circle, var(--ibx-header-glow-1), transparent 70%)', filter: 'blur(6px)', pointerEvents: 'none', zIndex: 0, animation: 'ibxGlowDrift 8s ease-in-out infinite' }} />
+            <div style={{ position: 'absolute', bottom: '-40%', left: '10%', width: 180, height: 180, borderRadius: '50%', background: 'radial-gradient(circle, var(--ibx-header-glow-2), transparent 72%)', filter: 'blur(6px)', pointerEvents: 'none', zIndex: 0, animation: 'ibxGlowDrift 10s ease-in-out infinite reverse' }} />
             <div style={{ position: 'relative', zIndex: 1 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                <h2 style={{ color: '#fff', fontWeight: 800, fontSize: 17, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <div style={{ width: 30, height: 30, borderRadius: 10, background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Inbox style={{ width: 15, height: 15, color: '#fff' }} /></div>
+                <h2 style={{ color: 'var(--ibx-header-text)', fontWeight: 800, fontSize: 17, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ width: 30, height: 30, borderRadius: 10, background: 'var(--ibx-header-icon-bg)', border: '1px solid var(--ibx-header-icon-border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Inbox style={{ width: 15, height: 15, color: 'var(--ibx-header-icon-color)' }} /></div>
                   Inbox
                 </h2>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -1568,21 +1568,28 @@ export default function StudentGroups() {
                   {collabClasses.length > 0 && (
                     <button
                       onClick={() => setNewMsgOpen(true)} title="New message"
-                      style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(255,255,255,0.16)', border: '1px solid rgba(255,255,255,0.24)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.18s cubic-bezier(0.34,1.56,0.64,1), background 0.18s ease' }}
-                      onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.1) rotate(90deg)'; e.currentTarget.style.background = 'rgba(255,255,255,0.26)'; }}
-                      onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1) rotate(0deg)'; e.currentTarget.style.background = 'rgba(255,255,255,0.16)'; }}
+                      style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--ibx-header-btn-bg)', border: '1px solid var(--ibx-header-btn-border)', color: 'var(--ibx-header-icon-color)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.18s cubic-bezier(0.34,1.56,0.64,1), background 0.18s ease' }}
+                      onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.1) rotate(90deg)'; e.currentTarget.style.background = 'var(--ibx-header-btn-bg-hover)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1) rotate(0deg)'; e.currentTarget.style.background = 'var(--ibx-header-btn-bg)'; }}
                     ><Plus style={{ width: 15, height: 15 }} /></button>
                   )}
                 </div>
               </div>
               <div className="relative mb-2">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: 'rgba(255,255,255,0.6)' }} />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: 'var(--ibx-header-search-icon)' }} />
                 <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search everything…"
-                  className="w-full pl-8 pr-3 py-2 rounded-xl text-sm outline-none" style={{ background: 'rgba(255,255,255,0.13)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff' }} />
+                  className="ibx-header-search-input w-full pl-8 pr-3 py-2 rounded-xl text-sm outline-none"
+                  style={{ background: 'var(--ibx-header-search-bg)', border: '1px solid var(--ibx-header-search-border)', color: 'var(--ibx-header-search-text)' }} />
               </div>
               <div style={{ display: 'flex', gap: 4 }}>
                 {[['all', 'All'], ['groups', 'Groups'], ['dms', 'Direct'], ['unread', 'Unread']].map(([val, label]) => (
-                  <button key={val} onClick={() => setFilter(val)} style={{ fontSize: 11, fontWeight: 700, padding: '5px 10px', borderRadius: 20, border: 'none', cursor: 'pointer', background: filter === val ? '#fff' : 'rgba(255,255,255,0.14)', color: filter === val ? '#5b21b6' : 'rgba(255,255,255,0.85)', transition: 'background 0.15s ease, color 0.15s ease, transform 0.15s ease', transform: filter === val ? 'scale(1.04)' : 'scale(1)' }}>{label}</button>
+                  <button key={val} onClick={() => setFilter(val)} style={{
+                    fontSize: 11, fontWeight: 700, padding: '5px 10px', borderRadius: 20, border: 'none', cursor: 'pointer',
+                    background: filter === val ? 'var(--ibx-header-filter-active-bg)' : 'var(--ibx-header-filter-inactive-bg)',
+                    color: filter === val ? 'var(--ibx-header-filter-active-text)' : 'var(--ibx-header-filter-inactive-text)',
+                    boxShadow: filter === val ? 'var(--ibx-header-filter-active-shadow)' : 'none',
+                    transition: 'background 0.15s ease, color 0.15s ease, transform 0.15s ease', transform: filter === val ? 'scale(1.04)' : 'scale(1)',
+                  }}>{label}</button>
                 ))}
               </div>
             </div>
@@ -1628,10 +1635,12 @@ export default function StudentGroups() {
 
       <style>{`
         .ibx-header-chrome {
-          background: linear-gradient(120deg, #08090c 0%, #101319 35%, #171b24 65%, #0d0f14 100%);
+          background: var(--ibx-header-bg);
           background-size: 200% 200%;
           animation: ibxChromeShimmer 14s ease-in-out infinite;
+          transition: background 0.2s ease;
         }
+        .ibx-header-search-input::placeholder { color: var(--ibx-header-search-icon); }
 
         /* ── Sent vs received bubble colors. Sent is a polished neutral
            gray. Received (outside group threads, which use per-sender
@@ -1647,6 +1656,31 @@ export default function StudentGroups() {
           --wa-bubble-received-border: rgba(165,180,252,0.16);
           --wa-voice-accent: #a5b4fc;
           --wa-voice-accent-2: #818cf8;
+
+          /* ── Inbox list header chrome (search + filter pills) — light
+             theme: soft violet-tinted glass, dark readable text. This is
+             the Inbox list header only; the thread/chat header, bubbles,
+             and wallpaper keep their own per-conversation branded colors
+             and are untouched by this variable. ── */
+          --ibx-header-bg: linear-gradient(120deg, #f6f4ff 0%, #efeaff 35%, #f6ecff 65%, #eef1ff 100%);
+          --ibx-header-glow-1: rgba(124,58,237,0.14);
+          --ibx-header-glow-2: rgba(219,39,119,0.08);
+          --ibx-header-text: #221c35;
+          --ibx-header-icon-bg: rgba(124,58,237,0.10);
+          --ibx-header-icon-border: rgba(124,58,237,0.18);
+          --ibx-header-icon-color: #6d28d9;
+          --ibx-header-btn-bg: rgba(124,58,237,0.08);
+          --ibx-header-btn-bg-hover: rgba(124,58,237,0.16);
+          --ibx-header-btn-border: rgba(124,58,237,0.18);
+          --ibx-header-search-bg: rgba(124,58,237,0.06);
+          --ibx-header-search-border: rgba(124,58,237,0.16);
+          --ibx-header-search-text: #221c35;
+          --ibx-header-search-icon: rgba(34,28,53,0.45);
+          --ibx-header-filter-active-bg: #ffffff;
+          --ibx-header-filter-active-text: #6d28d9;
+          --ibx-header-filter-active-shadow: 0 2px 8px rgba(124,58,237,0.18);
+          --ibx-header-filter-inactive-bg: rgba(124,58,237,0.08);
+          --ibx-header-filter-inactive-text: rgba(34,28,53,0.65);
         }
         [data-theme='dark'], .dark {
           --wa-bubble-sent-bg: linear-gradient(135deg, #52525b 0%, #3f3f46 100%);
@@ -1656,6 +1690,28 @@ export default function StudentGroups() {
           --wa-bubble-received-border: rgba(165,180,252,0.16);
           --wa-voice-accent: #a5b4fc;
           --wa-voice-accent-2: #818cf8;
+
+          /* ── Inbox list header chrome — dark theme: unchanged from the
+             original design, moody near-black gradient with white text. ── */
+          --ibx-header-bg: linear-gradient(120deg, #08090c 0%, #101319 35%, #171b24 65%, #0d0f14 100%);
+          --ibx-header-glow-1: rgba(124,58,237,0.4);
+          --ibx-header-glow-2: rgba(219,39,119,0.22);
+          --ibx-header-text: #ffffff;
+          --ibx-header-icon-bg: rgba(255,255,255,0.15);
+          --ibx-header-icon-border: rgba(255,255,255,0.2);
+          --ibx-header-icon-color: #ffffff;
+          --ibx-header-btn-bg: rgba(255,255,255,0.16);
+          --ibx-header-btn-bg-hover: rgba(255,255,255,0.26);
+          --ibx-header-btn-border: rgba(255,255,255,0.24);
+          --ibx-header-search-bg: rgba(255,255,255,0.13);
+          --ibx-header-search-border: rgba(255,255,255,0.2);
+          --ibx-header-search-text: #ffffff;
+          --ibx-header-search-icon: rgba(255,255,255,0.6);
+          --ibx-header-filter-active-bg: #ffffff;
+          --ibx-header-filter-active-text: #5b21b6;
+          --ibx-header-filter-active-shadow: none;
+          --ibx-header-filter-inactive-bg: rgba(255,255,255,0.14);
+          --ibx-header-filter-inactive-text: rgba(255,255,255,0.85);
         }
 
         /* ── Wallpaper: WhatsApp's own dark chat backdrop — a near-black

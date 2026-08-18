@@ -45,6 +45,17 @@ const { maintenanceGate } = require('./middleware/maintenance');
 app.use(maintenanceGate);
 app.use('/api/system', require('./routes/system'));
 
+// ── Billing / subscription gate ─────────────────────────────────────────
+// Global gate: once a school's trial or paid period has ended, every
+// request below is blocked (402) except the /api/billing endpoints
+// themselves (an overdue admin still needs to reach the payment screen)
+// and /api/auth (so login/logout/me always work). Mounted right after
+// maintenanceGate, before the routes, so it can't be skipped by adding a
+// new route file.
+const { billingGate } = require('./middleware/billing');
+app.use(billingGate);
+app.use('/api/billing', require('./routes/billing'));
+
 // ── Static uploads ────────────────────────────────────────────────────────
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 

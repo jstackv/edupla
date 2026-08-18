@@ -115,7 +115,7 @@ export default function TeacherStudentDmModal({ studentId, studentName, onClose 
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)' }}>
       <div className="w-full flex flex-col rounded-2xl overflow-hidden shadow-2xl" style={{ maxWidth: 440, height: '70vh', background: 'var(--card-bg)' }}>
-        <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0" style={{ background: 'linear-gradient(135deg, #9333ea, #7e22ce)' }}>
+        <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0" style={{ background: 'linear-gradient(135deg, #0c1445 0%, #1e3a5f 40%, #0f4c75 100%)' }}>
           <div className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0" style={{ background: 'rgba(255,255,255,0.2)' }}>
             {displayName[0]?.toUpperCase() || '?'}
           </div>

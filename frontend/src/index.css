@@ -2700,3 +2700,244 @@ html { scroll-behavior: smooth; }
 @media (prefers-reduced-motion: reduce) {
   .clsx-teacher-card, .clsx-copy-btn { transition: none !important; }
 }
+
+/* ══════════════════════════════════════════════════════════
+   qm- : Polish layer for the shared Modal shell plus the
+   Create Assessment / Build Questions / Share Assessment
+   modals. Purely additive — existing Modal.jsx consumers get
+   the nicer entrance/close for free; icon + accent header are
+   opt-in via new props so nothing else visually changes.
+   ══════════════════════════════════════════════════════════ */
+
+@keyframes qm-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes qm-sheet-in {
+  0%   { opacity: 0; transform: translateY(18px) scale(0.96); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes qm-icon-float { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-3px) rotate(-4deg); } }
+@keyframes qm-glow-pulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+@keyframes qm-check-pop { 0% { transform: scale(0) rotate(-20deg); opacity: 0; } 60% { transform: scale(1.25) rotate(6deg); opacity: 1; } 100% { transform: scale(1) rotate(0deg); } }
+@keyframes qm-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes qm-shimmer-sweep { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+@keyframes qm-digit-tick { 0% { transform: translateY(-5px) scale(0.9); opacity: 0.4; } 100% { transform: translateY(0) scale(1); opacity: 1; } }
+
+.qm-backdrop { animation: qm-backdrop-in 0.2s ease both; }
+.qm-sheet { animation: qm-sheet-in 0.32s cubic-bezier(0.16,1,0.3,1) both; }
+
+.qm-header-icon {
+  position: relative;
+  width: 42px; height: 42px; border-radius: 13px;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, var(--qm-accent, #6366f1), var(--qm-accent-2, #4f46e5));
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--qm-accent, #6366f1) 45%, transparent);
+  flex-shrink: 0;
+  animation: qm-icon-float 3.4s ease-in-out infinite;
+}
+.qm-header-icon svg { color: #fff; }
+
+.qm-close { transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), background 0.18s ease, color 0.18s ease; }
+.qm-close:hover { transform: rotate(90deg) scale(1.08); background: rgba(239,68,68,0.12) !important; color: #ef4444 !important; }
+.qm-close:active { transform: rotate(90deg) scale(0.94); }
+
+.qm-step-enter { animation: qm-rise 0.28s cubic-bezier(0.16,1,0.3,1) both; }
+
+/* Option / type picker cards */
+.qm-option-card {
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.18s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+.qm-option-card:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(15,23,42,0.10); }
+.qm-option-card:active:not(:disabled) { transform: translateY(0); }
+.qm-option-card-selected::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(115deg, transparent 30%, color-mix(in srgb, var(--qm-t-color, #6366f1) 18%, transparent) 50%, transparent 70%);
+  background-size: 250% 100%;
+  animation: qm-shimmer-sweep 2.6s ease-in-out infinite;
+  pointer-events: none;
+}
+.qm-check-pop { animation: qm-check-pop 0.4s cubic-bezier(0.34,1.56,0.64,1) both; }
+
+/* Inputs */
+.qm-field { transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease; }
+.qm-field:focus { transform: translateY(-1px); }
+
+.qm-field-group { transition: transform 0.18s ease; }
+.qm-field-icon-wrap {
+  display: flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: 9px; flex-shrink: 0;
+  background: color-mix(in srgb, var(--qm-accent, #6366f1) 14%, transparent);
+  color: var(--qm-accent, #6366f1);
+  transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), background 0.2s ease;
+}
+.qm-field-group:focus-within .qm-field-icon-wrap {
+  transform: scale(1.1) rotate(-6deg);
+  background: color-mix(in srgb, var(--qm-accent, #6366f1) 24%, transparent);
+}
+
+/* Sparkle note */
+.qm-note { position: relative; overflow: hidden; animation: qm-rise 0.3s cubic-bezier(0.16,1,0.3,1) both; }
+.qm-note-sparkle { animation: qm-glow-pulse 2s ease-in-out infinite; }
+
+/* Tabs (Manual Creation / AI Generation) */
+.qm-tab-btn { transition: transform 0.16s cubic-bezier(0.34,1.56,0.64,1), background 0.18s ease, border-color 0.18s ease, color 0.18s ease; }
+.qm-tab-btn:hover { transform: translateY(-1px); }
+
+/* Stat chips: Total Marks vs Module Weight — deliberately distinct
+   shape/color/icon so the two numbers never read as "the same". */
+.qm-stats-row { display: flex; align-items: stretch; gap: 10px; }
+.qm-stat-chip {
+  flex: 1;
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s ease;
+}
+.qm-stat-chip:hover { transform: translateY(-2px); }
+.qm-stat-chip-marks {
+  background: linear-gradient(135deg, color-mix(in srgb, #6366f1 12%, var(--card-bg)), var(--card-bg));
+  border: 1.5px solid color-mix(in srgb, #6366f1 30%, var(--card-border));
+}
+.qm-stat-chip-weight {
+  background: repeating-linear-gradient(135deg, color-mix(in srgb, #f59e0b 9%, var(--card-bg)), color-mix(in srgb, #f59e0b 9%, var(--card-bg)) 8px, var(--card-bg) 8px, var(--card-bg) 16px);
+  border: 1.5px dashed color-mix(in srgb, #f59e0b 45%, var(--card-border));
+}
+.qm-stat-icon { width: 32px; height: 32px; border-radius: 10px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.qm-stat-chip-marks .qm-stat-icon { background: rgba(99,102,241,0.16); color: #6366f1; }
+.qm-stat-chip-weight .qm-stat-icon { background: rgba(245,158,11,0.18); color: #d97706; }
+.qm-stat-label { display: block; font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); }
+.qm-stat-value { display: block; font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums; font-family: ui-monospace, 'SF Mono', Menlo, monospace; animation: qm-digit-tick 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+.qm-stat-chip-marks .qm-stat-value { color: #4f46e5; }
+.qm-stat-chip-weight .qm-stat-value { color: #d97706; }
+.qm-stat-chip-weight .qm-stat-value::before { content: '≤ '; opacity: 0.55; font-weight: 600; }
+
+/* Question cards */
+.qm-question-card {
+  animation: qm-rise 0.32s cubic-bezier(0.16,1,0.3,1) both;
+  animation-delay: calc(var(--qi, 0) * 55ms);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+  position: relative;
+}
+.qm-question-card:hover { box-shadow: 0 8px 22px rgba(15,23,42,0.08); transform: translateY(-1px); }
+.qm-question-card::before {
+  content: '';
+  position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; border-radius: 0 3px 3px 0;
+  background: var(--qm-q-color, #6366f1);
+  opacity: 0.7;
+}
+.qm-drag-handle { transition: color 0.15s ease; cursor: grab; }
+.qm-drag-handle:hover { color: var(--qm-q-color, #6366f1); }
+
+.qm-add-question-btn { transition: transform 0.18s cubic-bezier(0.34,1.56,0.64,1), border-color 0.2s ease, background 0.2s ease, color 0.2s ease; }
+.qm-add-question-btn:hover { transform: translateY(-2px); border-color: #6366f1 !important; color: #6366f1 !important; background: rgba(99,102,241,0.06) !important; }
+
+.qm-correct-toggle { transition: transform 0.22s cubic-bezier(0.34,1.56,0.64,1), background 0.18s ease, border-color 0.18s ease; }
+.qm-correct-toggle:hover { transform: scale(1.12); }
+.qm-correct-toggle-active { animation: qm-check-pop 0.35s cubic-bezier(0.34,1.56,0.64,1); }
+
+@media (prefers-reduced-motion: reduce) {
+  .qm-backdrop, .qm-sheet, .qm-header-icon, .qm-close, .qm-step-enter,
+  .qm-option-card, .qm-option-card-selected::before, .qm-check-pop,
+  .qm-field, .qm-field-group, .qm-field-icon-wrap, .qm-note, .qm-note-sparkle,
+  .qm-tab-btn, .qm-stat-chip, .qm-stat-value, .qm-question-card, .qm-drag-handle,
+  .qm-add-question-btn, .qm-correct-toggle, .qm-correct-toggle-active {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+   qm2- : second polish pass on top of qm- — a slow-spinning
+   gradient ring around the sheet, drifting background orbs,
+   a sliding segmented tab control, +/- stepper inputs, glow
+   focus rings and count-up digit ticks. Every modal that uses
+   the shared Modal.jsx picks this up uniformly through the
+   same --qm-accent / --qm-accent-2 variables, so colors never
+   diverge modal to modal.
+   ══════════════════════════════════════════════════════════ */
+
+@keyframes qm2-orb-drift-a { 0%, 100% { transform: translate(-10%, -10%) scale(1); } 50% { transform: translate(6%, 4%) scale(1.15); } }
+@keyframes qm2-orb-drift-b { 0%, 100% { transform: translate(8%, 6%) scale(1); } 50% { transform: translate(-6%, -8%) scale(1.2); } }
+@keyframes qm2-border-spin { to { --qm2-angle: 360deg; } }
+@property --qm2-angle { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
+@keyframes qm2-ring-pulse { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--qm-accent, #6366f1) 45%, transparent); } 50% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--qm-accent, #6366f1) 0%, transparent); } }
+@keyframes qm2-count-tick { 0% { transform: translateY(-4px); opacity: 0.4; } 100% { transform: translateY(0); opacity: 1; } }
+
+/* Floating decorative orbs behind the modal sheet */
+.qm2-orb-field { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+.qm2-orb { position: absolute; border-radius: 50%; filter: blur(54px); opacity: 0.3; }
+.qm2-orb-1 { width: 340px; height: 340px; top: 8%; left: 6%; background: radial-gradient(circle, var(--qm-accent, #6366f1), transparent 70%); animation: qm2-orb-drift-a 12s ease-in-out infinite; }
+.qm2-orb-2 { width: 300px; height: 300px; bottom: 6%; right: 8%; background: radial-gradient(circle, var(--qm-accent-2, #8b5cf6), transparent 70%); animation: qm2-orb-drift-b 14s ease-in-out infinite; }
+
+/* Slow-spinning conic-gradient ring around the sheet */
+.qm2-sheet-wrap { position: relative; z-index: 1; border-radius: 18px; }
+.qm2-sheet-ring {
+  position: absolute; inset: -1.5px; border-radius: inherit;
+  padding: 1.5px;
+  background: conic-gradient(from var(--qm2-angle, 0deg), var(--qm-accent, #6366f1), var(--qm-accent-2, #8b5cf6), #d946ef, var(--qm-accent, #6366f1));
+  animation: qm2-border-spin 7s linear infinite;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Pulse ring behind the header icon badge */
+.qm-header-icon-ring {
+  position: absolute; inset: -5px; border-radius: 16px;
+  border: 1.5px solid var(--qm-accent, #6366f1);
+  animation: qm2-ring-pulse 2.4s ease-out infinite;
+  pointer-events: none;
+}
+
+/* Segmented pill tabs (e.g. Manual Creation / AI Generation) */
+.qm2-segmented { position: relative; display: flex; padding: 4px; border-radius: 14px; background: var(--surface-100); border: 1px solid var(--card-border); gap: 2px; }
+.qm2-segmented-thumb {
+  position: absolute; top: 4px; bottom: 4px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--qm-accent, #6366f1), var(--qm-accent-2, #8b5cf6));
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--qm-accent, #6366f1) 45%, transparent);
+  transition: transform 0.32s cubic-bezier(0.16,1,0.3,1), width 0.32s cubic-bezier(0.16,1,0.3,1);
+  z-index: 0;
+}
+.qm2-segmented button { position: relative; z-index: 1; flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 10px; border-radius: 10px; font-size: 13px; font-weight: 700; color: var(--text-secondary); transition: color 0.25s ease, transform 0.18s cubic-bezier(0.34,1.56,0.64,1); }
+.qm2-segmented button.active { color: #fff; }
+.qm2-segmented button:hover:not(.active) { color: var(--text-primary); transform: translateY(-1px); }
+
+/* +/- stepper inputs */
+.qm2-stepper { display: flex; align-items: stretch; border-radius: 10px; overflow: hidden; border: 1.5px solid var(--card-border); background: var(--surface-100); transition: border-color 0.18s ease, box-shadow 0.18s ease; }
+.qm2-stepper:focus-within { border-color: var(--qm-accent, #6366f1); box-shadow: 0 0 0 3px color-mix(in srgb, var(--qm-accent, #6366f1) 18%, transparent); }
+.qm2-stepper button { width: 26px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease; }
+.qm2-stepper button:hover { background: color-mix(in srgb, var(--qm-accent, #6366f1) 14%, transparent); color: var(--qm-accent, #6366f1); }
+.qm2-stepper button:active { transform: scale(0.88); }
+.qm2-stepper input { border: none; background: transparent; text-align: center; width: 100%; min-width: 0; outline: none; font-size: 13px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; -moz-appearance: textfield; }
+.qm2-stepper input::-webkit-outer-spin-button, .qm2-stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+/* Glow focus ring for text/date/textarea/select fields */
+.qm-field:focus { border-color: var(--qm-accent, #6366f1) !important; box-shadow: 0 0 0 3px color-mix(in srgb, var(--qm-accent, #6366f1) 18%, transparent) !important; }
+
+/* Count-up tick — remount the number on change (key={value}) to replay */
+.qm2-count { display: inline-block; animation: qm2-count-tick 0.26s cubic-bezier(0.34,1.56,0.64,1); }
+
+/* Type-card icon float on hover */
+.qm-option-card:hover .qm2-type-icon { transform: translateY(-2px) rotate(-6deg); }
+.qm2-type-icon { transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1); }
+
+/* Complexity / choice pill pop */
+.qm2-pill-btn { transition: transform 0.18s cubic-bezier(0.34,1.56,0.64,1), border-color 0.2s ease, background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease; }
+.qm2-pill-btn:hover { transform: translateY(-2px); }
+.qm2-pill-btn.active { box-shadow: 0 4px 14px color-mix(in srgb, var(--qm-accent, #6366f1) 30%, transparent); }
+
+/* Ready-to-submit breathing glow for primary CTAs */
+.qm2-cta-ready { animation: qm2-ring-pulse 2.2s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .qm2-orb, .qm2-sheet-ring, .qm-header-icon-ring, .qm2-segmented-thumb,
+  .qm2-segmented button, .qm2-stepper button, .qm2-count, .qm2-type-icon,
+  .qm2-pill-btn, .qm2-cta-ready {
+    animation: none !important;
+    transition: none !important;
+  }
+}

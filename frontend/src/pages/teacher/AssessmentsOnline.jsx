@@ -46,16 +46,16 @@ import {
   ClipboardCheck, School, BookOpen, ChevronRight, Plus, Loader2,
   ListChecks, Share2, BarChart3, Edit2, Trash2, ArrowLeft, Inbox,
   Lock, PlusCircle, Sparkles, Award, FileEdit, Users, Scale, Undo2,
-  CheckCircle2, Clock, X,
+  CheckCircle2, Clock, X, Layers, CalendarRange, PenSquare,
 } from 'lucide-react';
 
 const TERMS = ['Term 1', 'Term 2', 'Term 3'];
 const CURRENT_YEAR = new Date().getFullYear();
 const YEARS = [`${CURRENT_YEAR - 1}-${CURRENT_YEAR}`, `${CURRENT_YEAR}-${CURRENT_YEAR + 1}`, `${CURRENT_YEAR + 1}-${CURRENT_YEAR + 2}`];
 const ASSESSMENT_TYPES = [
-  { key: 'FA', label: 'Formative Assessment' },
-  { key: 'IA', label: 'Integrated Assessment' },
-  { key: 'CA', label: 'Comprehensive Assessment' },
+  { key: 'FA', label: 'Formative Assessment', color: '#6366f1', icon: FileEdit },
+  { key: 'IA', label: 'Integrated Assessment', color: '#8b5cf6', icon: Layers },
+  { key: 'CA', label: 'Comprehensive Assessment', color: '#f59e0b', icon: Award },
 ];
 
 function courseClasses(course) {
@@ -341,45 +341,74 @@ function AssessmentFormModal({ course, cls, editing, existingAssessments, onClos
   };
 
   return (
-    <Modal isOpen={true} onClose={onClose} title={editing ? 'Edit Assessment' : 'Create Assessment'}>
+    <Modal
+      isOpen={true} onClose={onClose}
+      title={editing ? 'Edit Assessment' : 'Create Assessment'}
+      icon={ClipboardCheck} accent="#6366f1" accent2="#8b5cf6"
+    >
       <div className="space-y-4">
-        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{course.name} · {cls.name}</p>
+        <p className="text-sm flex items-center gap-1.5" style={{ color: 'var(--text-secondary)' }}>
+          <BookOpen className="w-3.5 h-3.5 flex-shrink-0" />
+          <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{course.name}</span>
+          <span>·</span>
+          <School className="w-3.5 h-3.5 flex-shrink-0" />
+          {cls.name}
+        </p>
 
         <div>
-          <label className="text-xs font-semibold mb-1 block" style={{ color: 'var(--text-secondary)' }}>Assessment type</label>
+          <label className="text-xs font-semibold mb-1.5 block" style={{ color: 'var(--text-secondary)' }}>Assessment type</label>
           <div className="grid grid-cols-1 gap-2">
-            {ASSESSMENT_TYPES.map(t => (
-              <button key={t.key} onClick={() => setType(t.key)}
-                className="text-left px-3 py-2 rounded-xl border-2 text-sm font-medium transition-all duration-150"
-                style={{ borderColor: type === t.key ? '#6366f1' : 'var(--card-border)', background: type === t.key ? 'rgba(99,102,241,0.1)' : 'transparent', color: 'var(--text-primary)' }}>
-                {t.label}
-              </button>
-            ))}
+            {ASSESSMENT_TYPES.map(t => {
+              const selected = type === t.key;
+              return (
+                <button key={t.key} type="button" onClick={() => setType(t.key)}
+                  className={`qm-option-card text-left px-3 py-2.5 rounded-xl border-2 text-sm font-medium flex items-center gap-3 ${selected ? 'qm-option-card-selected' : ''}`}
+                  style={{
+                    '--qm-t-color': t.color,
+                    borderColor: selected ? t.color : 'var(--card-border)',
+                    background: selected ? `color-mix(in srgb, ${t.color} 10%, var(--card-bg))` : 'transparent',
+                    color: 'var(--text-primary)',
+                  }}>
+                  <span className="qm2-type-icon w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                    style={{ background: `color-mix(in srgb, ${t.color} 16%, transparent)`, color: t.color }}>
+                    <t.icon className="w-4 h-4" />
+                  </span>
+                  <span className="flex-1">{t.label}</span>
+                  {selected && <CheckCircle2 className="qm-check-pop w-4.5 h-4.5 flex-shrink-0" style={{ color: t.color }} />}
+                </button>
+              );
+            })}
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs font-semibold mb-1 block" style={{ color: 'var(--text-secondary)' }}>Term</label>
-            <select value={term} onChange={e => setTerm(e.target.value)} className="chat-form-field w-full text-sm">
+          <div className="qm-field-group" style={{ '--qm-accent': '#6366f1' }}>
+            <label className="text-xs font-semibold mb-1.5 flex items-center gap-1.5" style={{ color: 'var(--text-secondary)' }}>
+              <span className="qm-field-icon-wrap"><Clock className="w-3.5 h-3.5" /></span> Term
+            </label>
+            <select value={term} onChange={e => setTerm(e.target.value)} className="chat-form-field qm-field w-full text-sm">
               {TERMS.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
-          <div>
-            <label className="text-xs font-semibold mb-1 block" style={{ color: 'var(--text-secondary)' }}>Academic year</label>
-            <select value={academicYear} onChange={e => setAcademicYear(e.target.value)} className="chat-form-field w-full text-sm">
+          <div className="qm-field-group" style={{ '--qm-accent': '#6366f1' }}>
+            <label className="text-xs font-semibold mb-1.5 flex items-center gap-1.5" style={{ color: 'var(--text-secondary)' }}>
+              <span className="qm-field-icon-wrap"><CalendarRange className="w-3.5 h-3.5" /></span> Academic year
+            </label>
+            <select value={academicYear} onChange={e => setAcademicYear(e.target.value)} className="chat-form-field qm-field w-full text-sm">
               {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
             </select>
           </div>
         </div>
 
-        <div>
-          <label className="text-xs font-semibold mb-1 block" style={{ color: 'var(--text-secondary)' }}>Title</label>
+        <div className="qm-field-group" style={{ '--qm-accent': '#6366f1' }}>
+          <label className="text-xs font-semibold mb-1.5 flex items-center gap-1.5" style={{ color: 'var(--text-secondary)' }}>
+            <span className="qm-field-icon-wrap"><PenSquare className="w-3.5 h-3.5" /></span> Title
+          </label>
           <input
             value={title}
             onChange={e => setTitle(e.target.value)}
             placeholder={suggestedTitle}
-            className="chat-form-field w-full text-sm"
+            className="chat-form-field qm-field w-full text-sm"
           />
           {!editing && siblingCount > 0 && (
             <p className="text-xs mt-1 flex items-center gap-1" style={{ color: '#6366f1' }}>
@@ -390,8 +419,8 @@ function AssessmentFormModal({ course, cls, editing, existingAssessments, onClos
         </div>
 
         {!editing && (
-          <div className="p-3 rounded-xl text-sm flex items-start gap-2" style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)' }}>
-            <Sparkles className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#6366f1' }} />
+          <div className="qm-note p-3 rounded-xl text-sm flex items-start gap-2" style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)' }}>
+            <Sparkles className="qm-note-sparkle w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#6366f1' }} />
             <p style={{ color: 'var(--text-secondary)' }}>
               No need to set a maximum here — once you build the question paper, the total is calculated automatically from each question's marks. It doesn't need to match the module weight ({course.total_marks || 100} marks) exactly — results are scaled onto it automatically.
             </p>
@@ -400,7 +429,7 @@ function AssessmentFormModal({ course, cls, editing, existingAssessments, onClos
 
         <div className="flex justify-end gap-2 pt-2">
           <button onClick={onClose} className="btn-secondary">Cancel</button>
-          <button onClick={handleSave} disabled={saving} className="btn-primary assessment-cta flex items-center gap-2">
+          <button onClick={handleSave} disabled={saving} className={`btn-primary assessment-cta flex items-center gap-2 ${!saving ? 'qm2-cta-ready' : ''}`}>
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
             {editing ? 'Save Changes' : 'Create Assessment'}
           </button>

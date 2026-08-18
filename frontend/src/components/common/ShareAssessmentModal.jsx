@@ -30,7 +30,34 @@ import { useState } from 'react';
 import Modal from './Modal';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
-import { Send, Loader2, Clock, CalendarClock, CalendarPlus, RotateCcw, FileText } from 'lucide-react';
+import { Send, Loader2, Clock, CalendarClock, CalendarPlus, RotateCcw, FileText, Plus, Minus } from 'lucide-react';
+
+/* Small +/- stepper — same pattern used in QuizBuilderModal, kept local
+   to avoid a cross-file import for one tiny component. */
+function Stepper({ value, onChange, min = 0, max, step = 1, className = '', title }) {
+  const clamp = (v) => {
+    let n = parseFloat(v);
+    if (Number.isNaN(n)) n = min;
+    if (min != null) n = Math.max(min, n);
+    if (max != null) n = Math.min(max, n);
+    return Math.round(n);
+  };
+  return (
+    <div className={`qm2-stepper ${className}`} title={title}>
+      <button type="button" onClick={() => onChange(clamp((Number(value) || 0) - step))} aria-label="Decrease">
+        <Minus className="w-3.5 h-3.5" />
+      </button>
+      <input
+        type="number" value={value} step={step} min={min} max={max}
+        onChange={e => onChange(e.target.value)}
+        onBlur={e => onChange(clamp(e.target.value))}
+      />
+      <button type="button" onClick={() => onChange(clamp((Number(value) || 0) + step))} aria-label="Increase">
+        <Plus className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  );
+}
 
 function defaultExpiry() {
   const d = new Date();
@@ -95,60 +122,64 @@ export default function ShareAssessmentModal({ assessment, onClose, onShared }) 
   };
 
   return (
-    <Modal isOpen={true} onClose={onClose} title={`${isReshare ? 'Update sharing' : 'Share'} — ${assessment.title}`}>
+    <Modal
+      isOpen={true} onClose={onClose}
+      title={`${isReshare ? 'Update sharing' : 'Share'} — ${assessment.title}`}
+      icon={Send} accent="#6366f1" accent2="#8b5cf6"
+    >
       <div className="space-y-4">
         <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-          This will {isReshare ? 're-publish' : 'publish'} the assessment to <strong>{assessment.class_id?.name || 'the class'}</strong>. Every student will get an in-app and email notification.
+          This will {isReshare ? 're-publish' : 'publish'} the assessment to <strong style={{ color: 'var(--text-primary)' }}>{assessment.class_id?.name || 'the class'}</strong>. Every student will get an in-app and email notification.
         </p>
         {isReshare && (
-          <p className="text-xs px-3 py-2 rounded-xl" style={{ background: 'rgba(99,102,241,0.08)', color: 'var(--text-secondary)' }}>
-            Just want to give students an extra attempt? Use <strong>Add Attempt</strong> instead — it's quicker and skips the full re-notification.
+          <p className="qm-note text-xs px-3 py-2 rounded-xl" style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', color: 'var(--text-secondary)' }}>
+            Just want to give students an extra attempt? Use <strong style={{ color: 'var(--text-primary)' }}>Add Attempt</strong> instead — it's quicker and skips the full re-notification.
           </p>
         )}
 
-        <div>
-          <label className="text-xs font-semibold flex items-center gap-1.5 mb-1" style={{ color: 'var(--text-secondary)' }}>
-            <Clock className="w-3.5 h-3.5" /> Duration (minutes)
+        <div className="qm-field-group" style={{ '--qm-accent': '#6366f1' }}>
+          <label className="text-xs font-semibold flex items-center gap-1.5 mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+            <span className="qm-field-icon-wrap"><Clock className="w-3.5 h-3.5" /></span> Duration (minutes)
           </label>
-          <input type="number" min="1" value={durationMinutes} onChange={e => setDurationMinutes(e.target.value)} className="chat-form-field w-full text-sm" />
+          <Stepper value={durationMinutes} onChange={setDurationMinutes} min={5} step={5} className="w-full" title="Attempt duration in minutes" />
         </div>
 
-        <div>
-          <label className="text-xs font-semibold flex items-center gap-1.5 mb-1" style={{ color: 'var(--text-secondary)' }}>
-            <CalendarPlus className="w-3.5 h-3.5" /> Available from <span className="font-normal normal-case" style={{ color: 'var(--text-secondary)' }}>(optional)</span>
+        <div className="qm-field-group" style={{ '--qm-accent': '#6366f1' }}>
+          <label className="text-xs font-semibold flex items-center gap-1.5 mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+            <span className="qm-field-icon-wrap"><CalendarPlus className="w-3.5 h-3.5" /></span> Available from <span className="font-normal normal-case" style={{ color: 'var(--text-secondary)' }}>(optional)</span>
           </label>
-          <input type="datetime-local" value={availableFrom} onChange={e => setAvailableFrom(e.target.value)} className="chat-form-field w-full text-sm" />
-          <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
+          <input type="datetime-local" value={availableFrom} onChange={e => setAvailableFrom(e.target.value)} className="chat-form-field qm-field w-full text-sm" />
+          <p className="text-xs mt-1.5" style={{ color: 'var(--text-secondary)' }}>
             Students are notified and can see this assessment right away, but can't start it until this time. Leave blank to let them start immediately.
           </p>
         </div>
 
-        <div>
-          <label className="text-xs font-semibold flex items-center gap-1.5 mb-1" style={{ color: 'var(--text-secondary)' }}>
-            <CalendarClock className="w-3.5 h-3.5" /> Expiry date &amp; time
+        <div className="qm-field-group" style={{ '--qm-accent': '#6366f1' }}>
+          <label className="text-xs font-semibold flex items-center gap-1.5 mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+            <span className="qm-field-icon-wrap"><CalendarClock className="w-3.5 h-3.5" /></span> Expiry date &amp; time
           </label>
-          <input type="datetime-local" value={expiresAt} onChange={e => setExpiresAt(e.target.value)} className="chat-form-field w-full text-sm" />
-          <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>Students can no longer start the assessment after this time.</p>
+          <input type="datetime-local" value={expiresAt} onChange={e => setExpiresAt(e.target.value)} className="chat-form-field qm-field w-full text-sm" />
+          <p className="text-xs mt-1.5" style={{ color: 'var(--text-secondary)' }}>Students can no longer start the assessment after this time.</p>
         </div>
 
-        <div>
-          <label className="text-xs font-semibold flex items-center gap-1.5 mb-1" style={{ color: 'var(--text-secondary)' }}>
-            <RotateCcw className="w-3.5 h-3.5" /> Number of attempts
+        <div className="qm-field-group" style={{ '--qm-accent': '#6366f1' }}>
+          <label className="text-xs font-semibold flex items-center gap-1.5 mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+            <span className="qm-field-icon-wrap"><RotateCcw className="w-3.5 h-3.5" /></span> Number of attempts
           </label>
-          <input type="number" min="1" value={maxAttempts} onChange={e => setMaxAttempts(e.target.value)} className="chat-form-field w-full text-sm" />
-          <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>Questions are shuffled per attempt whenever more than one attempt is allowed.</p>
+          <Stepper value={maxAttempts} onChange={setMaxAttempts} min={1} step={1} className="w-full" title="Number of attempts allowed" />
+          <p className="text-xs mt-1.5" style={{ color: 'var(--text-secondary)' }}>Questions are shuffled per attempt whenever more than one attempt is allowed.</p>
         </div>
 
-        <div>
-          <label className="text-xs font-semibold flex items-center gap-1.5 mb-1" style={{ color: 'var(--text-secondary)' }}>
-            <FileText className="w-3.5 h-3.5" /> Instructions shown to students
+        <div className="qm-field-group" style={{ '--qm-accent': '#6366f1' }}>
+          <label className="text-xs font-semibold flex items-center gap-1.5 mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+            <span className="qm-field-icon-wrap"><FileText className="w-3.5 h-3.5" /></span> Instructions shown to students
           </label>
-          <textarea value={instructions} onChange={e => setInstructions(e.target.value)} rows={3} className="chat-form-field w-full text-sm" />
+          <textarea value={instructions} onChange={e => setInstructions(e.target.value)} rows={3} className="chat-form-field qm-field w-full text-sm" />
         </div>
 
         <div className="flex justify-end gap-2 pt-2">
           <button onClick={onClose} className="btn-secondary">Cancel</button>
-          <button onClick={handleShare} disabled={saving} className="btn-primary assessment-cta flex items-center gap-2">
+          <button onClick={handleShare} disabled={saving} className={`btn-primary assessment-cta flex items-center gap-2 ${!saving ? 'qm2-cta-ready' : ''}`}>
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             {isReshare ? 'Update & Re-notify' : 'Share Assessment'}
           </button>

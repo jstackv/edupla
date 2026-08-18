@@ -261,7 +261,7 @@ function CreateGroupPanel({ onClose, onCreated }) {
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between px-5 py-4 flex-shrink-0"
-        style={{ background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)' }}>
+        style={{ background: 'linear-gradient(135deg, #0c1445 0%, #1e3a5f 40%, #0f4c75 100%)' }}>
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
             <Users className="w-4 h-4 text-white" />
@@ -478,7 +478,7 @@ function MembersModal({ group, onClose }) {
     >
       <div onClick={e => e.stopPropagation()} className="fast-modal-sheet" style={{ maxWidth: 400 }}>
         {/* Header */}
-        <div style={{ background: `linear-gradient(135deg, ${a}, ${b})`, padding: '18px 20px' }}>
+        <div style={{ background: 'linear-gradient(135deg, #0c1445 0%, #1e3a5f 40%, #0f4c75 100%)', padding: '18px 20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: '#fff', fontSize: 13 }}>
@@ -687,7 +687,7 @@ function ManageMembersModal({ group, onClose, onChanged }) {
       <div onClick={e => e.stopPropagation()} className="fast-modal-sheet" style={{ maxWidth: 460, maxHeight: 'min(88vh, calc(100vh - 64px))' }}>
         <div style={{ height: 4, background: `linear-gradient(90deg, ${a}, ${b})`, flexShrink: 0 }} />
         {/* Header */}
-        <div style={{ background: `linear-gradient(135deg, ${a}, ${b})`, padding: '18px 20px' }}>
+        <div style={{ background: 'linear-gradient(135deg, #0c1445 0%, #1e3a5f 40%, #0f4c75 100%)', padding: '18px 20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1028,17 +1028,32 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onEnded, onMembersCh
 
   const handleTyping = (e) => { setText(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'; };
   const handleSend = async () => {
-    if (!text.trim() || posting || !group.can_post || isEnded) return;
+    if (!text.trim() || !group.can_post || isEnded) return;
     const content = text.trim(); setText('');
     if (inputRef.current) inputRef.current.style.height = 'auto';
+    // Optimistic insert — the bubble shows up immediately (marked
+    // pending) instead of waiting on the round trip, matching the
+    // no-delay behavior on the student side.
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const optimisticMsg = {
+      id: tempId, _id: tempId, message_type: 'text', content,
+      created_at: new Date().toISOString(), pending: true,
+      author_id: myId, author_name: 'You',
+    };
+    setMessages(prev => [...prev, optimisticMsg]);
+    lastMsgTimeRef.current = optimisticMsg.created_at;
     setPosting(true);
     try {
       const res = await api.post(`/group-discussions/${group.id}/messages`, { content });
       const newMsg = res.data.msg;
-      setMessages(prev => [...prev, newMsg]);
+      setMessages(prev => prev.map(m => m.id === tempId ? newMsg : m));
       lastMsgTimeRef.current = newMsg.created_at;
       onMessageSent && onMessageSent(newMsg);
-    } catch (err) { toast.error(err.response?.data?.message || 'Failed to send'); setText(content); }
+    } catch (err) {
+      setMessages(prev => prev.filter(m => m.id !== tempId));
+      toast.error(err.response?.data?.message || 'Failed to send');
+      setText(content);
+    }
     finally { setPosting(false); }
   };
   const handleKey = (e) => {
@@ -1117,24 +1132,7 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onEnded, onMembersCh
       setRecording(false);
       setAudioBlob(null);
       stopLevelMeter();
-      (async () => {
-        setPosting(true);
-        try {
-          const formData = new FormData();
-          const ext = blob.type.includes('ogg') ? 'ogg' : 'webm';
-          formData.append('audio', blob, `voice-note-${Date.now()}.${ext}`);
-          formData.append('duration', String(duration));
-          const res = await api.post(`/group-discussions/${group.id}/voice-notes`, formData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
-          });
-          const newMsg = res.data.msg;
-          setMessages(prev => [...prev, newMsg]);
-          lastMsgTimeRef.current = newMsg.created_at;
-          onMessageSent && onMessageSent(newMsg);
-        } catch (err) {
-          toast.error(err.response?.data?.message || 'Failed to send voice note');
-        } finally { setPosting(false); }
-      })();
+      sendVoiceBlob(blob, duration);
     };
     mediaRecorderRef.current.stop();
   };
@@ -1153,25 +1151,49 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onEnded, onMembersCh
     else { audioPreviewRef.current.play(); setAudioPlaying(true); audioPreviewRef.current.onended = () => { setAudioPlaying(false); setPreviewTime(0); }; }
   };
 
-  const sendVoiceNote = async () => {
-    if (!audioBlob || posting || isEnded) return;
+  // Shared optimistic voice-note sender — used by both "stop recording and
+  // send" and "send from the preview panel". The bubble is inserted into
+  // the thread immediately (marked pending, playable right away from the
+  // local blob URL) instead of waiting for the upload to finish, matching
+  // the no-delay behavior already implemented on the student side.
+  const sendVoiceBlob = async (blob, duration) => {
+    if (isEnded) return;
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const localUrl = URL.createObjectURL(blob);
+    const optimisticMsg = {
+      id: tempId, _id: tempId, message_type: 'voice', voice_url: localUrl, voice_duration: duration,
+      content: null, created_at: new Date().toISOString(), pending: true,
+      author_id: myId, author_name: 'You',
+    };
+    setMessages(prev => [...prev, optimisticMsg]);
+    lastMsgTimeRef.current = optimisticMsg.created_at;
     setPosting(true);
     try {
       const formData = new FormData();
-      const ext = audioBlob.type.includes('ogg') ? 'ogg' : 'webm';
-      formData.append('audio', audioBlob, `voice-note-${Date.now()}.${ext}`);
-      formData.append('duration', String(audioDuration));
+      const ext = blob.type.includes('ogg') ? 'ogg' : 'webm';
+      formData.append('audio', blob, `voice-note-${Date.now()}.${ext}`);
+      formData.append('duration', String(duration));
       const res = await api.post(`/group-discussions/${group.id}/voice-notes`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       const newMsg = res.data.msg;
-      setMessages(prev => [...prev, newMsg]);
+      setMessages(prev => prev.map(m => m.id === tempId ? newMsg : m));
       lastMsgTimeRef.current = newMsg.created_at;
       onMessageSent && onMessageSent(newMsg);
-      setAudioBlob(null); setRecordingTime(0); setAudioPlaying(false);
     } catch (err) {
+      setMessages(prev => prev.filter(m => m.id !== tempId));
       toast.error(err.response?.data?.message || 'Failed to send voice note');
-    } finally { setPosting(false); }
+    } finally {
+      setPosting(false);
+      URL.revokeObjectURL(localUrl);
+    }
+  };
+
+  const sendVoiceNote = async () => {
+    if (!audioBlob || isEnded) return;
+    const blob = audioBlob, duration = audioDuration;
+    setAudioBlob(null); setRecordingTime(0); setAudioPlaying(false); setPreviewTime(0);
+    await sendVoiceBlob(blob, duration);
   };
 
   const fmtDuration = (secs) => {
@@ -1198,20 +1220,38 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onEnded, onMembersCh
   };
 
   const sendFile = async () => {
-    if (!selectedFile || uploadingFile || isEnded) return;
+    if (!selectedFile || isEnded) return;
+    const file = selectedFile;
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const localUrl = URL.createObjectURL(file);
+    const optimisticMsg = {
+      id: tempId, _id: tempId, message_type: file.type.startsWith('image/') ? 'image' : 'file',
+      file_url: localUrl, file_name: file.name, file_size: file.size, mime_type: file.type,
+      content: null, created_at: new Date().toISOString(), pending: true,
+      author_id: myId, author_name: 'You',
+    };
+    setMessages(prev => [...prev, optimisticMsg]);
+    lastMsgTimeRef.current = optimisticMsg.created_at;
+    // Reset the composer's own preview immediately (separate object URL
+    // from the one now living in the message bubble above) so the teacher
+    // can keep typing or attach the next file right away.
+    cancelFile();
     setUploadingFile(true);
     try {
       const formData = new FormData();
-      formData.append('file', selectedFile);
+      formData.append('file', file);
       const res = await api.post(`/group-discussions/${group.id}/media`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
       const newMsg = res.data.msg;
-      setMessages(prev => [...prev, newMsg]);
+      setMessages(prev => prev.map(m => m.id === tempId ? newMsg : m));
       lastMsgTimeRef.current = newMsg.created_at;
       onMessageSent && onMessageSent(newMsg);
-      cancelFile();
     } catch (err) {
+      setMessages(prev => prev.filter(m => m.id !== tempId));
       toast.error(err.response?.data?.message || 'Failed to send file');
-    } finally { setUploadingFile(false); }
+    } finally {
+      setUploadingFile(false);
+      URL.revokeObjectURL(localUrl);
+    }
   };
 
   const handleEnd = async () => {
@@ -1246,7 +1286,7 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onEnded, onMembersCh
       {/* Hidden file pickers for shared photos/files */}
       <input ref={fileInputRef} type="file" onChange={handleFilePick} style={{ display: 'none' }} />
       <input ref={imageInputRef} type="file" accept="image/*" onChange={handleFilePick} style={{ display: 'none' }} />
-      <div className="tg-viewer-header" style={{ background: `linear-gradient(135deg, ${a}, ${b})`, borderRadius: '16px 16px 0 0', padding: '12px 16px', flexShrink: 0 }}>
+      <div className="tg-viewer-header" style={{ background: 'linear-gradient(135deg, #0c1445 0%, #1e3a5f 40%, #0f4c75 100%)', borderRadius: '16px 16px 0 0', padding: '12px 16px', flexShrink: 0 }}>
         <div className="tg-header-row" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#fff', fontSize: 14, flexShrink: 0 }}>
             {(group.name || 'G').slice(0, 2).toUpperCase()}
@@ -1359,8 +1399,8 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onEnded, onMembersCh
           const bubbleBorder = !item.isMine && !isTeacherMsg ? `1px solid ${senderAccent}2a` : 'none';
           const bubbleBorderLeft = !item.isMine && !isTeacherMsg && item.message_type !== 'image' ? `3px solid ${senderAccent}` : undefined;
           return (
-            <div key={item.key} className={`group flex mb-1 items-center gap-1.5 ${item.isMine ? 'justify-end' : 'justify-start'}`}>
-              {item.isMine && (
+            <div key={item.key} className={`group flex mb-1 items-center gap-1.5 ${item.isMine ? 'justify-end' : 'justify-start'}`} style={{ opacity: item.pending ? 0.7 : 1 }}>
+              {item.isMine && !item.pending && (
                 <button onClick={() => handleDeleteMessage(item.id || item._id)}
                   disabled={deletingId === (item.id || item._id)}
                   className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
@@ -1394,8 +1434,15 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onEnded, onMembersCh
                     : item.content}
                 </div>
                 {item.isLast && (
-                  <div className={`text-[10px] mt-0.5 ${item.isMine ? 'text-right mr-1' : 'ml-1'}`} style={{ color: 'var(--text-secondary)', opacity: 0.6 }}>
-                    {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  <div className={`text-[10px] mt-0.5 flex items-center gap-1 ${item.isMine ? 'justify-end mr-1' : 'ml-1'}`} style={{ color: 'var(--text-secondary)', opacity: 0.6 }}>
+                    {item.pending ? (
+                      <>
+                        <div style={{ width: 9, height: 9, border: '1.5px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+                        Sending…
+                      </>
+                    ) : (
+                      new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    )}
                   </div>
                 )}
               </div>
@@ -1430,12 +1477,15 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onEnded, onMembersCh
         recording ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderTop: '1px solid var(--card-border)', padding: '10px 14px', background: 'var(--card-bg)', flexShrink: 0 }}>
             <button onClick={cancelVoiceNote} title="Cancel" className="tg-voice-cancel-btn"><X style={{ width: 16, height: 16 }} /></button>
-            <div className="tg-rec-panel">
-              <span className="tg-rec-dot" />
+            <div className="tg-rec-panel tg-rec-panel-live" style={{ '--tg-rec-accent': a, '--tg-rec-accent-2': b }}>
+              <div className="tg-rec-dot-wrap">
+                <span className="tg-rec-dot-ring" />
+                <span className="tg-rec-dot" />
+              </div>
               <span className="tg-rec-time">{fmtDuration(recordingTime)}</span>
               <div className="tg-live-wave">
                 {liveLevels.map((v, i) => (
-                  <span key={i} className="tg-live-bar" style={{ height: `${7 + v * 22}px` }} />
+                  <span key={i} className="tg-live-bar" style={{ height: `${7 + v * 22}px`, animationDelay: `${i * 40}ms` }} />
                 ))}
               </div>
             </div>
@@ -1555,6 +1605,12 @@ function LeaderDmPanel({ groupId, myId, peerName, onClose }) {
   const [audioDuration, setAudioDuration] = useState(0);
   const [audioPlaying, setAudioPlaying]   = useState(false);
   const [previewTime, setPreviewTime]     = useState(0);
+  const [selectedFile, setSelectedFile]   = useState(null);
+  const [filePreviewUrl, setFilePreviewUrl] = useState(null);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const fileInputRef = useRef(null);
+  const imageInputRef = useRef(null);
+  const [attachMenuOpen, setAttachMenuOpen] = useState(false);
   const messagesEndRef = useRef(null);
   const pollRef = useRef(null);
   const lastMsgTimeRef = useRef(null);
@@ -1649,12 +1705,24 @@ function LeaderDmPanel({ groupId, myId, peerName, onClose }) {
   const handleSend = async () => {
     if (!text.trim() || posting) return;
     const content = text.trim(); setText('');
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const optimisticMsg = {
+      id: tempId, _id: tempId, message_type: 'text', content,
+      created_at: new Date().toISOString(), pending: true,
+      sender_id: myId, sender_name: 'You',
+    };
+    setMessages(prev => [...prev, optimisticMsg]);
+    lastMsgTimeRef.current = optimisticMsg.created_at;
     setPosting(true);
     try {
       const res = await api.post(`/group-discussions/${groupId}/leader-dm`, { content });
-      setMessages(prev => [...prev, res.data.msg]);
+      setMessages(prev => prev.map(m => m.id === tempId ? res.data.msg : m));
       lastMsgTimeRef.current = res.data.msg.created_at;
-    } catch (err) { toast.error(err.response?.data?.message || 'Failed to send'); setText(content); }
+    } catch (err) {
+      setMessages(prev => prev.filter(m => m.id !== tempId));
+      toast.error(err.response?.data?.message || 'Failed to send');
+      setText(content);
+    }
     finally { setPosting(false); }
   };
 
@@ -1733,6 +1801,15 @@ function LeaderDmPanel({ groupId, myId, peerName, onClose }) {
   };
 
   const postVoiceNote = async (blob, duration) => {
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const localUrl = URL.createObjectURL(blob);
+    const optimisticMsg = {
+      id: tempId, _id: tempId, message_type: 'voice', voice_url: localUrl, voice_duration: duration,
+      content: null, created_at: new Date().toISOString(), pending: true,
+      sender_id: myId, sender_name: 'You',
+    };
+    setMessages(prev => [...prev, optimisticMsg]);
+    lastMsgTimeRef.current = optimisticMsg.created_at;
     setPosting(true);
     try {
       const formData = new FormData();
@@ -1742,11 +1819,68 @@ function LeaderDmPanel({ groupId, myId, peerName, onClose }) {
       const res = await api.post(`/group-discussions/${groupId}/leader-dm/voice-notes`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      setMessages(prev => [...prev, res.data.msg]);
+      setMessages(prev => prev.map(m => m.id === tempId ? res.data.msg : m));
       lastMsgTimeRef.current = res.data.msg.created_at;
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to send voice note');
-    } finally { setPosting(false); }
+      setMessages(prev => prev.filter(m => m.id !== tempId));
+      if (err.response?.status === 404) toast.error("Voice notes aren't available in this private line yet.");
+      else toast.error(err.response?.data?.message || 'Failed to send voice note');
+    } finally {
+      setPosting(false);
+      URL.revokeObjectURL(localUrl);
+    }
+  };
+
+  const handleFilePick = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (file.size > MAX_CHAT_FILE_MB * 1024 * 1024) {
+      toast.error(`File is too large — max ${MAX_CHAT_FILE_MB}MB.`);
+      return;
+    }
+    setSelectedFile(file);
+    setFilePreviewUrl(file.type.startsWith('image/') ? URL.createObjectURL(file) : null);
+  };
+
+  const cancelFile = () => {
+    if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl);
+    setSelectedFile(null);
+    setFilePreviewUrl(null);
+  };
+
+  // File sharing inside the private teacher <-> team-leader DM — mirrors
+  // the group chat's optimistic sendFile, hitting the same leader-dm
+  // media endpoint the student side already posts to.
+  const sendFile = async () => {
+    if (!selectedFile) return;
+    const file = selectedFile;
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const localUrl = URL.createObjectURL(file);
+    const optimisticMsg = {
+      id: tempId, _id: tempId, message_type: file.type.startsWith('image/') ? 'image' : 'file',
+      file_url: localUrl, file_name: file.name, file_size: file.size, mime_type: file.type,
+      content: null, created_at: new Date().toISOString(), pending: true,
+      sender_id: myId, sender_name: 'You',
+    };
+    setMessages(prev => [...prev, optimisticMsg]);
+    lastMsgTimeRef.current = optimisticMsg.created_at;
+    cancelFile();
+    setUploadingFile(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await api.post(`/group-discussions/${groupId}/leader-dm/media`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+      setMessages(prev => prev.map(m => m.id === tempId ? res.data.msg : m));
+      lastMsgTimeRef.current = res.data.msg.created_at;
+    } catch (err) {
+      setMessages(prev => prev.filter(m => m.id !== tempId));
+      if (err.response?.status === 404) toast.error("File sharing isn't available in this private line yet.");
+      else toast.error(err.response?.data?.message || 'Failed to send file');
+    } finally {
+      setUploadingFile(false);
+      URL.revokeObjectURL(localUrl);
+    }
   };
 
   const stopAndSend = () => {
@@ -1765,9 +1899,10 @@ function LeaderDmPanel({ groupId, myId, peerName, onClose }) {
   };
 
   const sendVoiceNote = async () => {
-    if (!audioBlob || posting) return;
-    await postVoiceNote(audioBlob, audioDuration);
+    if (!audioBlob) return;
+    const blob = audioBlob, duration = audioDuration;
     setAudioBlob(null); setRecordingTime(0); setAudioPlaying(false); setPreviewTime(0);
+    await postVoiceNote(blob, duration);
   };
 
   useEffect(() => {
@@ -1784,7 +1919,7 @@ function LeaderDmPanel({ groupId, myId, peerName, onClose }) {
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', animation: 'fastModalBackdropIn 0.12s ease both' }}>
       <div className="w-full flex flex-col rounded-2xl overflow-hidden shadow-2xl" style={{ maxWidth: 440, height: '70vh', background: 'var(--card-bg)', animation: 'fastModalSheetIn 0.18s cubic-bezier(0.34,1.56,0.64,1) both' }}>
-        <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0" style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}>
+        <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0" style={{ background: 'linear-gradient(135deg, #0c1445 0%, #1e3a5f 40%, #0f4c75 100%)' }}>
           <div className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0" style={{ background: 'rgba(255,255,255,0.2)' }}>
             {displayName[0]?.toUpperCase() || '?'}
           </div>
@@ -1817,8 +1952,8 @@ function LeaderDmPanel({ groupId, myId, peerName, onClose }) {
             const isMine = String(m.sender_id) === String(myId);
             const isMedia = m.message_type === 'image' || m.message_type === 'file';
             return (
-              <div key={m.id} className={`group flex mb-1.5 items-center gap-1.5 ${isMine ? 'justify-end' : 'justify-start'}`}>
-                {isMine && (
+              <div key={m.id} className={`group flex mb-1.5 items-center gap-1.5 ${isMine ? 'justify-end' : 'justify-start'}`} style={{ opacity: m.pending ? 0.7 : 1 }}>
+                {isMine && !m.pending && (
                   <button onClick={() => handleDelete(m.id)} disabled={deletingId === m.id}
                     className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
                     style={{ color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer' }}>
@@ -1844,8 +1979,15 @@ function LeaderDmPanel({ groupId, myId, peerName, onClose }) {
                       ? <ChatFileBubble url={m.file_url} name={m.file_name} size={m.file_size} mimeType={m.mime_type} />
                       : m.content}
                   </div>
-                  <div className={`text-[10px] mt-0.5 ${isMine ? 'text-right mr-1' : 'ml-1'}`} style={{ color: 'var(--text-secondary)', opacity: 0.6 }}>
-                    {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  <div className={`text-[10px] mt-0.5 flex items-center gap-1 ${isMine ? 'justify-end mr-1' : 'ml-1'}`} style={{ color: 'var(--text-secondary)', opacity: 0.6 }}>
+                    {m.pending ? (
+                      <>
+                        <div style={{ width: 9, height: 9, border: '1.5px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+                        Sending…
+                      </>
+                    ) : (
+                      new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    )}
                   </div>
                 </div>
               </div>
@@ -1854,15 +1996,38 @@ function LeaderDmPanel({ groupId, myId, peerName, onClose }) {
           <div ref={messagesEndRef} />
         </div>
 
-        {recording ? (
+        {selectedFile ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderTop: '1px solid var(--card-border)', padding: '10px 14px', background: 'var(--card-bg)', flexShrink: 0 }}>
+            <button onClick={cancelFile} style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: 'rgba(220,38,38,0.1)', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}><X style={{ width: 16, height: 16 }} /></button>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface-100)', borderRadius: 14, padding: '6px 10px', border: '1.5px solid #6366f140', minWidth: 0 }}>
+              {filePreviewUrl ? (
+                <img src={filePreviewUrl} alt="" style={{ width: 30, height: 30, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
+              ) : (
+                <div style={{ width: 30, height: 30, borderRadius: 8, background: '#6366f120', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <AttachmentTypeIcon mimeType={selectedFile.type} style={{ width: 15, height: 15, color: '#6366f1' }} />
+                </div>
+              )}
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedFile.name}</div>
+                <div style={{ fontSize: 10.5, color: 'var(--text-secondary)' }}>{fmtFileSize(selectedFile.size)}</div>
+              </div>
+            </div>
+            <button onClick={sendFile} disabled={uploadingFile} style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'linear-gradient(135deg, #6366f1, #4f46e5)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, opacity: uploadingFile ? 0.6 : 1 }}>
+              {uploadingFile ? <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> : <Send style={{ width: 16, height: 16 }} />}
+            </button>
+          </div>
+        ) : recording ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderTop: '1px solid var(--card-border)', padding: '10px 14px', background: 'var(--card-bg)', flexShrink: 0 }}>
             <button onClick={cancelVoiceNote} title="Cancel" className="tg-voice-cancel-btn"><X style={{ width: 16, height: 16 }} /></button>
-            <div className="tg-rec-panel">
-              <span className="tg-rec-dot" />
+            <div className="tg-rec-panel tg-rec-panel-live" style={{ '--tg-rec-accent': '#6366f1', '--tg-rec-accent-2': '#4f46e5' }}>
+              <div className="tg-rec-dot-wrap">
+                <span className="tg-rec-dot-ring" />
+                <span className="tg-rec-dot" />
+              </div>
               <span className="tg-rec-time">{fmtDuration(recordingTime)}</span>
               <div className="tg-live-wave">
                 {liveLevels.map((v, i) => (
-                  <span key={i} className="tg-live-bar" style={{ height: `${7 + v * 22}px` }} />
+                  <span key={i} className="tg-live-bar" style={{ height: `${7 + v * 22}px`, animationDelay: `${i * 40}ms` }} />
                 ))}
               </div>
             </div>
@@ -1893,6 +2058,21 @@ function LeaderDmPanel({ groupId, myId, peerName, onClose }) {
           </div>
         ) : (
           <div className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0" style={{ borderTop: '1px solid var(--card-border)' }}>
+            <input ref={fileInputRef} type="file" onChange={handleFilePick} style={{ display: 'none' }} />
+            <input ref={imageInputRef} type="file" accept="image/*" onChange={handleFilePick} style={{ display: 'none' }} />
+            <div style={{ position: 'relative', flexShrink: 0 }}>
+              <button onClick={() => setAttachMenuOpen(o => !o)} title="Attach"
+                className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-all active:scale-95"
+                style={{ background: 'var(--surface-100)', color: 'var(--text-secondary)' }}>
+                <Plus className="w-4 h-4" />
+              </button>
+              <AttachMenu
+                open={attachMenuOpen}
+                onClose={() => setAttachMenuOpen(false)}
+                onPickImage={() => imageInputRef.current?.click()}
+                onPickFile={() => fileInputRef.current?.click()}
+              />
+            </div>
             <input value={text} onChange={e => setText(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
               placeholder={`Message ${displayName}…`}
@@ -2290,42 +2470,83 @@ export default function TeacherGroups() {
         .tg-voice-bar-live { animation: tgVoiceBarPulse 0.55s ease-in-out infinite alternate; transform-origin: center; }
         @keyframes tgVoiceBarPulse { from { transform: scaleY(0.8); } to { transform: scaleY(1.25); } }
 
-        /* ── Voice notes — recording pill + pre-send preview panel ───── */
+        /* ── Voice notes — recording pill + pre-send preview panel ─────
+           Dark-orange "live" identity (not red), with three layered
+           animations while actively recording: a breathing ambient glow
+           around the whole pill, a radar-style expanding ring behind the
+           rec dot, and a slow gradient shimmer sweeping the live bars. */
         .tg-rec-panel {
+          position: relative;
+          --tg-rec-accent: #ea580c;
+          --tg-rec-accent-2: #c2410c;
           flex: 1; display: flex; align-items: center; gap: 9px;
           background: var(--surface-100); border-radius: 22px; padding: 8px 15px;
-          border: 1.5px solid rgba(220,38,38,0.2);
+          border: 1.5px solid color-mix(in srgb, var(--tg-rec-accent) 32%, transparent);
           animation: tgRecPanelIn 0.18s ease both;
+          overflow: hidden;
+          transition: border-color 0.2s ease;
+        }
+        .tg-rec-panel-live {
+          animation: tgRecPanelIn 0.18s ease both, tgRecPanelBreathe 2.4s ease-in-out infinite;
         }
         @keyframes tgRecPanelIn { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: scale(1); } }
+        @keyframes tgRecPanelBreathe {
+          0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--tg-rec-accent) 18%, transparent); border-color: color-mix(in srgb, var(--tg-rec-accent) 32%, transparent); }
+          50% { box-shadow: 0 0 20px 1px color-mix(in srgb, var(--tg-rec-accent) 26%, transparent); border-color: color-mix(in srgb, var(--tg-rec-accent) 58%, transparent); }
+        }
+
+        .tg-rec-dot-wrap { position: relative; width: 10px; height: 10px; flex-shrink: 0; }
         .tg-rec-dot {
-          width: 10px; height: 10px; border-radius: 50%; background: #dc2626; flex-shrink: 0;
+          position: relative; z-index: 1; display: block;
+          width: 10px; height: 10px; border-radius: 50%;
+          background: linear-gradient(135deg, var(--tg-rec-accent), var(--tg-rec-accent-2));
           animation: tgRecDotPulse 1.1s ease-in-out infinite;
         }
-        @keyframes tgRecDotPulse {
-          0%, 100% { box-shadow: 0 0 0 0 rgba(220,38,38,0.45); transform: scale(1); }
-          50% { box-shadow: 0 0 0 7px rgba(220,38,38,0); transform: scale(1.16); }
+        .tg-rec-dot-ring {
+          position: absolute; inset: -6px; border-radius: 50%;
+          border: 1.5px solid color-mix(in srgb, var(--tg-rec-accent) 55%, transparent);
+          animation: tgRecRadarPing 1.8s cubic-bezier(0.2,0.65,0.4,1) infinite;
         }
-        .tg-rec-time { font-size: 13.5px; font-weight: 800; color: #dc2626; font-variant-numeric: tabular-nums; flex-shrink: 0; }
-        .tg-live-wave { flex: 1; display: flex; align-items: center; gap: 2.5px; height: 26px; min-width: 0; overflow: hidden; }
+        @keyframes tgRecDotPulse {
+          0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--tg-rec-accent) 50%, transparent); transform: scale(1); }
+          50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--tg-rec-accent) 0%, transparent); transform: scale(1.18); }
+        }
+        @keyframes tgRecRadarPing {
+          0% { transform: scale(0.55); opacity: 0.9; }
+          100% { transform: scale(2.4); opacity: 0; }
+        }
+        .tg-rec-time { font-size: 13.5px; font-weight: 800; font-variant-numeric: tabular-nums; flex-shrink: 0; color: var(--tg-rec-accent-2); }
+        .tg-rec-panel-live .tg-rec-time {
+          background: linear-gradient(135deg, var(--tg-rec-accent), var(--tg-rec-accent-2));
+          -webkit-background-clip: text; background-clip: text;
+          -webkit-text-fill-color: transparent;
+        }
+        .tg-live-wave { flex: 1; display: flex; align-items: center; gap: 2.5px; height: 26px; min-width: 0; overflow: hidden; position: relative; z-index: 1; }
         .tg-live-bar {
           width: 3px; min-width: 3px; border-radius: 3px; flex-shrink: 0;
-          background: linear-gradient(180deg, #f87171, #dc2626);
+          background: linear-gradient(180deg, color-mix(in srgb, var(--tg-rec-accent) 65%, #fff), var(--tg-rec-accent) 55%, var(--tg-rec-accent-2));
+          background-size: 100% 240%;
+          animation: tgLiveBarShimmer 1.5s ease-in-out infinite;
           transition: height 0.08s ease-out;
+        }
+        @keyframes tgLiveBarShimmer {
+          0%, 100% { background-position: 0 0%; }
+          50% { background-position: 0 100%; }
         }
         .tg-voice-cancel-btn, .tg-voice-send-btn {
           width: 40px; height: 40px; border-radius: 50%; border: none; cursor: pointer; flex-shrink: 0;
           display: flex; align-items: center; justify-content: center; color: #fff;
           transition: transform 0.15s ease, box-shadow 0.15s ease;
         }
-        .tg-voice-cancel-btn { background: rgba(220,38,38,0.1); color: #dc2626; }
-        .tg-voice-cancel-btn:hover { background: rgba(220,38,38,0.18); transform: scale(1.06); }
+        .tg-voice-cancel-btn { background: rgba(120,113,108,0.14); color: #a8a29e; }
+        .tg-voice-cancel-btn:hover { background: rgba(120,113,108,0.24); transform: scale(1.06); }
         .tg-voice-send-btn:hover { transform: scale(1.08); box-shadow: 0 4px 16px -3px rgba(0,0,0,0.25); }
         .tg-voice-send-btn:active, .tg-voice-cancel-btn:active { transform: scale(0.92); }
 
         @media (prefers-reduced-motion: reduce) {
           .tg-voice-play-btn-active, .tg-voice-bar-live,
-          .tg-rec-dot, .tg-rec-panel { animation: none !important; }
+          .tg-rec-dot, .tg-rec-dot-ring, .tg-rec-panel, .tg-rec-panel-live,
+          .tg-live-bar { animation: none !important; }
         }
 
         /* ── Responsive: group viewer header ─────────────────────── */
@@ -2342,7 +2563,7 @@ export default function TeacherGroups() {
         style={{ background: 'var(--card-bg)', borderRadius: 20, overflow: 'hidden', border: '1px solid var(--card-border)' }}>
 
         {/* Header */}
-        <div className="flex-shrink-0" style={{ background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', padding: '18px 16px 0' }}>
+        <div className="flex-shrink-0" style={{ background: 'linear-gradient(135deg, #3730a3 0%, #312e81 100%)', padding: '18px 16px 0' }}>
           <div className="flex items-center justify-between mb-1">
             <h2 className="text-white font-bold text-lg flex items-center gap-2">
               <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center"><Users className="w-4 h-4" /></div>
@@ -2366,7 +2587,7 @@ export default function TeacherGroups() {
               data-active={tab === 'groups'}
               className="tg-tab-btn flex-1 text-xs font-bold px-2 py-1.5 rounded-lg"
               style={tab === 'groups'
-                ? { background: 'white', color: '#4f46e5', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }
+                ? { background: 'white', color: '#3730a3', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }
                 : { color: 'rgba(255,255,255,0.75)' }}>
               My Groups
             </button>
@@ -2392,7 +2613,7 @@ export default function TeacherGroups() {
                 <button key={c.id} onClick={() => setFilterClass(c.id)}
                   data-active={filterClass === c.id}
                   className="tg-filter-chip flex-shrink-0 text-xs px-3 py-1.5 rounded-full font-semibold whitespace-nowrap"
-                  style={filterClass === c.id ? { background: 'linear-gradient(135deg, #6366f1, #4f46e5)', color: 'white' } : { background: 'var(--surface-100)', color: 'var(--text-secondary)' }}>
+                  style={filterClass === c.id ? { background: 'linear-gradient(135deg, #3730a3, #312e81)', color: 'white' } : { background: 'var(--surface-100)', color: 'var(--text-secondary)' }}>
                   {c.name}
                 </button>
               ))}
@@ -2404,14 +2625,14 @@ export default function TeacherGroups() {
                 </div>
               ) : groups.length === 0 ? (
                 <div className="tg-empty-state flex flex-col items-center justify-center py-20 px-6 text-center">
-                  <div className="w-16 h-16 rounded-2xl mb-4 flex items-center justify-center" style={{ background: 'rgba(99,102,241,0.08)' }}>
-                    <Users className="w-8 h-8" style={{ color: '#6366f1', opacity: 0.5 }} />
+                  <div className="w-16 h-16 rounded-2xl mb-4 flex items-center justify-center" style={{ background: 'rgba(55,48,163,0.08)' }}>
+                    <Users className="w-8 h-8" style={{ color: '#3730a3', opacity: 0.5 }} />
                   </div>
                   <p className="font-bold mb-1" style={{ color: 'var(--text-primary)' }}>No groups yet</p>
                   <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>Create a group to let students collaborate.</p>
                   <button onClick={() => setCreateMode(true)}
                     className="tg-pill-btn flex items-center gap-1.5 text-sm font-bold px-4 py-2 rounded-xl text-white"
-                    style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}>
+                    style={{ background: 'linear-gradient(135deg, #3730a3, #312e81)' }}>
                     <Plus className="w-4 h-4" /> New Group
                   </button>
                 </div>
@@ -2445,8 +2666,8 @@ export default function TeacherGroups() {
         <div className="hidden lg:flex flex-1 items-center justify-center rounded-2xl"
           style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
           <div className="tg-empty-state text-center px-8">
-            <div className="w-20 h-20 rounded-2xl mx-auto mb-5 flex items-center justify-center" style={{ background: 'rgba(99,102,241,0.08)' }}>
-              <Users className="w-10 h-10" style={{ color: '#6366f1', opacity: 0.6 }} />
+            <div className="w-20 h-20 rounded-2xl mx-auto mb-5 flex items-center justify-center" style={{ background: 'rgba(55,48,163,0.08)' }}>
+              <Users className="w-10 h-10" style={{ color: '#3730a3', opacity: 0.6 }} />
             </div>
             <h3 className="font-bold text-xl mb-2" style={{ color: 'var(--text-primary)' }}>Group Discussions</h3>
             <p className="text-sm mb-6 max-w-xs mx-auto" style={{ color: 'var(--text-secondary)' }}>
@@ -2456,7 +2677,7 @@ export default function TeacherGroups() {
             {tab === 'groups' && (
               <button onClick={() => setCreateMode(true)}
                 className="tg-pill-btn inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white"
-                style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}>
+                style={{ background: 'linear-gradient(135deg, #3730a3, #312e81)' }}>
                 <Plus className="w-4 h-4" /> Create First Group
               </button>
             )}

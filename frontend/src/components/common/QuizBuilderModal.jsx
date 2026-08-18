@@ -17,14 +17,15 @@ import toast from 'react-hot-toast';
 import {
   Plus, Trash2, Save, GripVertical, ListChecks, ToggleLeft,
   PenLine, Shuffle, MessageSquareText, Lock, Loader2, Sparkles, PencilLine,
+  Scale, ClipboardList, Minus,
 } from 'lucide-react';
 
 const QUESTION_TYPES = [
-  { key: 'mcq',        label: 'Multiple Choice', icon: ListChecks },
-  { key: 'true_false',  label: 'True / False',    icon: ToggleLeft },
-  { key: 'fill_gap',    label: 'Fill in the Gap', icon: PenLine },
-  { key: 'matching',    label: 'Matching',        icon: Shuffle },
-  { key: 'open',        label: 'Open Question',   icon: MessageSquareText },
+  { key: 'mcq',        label: 'Multiple Choice', icon: ListChecks,        color: '#6366f1' },
+  { key: 'true_false',  label: 'True / False',    icon: ToggleLeft,        color: '#0d9488' },
+  { key: 'fill_gap',    label: 'Fill in the Gap', icon: PenLine,           color: '#8b5cf6' },
+  { key: 'matching',    label: 'Matching',        icon: Shuffle,           color: '#f59e0b' },
+  { key: 'open',        label: 'Open Question',   icon: MessageSquareText, color: '#ec4899' },
 ];
 
 const COMPLEXITY_LEVELS = [
@@ -32,6 +33,33 @@ const COMPLEXITY_LEVELS = [
   { key: 'medium',   label: 'Medium' },
   { key: 'advanced', label: 'Advanced' },
 ];
+
+/* Small +/- stepper used for anything mark- or count-related — nicer to
+   tap than a bare number input, while still accepting typed values. */
+function Stepper({ value, onChange, min = 0, max, step = 1, className = '', title }) {
+  const clamp = (v) => {
+    let n = parseFloat(v);
+    if (Number.isNaN(n)) n = min;
+    if (min != null) n = Math.max(min, n);
+    if (max != null) n = Math.min(max, n);
+    return step >= 1 ? Math.round(n) : Math.round(n * 100) / 100;
+  };
+  return (
+    <div className={`qm2-stepper ${className}`} title={title}>
+      <button type="button" onClick={() => onChange(clamp((Number(value) || 0) - step))} aria-label="Decrease">
+        <Minus className="w-3.5 h-3.5" />
+      </button>
+      <input
+        type="number" value={value} step={step} min={min} max={max}
+        onChange={e => onChange(e.target.value)}
+        onBlur={e => onChange(clamp(e.target.value))}
+      />
+      <button type="button" onClick={() => onChange(clamp((Number(value) || 0) + step))} aria-label="Increase">
+        <Plus className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  );
+}
 
 function blankQuestion(type = 'mcq') {
   const base = { _key: Math.random().toString(36).slice(2), type, question_text: '', marks: 1 };
@@ -185,7 +213,11 @@ export default function QuizBuilderModal({ assessment, onClose, onSaved }) {
   };
 
   return (
-    <Modal isOpen={true} onClose={onClose} title={`Build Questions — ${assessment.title}`} size="xl">
+    <Modal
+      isOpen={true} onClose={onClose}
+      title={`Build Questions — ${assessment.title}`} size="xl"
+      icon={ClipboardList} accent="#6366f1" accent2="#8b5cf6"
+    >
       {loading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--text-secondary)' }} />
@@ -193,23 +225,12 @@ export default function QuizBuilderModal({ assessment, onClose, onSaved }) {
       ) : (
         <div className="space-y-4">
           {!locked && (
-            <div className="flex gap-1 p-1 rounded-xl" style={{ background: 'var(--surface-1, rgba(255,255,255,0.04))' }}>
-              <button type="button" onClick={() => setBuilderMode('manual')}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition-colors"
-                style={{
-                  background: builderMode === 'manual' ? 'var(--card-bg, rgba(255,255,255,0.06))' : 'transparent',
-                  border: builderMode === 'manual' ? '1px solid var(--card-border)' : '1px solid transparent',
-                  color: builderMode === 'manual' ? 'var(--text-primary)' : 'var(--text-secondary)',
-                }}>
+            <div className="qm2-segmented">
+              <span className="qm2-segmented-thumb" style={{ left: builderMode === 'manual' ? '4px' : 'calc(50% + 1px)', width: 'calc(50% - 5px)' }} />
+              <button type="button" onClick={() => setBuilderMode('manual')} className={builderMode === 'manual' ? 'active' : ''}>
                 <PencilLine className="w-4 h-4" /> Manual Creation
               </button>
-              <button type="button" onClick={() => setBuilderMode('ai')}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-semibold transition-colors"
-                style={{
-                  background: builderMode === 'ai' ? 'var(--card-bg, rgba(255,255,255,0.06))' : 'transparent',
-                  border: builderMode === 'ai' ? '1px solid var(--card-border)' : '1px solid transparent',
-                  color: builderMode === 'ai' ? 'var(--text-primary)' : 'var(--text-secondary)',
-                }}>
+              <button type="button" onClick={() => setBuilderMode('ai')} className={builderMode === 'ai' ? 'active' : ''}>
                 <Sparkles className="w-4 h-4" /> AI Generation
               </button>
             </div>
@@ -223,7 +244,7 @@ export default function QuizBuilderModal({ assessment, onClose, onSaved }) {
                   value={aiForm.topic}
                   onChange={e => setAiForm(f => ({ ...f, topic: e.target.value }))}
                   placeholder="e.g. Cell division and mitosis"
-                  className="chat-form-field w-full text-sm"
+                  className="chat-form-field qm-field w-full text-sm"
                 />
               </div>
               <div>
@@ -233,7 +254,7 @@ export default function QuizBuilderModal({ assessment, onClose, onSaved }) {
                   onChange={e => setAiForm(f => ({ ...f, references: e.target.value }))}
                   placeholder="Paste links, textbook chapters, or notes to keep the questions precise — one per line"
                   rows={2}
-                  className="chat-form-field w-full text-sm"
+                  className="chat-form-field qm-field w-full text-sm"
                 />
               </div>
               <div>
@@ -242,13 +263,14 @@ export default function QuizBuilderModal({ assessment, onClose, onSaved }) {
                   {QUESTION_TYPES.map(t => (
                     <div key={t.key} className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl" style={{ border: '1px solid var(--card-border)' }}>
                       <span className="text-xs flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
-                        <t.icon className="w-3.5 h-3.5" style={{ color: 'var(--text-secondary)' }} /> {t.label}
+                        <t.icon className="w-3.5 h-3.5" style={{ color: t.color }} /> {t.label}
                       </span>
-                      <input
-                        type="number" min="0" step="1"
+                      <Stepper
                         value={aiForm.counts[t.key]}
-                        onChange={e => updateAiCount(t.key, e.target.value)}
-                        className="chat-form-field text-sm py-1 px-2 w-14 text-center"
+                        onChange={v => updateAiCount(t.key, v)}
+                        min={0} step={1}
+                        className="w-24 flex-shrink-0"
+                        title={`Number of ${t.label} questions`}
                       />
                     </div>
                   ))}
@@ -259,7 +281,7 @@ export default function QuizBuilderModal({ assessment, onClose, onSaved }) {
                 <div className="flex gap-2">
                   {COMPLEXITY_LEVELS.map(c => (
                     <button key={c.key} type="button" onClick={() => setAiForm(f => ({ ...f, complexity: c.key }))}
-                      className="flex-1 py-1.5 rounded-xl text-sm font-semibold border-2 transition-colors"
+                      className={`qm2-pill-btn flex-1 py-1.5 rounded-xl text-sm font-semibold border-2 ${aiForm.complexity === c.key ? 'active' : ''}`}
                       style={{
                         borderColor: aiForm.complexity === c.key ? '#10b981' : 'var(--card-border)',
                         background: aiForm.complexity === c.key ? 'rgba(16,185,129,0.12)' : 'transparent',
@@ -296,12 +318,7 @@ export default function QuizBuilderModal({ assessment, onClose, onSaved }) {
               style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)' }}>
               <Sparkles className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--text-secondary)' }} />
               <span style={{ color: 'var(--text-secondary)' }}>Set marks for every generated question at once:</span>
-              <input
-                type="number" min="0.5" step="0.5"
-                value={bulkMarks}
-                onChange={e => setBulkMarks(e.target.value)}
-                className="chat-form-field text-sm py-1 px-2 w-20"
-              />
+              <Stepper value={bulkMarks} onChange={setBulkMarks} min={0.5} step={0.5} className="w-28" title="Marks per question" />
               <button type="button"
                 onClick={() => {
                   const m = Number(bulkMarks);
@@ -321,38 +338,62 @@ export default function QuizBuilderModal({ assessment, onClose, onSaved }) {
           )}
           <div className="flex items-center justify-between text-sm">
             <span style={{ color: 'var(--text-secondary)' }}>{questions.length} question{questions.length !== 1 ? 's' : ''}</span>
-            <span className="font-semibold flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
-              Total marks: {totalMarks} / {moduleWeight} MW
-            </span>
           </div>
-          {totalMarks > moduleWeight && (
-            <p className="text-xs -mt-2" style={{ color: 'var(--text-secondary)' }}>
-              This is worth more than the module weight ({moduleWeight} marks) — that's fine, a student's score is scaled onto the module weight automatically when results are calculated.
+
+          {/* Total Marks (what you've built so far) vs Module Weight (the fixed
+             ceiling results get scaled onto) — kept as two distinctly styled
+             chips on purpose, so they never read as the same number. */}
+          <div className="qm-stats-row">
+            <div className="qm-stat-chip qm-stat-chip-marks">
+              <span className="qm-stat-icon"><PenLine className="w-4 h-4" /></span>
+              <div className="min-w-0">
+                <span className="qm-stat-label">Total Marks (this paper)</span>
+                <span className="qm-stat-value"><span key={totalMarks} className="qm2-count">{totalMarks}</span></span>
+              </div>
+            </div>
+            <div className="qm-stat-chip qm-stat-chip-weight">
+              <span className="qm-stat-icon"><Scale className="w-4 h-4" /></span>
+              <div className="min-w-0">
+                <span className="qm-stat-label">Module Weight (fixed)</span>
+                <span className="qm-stat-value"><span key={moduleWeight} className="qm2-count">{moduleWeight}</span></span>
+              </div>
+            </div>
+          </div>
+
+          {totalMarks > moduleWeight ? (
+            <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+              Your questions add up to more than the module weight — that's fine, a student's raw score is automatically scaled down onto the {moduleWeight}-mark module weight when results are calculated.
+            </p>
+          ) : totalMarks > 0 && totalMarks < moduleWeight ? (
+            <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+              Your questions add up to less than the module weight — that's fine too, a student's raw score is automatically scaled up onto the {moduleWeight}-mark module weight when results are calculated.
+            </p>
+          ) : (
+            <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+              Total Marks is calculated automatically from each question below — it doesn't need to match the Module Weight exactly; results are always scaled onto it.
             </p>
           )}
-          <p className="text-xs -mt-2" style={{ color: 'var(--text-secondary)' }}>
-            The assessment's maximum is calculated automatically from these question marks — no need to set it separately.
-          </p>
 
           <fieldset disabled={locked} className="space-y-4">
-            {questions.map((q, idx) => (
-              <div key={q._key} className="card p-4">
+            {questions.map((q, idx) => {
+              const qColor = QUESTION_TYPES.find(t => t.key === q.type)?.color || '#6366f1';
+              return (
+              <div key={q._key} className="qm-question-card card p-4" style={{ '--qi': idx, '--qm-q-color': qColor }}>
                 <div className="flex items-start gap-2 mb-3">
-                  <GripVertical className="w-4 h-4 mt-2 flex-shrink-0" style={{ color: 'var(--text-secondary)' }} />
-                  <span className="text-xs font-bold mt-2" style={{ color: 'var(--text-secondary)' }}>Q{idx + 1}</span>
+                  <GripVertical className="qm-drag-handle w-4 h-4 mt-2 flex-shrink-0" style={{ color: 'var(--text-secondary)' }} />
+                  <span className="text-xs font-bold mt-2" style={{ color: qColor }}>Q{idx + 1}</span>
                   <select
                     value={q.type}
                     onChange={e => changeType(q._key, e.target.value)}
-                    className="chat-form-field text-sm py-1.5 px-2 w-44"
+                    className="chat-form-field qm-field text-sm py-1.5 px-2 w-44"
                   >
                     {QUESTION_TYPES.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
                   </select>
-                  <input
-                    type="number" min="1" step="0.5"
+                  <Stepper
                     value={q.marks}
-                    onChange={e => updateQuestion(q._key, { marks: e.target.value })}
-                    className="chat-form-field text-sm py-1.5 px-2 w-20"
-                    placeholder="Marks"
+                    onChange={v => updateQuestion(q._key, { marks: v })}
+                    min={0.5} step={0.5}
+                    className="w-28"
                     title="Marks for this question"
                   />
                   <button type="button" onClick={() => removeQuestion(q._key)}
@@ -374,7 +415,7 @@ export default function QuizBuilderModal({ assessment, onClose, onSaved }) {
                     {q.options.map(opt => (
                       <div key={opt.key} className="flex items-center gap-2">
                         <button type="button" onClick={() => toggleCorrectOption(q._key, opt.key)}
-                          className="w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold border-2 transition-colors"
+                          className={`qm-correct-toggle w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold border-2 ${(q.correct_answer || []).includes(opt.key) ? 'qm-correct-toggle-active' : ''}`}
                           style={{
                             borderColor: (q.correct_answer || []).includes(opt.key) ? '#10b981' : 'var(--card-border)',
                             background: (q.correct_answer || []).includes(opt.key) ? '#10b981' : 'transparent',
@@ -468,10 +509,11 @@ export default function QuizBuilderModal({ assessment, onClose, onSaved }) {
                   </div>
                 )}
               </div>
-            ))}
+              );
+            })}
 
             <button type="button" onClick={addQuestion}
-              className="w-full py-2.5 rounded-xl border-2 border-dashed text-sm font-semibold flex items-center justify-center gap-2 transition-colors"
+              className="qm-add-question-btn w-full py-2.5 rounded-xl border-2 border-dashed text-sm font-semibold flex items-center justify-center gap-2"
               style={{ borderColor: 'var(--card-border)', color: 'var(--text-secondary)' }}>
               <Plus className="w-4 h-4" /> Add question
             </button>
@@ -482,7 +524,7 @@ export default function QuizBuilderModal({ assessment, onClose, onSaved }) {
           <div className="flex justify-end gap-2 pt-2">
             <button onClick={onClose} className="btn-secondary">Cancel</button>
             {!locked && builderMode === 'manual' && (
-              <button onClick={handleSave} disabled={saving} className="btn-primary flex items-center gap-2">
+              <button onClick={handleSave} disabled={saving} className={`btn-primary flex items-center gap-2 ${!saving ? 'qm2-cta-ready' : ''}`}>
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                 Save Questions
               </button>
