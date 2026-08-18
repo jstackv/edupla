@@ -67,12 +67,25 @@ const getStatus = async (req, res) => {
 // POST /api/billing/pay  — admin (payer) only
 const initiatePayment = async (req, res) => {
   try {
-    const { phone } = req.body;
+    const { phone, amount } = req.body;
     if (!phone || !String(phone).trim()) {
       return res.status(400).json({ message: "A phone number is required to receive the payment prompt." });
     }
 
     const plan = getPlan();
+
+    // Amount is editable (useful for sandbox testing and one-off amounts);
+    // plan_days stays fixed — Edupla doesn't yet prorate access by amount
+    // paid, so any amount buys the same SUBSCRIPTION_PLAN_DAYS block.
+    let chargeAmount = plan.amount;
+    if (amount !== undefined && amount !== null && String(amount).trim() !== "") {
+      const parsed = Number(amount);
+      if (!Number.isFinite(parsed) || parsed <= 0) {
+        return res.status(400).json({ message: "Amount must be a positive number." });
+      }
+      chargeAmount = String(parsed);
+    }
+
     const referenceId = crypto.randomUUID();
     const externalId = `EDUPLA-${req.user.id}-${Date.now()}`;
 
@@ -86,7 +99,7 @@ const initiatePayment = async (req, res) => {
     const paidUntilBefore = owner?.billing?.paid_until || null;
 
     await momoService.requestToPay({
-      amount: plan.amount,
+      amount: chargeAmount,
       currency: plan.currency,
       phone,
       externalId,
@@ -99,7 +112,7 @@ const initiatePayment = async (req, res) => {
       admin_id: req.user.id,
       reference_id: referenceId,
       external_id: externalId,
-      amount: plan.amount,
+      amount: chargeAmount,
       currency: plan.currency,
       phone,
       plan_days: plan.days,

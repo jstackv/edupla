@@ -6,7 +6,7 @@ import api from '../utils/api';
 import toast from 'react-hot-toast';
 import {
   GraduationCap, Smartphone, LogOut, ArrowRight, Sun, Moon,
-  Sparkles, CheckCircle2, AlertCircle, Loader2, Clock, ShieldCheck,
+  Sparkles, CheckCircle2, AlertCircle, Loader2, Clock, ShieldCheck, Banknote,
 } from 'lucide-react';
 
 const GLOBAL_CSS = `
@@ -52,6 +52,7 @@ export default function Billing() {
   const { billing, refresh } = useBilling();
 
   const [phone, setPhone] = useState('');
+  const [amount, setAmount] = useState('');
   const [stage, setStage] = useState('idle'); // idle | requesting | awaiting | success | failed
   const [error, setError] = useState('');
   const pollRef = useRef(null);
@@ -59,6 +60,11 @@ export default function Billing() {
   useEffect(() => {
     if (billing?.default_phone) setPhone(billing.default_phone);
   }, [billing?.default_phone]);
+
+  useEffect(() => {
+    if (billing?.plan?.amount && !amount) setAmount(String(billing.plan.amount));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [billing?.plan?.amount]);
 
   useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
 
@@ -102,9 +108,14 @@ export default function Billing() {
       setError('Enter the MTN Mobile Money number to pay from.');
       return;
     }
+    const numericAmount = Number(amount);
+    if (!amount || !Number.isFinite(numericAmount) || numericAmount <= 0) {
+      setError('Enter a valid amount to pay.');
+      return;
+    }
     setStage('requesting');
     try {
-      const res = await api.post('/billing/pay', { phone: phone.trim() });
+      const res = await api.post('/billing/pay', { phone: phone.trim(), amount: numericAmount });
       setStage('awaiting');
       pollStatus(res.data.reference_id);
     } catch (err) {
@@ -262,6 +273,27 @@ export default function Billing() {
                       className="bp-input"
                       value={phone}
                       onChange={e => setPhone(e.target.value)}
+                      style={inputBase}
+                      disabled={stage === 'requesting'}
+                    />
+                  </div>
+
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: dark ? '#94a3b8' : '#64748b', marginBottom: 6 }}>
+                    Amount {plan?.currency ? `(${plan.currency})` : ''}
+                  </label>
+                  <div style={{ position: 'relative', marginBottom: 14 }}>
+                    <Banknote size={15} style={{
+                      position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)',
+                      color: dark ? '#5b6485' : '#c2895d', pointerEvents: 'none',
+                    }} />
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="Amount to pay"
+                      className="bp-input"
+                      value={amount}
+                      onChange={e => setAmount(e.target.value)}
                       style={inputBase}
                       disabled={stage === 'requesting'}
                     />
