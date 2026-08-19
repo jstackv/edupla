@@ -45,7 +45,7 @@ function Stepper({ value, onChange, min = 0, max, step = 1, className = '', titl
   return (
     <div className={`qm2-stepper ${className}`} title={title}>
       <button type="button" onClick={() => onChange(clamp((Number(value) || 0) - step))} aria-label="Decrease">
-        <Minus className="w-3.5 h-3.5" />
+        <Minus className="w-4 h-4" />
       </button>
       <input
         type="number" value={value} step={step} min={min} max={max}
@@ -53,7 +53,7 @@ function Stepper({ value, onChange, min = 0, max, step = 1, className = '', titl
         onBlur={e => onChange(clamp(e.target.value))}
       />
       <button type="button" onClick={() => onChange(clamp((Number(value) || 0) + step))} aria-label="Increase">
-        <Plus className="w-3.5 h-3.5" />
+        <Plus className="w-4 h-4" />
       </button>
     </div>
   );

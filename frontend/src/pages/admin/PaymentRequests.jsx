@@ -1,13 +1,14 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import { usePendingPayments } from '../../context/PendingPaymentsContext';
 import {
   Wallet, Search, RefreshCw, CheckCircle2, XCircle, Clock, Loader2,
-  Settings2, Plus, Pencil, Trash2, X, Mail, Phone, Smartphone, Building2,
+  Settings2, Plus, Pencil, Trash2, X, Mail, Smartphone, Building2,
+  Inbox, TrendingUp, CircleDollarSign, ListChecks, RotateCcw,
 } from 'lucide-react';
 
-const TOKENS = { emerald: '#10b981', rose: '#f43f5e', amber: '#f59e0b', slate: '#64748b' };
+const TOKENS = { emerald: '#10b981', rose: '#f43f5e', amber: '#f59e0b', slate: '#64748b', gold: '#d97706', indigo: '#6366f1' };
 
 const STATUS_META = {
   PENDING: { label: 'Pending', color: TOKENS.amber, bg: 'rgba(245,158,11,0.1)', icon: Clock },
@@ -16,13 +17,49 @@ const STATUS_META = {
 };
 
 const GLOBAL_STYLES = `
-  @keyframes pr-fade { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes pr-fade { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
   @keyframes pr-scale { from { opacity:0; transform:scale(0.94) translateY(10px); } to { opacity:1; transform:scale(1) translateY(0); } }
-  .pr-row { animation: pr-fade 0.35s ease both; }
-  .pr-modal { animation: pr-scale 0.2s ease both; }
-  .pr-btn { transition: transform .15s, filter .15s; }
+  @keyframes pr-shimmer { 0% { background-position: -300px 0; } 100% { background-position: 300px 0; } }
+  @keyframes pr-stamp-in {
+    0% { opacity: 0; transform: scale(2.2) rotate(-18deg); }
+    60% { opacity: 1; }
+    100% { opacity: 1; transform: scale(1) rotate(-10deg); }
+  }
+  @keyframes pr-glow-emerald { 0%,100% { box-shadow: 0 0 0 rgba(16,185,129,0); } 50% { box-shadow: 0 0 14px rgba(16,185,129,0.25); } }
+
+  .pr-row { animation: pr-fade 0.4s cubic-bezier(0.16,1,0.3,1) both; position: relative; transition: background .15s; }
+  .pr-row:hover { background: rgba(99,102,241,0.025); }
+  .pr-row.is-pending { border-left: 3px solid ${TOKENS.amber}; }
+  .pr-row:not(.is-pending) { border-left: 3px solid transparent; }
+
+  .pr-modal { animation: pr-scale 0.2s cubic-bezier(0.16,1,0.3,1) both; }
+  .pr-btn { transition: transform .15s cubic-bezier(0.16,1,0.3,1), filter .15s, box-shadow .2s; }
   .pr-btn:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.06); }
-  .pr-btn:active:not(:disabled) { transform: translateY(0); }
+  .pr-btn:active:not(:disabled) { transform: translateY(0) scale(0.98); }
+  .pr-btn:focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; }
+  .pr-search input:focus, .pr-check:focus-visible { outline: 2px solid #6366f1; outline-offset: 1px; }
+
+  .pr-stat-card { transition: transform .2s cubic-bezier(0.16,1,0.3,1), box-shadow .2s; }
+  .pr-stat-card:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(0,0,0,0.12); }
+  .pr-stat-glow { animation: pr-glow-emerald 3s ease-in-out infinite; }
+
+  .pr-perforation {
+    background-image: radial-gradient(circle, var(--card-border) 1.4px, transparent 1.4px);
+    background-size: 8px 8px; background-position: center;
+  }
+
+  .pr-stamp { animation: pr-stamp-in 0.5s cubic-bezier(0.16,1,0.3,1) both; }
+
+  .pr-skel {
+    background: linear-gradient(90deg, var(--surface-100) 25%, rgba(148,163,184,0.14) 37%, var(--surface-100) 63%);
+    background-size: 400px 100%;
+    animation: pr-shimmer 1.4s ease-in-out infinite;
+    border-radius: 8px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pr-row, .pr-modal, .pr-stamp, .pr-skel, .pr-stat-glow { animation: none !important; }
+  }
 `;
 
 function formatDateTime(d) {
@@ -38,19 +75,91 @@ function formatMoney(amount, currency) {
   return `${Number.isFinite(n) ? n.toLocaleString('en-US') : amount} ${currency || ''}`.trim();
 }
 
+function CountUp({ value, duration = 700, format }) {
+  const [display, setDisplay] = useState(0);
+  const raf = useRef(null);
+  useEffect(() => {
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) { setDisplay(value); return; }
+    const start = performance.now();
+    const tick = (now) => {
+      const t = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setDisplay(Math.round(value * eased));
+      if (t < 1) raf.current = requestAnimationFrame(tick);
+    };
+    raf.current = requestAnimationFrame(tick);
+    return () => raf.current && cancelAnimationFrame(raf.current);
+  }, [value, duration]);
+  return <>{format ? format(display) : display}</>;
+}
+
+function StatCard({ icon: Icon, label, value, color, format, glow }) {
+  return (
+    <div className={`pr-stat-card ${glow ? 'pr-stat-glow' : ''}`} style={{
+      flex: '1 1 150px', minWidth: 150, padding: '14px 16px', borderRadius: 16,
+      background: 'var(--card-bg)', border: '1px solid var(--card-border)',
+      display: 'flex', flexDirection: 'column', gap: 8,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          {label}
+        </span>
+        <div style={{ width: 24, height: 24, borderRadius: 7, background: `${color}1a`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Icon size={12} color={color} />
+        </div>
+      </div>
+      <span style={{ fontFamily: "'Sora',sans-serif", fontWeight: 800, fontSize: 22, color: 'var(--text-primary)', lineHeight: 1 }}>
+        <CountUp value={value} format={format} />
+      </span>
+    </div>
+  );
+}
+
+function SkeletonRow() {
+  return (
+    <div style={{ padding: '16px 18px', borderBottom: '1px solid var(--card-border)', display: 'flex', alignItems: 'center', gap: 14 }}>
+      <div className="pr-skel" style={{ width: 38, height: 38, borderRadius: 10 }} />
+      <div style={{ flex: 1 }}><div className="pr-skel" style={{ height: 13, width: '35%', marginBottom: 6 }} /><div className="pr-skel" style={{ height: 10, width: '55%' }} /></div>
+      <div className="pr-skel" style={{ height: 14, width: 90 }} />
+      <div className="pr-skel" style={{ height: 22, width: 74, borderRadius: 999 }} />
+    </div>
+  );
+}
+
+// ── Stamp overlay for resolved claims — leans into the fact that this
+// literally IS a receipt-verification workflow: confirming stamps it like
+// an approved chit, rejecting stamps it in red. ──────────────────────────
+function Stamp({ status }) {
+  const isConfirmed = status === 'SUCCESSFUL';
+  return (
+    <div className="pr-stamp" style={{
+      display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px',
+      border: `2px solid ${isConfirmed ? TOKENS.emerald : TOKENS.rose}`, borderRadius: 6,
+      color: isConfirmed ? TOKENS.emerald : TOKENS.rose, fontSize: 10, fontWeight: 800,
+      letterSpacing: '0.06em', textTransform: 'uppercase', transform: 'rotate(-10deg)',
+      opacity: 0.85,
+    }}>
+      {isConfirmed ? <CheckCircle2 size={11} /> : <XCircle size={11} />}
+      {isConfirmed ? 'Verified' : 'Declined'}
+    </div>
+  );
+}
+
 // ── Reject reason modal ───────────────────────────────────────────────
-function RejectModal({ payment, onClose, onDone }) {
+function RejectModal({ payments, onClose, onDone }) {
+  const isBulk = payments.length > 1;
   const [reason, setReason] = useState('');
   const [saving, setSaving] = useState(false);
 
   const submit = async () => {
     setSaving(true);
     try {
-      await api.post(`/system/billing/manual-payments/${payment._id}/reject`, { reason: reason.trim() });
-      toast.success('Payment claim rejected.');
+      await Promise.all(payments.map(p => api.post(`/system/billing/manual-payments/${p._id}/reject`, { reason: reason.trim() })));
+      toast.success(isBulk ? `${payments.length} claims rejected.` : 'Payment claim rejected.');
       onDone();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to reject claim.');
+      toast.error(err.response?.data?.message || 'Failed to reject claim(s).');
     } finally {
       setSaving(false);
     }
@@ -63,10 +172,14 @@ function RejectModal({ payment, onClose, onDone }) {
           <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(244,63,94,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <XCircle size={16} color={TOKENS.rose} />
           </div>
-          <h3 style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Reject payment claim</h3>
+          <h3 style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+            {isBulk ? `Reject ${payments.length} claims` : 'Reject payment claim'}
+          </h3>
         </div>
         <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', margin: '0 0 14px', lineHeight: 1.6 }}>
-          {payment.admin_id?.name} claimed {formatMoney(payment.amount, payment.currency)} for {payment.plan_name}. The school stays locked out after rejecting.
+          {isBulk
+            ? 'Every selected school stays locked out after rejecting.'
+            : `${payments[0].admin_id?.name} claimed ${formatMoney(payments[0].amount, payments[0].currency)} for ${payments[0].plan_name}. The school stays locked out after rejecting.`}
         </p>
         <label style={{ display: 'block', fontSize: 11.5, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 6 }}>
           Reason (optional, for your own records)
@@ -76,6 +189,7 @@ function RejectModal({ payment, onClose, onDone }) {
           onChange={e => setReason(e.target.value)}
           placeholder="e.g. No matching transaction found in wallet"
           rows={3}
+          className="pr-search"
           style={{
             width: '100%', borderRadius: 12, border: '1px solid var(--card-border)',
             background: 'var(--surface-100)', color: 'var(--text-primary)',
@@ -106,7 +220,7 @@ function RejectModal({ payment, onClose, onDone }) {
 function PlanManagerModal({ onClose }) {
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(null); // plan being edited, or 'new'
+  const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ name: '', amount: '', currency: 'RWF', days: '', sort_order: 0 });
   const [saving, setSaving] = useState(false);
 
@@ -184,7 +298,7 @@ function PlanManagerModal({ onClose }) {
             </div>
             <h3 style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Payment plans</h3>
           </div>
-          <button onClick={onClose} style={{ width: 28, height: 28, borderRadius: 8, border: 'none', cursor: 'pointer', background: 'var(--surface-100)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <button onClick={onClose} className="pr-btn" style={{ width: 28, height: 28, borderRadius: 8, border: 'none', cursor: 'pointer', background: 'var(--surface-100)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <X size={14} color="var(--text-secondary)" />
           </button>
         </div>
@@ -271,27 +385,32 @@ function PlanManagerModal({ onClose }) {
 
 export default function PaymentRequests() {
   const { refresh: refreshBadge } = usePendingPayments() || {};
-  const [payments, setPayments] = useState([]);
+  const [allPayments, setAllPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState('PENDING');
   const [query, setQuery] = useState('');
-  const [rejectTarget, setRejectTarget] = useState(null);
+  const [selected, setSelected] = useState(new Set());
+  const [rejectTarget, setRejectTarget] = useState(null); // array of payments
   const [confirmingId, setConfirmingId] = useState(null);
   const [showPlanManager, setShowPlanManager] = useState(false);
 
+  // Single fetch of everything — tab switching and search then filter
+  // client-side instantly instead of round-tripping per click, and it lets
+  // the stat cards reflect the whole dataset regardless of which tab is
+  // currently open.
   const load = useCallback(async (silent) => {
     if (!silent) setLoading(true); else setRefreshing(true);
     try {
-      const res = await api.get('/system/billing/manual-payments', { params: filter === 'ALL' ? {} : { status: filter } });
-      setPayments(res.data.payments);
+      const res = await api.get('/system/billing/manual-payments');
+      setAllPayments(res.data.payments);
     } catch {
       toast.error('Failed to load payment claims.');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [filter]);
+  }, []);
 
   useEffect(() => { load(); }, [load]);
 
@@ -309,27 +428,60 @@ export default function PaymentRequests() {
     }
   };
 
+  const stats = useMemo(() => {
+    const pending = allPayments.filter(p => p.status === 'PENDING');
+    const confirmed = allPayments.filter(p => p.status === 'SUCCESSFUL');
+    const rejected = allPayments.filter(p => p.status === 'REJECTED');
+    const now = new Date();
+    const thisMonthConfirmedTotal = confirmed
+      .filter(p => {
+        const d = new Date(p.reviewed_at || p.created_at);
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      })
+      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+    return { pendingCount: pending.length, confirmedCount: confirmed.length, rejectedCount: rejected.length, thisMonthConfirmedTotal, total: allPayments.length };
+  }, [allPayments]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return payments;
-    return payments.filter(p =>
-      p.admin_id?.name?.toLowerCase().includes(q) ||
-      p.admin_id?.email?.toLowerCase().includes(q) ||
-      p.phone?.toLowerCase().includes(q)
-    );
-  }, [payments, query]);
+    return allPayments.filter(p => {
+      if (filter !== 'ALL' && p.status !== filter) return false;
+      if (!q) return true;
+      return p.admin_id?.name?.toLowerCase().includes(q) || p.admin_id?.email?.toLowerCase().includes(q) || p.phone?.toLowerCase().includes(q);
+    });
+  }, [allPayments, query, filter]);
+
+  const pendingInView = filtered.filter(p => p.status === 'PENDING');
+  const allPendingSelected = pendingInView.length > 0 && pendingInView.every(p => selected.has(p._id));
+
+  const toggleSelectAll = () => {
+    if (allPendingSelected) setSelected(new Set());
+    else setSelected(new Set(pendingInView.map(p => p._id)));
+  };
+  const toggleSelect = (id) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const selectedPayments = allPayments.filter(p => selected.has(p._id));
 
   return (
     <div style={{ padding: '28px 28px 60px' }}>
       <style>{GLOBAL_STYLES}</style>
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22, flexWrap: 'wrap', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 42, height: 42, borderRadius: 12, background: 'linear-gradient(135deg,#f97316,#ea580c)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Wallet size={20} color="#fff" />
+          <div style={{
+            width: 44, height: 44, borderRadius: 13, background: 'linear-gradient(135deg,#f97316,#ea580c)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 20px rgba(249,115,22,0.35)',
+          }}>
+            <Wallet size={21} color="#fff" />
           </div>
           <div>
-            <h1 style={{ fontSize: 19, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Payment Requests</h1>
+            <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Payment Requests</h1>
             <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', margin: '2px 0 0' }}>
               Manual MoMo payment claims from schools
             </p>
@@ -353,22 +505,31 @@ export default function PaymentRequests() {
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+      {/* Stat cards */}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 18, flexWrap: 'wrap' }}>
+        <StatCard icon={Clock} label="Awaiting review" value={stats.pendingCount} color={TOKENS.amber} glow={stats.pendingCount > 0} />
+        <StatCard icon={CircleDollarSign} label="Confirmed this month" value={stats.thisMonthConfirmedTotal} color={TOKENS.gold} format={v => v.toLocaleString('en-US') + ' RWF'} />
+        <StatCard icon={ListChecks} label="Confirmed claims" value={stats.confirmedCount} color={TOKENS.emerald} />
+        <StatCard icon={TrendingUp} label="Total claims" value={stats.total} color={TOKENS.indigo} />
+      </div>
+
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
         {['PENDING', 'SUCCESSFUL', 'REJECTED', 'ALL'].map(key => {
           const meta = STATUS_META[key];
           const active = filter === key;
+          const count = key === 'ALL' ? stats.total : key === 'PENDING' ? stats.pendingCount : key === 'SUCCESSFUL' ? stats.confirmedCount : stats.rejectedCount;
           return (
-            <button key={key} onClick={() => setFilter(key)} className="pr-btn" style={{
+            <button key={key} onClick={() => { setFilter(key); setSelected(new Set()); }} className="pr-btn" style={{
               padding: '7px 13px', borderRadius: 999, fontSize: 12, fontWeight: 700, cursor: 'pointer',
               border: `1px solid ${active ? (meta?.color || '#6366f1') : 'var(--card-border)'}`,
               background: active ? (meta?.bg || 'rgba(99,102,241,0.1)') : 'var(--surface-100)',
               color: active ? (meta?.color || '#6366f1') : 'var(--text-secondary)',
             }}>
-              {key === 'ALL' ? 'All' : meta.label}
+              {key === 'ALL' ? 'All' : meta.label} ({count})
             </button>
           );
         })}
-        <div style={{ position: 'relative', marginLeft: 'auto', minWidth: 220 }}>
+        <div className="pr-search" style={{ position: 'relative', marginLeft: 'auto', minWidth: 220 }}>
           <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
           <input
             value={query}
@@ -377,31 +538,78 @@ export default function PaymentRequests() {
             style={{
               width: '100%', padding: '8px 12px 8px 32px', borderRadius: 11,
               border: '1px solid var(--card-border)', background: 'var(--surface-100)',
-              color: 'var(--text-primary)', fontSize: 12.5, boxSizing: 'border-box',
+              color: 'var(--text-primary)', fontSize: 12.5, boxSizing: 'border-box', outline: 'none',
             }}
           />
         </div>
       </div>
 
-      <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 18, overflow: 'hidden' }}>
-        {loading ? (
-          <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)', fontSize: 13 }}>
-            <Loader2 size={20} className="animate-spin" style={{ margin: '0 auto 8px' }} /> Loading claims…
+      {/* Bulk action bar — reject only; confirming still requires checking
+          the wallet per claim, so bulk-confirm isn't offered on purpose. */}
+      {selected.size > 0 && (
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+          padding: '10px 16px', borderRadius: 14, marginBottom: 12,
+          background: 'rgba(244,63,94,0.08)', border: `1px solid ${TOKENS.rose}`,
+        }}>
+          <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)' }}>
+            {selected.size} claim{selected.size === 1 ? '' : 's'} selected
+          </span>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => setSelected(new Set())} className="pr-btn" style={{
+              padding: '6px 12px', borderRadius: 9, border: '1px solid var(--card-border)', background: 'var(--card-bg)',
+              color: 'var(--text-primary)', fontSize: 11.5, fontWeight: 700, cursor: 'pointer',
+            }}>
+              Clear
+            </button>
+            <button onClick={() => setRejectTarget(selectedPayments)} className="pr-btn" style={{
+              display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 9, border: 'none',
+              background: TOKENS.rose, color: '#fff', fontSize: 11.5, fontWeight: 700, cursor: 'pointer',
+            }}>
+              <XCircle size={12} /> Reject selected
+            </button>
           </div>
+        </div>
+      )}
+
+      <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 18, overflow: 'hidden' }}>
+        {pendingInView.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 18px', borderBottom: '1px solid var(--card-border)' }}>
+            <input type="checkbox" className="pr-check" checked={allPendingSelected} onChange={toggleSelectAll} style={{ width: 15, height: 15, cursor: 'pointer' }} />
+            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+              Select all pending in view
+            </span>
+          </div>
+        )}
+
+        {loading ? (
+          <>{[0, 1, 2].map(i => <SkeletonRow key={i} />)}</>
         ) : filtered.length === 0 ? (
-          <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)', fontSize: 13 }}>
-            No payment claims here.
+          <div style={{ padding: '52px 20px', textAlign: 'center' }}>
+            <div style={{ width: 52, height: 52, borderRadius: 16, background: 'var(--surface-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+              <Inbox size={22} color="var(--text-secondary)" />
+            </div>
+            <p style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>
+              {query ? 'No matches' : filter === 'PENDING' ? "You're all caught up" : 'Nothing here yet'}
+            </p>
+            <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: 0 }}>
+              {query ? `Nothing matches "${query}" in this view.` : filter === 'PENDING' ? 'New claims will appear here the moment a school submits one.' : 'Claims will show up here as schools submit payments.'}
+            </p>
           </div>
         ) : (
           filtered.map((payment, i) => {
             const meta = STATUS_META[payment.status] || STATUS_META.PENDING;
-            const StatusIcon = meta.icon;
+            const isPending = payment.status === 'PENDING';
             return (
-              <div key={payment._id} className="pr-row" style={{
-                padding: '16px 18px', borderBottom: i === filtered.length - 1 ? 'none' : '1px solid var(--card-border)',
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap',
-                animationDelay: `${i * 0.02}s`,
+              <div key={payment._id} className={`pr-row ${isPending ? 'is-pending' : ''}`} style={{
+                padding: '15px 18px', borderBottom: i === filtered.length - 1 ? 'none' : '1px solid var(--card-border)',
+                display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
+                animationDelay: `${Math.min(i, 8) * 0.03}s`,
               }}>
+                {isPending && (
+                  <input type="checkbox" className="pr-check" checked={selected.has(payment._id)} onChange={() => toggleSelect(payment._id)} style={{ width: 15, height: 15, cursor: 'pointer', flexShrink: 0 }} />
+                )}
+
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: 1 }}>
                   <div style={{ width: 38, height: 38, borderRadius: 10, background: 'var(--surface-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <Building2 size={16} color="var(--text-secondary)" />
@@ -417,17 +625,27 @@ export default function PaymentRequests() {
                   </div>
                 </div>
 
-                <div style={{ textAlign: 'right', minWidth: 140 }}>
-                  <p style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>{formatMoney(payment.amount, payment.currency)}</p>
+                {/* Perforated divider — a receipt stub detail that also
+                    doubles as a natural section break */}
+                <div className="pr-perforation" style={{ width: 1, alignSelf: 'stretch', minHeight: 32 }} />
+
+                <div style={{ textAlign: 'right', minWidth: 130 }}>
+                  <p style={{ fontFamily: "'Sora',sans-serif", fontSize: 15, fontWeight: 800, color: TOKENS.gold, margin: 0 }}>
+                    {formatMoney(payment.amount, payment.currency)}
+                  </p>
                   <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: '2px 0 0' }}>{payment.plan_name} · {formatDateTime(payment.created_at)}</p>
                 </div>
 
-                <span style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 999,
-                  background: meta.bg, color: meta.color, fontSize: 11.5, fontWeight: 700, flexShrink: 0,
-                }}>
-                  <StatusIcon size={11} /> {meta.label}
-                </span>
+                {payment.status === 'PENDING' ? (
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 999,
+                    background: meta.bg, color: meta.color, fontSize: 11.5, fontWeight: 700, flexShrink: 0,
+                  }}>
+                    <meta.icon size={11} /> {meta.label}
+                  </span>
+                ) : (
+                  <Stamp status={payment.status} />
+                )}
 
                 {payment.status === 'PENDING' ? (
                   <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
@@ -437,12 +655,24 @@ export default function PaymentRequests() {
                     }}>
                       {confirmingId === payment._id ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />} Confirm
                     </button>
-                    <button onClick={() => setRejectTarget(payment)} className="pr-btn" style={{
+                    <button onClick={() => setRejectTarget([payment])} className="pr-btn" style={{
                       display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 10,
                       border: `1px solid ${TOKENS.rose}`, background: 'transparent', color: TOKENS.rose, fontSize: 11.5, fontWeight: 700, cursor: 'pointer',
                     }}>
                       <XCircle size={12} /> Reject
                     </button>
+                  </div>
+                ) : payment.status === 'REJECTED' ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+                    <button onClick={() => confirm(payment)} disabled={confirmingId === payment._id} className="pr-btn" title="Reconsider this decision and restore the school's access" style={{
+                      display: 'flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 9,
+                      border: `1px solid ${TOKENS.emerald}`, background: 'transparent', color: TOKENS.emerald, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                    }}>
+                      {confirmingId === payment._id ? <Loader2 size={11} className="animate-spin" /> : <RotateCcw size={11} />} Reconsider & confirm
+                    </button>
+                    <p style={{ fontSize: 10.5, color: 'var(--text-secondary)', margin: 0, textAlign: 'right' }}>
+                      by {payment.reviewed_by?.name || '—'} · {formatDateTime(payment.reviewed_at)}
+                    </p>
                   </div>
                 ) : (
                   <p style={{ fontSize: 10.5, color: 'var(--text-secondary)', margin: 0, minWidth: 90, textAlign: 'right' }}>
@@ -456,7 +686,7 @@ export default function PaymentRequests() {
       </div>
 
       {rejectTarget && (
-        <RejectModal payment={rejectTarget} onClose={() => setRejectTarget(null)} onDone={() => { setRejectTarget(null); load(true); }} />
+        <RejectModal payments={rejectTarget} onClose={() => setRejectTarget(null)} onDone={() => { setRejectTarget(null); setSelected(new Set()); load(true); }} />
       )}
       {showPlanManager && <PlanManagerModal onClose={() => setShowPlanManager(false)} />}
     </div>

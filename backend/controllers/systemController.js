@@ -380,8 +380,12 @@ const confirmManualPayment = async (req, res) => {
   try {
     const payment = await Payment.findOne({ _id: req.params.paymentId, method: 'manual' });
     if (!payment) return res.status(404).json({ message: 'Payment claim not found.' });
-    if (payment.status !== 'PENDING') {
-      return res.status(409).json({ message: `This claim was already ${payment.status.toLowerCase()}.` });
+    // Confirming from PENDING is the normal path. Confirming from REJECTED
+    // is a super admin reconsidering an earlier decision (e.g. the money
+    // actually did show up after all) — allowed. Confirming an already
+    // SUCCESSFUL claim would double-grant days, so that stays blocked.
+    if (payment.status === 'SUCCESSFUL') {
+      return res.status(409).json({ message: 'This claim was already confirmed.' });
     }
 
     // Reuse the exact same billing-application logic the automated MTN
@@ -389,6 +393,7 @@ const confirmManualPayment = async (req, res) => {
     const { applySuccessfulPayment } = require('./billingController');
     const paidUntil = await applySuccessfulPayment(payment);
 
+    payment.review_note = null; // clear any prior rejection reason
     payment.reviewed_by = req.user.id;
     payment.reviewed_at = new Date();
     await payment.save();

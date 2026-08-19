@@ -17,7 +17,7 @@ import toast from 'react-hot-toast';
 import {
   Plus, Trash2, Save, GripVertical, ListChecks, ToggleLeft,
   PenLine, Shuffle, MessageSquareText, Lock, Loader2, Sparkles, PencilLine,
-  Scale, ClipboardList, Minus,
+  Scale, ClipboardList, Minus, Sprout, Flame, Zap, CheckCircle2,
 } from 'lucide-react';
 
 const QUESTION_TYPES = [
@@ -29,9 +29,9 @@ const QUESTION_TYPES = [
 ];
 
 const COMPLEXITY_LEVELS = [
-  { key: 'easy',     label: 'Easy' },
-  { key: 'medium',   label: 'Medium' },
-  { key: 'advanced', label: 'Advanced' },
+  { key: 'easy',     label: 'Easy',     subtitle: 'Recall & basics',          icon: Sprout, color: '#10b981', dots: 1 },
+  { key: 'medium',   label: 'Medium',   subtitle: 'Applied understanding',    icon: Flame,  color: '#f59e0b', dots: 2 },
+  { key: 'advanced', label: 'Advanced', subtitle: 'Analysis & synthesis',     icon: Zap,    color: '#ef4444', dots: 3 },
 ];
 
 /* Small +/- stepper used for anything mark- or count-related — nicer to
@@ -47,7 +47,7 @@ function Stepper({ value, onChange, min = 0, max, step = 1, className = '', titl
   return (
     <div className={`qm2-stepper ${className}`} title={title}>
       <button type="button" onClick={() => onChange(clamp((Number(value) || 0) - step))} aria-label="Decrease">
-        <Minus className="w-3.5 h-3.5" />
+        <Minus className="w-4 h-4" />
       </button>
       <input
         type="number" value={value} step={step} min={min} max={max}
@@ -55,7 +55,7 @@ function Stepper({ value, onChange, min = 0, max, step = 1, className = '', titl
         onBlur={e => onChange(clamp(e.target.value))}
       />
       <button type="button" onClick={() => onChange(clamp((Number(value) || 0) + step))} aria-label="Increase">
-        <Plus className="w-3.5 h-3.5" />
+        <Plus className="w-4 h-4" />
       </button>
     </div>
   );
@@ -228,10 +228,14 @@ export default function QuizBuilderModal({ assessment, onClose, onSaved }) {
             <div className="qm2-segmented">
               <span className="qm2-segmented-thumb" style={{ left: builderMode === 'manual' ? '4px' : 'calc(50% + 1px)', width: 'calc(50% - 5px)' }} />
               <button type="button" onClick={() => setBuilderMode('manual')} className={builderMode === 'manual' ? 'active' : ''}>
-                <PencilLine className="w-4 h-4" /> Manual Creation
+                <PencilLine className="w-4 h-4 flex-shrink-0" />
+                <span className="hidden min-[420px]:inline">Manual Creation</span>
+                <span className="min-[420px]:hidden">Manual</span>
               </button>
               <button type="button" onClick={() => setBuilderMode('ai')} className={builderMode === 'ai' ? 'active' : ''}>
-                <Sparkles className="w-4 h-4" /> AI Generation
+                <Sparkles className="w-4 h-4 flex-shrink-0" />
+                <span className="hidden min-[420px]:inline">AI Generation</span>
+                <span className="min-[420px]:hidden">AI Gen</span>
               </button>
             </div>
           )}
@@ -258,46 +262,73 @@ export default function QuizBuilderModal({ assessment, onClose, onSaved }) {
                 />
               </div>
               <div>
-                <label className="text-xs font-semibold block mb-2" style={{ color: 'var(--text-secondary)' }}>Question mix</label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {QUESTION_TYPES.map(t => (
-                    <div key={t.key} className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl" style={{ border: '1px solid var(--card-border)' }}>
-                      <span className="text-xs flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
-                        <t.icon className="w-3.5 h-3.5" style={{ color: t.color }} /> {t.label}
-                      </span>
-                      <Stepper
-                        value={aiForm.counts[t.key]}
-                        onChange={v => updateAiCount(t.key, v)}
-                        min={0} step={1}
-                        className="w-24 flex-shrink-0"
-                        title={`Number of ${t.label} questions`}
-                      />
-                    </div>
-                  ))}
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Question mix</label>
+                  {aiQuestionTotal > 0 && (
+                    <span className="qm3-mix-total">
+                      <ClipboardList className="w-3 h-3" />
+                      <span key={aiQuestionTotal} className="qm2-count">{aiQuestionTotal}</span> total
+                    </span>
+                  )}
+                </div>
+
+                {aiQuestionTotal > 0 && (
+                  <div className="qm3-mix-bar">
+                    {QUESTION_TYPES.filter(t => (Number(aiForm.counts[t.key]) || 0) > 0).map(t => (
+                      <div key={t.key} className="qm3-mix-bar-seg"
+                        style={{ width: `${(Number(aiForm.counts[t.key]) / aiQuestionTotal) * 100}%`, background: t.color }}
+                        title={`${t.label}: ${aiForm.counts[t.key]}`} />
+                    ))}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 min-[420px]:grid-cols-2 sm:grid-cols-3 gap-2.5">
+                  {QUESTION_TYPES.map(t => {
+                    const active = (Number(aiForm.counts[t.key]) || 0) > 0;
+                    return (
+                      <div key={t.key} className={`qm3-mix-card ${active ? 'active' : ''}`} style={{ '--qm3-c': t.color }}>
+                        <div className="flex items-center gap-2 mb-2.5">
+                          <span className="qm3-mix-icon flex-shrink-0"><t.icon className="w-4 h-4" /></span>
+                          <span className="text-xs font-semibold leading-tight min-w-0" style={{ color: 'var(--text-primary)' }}>{t.label}</span>
+                        </div>
+                        <Stepper
+                          value={aiForm.counts[t.key]}
+                          onChange={v => updateAiCount(t.key, v)}
+                          min={0} step={1}
+                          className="w-full"
+                          title={`Number of ${t.label} questions`}
+                        />
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
               <div>
                 <label className="text-xs font-semibold block mb-2" style={{ color: 'var(--text-secondary)' }}>Complexity</label>
-                <div className="flex gap-2">
-                  {COMPLEXITY_LEVELS.map(c => (
-                    <button key={c.key} type="button" onClick={() => setAiForm(f => ({ ...f, complexity: c.key }))}
-                      className={`qm2-pill-btn flex-1 py-1.5 rounded-xl text-sm font-semibold border-2 ${aiForm.complexity === c.key ? 'active' : ''}`}
-                      style={{
-                        borderColor: aiForm.complexity === c.key ? '#10b981' : 'var(--card-border)',
-                        background: aiForm.complexity === c.key ? 'rgba(16,185,129,0.12)' : 'transparent',
-                        color: aiForm.complexity === c.key ? '#10b981' : 'var(--text-secondary)',
-                      }}>{c.label}</button>
-                  ))}
+                <div className="grid grid-cols-1 min-[360px]:grid-cols-3 gap-2">
+                  {COMPLEXITY_LEVELS.map(c => {
+                    const active = aiForm.complexity === c.key;
+                    return (
+                      <button key={c.key} type="button" onClick={() => setAiForm(f => ({ ...f, complexity: c.key }))}
+                        className={`qm3-level-card ${active ? 'active' : ''}`}
+                        style={{ '--qm3-c': c.color }}>
+                        {active && <CheckCircle2 className="qm3-level-check w-4 h-4" style={{ color: c.color }} />}
+                        <span className="qm3-level-icon"><c.icon className="w-[18px] h-[18px]" /></span>
+                        <span className="qm3-level-label">{c.label}</span>
+                        <span className="qm3-level-subtitle">{c.subtitle}</span>
+                        <span className="qm3-level-dots">
+                          {[1, 2, 3].map(n => <span key={n} className={`qm3-level-dot ${n <= c.dots ? 'filled' : ''}`} />)}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
               <button type="button" onClick={handleGenerate} disabled={generating}
                 className="btn-primary w-full flex items-center justify-center gap-2">
                 {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                {generating ? 'Searching sources and drafting…' : `Generate ${aiQuestionTotal || ''} Question${aiQuestionTotal !== 1 ? 's' : ''}`}
+                {generating ? 'Creating...' : `Create ${aiQuestionTotal || ''} Question${aiQuestionTotal !== 1 ? 's' : ''}`}
               </button>
-              <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                Powered by Google's free Gemini API. It drafts questions from its own subject knowledge plus anything you paste into References above — it doesn't browse the web live, so for the most accurate results paste in key facts, definitions, or links yourself. Review and edit everything on the Manual Creation tab before saving — nothing is saved automatically.
-              </p>
             </div>
           )}
 
@@ -318,7 +349,7 @@ export default function QuizBuilderModal({ assessment, onClose, onSaved }) {
               style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)' }}>
               <Sparkles className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--text-secondary)' }} />
               <span style={{ color: 'var(--text-secondary)' }}>Set marks for every generated question at once:</span>
-              <Stepper value={bulkMarks} onChange={setBulkMarks} min={0.5} step={0.5} className="w-28" title="Marks per question" />
+              <Stepper value={bulkMarks} onChange={setBulkMarks} min={0.5} step={0.5} className="w-36" title="Marks per question" />
               <button type="button"
                 onClick={() => {
                   const m = Number(bulkMarks);
@@ -379,27 +410,31 @@ export default function QuizBuilderModal({ assessment, onClose, onSaved }) {
               const qColor = QUESTION_TYPES.find(t => t.key === q.type)?.color || '#6366f1';
               return (
               <div key={q._key} className="qm-question-card card p-4" style={{ '--qi': idx, '--qm-q-color': qColor }}>
-                <div className="flex items-start gap-2 mb-3">
-                  <GripVertical className="qm-drag-handle w-4 h-4 mt-2 flex-shrink-0" style={{ color: 'var(--text-secondary)' }} />
-                  <span className="text-xs font-bold mt-2" style={{ color: qColor }}>Q{idx + 1}</span>
-                  <select
-                    value={q.type}
-                    onChange={e => changeType(q._key, e.target.value)}
-                    className="chat-form-field qm-field text-sm py-1.5 px-2 w-44"
-                  >
-                    {QUESTION_TYPES.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
-                  </select>
-                  <Stepper
-                    value={q.marks}
-                    onChange={v => updateQuestion(q._key, { marks: v })}
-                    min={0.5} step={0.5}
-                    className="w-28"
-                    title="Marks for this question"
-                  />
-                  <button type="button" onClick={() => removeQuestion(q._key)}
-                    className="ml-auto p-1.5 rounded-lg hover:bg-red-50 hover:text-red-500 transition-colors flex-shrink-0">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                <div className="flex flex-wrap items-center gap-2 mb-3">
+                  <div className="flex items-center gap-2 flex-1 min-w-[160px]">
+                    <GripVertical className="qm-drag-handle w-4 h-4 flex-shrink-0" style={{ color: 'var(--text-secondary)' }} />
+                    <span className="text-xs font-bold flex-shrink-0" style={{ color: qColor }}>Q{idx + 1}</span>
+                    <select
+                      value={q.type}
+                      onChange={e => changeType(q._key, e.target.value)}
+                      className="chat-form-field qm-field text-sm py-1.5 px-2 flex-1 min-w-0"
+                    >
+                      {QUESTION_TYPES.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0 ml-auto">
+                    <Stepper
+                      value={q.marks}
+                      onChange={v => updateQuestion(q._key, { marks: v })}
+                      min={0.5} step={0.5}
+                      className="w-36 flex-shrink-0"
+                      title="Marks for this question"
+                    />
+                    <button type="button" onClick={() => removeQuestion(q._key)}
+                      className="p-1.5 rounded-lg hover:bg-red-50 hover:text-red-500 transition-colors flex-shrink-0">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
 
                 <textarea

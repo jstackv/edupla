@@ -280,7 +280,7 @@ function AssessmentCard({ a, i, onQuestions, onShare, onAddAttempt, onEdit, onDe
         >
           {a.is_shared ? <Lock className="w-3.5 h-3.5" /> : <Edit2 className="w-3.5 h-3.5" />} Edit
         </button>
-        <button onClick={() => onDelete(a)} className="text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-red-500 transition-all duration-150 hover:bg-red-500/10 ml-auto" style={{ border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.07)' }}><Trash2 className="w-3.5 h-3.5" /> Delete</button>
+        <button onClick={() => onDelete(a)} className="text-xs flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-red-500 transition-all duration-150 hover:bg-red-500/10 w-full min-[480px]:w-auto min-[480px]:ml-auto" style={{ border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.07)' }}><Trash2 className="w-3.5 h-3.5" /> Delete</button>
       </div>
 
       {showSubmitters && canToast && (
@@ -569,12 +569,12 @@ export default function AssessmentsOnline() {
   const step = !selectedClass ? 'classes' : !selectedCourse ? 'modules' : 'assessments';
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto">
       <div className="flex items-center gap-3 mb-2">
-        <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-indigo-100 dark:bg-indigo-900/40">
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-indigo-100 dark:bg-indigo-900/40 flex-shrink-0">
           <ClipboardCheck className="w-5 h-5 text-indigo-600 dark:text-indigo-400 assessment-icon-float" />
         </div>
-        <div>
+        <div className="min-w-0">
           <h1 className="font-display text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Assessments</h1>
           <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Build and share online assessments students attempt digitally</p>
         </div>
@@ -602,7 +602,7 @@ export default function AssessmentsOnline() {
         <div className="flex items-center justify-center py-16"><Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--text-secondary)' }} /></div>
       ) : step === 'classes' ? (
         classes.length === 0 ? (
-          <div className="card p-10 text-center">
+          <div className="card p-6 sm:p-10 text-center">
             <Inbox className="w-10 h-10 mx-auto mb-3" style={{ color: 'var(--text-secondary)' }} />
             <p style={{ color: 'var(--text-secondary)' }}>No classes assigned to you yet — ask an admin to assign a module to one of your classes first.</p>
           </div>
@@ -625,7 +625,7 @@ export default function AssessmentsOnline() {
             <ArrowLeft className="w-4 h-4" /> Back to classes
           </button>
           {modulesInClass.length === 0 ? (
-            <div className="card p-10 text-center">
+            <div className="card p-6 sm:p-10 text-center">
               <Inbox className="w-10 h-10 mx-auto mb-3" style={{ color: 'var(--text-secondary)' }} />
               <p style={{ color: 'var(--text-secondary)' }}>No modules assigned to you in this class yet.</p>
             </div>
@@ -646,17 +646,17 @@ export default function AssessmentsOnline() {
         </>
       ) : (
         <>
-          <div className="flex items-center justify-between mb-4">
-            <button onClick={() => setSelectedCourse(null)} className="text-sm font-semibold flex items-center gap-1 transition-colors duration-150 hover:opacity-80" style={{ color: 'var(--text-secondary)' }}>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+            <button onClick={() => setSelectedCourse(null)} className="text-sm font-semibold flex items-center gap-1 transition-colors duration-150 hover:opacity-80 self-start" style={{ color: 'var(--text-secondary)' }}>
               <ArrowLeft className="w-4 h-4" /> Back to modules
             </button>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {assessments.some(a => a.is_shared) && (
-                <button onClick={() => setResultsPickerOpen(true)} className="btn-secondary text-sm flex items-center gap-1.5">
+                <button onClick={() => setResultsPickerOpen(true)} className="btn-secondary text-sm flex items-center justify-center gap-1.5 flex-1 min-[420px]:flex-none">
                   <BarChart3 className="w-4 h-4" /> View Results
                 </button>
               )}
-              <button onClick={() => setFormModal({})} className="btn-primary assessment-cta text-sm flex items-center gap-1.5">
+              <button onClick={() => setFormModal({})} className="btn-primary assessment-cta text-sm flex items-center justify-center gap-1.5 flex-1 min-[420px]:flex-none">
                 <Plus className="w-4 h-4" /> Create New Assessment
               </button>
             </div>
@@ -665,7 +665,7 @@ export default function AssessmentsOnline() {
           {loadingAssessments ? (
             <div className="flex items-center justify-center py-16"><Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--text-secondary)' }} /></div>
           ) : assessments.length === 0 ? (
-            <div className="card p-10 text-center">
+            <div className="card p-6 sm:p-10 text-center">
               <Inbox className="w-10 h-10 mx-auto mb-3" style={{ color: 'var(--text-secondary)' }} />
               <p style={{ color: 'var(--text-secondary)' }}>No assessments yet for this module in {selectedClass.name}.</p>
               <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>You can create several formative assessments in the same term — each just needs its own title.</p>

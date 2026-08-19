@@ -407,7 +407,7 @@ export default function AddAttemptModal({ assessment, onClose, onAdded }) {
                 <CalendarClock className="w-3.5 h-3.5" /> Expiry date &amp; time
               </label>
               <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
-                <button type="button" className="aam-preset" onClick={() => setExpiresAt(todayAt(23, 59))}>Tonight</button>
+                <button type="button" className="aam-preset" onClick={() => setExpiresAt(todayAt(23, 59))}>Today</button>
                 <button type="button" className="aam-preset" onClick={() => setExpiresAt(daysFromNowEndOfDay(3))}>+3 days</button>
                 <button type="button" className="aam-preset" onClick={() => setExpiresAt(daysFromNowEndOfDay(7))}>+1 week</button>
                 <button type="button" className="aam-preset" onClick={() => setExpiresAt(daysFromNowEndOfDay(14))}>+2 weeks</button>
