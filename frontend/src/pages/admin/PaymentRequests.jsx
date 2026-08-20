@@ -5,7 +5,7 @@ import { usePendingPayments } from '../../context/PendingPaymentsContext';
 import {
   Wallet, Search, RefreshCw, CheckCircle2, XCircle, Clock, Loader2,
   Settings2, Plus, Pencil, Trash2, X, Mail, Smartphone, Building2,
-  Inbox, TrendingUp, CircleDollarSign, ListChecks, RotateCcw,
+  Inbox, TrendingUp, CircleDollarSign, ListChecks, RotateCcw, AlertTriangle,
 } from 'lucide-react';
 
 const TOKENS = { emerald: '#10b981', rose: '#f43f5e', amber: '#f59e0b', slate: '#64748b', gold: '#d97706', indigo: '#6366f1' };
@@ -383,6 +383,154 @@ function PlanManagerModal({ onClose }) {
   );
 }
 
+// ── Clear-history confirmation — irreversible, so the super admin must
+// explicitly pick a scope (one school, or everything) and see exactly who
+// they're about to wipe before typing a confirmation phrase. ────────────
+function ClearHistoryModal({ payments, onClose, onDone }) {
+  // One entry per distinct school that has at least one payment record,
+  // each with its own count — this is what makes the scope concrete
+  // instead of a vague "clear everything" button.
+  const schools = useMemo(() => {
+    const map = new Map();
+    payments.forEach(p => {
+      const id = p.admin_id?._id;
+      if (!id) return;
+      if (!map.has(id)) map.set(id, { id, name: p.admin_id?.name || 'Unknown school', email: p.admin_id?.email, count: 0 });
+      map.get(id).count += 1;
+    });
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [payments]);
+
+  const [scope, setScope] = useState(schools.length === 1 ? schools[0].id : 'all');
+  const [typed, setTyped] = useState('');
+  const [clearing, setClearing] = useState(false);
+
+  const selectedSchool = scope !== 'all' ? schools.find(s => s.id === scope) : null;
+  const confirmPhrase = scope === 'all' ? 'DELETE ALL' : 'DELETE';
+  const scopedCount = scope === 'all' ? payments.length : (selectedSchool?.count || 0);
+
+  const submit = async () => {
+    setClearing(true);
+    try {
+      const res = scope === 'all'
+        ? await api.delete('/system/billing/payments')
+        : await api.delete(`/system/billing/schools/${scope}/payments`);
+      toast.success(res.data.message || 'Payment history cleared.');
+      onDone();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to clear payment history.');
+    } finally {
+      setClearing(false);
+    }
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)', padding: 16 }}>
+      <div className="pr-modal" style={{ width: '100%', maxWidth: 440, maxHeight: '85vh', overflowY: 'auto', background: 'var(--card-bg)', border: `1.5px solid ${TOKENS.rose}`, borderRadius: 20, padding: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+          <div style={{ width: 38, height: 38, borderRadius: 11, background: 'rgba(244,63,94,0.14)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <AlertTriangle size={18} color={TOKENS.rose} />
+          </div>
+          <h3 style={{ fontSize: 15.5, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Clear payment history</h3>
+        </div>
+
+        <label style={{ display: 'block', fontSize: 11.5, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8 }}>
+          What should be cleared?
+        </label>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16, maxHeight: 220, overflowY: 'auto' }}>
+          <button
+            type="button"
+            onClick={() => { setScope('all'); setTyped(''); }}
+            className="pr-btn"
+            style={{
+              textAlign: 'left', padding: '10px 12px', borderRadius: 12, cursor: 'pointer',
+              border: `1.5px solid ${scope === 'all' ? TOKENS.rose : 'var(--card-border)'}`,
+              background: scope === 'all' ? 'rgba(244,63,94,0.06)' : 'var(--surface-100)',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+            }}
+          >
+            <div>
+              <p style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>All schools</p>
+              <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: '2px 0 0' }}>Every payment record, platform-wide</p>
+            </div>
+            <span style={{ fontSize: 11.5, fontWeight: 800, color: TOKENS.rose, flexShrink: 0 }}>{payments.length}</span>
+          </button>
+
+          {schools.map(s => (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => { setScope(s.id); setTyped(''); }}
+              className="pr-btn"
+              style={{
+                textAlign: 'left', padding: '10px 12px', borderRadius: 12, cursor: 'pointer',
+                border: `1.5px solid ${scope === s.id ? TOKENS.rose : 'var(--card-border)'}`,
+                background: scope === s.id ? 'rgba(244,63,94,0.06)' : 'var(--surface-100)',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+              }}
+            >
+              <div style={{ minWidth: 0 }}>
+                <p style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.name}</p>
+                <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: '2px 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.email}</p>
+              </div>
+              <span style={{ fontSize: 11.5, fontWeight: 800, color: TOKENS.rose, flexShrink: 0 }}>{s.count}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Identity confirmation — exactly who/what is about to be wiped */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10, padding: '11px 13px', marginBottom: 14,
+          borderRadius: 12, border: '1.5px solid rgba(244,63,94,0.3)', background: 'rgba(244,63,94,0.05)',
+        }}>
+          <Trash2 size={16} color={TOKENS.rose} style={{ flexShrink: 0 }} />
+          <div style={{ minWidth: 0 }}>
+            <p style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+              {scope === 'all' ? `Deleting all ${scopedCount} record(s), every school` : `Deleting ${scopedCount} record(s) for ${selectedSchool?.name}`}
+            </p>
+            <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: '2px 0 0' }}>
+              Access levels are untouched — this only clears the historical log. Cannot be undone.
+            </p>
+          </div>
+        </div>
+
+        <label style={{ display: 'block', fontSize: 11.5, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 6 }}>
+          Type <strong style={{ color: 'var(--text-primary)' }}>{confirmPhrase}</strong> to confirm
+        </label>
+        <input
+          value={typed}
+          onChange={e => setTyped(e.target.value)}
+          placeholder={confirmPhrase}
+          className="pr-search"
+          style={{
+            width: '100%', borderRadius: 12, border: `1px solid ${typed === confirmPhrase ? TOKENS.rose : 'var(--card-border)'}`,
+            background: 'var(--surface-100)', color: 'var(--text-primary)',
+            padding: '10px 12px', fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box',
+          }}
+        />
+        <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
+          <button onClick={onClose} disabled={clearing} className="pr-btn" style={{
+            flex: 1, padding: '10px 14px', borderRadius: 12, border: '1px solid var(--card-border)',
+            background: 'var(--surface-100)', color: 'var(--text-primary)', fontWeight: 700, fontSize: 13, cursor: 'pointer',
+          }}>
+            Cancel
+          </button>
+          <button onClick={submit} disabled={clearing || typed !== confirmPhrase} className="pr-btn" style={{
+            flex: 1, padding: '10px 14px', borderRadius: 12, border: 'none',
+            background: TOKENS.rose, color: '#fff', fontWeight: 700, fontSize: 13,
+            cursor: typed === confirmPhrase ? 'pointer' : 'not-allowed',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            opacity: clearing || typed !== confirmPhrase ? 0.5 : 1,
+          }}>
+            {clearing ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+            Clear {scope === 'all' ? 'everything' : selectedSchool?.name}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function PaymentRequests() {
   const { refresh: refreshBadge } = usePendingPayments() || {};
   const [allPayments, setAllPayments] = useState([]);
@@ -394,6 +542,7 @@ export default function PaymentRequests() {
   const [rejectTarget, setRejectTarget] = useState(null); // array of payments
   const [confirmingId, setConfirmingId] = useState(null);
   const [showPlanManager, setShowPlanManager] = useState(false);
+  const [showClearHistory, setShowClearHistory] = useState(false);
 
   // Single fetch of everything — tab switching and search then filter
   // client-side instantly instead of round-tripping per click, and it lets
@@ -495,6 +644,15 @@ export default function PaymentRequests() {
           }}>
             <Settings2 size={13} /> Manage Plans
           </button>
+          {allPayments.length > 0 && (
+            <button onClick={() => setShowClearHistory(true)} className="pr-btn" style={{
+              display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 11,
+              border: `1px solid ${TOKENS.rose}`, background: 'transparent', color: TOKENS.rose,
+              fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
+            }}>
+              <Trash2 size={13} /> Clear History
+            </button>
+          )}
           <button onClick={() => load(true)} disabled={refreshing} className="pr-btn" style={{
             display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 11,
             border: '1px solid var(--card-border)', background: 'var(--surface-100)', color: 'var(--text-primary)',
@@ -514,7 +672,7 @@ export default function PaymentRequests() {
       </div>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-        {['PENDING', 'SUCCESSFUL', 'REJECTED', 'ALL'].map(key => {
+        {['ALL','PENDING', 'SUCCESSFUL', 'REJECTED'].map(key => {
           const meta = STATUS_META[key];
           const active = filter === key;
           const count = key === 'ALL' ? stats.total : key === 'PENDING' ? stats.pendingCount : key === 'SUCCESSFUL' ? stats.confirmedCount : stats.rejectedCount;
@@ -689,6 +847,18 @@ export default function PaymentRequests() {
         <RejectModal payments={rejectTarget} onClose={() => setRejectTarget(null)} onDone={() => { setRejectTarget(null); setSelected(new Set()); load(true); }} />
       )}
       {showPlanManager && <PlanManagerModal onClose={() => setShowPlanManager(false)} />}
+      {showClearHistory && (
+        <ClearHistoryModal
+          payments={allPayments}
+          onClose={() => setShowClearHistory(false)}
+          onDone={() => {
+            setShowClearHistory(false);
+            setSelected(new Set());
+            load(true);
+            refreshBadge?.();
+          }}
+        />
+      )}
     </div>
   );
 }

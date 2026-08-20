@@ -3,9 +3,10 @@ const router = express.Router();
 const { isAuthenticated, isSuperAdmin } = require('../middleware/auth');
 const {
   getStatus, updateMaintenance, impersonate,
-  listSchoolsBilling, lockSchool, unlockSchool, extendSchool,
+  listSchoolsBilling, lockSchool, unlockSchool, extendSchool, grantFreeDays, resetSchoolDays,
   listPlans, createPlan, updatePlan, deletePlan,
   listManualPayments, getPendingManualPaymentsCount, confirmManualPayment, rejectManualPayment,
+  clearAllPaymentHistory, clearSchoolPaymentHistory,
 } = require('../controllers/systemController');
 
 // Public — no auth required. The frontend polls this to know whether to
@@ -26,6 +27,8 @@ router.get('/billing/schools', isAuthenticated, isSuperAdmin, listSchoolsBilling
 router.post('/billing/schools/:adminId/lock', isAuthenticated, isSuperAdmin, lockSchool);
 router.post('/billing/schools/:adminId/unlock', isAuthenticated, isSuperAdmin, unlockSchool);
 router.post('/billing/schools/:adminId/extend', isAuthenticated, isSuperAdmin, extendSchool);
+router.post('/billing/schools/:adminId/free-trial', isAuthenticated, isSuperAdmin, grantFreeDays);
+router.post('/billing/schools/:adminId/reset-days', isAuthenticated, isSuperAdmin, resetSchoolDays);
 
 // Super admin only — subscription plan tiers for the manual payment flow.
 router.get('/billing/plans', isAuthenticated, isSuperAdmin, listPlans);
@@ -38,5 +41,7 @@ router.get('/billing/manual-payments', isAuthenticated, isSuperAdmin, listManual
 router.get('/billing/manual-payments/pending-count', isAuthenticated, isSuperAdmin, getPendingManualPaymentsCount);
 router.post('/billing/manual-payments/:paymentId/confirm', isAuthenticated, isSuperAdmin, confirmManualPayment);
 router.post('/billing/manual-payments/:paymentId/reject', isAuthenticated, isSuperAdmin, rejectManualPayment);
+router.delete('/billing/payments', isAuthenticated, isSuperAdmin, clearAllPaymentHistory);
+router.delete('/billing/schools/:adminId/payments', isAuthenticated, isSuperAdmin, clearSchoolPaymentHistory);
 
 module.exports = router;

@@ -263,6 +263,97 @@ module.exports.lockSchool = lockSchool;
 module.exports.unlockSchool = unlockSchool;
 module.exports.extendSchool = extendSchool;
 
+// POST /api/system/billing/schools/:adminId/free-trial — super admin only.
+// Grants a fresh block of FREE days (resets trial_ends_at to now + days),
+// as opposed to extendSchool which adds PAID days. Also lifts any manual
+// lock, since granting free access is a deliberate "let them back in" —
+// once the free period lapses, the school falls through to the normal
+// 'overdue' paywall automatically (same mechanism as the original signup
+// trial expiring), no extra status enum needed.
+const grantFreeDays = async (req, res) => {
+  try {
+    const days = parseInt(req.body?.days, 10);
+    if (!Number.isFinite(days) || days <= 0) {
+      return res.status(400).json({ message: '"days" must be a positive number.' });
+    }
+
+    const admin = await User.findOne({ _id: req.params.adminId, role: 'admin' });
+    if (!admin) return res.status(404).json({ message: 'School admin not found.' });
+    if (admin.is_super_admin) {
+      return res.status(403).json({ message: 'Cannot grant free days to a super admin account.' });
+    }
+
+    const trialEndsAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+
+    admin.billing = admin.billing || {};
+    admin.billing.trial_ends_at = trialEndsAt;
+    admin.billing.status = 'trialing';
+    admin.billing.locked = false;
+    admin.billing.locked_payable = false;
+    admin.billing.locked_reason = null;
+    admin.billing.locked_at = null;
+    admin.billing.locked_by = null;
+    await admin.save();
+
+    invalidateBillingCache(String(admin._id));
+
+    res.json({
+      message: `${admin.name}'s school now has ${days} free day(s), until ${trialEndsAt.toDateString()}.`,
+      billing: computeSchoolBilling(admin.toObject()),
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+module.exports.grantFreeDays = grantFreeDays;
+
+// POST /api/system/billing/schools/:adminId/reset-days — super admin only.
+// Unlike extendSchool (adds paid days) or grantFreeDays (adds a fresh free
+// period), this REPLACES the school's countdown entirely with an exact
+// number the super admin chooses — useful for correcting a mistake or
+// just setting a specific number rather than doing the math to add/subtract
+// from whatever's currently there. Does not touch any manual lock (same as
+// extendSchool) — resetting days doesn't imply unlocking.
+const resetSchoolDays = async (req, res) => {
+  try {
+    const days = parseInt(req.body?.days, 10);
+    const type = req.body?.type === 'free' ? 'free' : 'paid';
+    if (!Number.isFinite(days) || days <= 0) {
+      return res.status(400).json({ message: '"days" must be a positive number.' });
+    }
+
+    const admin = await User.findOne({ _id: req.params.adminId, role: 'admin' });
+    if (!admin) return res.status(404).json({ message: 'School admin not found.' });
+    if (admin.is_super_admin) {
+      return res.status(403).json({ message: 'Cannot reset days for a super admin account.' });
+    }
+
+    const target = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+    admin.billing = admin.billing || {};
+
+    if (type === 'paid') {
+      admin.billing.paid_until = target;
+    } else {
+      // Paid time (if any) would otherwise take priority over the trial
+      // countdown in status calculations, silently masking this reset —
+      // clear it so the exact free-day count is actually what's enforced.
+      admin.billing.trial_ends_at = target;
+      admin.billing.paid_until = null;
+    }
+    await admin.save();
+
+    invalidateBillingCache(String(admin._id));
+
+    res.json({
+      message: `${admin.name}'s school now has exactly ${days} ${type} day(s) remaining.`,
+      billing: computeSchoolBilling(admin.toObject()),
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+module.exports.resetSchoolDays = resetSchoolDays;
+
 // ── Subscription plans (super admin only) ────────────────────────────────
 // The tiers school admins choose from in the manual-payment flow. Editing
 // these never touches past Payment records — each one snapshots the
@@ -434,3 +525,40 @@ module.exports.listManualPayments = listManualPayments;
 module.exports.getPendingManualPaymentsCount = getPendingManualPaymentsCount;
 module.exports.confirmManualPayment = confirmManualPayment;
 module.exports.rejectManualPayment = rejectManualPayment;
+
+// DELETE /api/system/billing/payments — super admin only. Irreversibly
+// wipes every payment record (manual claims AND automated MTN API
+// payments), platform-wide. Deliberately does NOT touch any school's
+// billing.paid_until/trial_ends_at/locked state — this only clears the
+// historical log, so a school's current access is unaffected even after
+// its receipts are gone. Because Payment is the single source both
+// /system/billing/manual-payments (super admin) and /billing/history
+// (school admin) read from, clearing it here empties both views at once.
+const clearAllPaymentHistory = async (req, res) => {
+  try {
+    const result = await Payment.deleteMany({});
+    res.json({ message: `Cleared ${result.deletedCount} payment record(s).`, deleted_count: result.deletedCount });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+module.exports.clearAllPaymentHistory = clearAllPaymentHistory;
+
+// DELETE /api/system/billing/schools/:adminId/payments — super admin only.
+// Same as clearAllPaymentHistory but scoped to one school, so a wipe never
+// has to take down every school's history just to reset one of them.
+const clearSchoolPaymentHistory = async (req, res) => {
+  try {
+    const admin = await User.findOne({ _id: req.params.adminId, role: 'admin' }).select('name').lean();
+    if (!admin) return res.status(404).json({ message: 'School admin not found.' });
+
+    const result = await Payment.deleteMany({ admin_id: req.params.adminId });
+    res.json({
+      message: `Cleared ${result.deletedCount} payment record(s) for ${admin.name}.`,
+      deleted_count: result.deletedCount,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+module.exports.clearSchoolPaymentHistory = clearSchoolPaymentHistory;

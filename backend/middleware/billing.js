@@ -63,7 +63,7 @@ async function getOrInitBilling(ownerId) {
   if (!owner) return null;
 
   if (!owner.billing?.trial_ends_at) {
-    const trialDays = parseInt(process.env.TRIAL_DAYS || "2", 10);
+    const trialDays = parseInt(process.env.TRIAL_DAYS || "30", 10);
     const trialEndsAt = new Date(
       (owner.created_at || new Date()).getTime() + trialDays * 24 * 60 * 60 * 1000,
     );

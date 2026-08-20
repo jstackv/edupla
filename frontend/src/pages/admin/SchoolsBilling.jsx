@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 import {
   Building2, Search, RefreshCw, Lock, Unlock, PlusCircle, Clock,
   CheckCircle2, AlertTriangle, ShieldAlert, Loader2, Mail,
-  CalendarClock, ArrowUp, ArrowDown, Inbox,
+  CalendarClock, ArrowUp, ArrowDown, Inbox, Gift, RotateCw,
 } from 'lucide-react';
 
 const TOKENS = {
@@ -176,7 +176,7 @@ function StatCard({ icon: Icon, label, value, color, active, onClick }) {
 
 function SkeletonRow() {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1.3fr 1fr', gap: 10, alignItems: 'center', padding: '16px 18px', borderBottom: '1px solid var(--card-border)' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 0.9fr 1.1fr 2.4fr', gap: 10, alignItems: 'center', padding: '16px 18px', borderBottom: '1px solid var(--card-border)' }}>
       <div><div className="sb-skel" style={{ height: 13, width: '60%', marginBottom: 6 }} /><div className="sb-skel" style={{ height: 10, width: '80%' }} /></div>
       <div className="sb-skel" style={{ height: 22, width: 74, borderRadius: 999 }} />
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}><div className="sb-skel" style={{ width: 40, height: 40, borderRadius: '50%' }} /><div className="sb-skel" style={{ height: 12, width: 90 }} /></div>
@@ -340,6 +340,224 @@ function ExtendModal({ school, onClose, onDone }) {
   );
 }
 
+// ── Free trial grant modal ────────────────────────────────────────────
+function FreeTrialModal({ school, onClose, onDone }) {
+  const [days, setDays] = useState(30);
+  const [saving, setSaving] = useState(false);
+
+  const submit = async () => {
+    if (!days || days <= 0) return toast.error('Enter a positive number of days.');
+    setSaving(true);
+    try {
+      await api.post(`/system/billing/schools/${school.id}/free-trial`, { days: Number(days) });
+      toast.success(`${school.name} now has ${days} free day(s).`);
+      onDone();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to grant free days.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)', padding: 16 }}>
+      <div className="sb-modal" style={{ width: '100%', maxWidth: 380, background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 20, padding: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+          <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(245,158,11,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Gift size={16} color={TOKENS.amber} />
+          </div>
+          <h3 style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Give {school.name} free access</h3>
+        </div>
+        <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', margin: '0 0 14px', lineHeight: 1.6 }}>
+          Starts a fresh free period counted from right now — not added to any existing paid time. If the school is currently locked, this also unlocks it. Once the free period ends, they'll see the normal "your free access has ended, please pay" screen automatically.
+        </p>
+
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10, padding: '11px 13px', marginBottom: 16,
+          borderRadius: 12, border: '1.5px solid var(--card-border)', background: 'var(--surface-100)',
+        }}>
+          <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(99,102,241,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Building2 size={16} color={TOKENS.purple} />
+          </div>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 2px' }}>
+              You're granting free access to
+            </p>
+            <p style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {school.name}
+            </p>
+            <p style={{ fontSize: 11.5, color: 'var(--text-secondary)', margin: '1px 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {school.email}
+            </p>
+          </div>
+          {(() => {
+            const meta = STATUS_META[school.billing.status];
+            const StatusIcon = meta.icon;
+            return (
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 999,
+                background: meta.bg, color: meta.color, fontSize: 10.5, fontWeight: 700, flexShrink: 0,
+              }}>
+                <StatusIcon size={10} /> {meta.label}
+              </span>
+            );
+          })()}
+        </div>
+        <label style={{ display: 'block', fontSize: 11.5, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 6 }}>
+          Free days to grant
+        </label>
+        <input
+          type="number"
+          min="1"
+          value={days}
+          onChange={e => setDays(e.target.value)}
+          className="sb-search"
+          style={{
+            width: '100%', borderRadius: 12, border: '1px solid var(--card-border)',
+            background: 'var(--surface-100)', color: 'var(--text-primary)',
+            padding: '10px 12px', fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box',
+          }}
+        />
+        <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
+          <button onClick={onClose} disabled={saving} className="sb-btn" style={{
+            flex: 1, padding: '10px 14px', borderRadius: 12, border: '1px solid var(--card-border)',
+            background: 'var(--surface-100)', color: 'var(--text-primary)', fontWeight: 700, fontSize: 13, cursor: 'pointer',
+          }}>
+            Cancel
+          </button>
+          <button onClick={submit} disabled={saving} className="sb-btn" style={{
+            flex: 1, padding: '10px 14px', borderRadius: 12, border: 'none',
+            background: TOKENS.amber, color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: saving ? 0.7 : 1,
+          }}>
+            {saving ? <Loader2 size={14} className="animate-spin" /> : <Gift size={14} />} Grant to {school.name.length > 18 ? school.name.slice(0, 18) + '…' : school.name}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Reset days modal — REPLACES the countdown entirely with an exact
+// number, rather than adding to it like Extend/Free days do. ───────────
+function ResetDaysModal({ school, onClose, onDone }) {
+  const [type, setType] = useState('paid');
+  const [days, setDays] = useState(30);
+  const [saving, setSaving] = useState(false);
+
+  const submit = async () => {
+    if (!days || days <= 0) return toast.error('Enter a positive number of days.');
+    setSaving(true);
+    try {
+      await api.post(`/system/billing/schools/${school.id}/reset-days`, { days: Number(days), type });
+      toast.success(`${school.name} now has exactly ${days} ${type} day(s).`);
+      onDone();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to reset days.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const meta = STATUS_META[school.billing.status];
+  const StatusIcon = meta.icon;
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)', padding: 16 }}>
+      <div className="sb-modal" style={{ width: '100%', maxWidth: 400, background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 20, padding: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+          <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(99,102,241,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <RotateCw size={16} color={TOKENS.purple} />
+          </div>
+          <h3 style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Reset days</h3>
+        </div>
+        <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', margin: '0 0 14px', lineHeight: 1.6 }}>
+          Replaces their countdown with exactly the number you choose — not added to what they currently have. Doesn't change any manual lock; use Unlock separately if needed.
+        </p>
+
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10, padding: '11px 13px', marginBottom: 16,
+          borderRadius: 12, border: '1.5px solid var(--card-border)', background: 'var(--surface-100)',
+        }}>
+          <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(99,102,241,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Building2 size={16} color={TOKENS.purple} />
+          </div>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 2px' }}>
+              Resetting days for
+            </p>
+            <p style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {school.name}
+            </p>
+          </div>
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 999,
+            background: meta.bg, color: meta.color, fontSize: 10.5, fontWeight: 700, flexShrink: 0,
+          }}>
+            <StatusIcon size={10} /> {meta.label}
+          </span>
+        </div>
+
+        <label style={{ display: 'block', fontSize: 11.5, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8 }}>
+          Count these days as
+        </label>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+          {[
+            { value: 'paid', label: 'Paid', desc: 'Shows as an active subscription' },
+            { value: 'free', label: 'Free', desc: 'Shows as a trial period' },
+          ].map(opt => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setType(opt.value)}
+              className="sb-btn"
+              style={{
+                flex: 1, textAlign: 'left', padding: '10px 12px', borderRadius: 12, cursor: 'pointer',
+                border: `1.5px solid ${type === opt.value ? TOKENS.purple : 'var(--card-border)'}`,
+                background: type === opt.value ? 'rgba(99,102,241,0.06)' : 'var(--surface-100)',
+              }}
+            >
+              <p style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>{opt.label}</p>
+              <p style={{ fontSize: 10.5, color: 'var(--text-secondary)', margin: '2px 0 0' }}>{opt.desc}</p>
+            </button>
+          ))}
+        </div>
+
+        <label style={{ display: 'block', fontSize: 11.5, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 6 }}>
+          Exact days remaining
+        </label>
+        <input
+          type="number"
+          min="1"
+          value={days}
+          onChange={e => setDays(e.target.value)}
+          className="sb-search"
+          style={{
+            width: '100%', borderRadius: 12, border: '1px solid var(--card-border)',
+            background: 'var(--surface-100)', color: 'var(--text-primary)',
+            padding: '10px 12px', fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box',
+          }}
+        />
+        <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
+          <button onClick={onClose} disabled={saving} className="sb-btn" style={{
+            flex: 1, padding: '10px 14px', borderRadius: 12, border: '1px solid var(--card-border)',
+            background: 'var(--surface-100)', color: 'var(--text-primary)', fontWeight: 700, fontSize: 13, cursor: 'pointer',
+          }}>
+            Cancel
+          </button>
+          <button onClick={submit} disabled={saving} className="sb-btn" style={{
+            flex: 1, padding: '10px 14px', borderRadius: 12, border: 'none',
+            background: TOKENS.purple, color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: saving ? 0.7 : 1,
+          }}>
+            {saving ? <Loader2 size={14} className="animate-spin" /> : <RotateCw size={14} />} Reset to {days || 0}d
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function SchoolsBilling() {
   const [schools, setSchools] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -349,6 +567,8 @@ export default function SchoolsBilling() {
   const [sortDir, setSortDir] = useState('asc'); // by days_remaining
   const [lockTarget, setLockTarget] = useState(null);
   const [extendTarget, setExtendTarget] = useState(null);
+  const [freeTrialTarget, setFreeTrialTarget] = useState(null);
+  const [resetTarget, setResetTarget] = useState(null);
   const [unlockingId, setUnlockingId] = useState(null);
 
   const load = useCallback(async (silent) => {
@@ -464,7 +684,7 @@ export default function SchoolsBilling() {
       {/* Table */}
       <div style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 18, overflow: 'hidden' }}>
         <div style={{
-          display: 'grid', gridTemplateColumns: '2fr 1fr 1.3fr 1fr', gap: 10,
+          display: 'grid', gridTemplateColumns: '1.6fr 0.9fr 1.1fr 2.4fr', gap: 10,
           padding: '12px 18px', fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)',
           textTransform: 'uppercase', letterSpacing: '0.03em', borderBottom: '1px solid var(--card-border)',
         }}>
@@ -501,7 +721,7 @@ export default function SchoolsBilling() {
             return (
               <div key={school.id} className="sb-row" style={{
                 '--sb-accent': meta.color,
-                display: 'grid', gridTemplateColumns: '2fr 1fr 1.3fr 1fr', gap: 10, alignItems: 'center',
+                display: 'grid', gridTemplateColumns: '1.6fr 0.9fr 1.1fr 2.4fr', gap: 10, alignItems: 'center',
                 padding: '14px 18px 14px 21px', borderBottom: i === filtered.length - 1 ? 'none' : '1px solid var(--card-border)',
                 animationDelay: `${Math.min(i, 8) * 0.03}s`,
               }}>
@@ -546,7 +766,7 @@ export default function SchoolsBilling() {
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                   {school.billing.status === 'locked' ? (
                     <button onClick={() => unlock(school)} disabled={unlockingId === school.id} className="sb-btn" style={{
                       display: 'flex', alignItems: 'center', gap: 5, padding: '7px 11px', borderRadius: 10,
@@ -568,6 +788,18 @@ export default function SchoolsBilling() {
                   }}>
                     <CalendarClock size={12} /> Extend
                   </button>
+                  <button onClick={() => setFreeTrialTarget(school)} className="sb-btn" style={{
+                    display: 'flex', alignItems: 'center', gap: 5, padding: '7px 11px', borderRadius: 10,
+                    border: `1px solid ${TOKENS.amber}`, background: 'transparent', color: TOKENS.amber, fontSize: 11.5, fontWeight: 700, cursor: 'pointer',
+                  }}>
+                    <Gift size={12} /> Free days
+                  </button>
+                  <button onClick={() => setResetTarget(school)} className="sb-btn" style={{
+                    display: 'flex', alignItems: 'center', gap: 5, padding: '7px 11px', borderRadius: 10,
+                    border: `1px solid ${TOKENS.purple}`, background: 'transparent', color: TOKENS.purple, fontSize: 11.5, fontWeight: 700, cursor: 'pointer',
+                  }}>
+                    <RotateCw size={12} /> Reset
+                  </button>
                 </div>
               </div>
             );
@@ -580,6 +812,12 @@ export default function SchoolsBilling() {
       )}
       {extendTarget && (
         <ExtendModal school={extendTarget} onClose={() => setExtendTarget(null)} onDone={() => { setExtendTarget(null); load(true); }} />
+      )}
+      {freeTrialTarget && (
+        <FreeTrialModal school={freeTrialTarget} onClose={() => setFreeTrialTarget(null)} onDone={() => { setFreeTrialTarget(null); load(true); }} />
+      )}
+      {resetTarget && (
+        <ResetDaysModal school={resetTarget} onClose={() => setResetTarget(null)} onDone={() => { setResetTarget(null); load(true); }} />
       )}
     </div>
   );
