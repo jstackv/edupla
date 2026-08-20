@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useMaintenance } from '../../context/MaintenanceContext';
+import { useBilling } from '../../context/BillingContext';
 import { usePendingPayments } from '../../context/PendingPaymentsContext';
 import { ChatNotifyProvider } from '../../context/ChatNotifyContext';
 import toast from 'react-hot-toast';
@@ -13,7 +14,7 @@ import {
   GraduationCap, BookMarked, Notebook, Shield, UserCheck,
   UserCircle, Settings, Bell, Search, Home,
   Layers, UserPlus, AlertTriangle, X, Crown, ClipboardCheck,
-  LibraryBig, Building2, Wallet,
+  LibraryBig, Building2, Wallet, MessageCircle, Activity,
 } from 'lucide-react';
 import NotificationPanel from './NotificationPanel';
 import LanguageSwitcher from './LanguageSwitcher';
@@ -21,42 +22,46 @@ import BrandMark from '../common/BrandMark';
 
 /* ─── NAV DEFINITIONS ───────────────────────────────────────────── */
 /* `labelKey` points into the `nav.*` i18n namespace; NavItem/SuperAdminNavItem
-   resolve it via t() at render time so links relabel instantly on language change. */
+   resolve it via t() at render time so links relabel instantly on language change.
+   NOTE: these labelKeys were refreshed to friendlier/more distinctive names —
+   add matching entries to your i18n locale files (see the list at the end of
+   this file) or the UI will fall back to showing the raw key. */
 const TeacherLinks = [
-  { to: '/teacher/dashboard',        icon: LayoutDashboard, labelKey: 'nav.dashboard',      section: 'main' },
-  { to: '/teacher/classes',          icon: BookOpen,        labelKey: 'nav.myClasses',      section: 'main' },
-  { to: '/teacher/students',         icon: Users,           labelKey: 'nav.students',       section: 'main' },
-  { to: '/teacher/documents',        icon: FileText,        labelKey: 'nav.documents',      section: 'manage' },
-  { to: '/teacher/assignments',      icon: ClipboardList,   labelKey: 'nav.assignments',    section: 'manage' },
-  { to: '/teacher/assessments-grade',icon: BookMarked,      labelKey: 'nav.marksRecording', section: 'manage' },
-  { to: '/teacher/assessments',      icon: ClipboardCheck,  labelKey: 'nav.assessments',    section: 'manage' },
-  { to: '/teacher/announcements',    icon: Megaphone,       labelKey: 'nav.announcements',  section: 'manage' },
-  { to: '/teacher/groups',           icon: Users,           labelKey: 'nav.groups',         section: 'manage' },
+  { to: '/teacher/dashboard',        icon: LayoutDashboard, labelKey: 'nav.teachingHub',     section: 'main' },
+  { to: '/teacher/classes',          icon: BookOpen,        labelKey: 'nav.classrooms',      section: 'main' },
+  { to: '/teacher/students',         icon: Users,           labelKey: 'nav.myStudents',      section: 'main' },
+  { to: '/teacher/documents',        icon: FileText,        labelKey: 'nav.resourceLibrary', section: 'manage' },
+  { to: '/teacher/assignments',      icon: ClipboardList,   labelKey: 'nav.taskManager',     section: 'manage' },
+  { to: '/teacher/assessments-grade',icon: BookMarked,      labelKey: 'nav.gradebook',       section: 'manage' },
+  { to: '/teacher/assessments',      icon: ClipboardCheck,  labelKey: 'nav.examsQuizzes',    section: 'manage' },
+  { to: '/teacher/announcements',    icon: Megaphone,       labelKey: 'nav.broadcasts',      section: 'manage' },
+  { to: '/teacher/groups',           icon: MessageCircle,   labelKey: 'nav.discussion',      section: 'manage' },
 ];
 const StudentLinks = [
-  { to: '/student/dashboard',     icon: LayoutDashboard, labelKey: 'nav.dashboard',     section: 'main' },
-  { to: '/student/classes',       icon: BookMarked,      labelKey: 'nav.myClasses',     section: 'main' },
-  { to: '/student/modules',       icon: LibraryBig,      labelKey: 'nav.modules',       section: 'main' },
-  { to: '/student/documents',     icon: Notebook,        labelKey: 'nav.notesAndDocs',  section: 'manage' },
-  { to: '/student/assignments',   icon: ClipboardList,   labelKey: 'nav.assignments',   section: 'manage' },
-  { to: '/student/assessments',   icon: ClipboardCheck,  labelKey: 'nav.assessments',   section: 'manage' },
-  { to: '/student/announcements', icon: Megaphone,       labelKey: 'nav.announcements', section: 'manage' },
-  { to: '/student/groups',        icon: Users,           labelKey: 'nav.groups',        section: 'manage' },
+  { to: '/student/dashboard',     icon: LayoutDashboard, labelKey: 'nav.myDashboard',      section: 'main' },
+  { to: '/student/classes',       icon: BookMarked,      labelKey: 'nav.classrooms',        section: 'main' },
+  { to: '/student/modules',       icon: LibraryBig,      labelKey: 'nav.learningModules',   section: 'main' },
+  { to: '/student/documents',     icon: Notebook,        labelKey: 'nav.studyMaterials',    section: 'manage' },
+  { to: '/student/assignments',   icon: ClipboardList,   labelKey: 'nav.homework',          section: 'manage' },
+  { to: '/student/assessments',   icon: ClipboardCheck,  labelKey: 'nav.examsQuizzes',      section: 'manage' },
+  { to: '/student/announcements', icon: Megaphone,       labelKey: 'nav.broadcasts',        section: 'manage' },
+  { to: '/student/groups',        icon: MessageCircle,   labelKey: 'nav.discussion',        section: 'manage' },
 ];
 const AdminLinks = [
-  { to: '/admin/dashboard',   icon: LayoutDashboard, labelKey: 'nav.dashboard',       section: 'main' },
-  { to: '/admin/teachers',    icon: UserCheck,       labelKey: 'nav.teachers',        section: 'main' },
-  { to: '/admin/classes',     icon: BookOpen,        labelKey: 'nav.classes',         section: 'main' },
-  { to: '/admin/students',    icon: GraduationCap,   labelKey: 'nav.students',        section: 'main' },
-  { to: '/admin/assessments', icon: BookMarked,      labelKey: 'nav.manageModules',   section: 'manage' },
-  { to: '/admin/settings',    icon: GraduationCap,   labelKey: 'nav.manageTvetInfo',  section: 'manage' },
+  { to: '/admin/dashboard',   icon: LayoutDashboard, labelKey: 'nav.overview',            section: 'main' },
+  { to: '/admin/teachers',    icon: UserCheck,       labelKey: 'nav.faculty',             section: 'main' },
+  { to: '/admin/classes',     icon: BookOpen,        labelKey: 'nav.classrooms',          section: 'main' },
+  { to: '/admin/students',    icon: GraduationCap,   labelKey: 'nav.studentBody',         section: 'main' },
+  { to: '/admin/assessments', icon: BookMarked,      labelKey: 'nav.curriculum',          section: 'manage' },
+  { to: '/admin/settings',    icon: Building2,       labelKey: 'nav.institutionSettings', section: 'manage' },
+  { to: '/admin/subscription',icon: Wallet,          labelKey: 'nav.subscriptionPlan',    section: 'manage' },
 ];
 const SuperAdminLinks = [
-  { to: '/admin/dashboard',        icon: LayoutDashboard, labelKey: 'nav.overview',        section: 'main' },
-  { to: '/admin/admins',           icon: Shield,          labelKey: 'nav.manageAdmins',    section: 'main' },
-  { to: '/admin/schools-billing',  icon: Building2,       labelKey: 'nav.schoolsBilling',  section: 'main' },
-  { to: '/admin/payment-requests', icon: Wallet,          labelKey: 'nav.paymentRequests', section: 'main' },
-  { to: '/admin/maintenance',      icon: AlertTriangle,   labelKey: 'nav.systemStatus',    section: 'main' },
+  { to: '/admin/dashboard',        icon: LayoutDashboard, labelKey: 'nav.commandCenter',       section: 'main' },
+  { to: '/admin/admins',           icon: Shield,          labelKey: 'nav.adminCouncil',        section: 'main' },
+  { to: '/admin/schools-billing',  icon: Building2,       labelKey: 'nav.institutionsBilling', section: 'main' },
+  { to: '/admin/payment-requests', icon: Wallet,          labelKey: 'nav.treasury',            section: 'main' },
+  { to: '/admin/maintenance',      icon: Activity,        labelKey: 'nav.systemHealth',        section: 'main' },
 ];
 
 /* ─── HELPERS ───────────────────────────────────────────────────── */
@@ -413,13 +418,18 @@ export default function Layout({ children }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const { count: pendingPaymentsCount } = usePendingPayments() || {};
+  const { billing } = useBilling() || {};
 
   const links = user?.role === 'teacher' ? TeacherLinks
     : user?.role === 'admin'   ? (user?.is_super_admin ? SuperAdminLinks : AdminLinks)
     : StudentLinks;
 
   const mainLinks   = links.filter(l => l.section === 'main');
-  const manageLinks = links.filter(l => l.section === 'manage');
+  const manageLinks = links.filter(l => l.section === 'manage').map(l =>
+    l.to === '/admin/subscription' && billing?.is_payer && billing?.status !== 'locked' && billing?.days_remaining != null && billing.days_remaining <= 7
+      ? { ...l, badge: billing.days_remaining }
+      : l
+  );
 
   const [from, to] = getAvatarGradient(user?.name);
   const initials = user?.name
@@ -430,10 +440,10 @@ export default function Layout({ children }) {
   const pageTitle =
     location.pathname === '/profile'  ? t('common.profile')  :
     location.pathname === '/settings' ? t('common.settings') :
-    location.pathname === '/teacher/assessments-grade' ? t('nav.marksRecording') :
-    location.pathname === '/admin/assessments' ? t('nav.assessments') :
-    location.pathname === '/teacher/groups' ? t('nav.groups') :
-    location.pathname === '/student/groups' ? t('nav.myGroups') :
+    location.pathname === '/teacher/assessments-grade' ? t('nav.gradebook') :
+    location.pathname === '/admin/assessments' ? t('nav.curriculum') :
+    location.pathname === '/teacher/groups' ? t('nav.discussion') :
+    location.pathname === '/student/groups' ? t('nav.discussion') :
     (currentLink ? t(currentLink.labelKey) : t('nav.dashboard'));
 
   const handleLogoutConfirm = async () => {

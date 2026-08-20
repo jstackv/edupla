@@ -59,6 +59,7 @@ const ManageAdmins = lazy(() => import('./pages/admin/ManageAdmins'));
 const SystemMaintenance = lazy(() => import('./pages/admin/SystemMaintenance'));
 const SchoolsBilling = lazy(() => import('./pages/admin/SchoolsBilling'));
 const PaymentRequests = lazy(() => import('./pages/admin/PaymentRequests'));
+const Subscription = lazy(() => import('./pages/admin/Subscription'));
 
 function getDefaultRoute(role) {
   if (role === 'teacher') return '/teacher/dashboard';
@@ -348,6 +349,7 @@ function AppRoutes() {
       <Route path="/admin/maintenance" element={<SuperAdminRoute><SystemMaintenance /></SuperAdminRoute>} />
       <Route path="/admin/schools-billing" element={<SuperAdminRoute><SchoolsBilling /></SuperAdminRoute>} />
       <Route path="/admin/payment-requests" element={<SuperAdminRoute><PaymentRequests /></SuperAdminRoute>} />
+      <Route path="/admin/subscription" element={<RegularAdminRoute><Subscription /></RegularAdminRoute>} />
 
       {/* Document viewer — opens in new tab */}
       <Route path="/view-doc" element={<ViewerPage />} />

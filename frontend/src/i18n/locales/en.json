@@ -17,36 +17,44 @@
     "or": "or"
   },
   "nav": {
-    "dashboard": "Dashboard",
-    "myClasses": "My Classes",
-    "modules": "Modules",
-    "students": "Students",
-    "documents": "Documents",
-    "assignments": "Assignments",
-    "marksRecording": "Marks Recording",
-    "assessments": "Assessments",
-    "announcements": "Announcements",
-    "groups": "Groups",
-    "myGroups": "My Groups",
-    "notesAndDocs": "Notes & Docs",
-    "teachers": "Teachers",
-    "classes": "Classes",
-    "manageModules": "Manage Modules",
-    "manageTvetInfo": "Manage TVET Info",
+    "teachingHub": "Teaching Hub",
+    "classrooms": "Classes",
+    "myStudents": "My Students",
+    "resourceLibrary": "Resource Library",
+    "taskManager": "Task Manager",
+    "gradebook": "Marks Recording",
+    "examsQuizzes": "Assessments",
+    "broadcasts": "Broadcasts",
+    "discussion": "Discussion",
+
+    "myDashboard": "Dashboard",
+    "learningModules": "Modules",
+    "studyMaterials": "Study Materials",
+    "homework": "Homework",
+
     "overview": "Overview",
-    "manageAdmins": "Manage Admins",
-    "systemStatus": "System Status",
-    "schoolsBilling": "Schools & Billing",
-    "paymentRequests": "Payment Requests",
+    "faculty": "Teachers",
+    "studentBody": "Students",
+    "curriculum": "Curriculum",
+    "institutionSettings": "TVET Settings",
+    "subscriptionPlan": "Subscription Plan",
+
+    "commandCenter": "Overview",
+    "adminCouncil": "Manage Schools",
+    "institutionsBilling": "Manage Billings",
+    "treasury": "Treasury",
+    "systemHealth": "System Health",
+
     "mainMenu": "Main Menu",
     "management": "Management",
-    "control": "Control"
+
+    "control": "Control Panel"
   },
   "roles": {
     "teacherPortal": "Teacher Portal",
     "studentPortal": "Student Portal",
-    "adminPortal": "Admin Portal",
-    "superAdmin": "Super Admin",
+    "adminPortal": "School Manager",
+    "superAdmin": "System Owner",
     "superAdministrator": "Super Administrator"
   },
   "layout": {
