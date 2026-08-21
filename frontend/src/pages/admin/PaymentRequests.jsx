@@ -6,6 +6,7 @@ import {
   Wallet, Search, RefreshCw, CheckCircle2, XCircle, Clock, Loader2,
   Settings2, Plus, Pencil, Trash2, X, Mail, Smartphone, Building2,
   Inbox, TrendingUp, CircleDollarSign, ListChecks, RotateCcw, AlertTriangle,
+  Printer, Receipt, GraduationCap, ChevronUp, ChevronDown, Tag, ToggleLeft, ToggleRight,
 } from 'lucide-react';
 
 const TOKENS = { emerald: '#10b981', rose: '#f43f5e', amber: '#f59e0b', slate: '#64748b', gold: '#d97706', indigo: '#6366f1' };
@@ -60,7 +61,20 @@ const GLOBAL_STYLES = `
   @media (prefers-reduced-motion: reduce) {
     .pr-row, .pr-modal, .pr-stamp, .pr-skel, .pr-stat-glow { animation: none !important; }
   }
+
+  @media print {
+    body * { visibility: hidden; }
+    #pr-receipt-printable, #pr-receipt-printable * { visibility: visible; }
+    #pr-receipt-printable { position: fixed; inset: 0; padding: 32px; }
+  }
 `;
+
+function formatDate(d) {
+  if (!d) return '—';
+  const date = new Date(d);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+}
 
 function formatDateTime(d) {
   if (!d) return '—';
@@ -146,6 +160,81 @@ function Stamp({ status }) {
   );
 }
 
+// ── Printable receipt for a confirmed payment ────────────────────────────
+function ReceiptModal({ payment, onClose }) {
+  const isManual = payment.method === 'manual';
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)', padding: 16 }}>
+      <div className="pr-modal" style={{ width: '100%', maxWidth: 440, maxHeight: '92vh', overflowY: 'auto', background: 'var(--card-bg)', borderRadius: 22, border: '1px solid var(--card-border)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--card-border)' }}>
+          <h3 style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Receipt</h3>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => window.print()} className="pr-btn" style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 9, border: 'none', background: TOKENS.indigo, color: '#fff', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}>
+              <Printer size={12} /> Print
+            </button>
+            <button onClick={onClose} className="pr-btn" style={{ width: 30, height: 30, borderRadius: 8, border: 'none', cursor: 'pointer', background: 'var(--surface-100)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <X size={13} color="var(--text-secondary)" />
+            </button>
+          </div>
+        </div>
+
+        <div id="pr-receipt-printable" style={{ padding: '28px 26px', background: '#fff', color: '#0f172a' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 22 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg,#6366f1,#4338ca)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <GraduationCap size={17} color="#fff" />
+            </div>
+            <span style={{ fontFamily: "'Sora',sans-serif", fontWeight: 800, fontSize: 16, color: '#1e1b4b' }}>EDUPLA</span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
+            <div>
+              <p style={{ fontSize: 17, fontWeight: 800, margin: 0, color: '#1e1b4b' }}>Payment Receipt</p>
+              <p style={{ fontSize: 11, color: '#64748b', margin: '3px 0 0' }}>#{String(payment._id).slice(-10).toUpperCase()}</p>
+            </div>
+            <div className="pr-stamp" style={{
+              border: '2.5px solid #10b981', borderRadius: 8, padding: '5px 12px', color: '#10b981',
+              fontWeight: 800, fontSize: 12, letterSpacing: '0.08em', transform: 'rotate(-8deg)', opacity: 0.9,
+            }}>
+              PAID
+            </div>
+          </div>
+
+          <div style={{ borderTop: '1.5px dashed #e2e8f0', borderBottom: '1.5px dashed #e2e8f0', padding: '16px 0', marginBottom: 18, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {[
+              ['School', payment.admin_id?.name || 'Unknown school'],
+              ['Email', payment.admin_id?.email || '—'],
+              ['Plan', payment.plan_name || `${payment.plan_days}-day plan`],
+              ['Amount', formatMoney(payment.amount, payment.currency)],
+              ['Payment method', isManual ? 'MTN MoMo (manual transfer)' : 'MTN MoMo (API)'],
+              ['Paid via', payment.phone],
+              ['Confirmed by', payment.reviewed_by?.name || '—'],
+              ['Date confirmed', formatDate(payment.reviewed_at || payment.created_at)],
+              ['Access valid until', formatDate(payment.paid_until_after)],
+            ].map(([label, value]) => (
+              <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, gap: 12 }}>
+                <span style={{ color: '#64748b', fontWeight: 600, flexShrink: 0 }}>{label}</span>
+                <span style={{ color: '#1e1b4b', fontWeight: 700, textAlign: 'right' }}>{value}</span>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 22 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: '#1e1b4b' }}>Total paid</span>
+            <span style={{ fontFamily: "'Sora',sans-serif", fontSize: 22, fontWeight: 800, color: '#d97706' }}>
+              {formatMoney(payment.amount, payment.currency)}
+            </span>
+          </div>
+
+          <p style={{ fontSize: 10.5, color: '#94a3b8', textAlign: 'center', margin: 0, lineHeight: 1.6 }}>
+            Issued by Edupla administration.<br />
+            Reference #{String(payment._id).slice(-10).toUpperCase()}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Reject reason modal ───────────────────────────────────────────────
 function RejectModal({ payments, onClose, onDone }) {
   const isBulk = payments.length > 1;
@@ -223,6 +312,7 @@ function PlanManagerModal({ onClose }) {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ name: '', amount: '', currency: 'RWF', days: '', sort_order: 0 });
   const [saving, setSaving] = useState(false);
+  const [reorderingId, setReorderingId] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -288,20 +378,46 @@ function PlanManagerModal({ onClose }) {
     }
   };
 
+  // Swaps this plan's sort_order with its neighbor and persists both, so
+  // the display order super admins set here is exactly what school admins
+  // see when choosing a plan on the paywall.
+  const move = async (index, direction) => {
+    const target = index + direction;
+    if (target < 0 || target >= plans.length) return;
+    const a = plans[index], b = plans[target];
+    setReorderingId(a._id);
+    try {
+      await Promise.all([
+        api.put(`/system/billing/plans/${a._id}`, { sort_order: b.sort_order }),
+        api.put(`/system/billing/plans/${b._id}`, { sort_order: a.sort_order }),
+      ]);
+      await load();
+    } catch {
+      toast.error('Failed to reorder plans.');
+    } finally {
+      setReorderingId(null);
+    }
+  };
+
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)', padding: 16 }}>
-      <div className="pr-modal" style={{ width: '100%', maxWidth: 520, maxHeight: '85vh', overflowY: 'auto', background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 20, padding: 24 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+      <div className="pr-modal" style={{ width: '100%', maxWidth: 560, maxHeight: '85vh', overflowY: 'auto', background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 22, padding: 26 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(99,102,241,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Settings2 size={16} color="#6366f1" />
+            <div style={{ width: 38, height: 38, borderRadius: 11, background: 'linear-gradient(135deg,#6366f1,#4338ca)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 16px rgba(99,102,241,0.35)' }}>
+              <Settings2 size={18} color="#fff" />
             </div>
-            <h3 style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Payment plans</h3>
+            <div>
+              <h3 style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Payment plans</h3>
+              <p style={{ fontSize: 11.5, color: 'var(--text-secondary)', margin: '1px 0 0' }}>What schools see on the paywall, in this order</p>
+            </div>
           </div>
-          <button onClick={onClose} className="pr-btn" style={{ width: 28, height: 28, borderRadius: 8, border: 'none', cursor: 'pointer', background: 'var(--surface-100)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <button onClick={onClose} className="pr-btn" style={{ width: 30, height: 30, borderRadius: 9, border: 'none', cursor: 'pointer', background: 'var(--surface-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <X size={14} color="var(--text-secondary)" />
           </button>
         </div>
+
+        <div style={{ height: 1, background: 'var(--card-border)', margin: '16px 0' }} />
 
         {loading ? (
           <div style={{ padding: 30, textAlign: 'center', color: 'var(--text-secondary)' }}>
@@ -309,33 +425,73 @@ function PlanManagerModal({ onClose }) {
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {plans.map(plan => (
-              <div key={plan._id} style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
-                padding: '11px 14px', borderRadius: 12, border: '1px solid var(--card-border)',
-                background: 'var(--surface-100)', opacity: plan.active ? 1 : 0.55,
+            {plans.length === 0 && (
+              <div style={{ padding: '28px 10px', textAlign: 'center' }}>
+                <div style={{ width: 44, height: 44, borderRadius: 13, background: 'var(--surface-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 10px' }}>
+                  <Tag size={19} color="var(--text-secondary)" />
+                </div>
+                <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 3px' }}>No plans yet</p>
+                <p style={{ fontSize: 11.5, color: 'var(--text-secondary)', margin: 0 }}>Add your first pricing tier below.</p>
+              </div>
+            )}
+
+            {plans.map((plan, i) => (
+              <div key={plan._id} className="pr-row" style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '12px 14px', borderRadius: 14, border: '1px solid var(--card-border)',
+                background: 'var(--surface-100)', opacity: plan.active ? 1 : 0.5,
+                animationDelay: `${i * 0.03}s`,
               }}>
-                <div>
-                  <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>{plan.name}</p>
-                  <p style={{ fontSize: 11.5, color: 'var(--text-secondary)', margin: '2px 0 0' }}>
-                    {formatMoney(plan.amount, plan.currency)} · {plan.days} days {!plan.active && '· inactive'}
+                {/* Reorder controls */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 1, flexShrink: 0 }}>
+                  <button onClick={() => move(i, -1)} disabled={i === 0 || reorderingId} className="pr-btn" style={{
+                    width: 20, height: 16, borderRadius: 5, border: 'none', background: 'var(--card-bg)', cursor: i === 0 ? 'default' : 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: i === 0 ? 0.3 : 1,
+                  }}>
+                    <ChevronUp size={11} color="var(--text-secondary)" />
+                  </button>
+                  <button onClick={() => move(i, 1)} disabled={i === plans.length - 1 || reorderingId} className="pr-btn" style={{
+                    width: 20, height: 16, borderRadius: 5, border: 'none', background: 'var(--card-bg)', cursor: i === plans.length - 1 ? 'default' : 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: i === plans.length - 1 ? 0.3 : 1,
+                  }}>
+                    <ChevronDown size={11} color="var(--text-secondary)" />
+                  </button>
+                </div>
+
+                <div style={{
+                  width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+                  background: 'linear-gradient(135deg, rgba(99,102,241,0.16), rgba(67,56,202,0.1))',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <Tag size={15} color={TOKENS.indigo} />
+                </div>
+
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>{plan.name}</p>
+                  <p style={{ fontSize: 11.5, color: 'var(--text-secondary)', margin: '2px 0 0', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ color: TOKENS.gold, fontWeight: 700 }}>{formatMoney(plan.amount, plan.currency)}</span>
+                    <span>·</span>
+                    <span>{plan.days} days</span>
+                    {!plan.active && <span style={{ color: TOKENS.slate }}>· inactive</span>}
                   </p>
                 </div>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <button onClick={() => toggleActive(plan)} className="pr-btn" style={{
-                    padding: '6px 10px', borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: 'pointer',
-                    border: '1px solid var(--card-border)', background: 'var(--card-bg)', color: 'var(--text-primary)',
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                  <button onClick={() => toggleActive(plan)} className="pr-btn" title={plan.active ? 'Deactivate' : 'Activate'} style={{
+                    border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', padding: 4,
                   }}>
-                    {plan.active ? 'Deactivate' : 'Activate'}
+                    {plan.active
+                      ? <ToggleRight size={26} color={TOKENS.emerald} />
+                      : <ToggleLeft size={26} color="var(--text-secondary)" />}
                   </button>
                   <button onClick={() => startEdit(plan)} className="pr-btn" style={{
-                    width: 30, height: 30, borderRadius: 8, border: '1px solid var(--card-border)', background: 'var(--card-bg)', cursor: 'pointer',
+                    width: 30, height: 30, borderRadius: 9, border: '1px solid var(--card-border)', background: 'var(--card-bg)', cursor: 'pointer',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}>
                     <Pencil size={12} color="var(--text-secondary)" />
                   </button>
                   <button onClick={() => remove(plan)} className="pr-btn" style={{
-                    width: 30, height: 30, borderRadius: 8, border: `1px solid ${TOKENS.rose}`, background: 'transparent', cursor: 'pointer',
+                    width: 30, height: 30, borderRadius: 9, border: `1px solid ${TOKENS.rose}`, background: 'transparent', cursor: 'pointer',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}>
                     <Trash2 size={12} color={TOKENS.rose} />
@@ -345,24 +501,47 @@ function PlanManagerModal({ onClose }) {
             ))}
 
             {editing ? (
-              <div style={{ padding: 14, borderRadius: 12, border: '1.5px solid #6366f1', background: 'rgba(99,102,241,0.05)', marginTop: 4 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
-                  <input placeholder="Name (e.g. 1 Month)" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                    style={{ gridColumn: '1 / -1', padding: '8px 10px', borderRadius: 9, border: '1px solid var(--card-border)', background: 'var(--card-bg)', color: 'var(--text-primary)', fontSize: 12.5, boxSizing: 'border-box' }} />
-                  <input type="number" placeholder="Amount" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
-                    style={{ padding: '8px 10px', borderRadius: 9, border: '1px solid var(--card-border)', background: 'var(--card-bg)', color: 'var(--text-primary)', fontSize: 12.5, boxSizing: 'border-box' }} />
-                  <input placeholder="Currency" value={form.currency} onChange={e => setForm(f => ({ ...f, currency: e.target.value }))}
-                    style={{ padding: '8px 10px', borderRadius: 9, border: '1px solid var(--card-border)', background: 'var(--card-bg)', color: 'var(--text-primary)', fontSize: 12.5, boxSizing: 'border-box' }} />
-                  <input type="number" placeholder="Days" value={form.days} onChange={e => setForm(f => ({ ...f, days: e.target.value }))}
-                    style={{ padding: '8px 10px', borderRadius: 9, border: '1px solid var(--card-border)', background: 'var(--card-bg)', color: 'var(--text-primary)', fontSize: 12.5, boxSizing: 'border-box' }} />
-                  <input type="number" placeholder="Sort order" value={form.sort_order} onChange={e => setForm(f => ({ ...f, sort_order: e.target.value }))}
-                    style={{ padding: '8px 10px', borderRadius: 9, border: '1px solid var(--card-border)', background: 'var(--card-bg)', color: 'var(--text-primary)', fontSize: 12.5, boxSizing: 'border-box' }} />
+              <div className="pr-modal" style={{ padding: 16, borderRadius: 16, border: `1.5px solid ${TOKENS.indigo}`, background: 'rgba(99,102,241,0.05)', marginTop: 6 }}>
+                <p style={{ fontSize: 11.5, fontWeight: 700, color: TOKENS.indigo, textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 10px' }}>
+                  {editing === 'new' ? 'New plan' : 'Edit plan'}
+                </p>
+                <input
+                  placeholder="Plan name — e.g. 1 Month" value={form.name}
+                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--card-border)', background: 'var(--card-bg)', color: 'var(--text-primary)', fontSize: 13, boxSizing: 'border-box', marginBottom: 8, fontFamily: 'inherit' }}
+                />
+                <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 0.9fr', gap: 8, marginBottom: 8 }}>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type="number" placeholder="Amount" value={form.amount}
+                      onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
+                      style={{ width: '100%', padding: '10px 52px 10px 12px', borderRadius: 10, border: '1px solid var(--card-border)', background: 'var(--card-bg)', color: 'var(--text-primary)', fontSize: 13, boxSizing: 'border-box', fontFamily: 'inherit' }}
+                    />
+                    <input
+                      value={form.currency} onChange={e => setForm(f => ({ ...f, currency: e.target.value }))}
+                      style={{
+                        position: 'absolute', right: 5, top: '50%', transform: 'translateY(-50%)', width: 44, textAlign: 'center',
+                        padding: '5px 4px', borderRadius: 7, border: '1px solid var(--card-border)', background: 'var(--surface-100)',
+                        color: 'var(--text-secondary)', fontSize: 10.5, fontWeight: 700, boxSizing: 'border-box',
+                      }}
+                    />
+                  </div>
+                  <input
+                    type="number" placeholder="Days" value={form.days}
+                    onChange={e => setForm(f => ({ ...f, days: e.target.value }))}
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--card-border)', background: 'var(--card-bg)', color: 'var(--text-primary)', fontSize: 13, boxSizing: 'border-box', fontFamily: 'inherit' }}
+                  />
                 </div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button onClick={() => setEditing(null)} className="pr-btn" style={{ flex: 1, padding: '8px', borderRadius: 9, border: '1px solid var(--card-border)', background: 'var(--card-bg)', color: 'var(--text-primary)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                  <button onClick={() => setEditing(null)} className="pr-btn" style={{ flex: 1, padding: '9px', borderRadius: 10, border: '1px solid var(--card-border)', background: 'var(--card-bg)', color: 'var(--text-primary)', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
                     Cancel
                   </button>
-                  <button onClick={save} disabled={saving} className="pr-btn" style={{ flex: 1, padding: '8px', borderRadius: 9, border: 'none', background: '#6366f1', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
+                  <button onClick={save} disabled={saving} className="pr-btn" style={{
+                    flex: 1, padding: '9px', borderRadius: 10, border: 'none', background: TOKENS.indigo, color: '#fff',
+                    fontSize: 12.5, fontWeight: 700, cursor: 'pointer', opacity: saving ? 0.7 : 1,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                  }}>
+                    {saving ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />}
                     {saving ? 'Saving…' : 'Save plan'}
                   </button>
                 </div>
@@ -370,8 +549,8 @@ function PlanManagerModal({ onClose }) {
             ) : (
               <button onClick={startNew} className="pr-btn" style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                padding: '10px', borderRadius: 12, border: '1.5px dashed var(--card-border)',
-                background: 'transparent', color: 'var(--text-secondary)', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', marginTop: 4,
+                padding: '12px', borderRadius: 14, border: `1.5px dashed ${TOKENS.indigo}`,
+                background: 'rgba(99,102,241,0.04)', color: TOKENS.indigo, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', marginTop: 4,
               }}>
                 <Plus size={14} /> Add plan
               </button>
@@ -536,13 +715,14 @@ export default function PaymentRequests() {
   const [allPayments, setAllPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [filter, setFilter] = useState('PENDING');
+  const [filter, setFilter] = useState('ALL');
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState(new Set());
   const [rejectTarget, setRejectTarget] = useState(null); // array of payments
   const [confirmingId, setConfirmingId] = useState(null);
   const [showPlanManager, setShowPlanManager] = useState(false);
   const [showClearHistory, setShowClearHistory] = useState(false);
+  const [receiptTarget, setReceiptTarget] = useState(null);
 
   // Single fetch of everything — tab switching and search then filter
   // client-side instantly instead of round-tripping per click, and it lets
@@ -672,7 +852,7 @@ export default function PaymentRequests() {
       </div>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-        {['ALL','PENDING', 'SUCCESSFUL', 'REJECTED'].map(key => {
+        {['ALL', 'PENDING', 'SUCCESSFUL', 'REJECTED'].map(key => {
           const meta = STATUS_META[key];
           const active = filter === key;
           const count = key === 'ALL' ? stats.total : key === 'PENDING' ? stats.pendingCount : key === 'SUCCESSFUL' ? stats.confirmedCount : stats.rejectedCount;
@@ -809,7 +989,7 @@ export default function PaymentRequests() {
                   <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                     <button onClick={() => confirm(payment)} disabled={confirmingId === payment._id} className="pr-btn" style={{
                       display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 10,
-                      border: 'none', background: TOKENS.emerald, color: '#fff', fontSize: 11.5, fontWeight: 700, cursor: 'pointer',
+                      border: 'none', background: TOKENS.indigo, color: '#fff', fontSize: 11.5, fontWeight: 700, cursor: 'pointer',
                     }}>
                       {confirmingId === payment._id ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />} Confirm
                     </button>
@@ -824,7 +1004,7 @@ export default function PaymentRequests() {
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
                     <button onClick={() => confirm(payment)} disabled={confirmingId === payment._id} className="pr-btn" title="Reconsider this decision and restore the school's access" style={{
                       display: 'flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 9,
-                      border: `1px solid ${TOKENS.emerald}`, background: 'transparent', color: TOKENS.emerald, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                      border: `1px solid ${TOKENS.indigo}`, background: 'transparent', color: TOKENS.indigo, fontSize: 11, fontWeight: 700, cursor: 'pointer',
                     }}>
                       {confirmingId === payment._id ? <Loader2 size={11} className="animate-spin" /> : <RotateCcw size={11} />} Reconsider & confirm
                     </button>
@@ -833,9 +1013,18 @@ export default function PaymentRequests() {
                     </p>
                   </div>
                 ) : (
-                  <p style={{ fontSize: 10.5, color: 'var(--text-secondary)', margin: 0, minWidth: 90, textAlign: 'right' }}>
-                    by {payment.reviewed_by?.name || '—'}<br />{formatDateTime(payment.reviewed_at)}
-                  </p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                    <p style={{ fontSize: 10.5, color: 'var(--text-secondary)', margin: 0, minWidth: 90, textAlign: 'right' }}>
+                      by {payment.reviewed_by?.name || '—'}<br />{formatDateTime(payment.reviewed_at)}
+                    </p>
+                    <button onClick={() => setReceiptTarget(payment)} className="pr-btn" style={{
+                      display: 'flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 9,
+                      border: '1px solid var(--card-border)', background: 'var(--surface-100)', color: 'var(--text-primary)',
+                      fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                    }}>
+                      <Receipt size={11} /> Receipt
+                    </button>
+                  </div>
                 )}
               </div>
             );
@@ -846,6 +1035,7 @@ export default function PaymentRequests() {
       {rejectTarget && (
         <RejectModal payments={rejectTarget} onClose={() => setRejectTarget(null)} onDone={() => { setRejectTarget(null); setSelected(new Set()); load(true); }} />
       )}
+      {receiptTarget && <ReceiptModal payment={receiptTarget} onClose={() => setReceiptTarget(null)} />}
       {showPlanManager && <PlanManagerModal onClose={() => setShowPlanManager(false)} />}
       {showClearHistory && (
         <ClearHistoryModal
