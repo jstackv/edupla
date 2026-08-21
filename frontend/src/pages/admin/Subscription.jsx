@@ -132,10 +132,9 @@ function formatMoney(amount, currency) {
   return `${Number.isFinite(n) ? n.toLocaleString('en-US') : amount} ${currency || ''}`.trim();
 }
 
-// ── The signature element: a tilting membership card, since a subscription
-// literally is a membership. Mouse-follow 3D tilt + a light sweep on
-// hover, gradient body, big embossed days-remaining figure like a card's
-// printed number, plan name where a cardholder name would sit. ──────────
+// ── Premium membership card — compact layout, matching the original
+// card's height. Chip + masked number share one row again, spacing is
+// tightened throughout, and the cardholder/plan row is smaller. ─────────
 function MembershipCard({ billing }) {
   const ref = useRef(null);
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
@@ -147,7 +146,7 @@ function MembershipCard({ billing }) {
     const rect = el.getBoundingClientRect();
     const px = (e.clientX - rect.left) / rect.width;
     const py = (e.clientY - rect.top) / rect.height;
-    setTilt({ x: (py - 0.5) * -10, y: (px - 0.5) * 12 });
+    setTilt({ x: (py - 0.5) * -5, y: (px - 0.5) * 6 });
   };
   const onLeave = () => { setHovering(false); setTilt({ x: 0, y: 0 }); };
 
@@ -161,6 +160,11 @@ function MembershipCard({ billing }) {
   const statusLabel = isLocked ? 'Locked' : isOverdue ? 'Overdue' : isActive ? 'Active' : 'Trialing';
   const statusColor = isLocked ? TOKENS.slate : isOverdue ? TOKENS.rose : isActive ? TOKENS.emerald : TOKENS.amber;
   const validUntil = isActive ? billing?.paid_until : billing?.trial_ends_at;
+  const planName = billing?.plan?.name || (isActive ? 'Active plan' : 'Free trial');
+  const schoolName = billing?.school_admin_name || billing?.school_name || 'Your School';
+
+  const rawId = String(billing?._id || billing?.school_id || '0000').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+  const last4 = (rawId.slice(-4) || '0000').padStart(4, '0');
 
   return (
     <div
@@ -172,84 +176,146 @@ function MembershipCard({ billing }) {
       style={{ perspective: 1000, width: '100%', maxWidth: 460 }}
     >
       <div style={{
-        position: 'relative', borderRadius: 24, padding: '28px 26px', overflow: 'hidden',
-        background: 'linear-gradient(135deg, #4338ca 0%, #6366f1 45%, #7c3aed 100%)',
-        boxShadow: hovering ? '0 30px 60px rgba(67,56,202,0.45)' : '0 18px 40px rgba(67,56,202,0.3)',
-        transform: `rotateX(${tilt.x}deg) rotateY(${tilt.y}deg) scale(${hovering ? 1.015 : 1})`,
+        position: 'relative', borderRadius: 24, padding: '24px 26px', overflow: 'hidden',
+        background: `
+          radial-gradient(circle at 18% 12%, rgba(255,255,255,0.22) 0%, transparent 40%),
+          radial-gradient(circle at 88% 88%, rgba(124,58,237,0.5) 0%, transparent 55%),
+          linear-gradient(135deg, #4338ca 0%, #6366f1 45%, #7c3aed 100%)
+        `,
+        boxShadow: hovering
+          ? '0 30px 62px rgba(67,56,202,0.45), inset 0 1px 0 rgba(255,255,255,0.2)'
+          : '0 22px 50px rgba(67,56,202,0.35), inset 0 1px 0 rgba(255,255,255,0.18)',
+        border: '1px solid rgba(255,255,255,0.08)',
+        transform: `rotateX(${tilt.x}deg) rotateY(${tilt.y}deg) scale(${hovering ? 1.012 : 1})`,
         transition: hovering ? 'box-shadow .3s, transform .08s linear' : 'transform .5s cubic-bezier(0.16,1,0.3,1), box-shadow .4s',
         transformStyle: 'preserve-3d',
       }}>
+        {/* giant brand watermark, sits behind all content, oblique diagonal */}
         <div style={{
-          position: 'absolute', top: '-30%', right: '-15%', width: '70%', height: '140%', borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(255,255,255,0.14) 0%, transparent 70%)', pointerEvents: 'none',
-        }} />
-        <div style={{
-          position: 'absolute', bottom: '-30%', left: '-10%', width: '55%', height: '110%', borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 70%)', pointerEvents: 'none',
-        }} />
+          position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+        }}>
+          <span style={{
+            fontFamily: "'Sora',sans-serif", fontWeight: 810, fontSize: 90, lineHeight: 1,
+            color: 'rgba(255,255,255,0.07)', letterSpacing: '0.03em', whiteSpace: 'nowrap',
+            transform: 'rotate(-34deg)', userSelect: 'none',
+          }}>
+            EDUPLA
+          </span>
+        </div>
+        <GraduationCap
+          size={64}
+          color="rgba(255,255,255,0.06)"
+          style={{ position: 'absolute', right: 18, bottom: 14, zIndex: 0, transform: 'rotate(-10deg)', pointerEvents: 'none' }}
+        />
+
         {hovering && (
           <div className="sub-shine" style={{
-            position: 'absolute', top: '-50%', left: 0, width: '40%', height: '200%',
-            background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent)',
+            position: 'absolute', top: '-50%', left: 0, width: '35%', height: '200%',
+            background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.16), transparent)',
             animation: 'sub-shine-sweep 1.1s ease forwards', pointerEvents: 'none',
           }} />
         )}
 
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 26, position: 'relative' }}>
+        {/* top row */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, position: 'relative' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{
-              width: 30, height: 30, borderRadius: 9, background: 'rgba(255,255,255,0.18)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)',
-              animation: 'sub-icon-float 3.4s ease-in-out infinite',
+              width: 28, height: 28, borderRadius: 8, background: 'rgba(255,255,255,0.18)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.25)',
             }}>
-              <GraduationCap size={16} color="#fff" />
+              <GraduationCap size={15} color="#fff" />
             </div>
-            <span style={{ fontFamily: "'Sora',sans-serif", fontWeight: 800, fontSize: 14, color: '#fff', letterSpacing: '0.02em' }}>EDUPLA</span>
+            <span style={{ fontFamily: "'Sora',sans-serif", fontWeight: 800, fontSize: 13.5, color: '#fff', letterSpacing: '0.02em' }}>
+              EDUPLA
+            </span>
           </div>
-          <Wifi size={20} color="rgba(255,255,255,0.75)" style={{ transform: 'rotate(90deg)' }} />
+          <Wifi size={18} color="rgba(255,255,255,0.75)" style={{ transform: 'rotate(90deg)' }} />
         </div>
 
-        <div style={{
-          width: 38, height: 28, borderRadius: 6, marginBottom: 18,
-          background: 'linear-gradient(135deg, rgba(255,255,255,0.55), rgba(255,255,255,0.25))',
-          border: '1px solid rgba(255,255,255,0.4)', position: 'relative', overflow: 'hidden',
-        }}>
-          <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: 1, background: 'rgba(255,255,255,0.4)' }} />
-          <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: 1, background: 'rgba(255,255,255,0.4)' }} />
+        {/* chip + masked number, same row */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 13, marginBottom: 12, position: 'relative' }}>
+          <div style={{
+            width: 38, height: 26, borderRadius: 6, flexShrink: 0, position: 'relative', overflow: 'hidden',
+            background: 'linear-gradient(135deg, #fde9b8 0%, #d4af6a 50%, #b3873f 100%)',
+            border: '1px solid rgba(255,255,255,0.4)', boxShadow: '0 2px 5px rgba(0,0,0,0.25)',
+          }}>
+            <div style={{ position: 'absolute', top: '32%', left: 3, right: 3, height: 1, background: 'rgba(120,85,30,0.35)' }} />
+            <div style={{ position: 'absolute', top: '68%', left: 3, right: 3, height: 1, background: 'rgba(120,85,30,0.35)' }} />
+            <div style={{ position: 'absolute', left: '48%', top: 3, bottom: 3, width: 1, background: 'rgba(120,85,30,0.35)' }} />
+          </div>
+          <p style={{ fontFamily: "'Courier New',monospace", fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,0.88)', letterSpacing: '0.13em', margin: 0 }}>
+            •••• •••• •••• {last4}
+          </p>
         </div>
 
-        <div style={{ marginBottom: 22, position: 'relative' }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }} className={urgent ? 'sub-glow' : ''}>
-            <span style={{ fontFamily: "'Sora',sans-serif", fontWeight: 800, fontSize: 46, color: '#fff', lineHeight: 1, letterSpacing: '-0.02em', textShadow: '0 2px 12px rgba(0,0,0,0.15)' }}>
+        {/* cardholder (school name) + plan — compact */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 12, position: 'relative' }}>
+          <div style={{ minWidth: 0 }}>
+            <p style={{ fontSize: 8, fontWeight: 700, color: 'rgba(255,255,255,0.55)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>
+              Cardholder
+            </p>
+            <p style={{
+              fontSize: 12, fontWeight: 700, color: '#fff', margin: 0, letterSpacing: '0.02em',
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 220, textTransform: 'uppercase',
+            }}>
+              {schoolName}
+            </p>
+          </div>
+          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+            <p style={{ fontSize: 8, fontWeight: 700, color: 'rgba(255,255,255,0.55)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>
+              Plan
+            </p>
+            <p style={{ fontSize: 12, fontWeight: 700, color: '#fff', margin: 0 }}>
+              {planName}
+            </p>
+          </div>
+        </div>
+
+        {/* days remaining */}
+        <div style={{ marginBottom: 14, position: 'relative' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+            <span style={{
+              fontFamily: "'Sora',sans-serif", fontWeight: 800, fontSize: 38, lineHeight: 1, letterSpacing: '-0.02em',
+              color: urgent ? '#fde68a' : '#fff', textShadow: '0 2px 12px rgba(0,0,0,0.15)',
+            }}>
               {isLocked || isOverdue ? '—' : daysRemaining}
             </span>
             {!isLocked && !isOverdue && (
-              <span style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.8)' }}>
+              <span style={{ fontSize: 12.5, fontWeight: 600, color: 'rgba(255,255,255,0.8)' }}>
                 day{daysRemaining === 1 ? '' : 's'} remaining
               </span>
             )}
           </div>
           {(isLocked || isOverdue) && (
-            <p style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.85)', margin: '4px 0 0' }}>
+            <p style={{ fontSize: 12.5, fontWeight: 600, color: 'rgba(255,255,255,0.85)', margin: '3px 0 0' }}>
               {isLocked ? 'Access is locked' : 'Subscription expired'}
+            </p>
+          )}
+          {urgent && (
+            <p style={{ fontSize: 10.5, fontWeight: 700, color: '#fde68a', margin: '3px 0 0', display: 'flex', alignItems: 'center', gap: 5 }}>
+              <AlertCircle size={10} /> Renew soon to avoid interruption
             </p>
           )}
         </div>
 
+        {/* bottom row */}
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', position: 'relative' }}>
           <div>
-            <p style={{ fontSize: 9.5, fontWeight: 700, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 3px' }}>
+            <p style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 3px' }}>
               {isActive ? 'Valid until' : isLocked || isOverdue ? 'Status' : 'Trial ends'}
             </p>
-            <p style={{ fontFamily: "'Sora',sans-serif", fontSize: 14, fontWeight: 700, color: '#fff', margin: 0 }}>
+            <p style={{ fontFamily: "'Sora',sans-serif", fontSize: 13.5, fontWeight: 700, color: '#fff', margin: 0 }}>
               {isLocked || isOverdue ? statusLabel : formatDateShort(validUntil)}
             </p>
           </div>
           <span style={{
-            display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 999,
-            background: 'rgba(255,255,255,0.16)', backdropFilter: 'blur(4px)', color: '#fff', fontSize: 11, fontWeight: 700,
+            display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 999,
+            background: 'rgba(255,255,255,0.16)', color: '#fff', fontSize: 10.5, fontWeight: 700,
+            boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.15)',
           }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: statusColor, boxShadow: `0 0 6px ${statusColor}` }} />
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: statusColor, boxShadow: `0 0 5px ${statusColor}` }} />
             {statusLabel}
           </span>
         </div>

@@ -61,12 +61,6 @@ const GLOBAL_STYLES = `
   @media (prefers-reduced-motion: reduce) {
     .pr-row, .pr-modal, .pr-stamp, .pr-skel, .pr-stat-glow { animation: none !important; }
   }
-
-  @media print {
-    body * { visibility: hidden; }
-    #pr-receipt-printable, #pr-receipt-printable * { visibility: visible; }
-    #pr-receipt-printable { position: fixed; inset: 0; padding: 32px; }
-  }
 `;
 
 function formatDate(d) {
@@ -160,6 +154,250 @@ function Stamp({ status }) {
   );
 }
 
+// ── Builds a fully self-contained, print-optimized receipt document and
+// opens it in its own window. Deliberately NOT reusing the on-page modal's
+// DOM for printing — nested overflow:auto + backdrop-filter ancestors
+// silently clip position:fixed content, which is why the old approach
+// printed almost nothing. A dedicated window has none of that baggage. ──
+function buildReceiptHtml(payment) {
+  const isManual = payment.method === 'manual';
+  const refNumber = String(payment._id).slice(-10).toUpperCase();
+  const rowIcons = {
+    School: '<path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"/>',
+    Email: '<path d="M4 4h16v16H4z"/><path d="m4 6 8 7 8-7"/>',
+    Plan: '<path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/>',
+    'Payment method': '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>',
+    'Paid via': '<rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/>',
+    'Confirmed by': '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>',
+    'Date confirmed': '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+    'Access valid until': '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+  };
+  const rows = [
+    ['School', payment.admin_id?.name || 'Unknown school'],
+    ['Email', payment.admin_id?.email || '—'],
+    ['Plan', payment.plan_name || `${payment.plan_days}-day plan`],
+    ['Payment method', isManual ? 'MTN Mobile Money' : 'MTN MoMo — API'],
+    ['Paid via', payment.phone || '—'],
+    ['Confirmed by', payment.reviewed_by?.name || '—'],
+    ['Date confirmed', formatDate(payment.reviewed_at || payment.created_at)],
+    ['Access valid until', formatDate(payment.paid_until_after)],
+  ];
+
+  const rowsHtml = rows.map(([label, value]) => `
+    <div class="detail-row">
+      <div class="detail-label">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${rowIcons[label] || ''}</svg>
+        ${label}
+      </div>
+      <div class="detail-value">${value}</div>
+    </div>`).join('');
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Edupla Receipt — ${refNumber}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@600&display=swap" rel="stylesheet">
+<style>
+  @page { size: A5; margin: 0; }
+  * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body {
+    margin: 0; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; background: #eeecfb;
+    display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 28px;
+  }
+  .sheet {
+    width: 460px; background: #ffffff; border-radius: 22px; overflow: hidden;
+    box-shadow: 0 34px 70px rgba(67,56,202,0.2); position: relative;
+  }
+  .side-accent {
+    position: absolute; left: 0; top: 0; bottom: 0; width: 6px;
+    background: linear-gradient(180deg, #6366f1, #7c3aed, #d97706); z-index: 4;
+  }
+
+  /* ── Header band ─────────────────────────────────────────────── */
+  .band {
+    background: linear-gradient(135deg, #3730a3 0%, #4338ca 40%, #6366f1 75%, #7c3aed 100%);
+    padding: 24px 26px 30px 30px; position: relative; overflow: hidden;
+  }
+  .band::before {
+    content: ''; position: absolute; top: -50%; right: -25%; width: 80%; height: 160%; border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,255,255,0.14) 0%, transparent 70%);
+  }
+  .band::after {
+    content: ''; position: absolute; inset: 0; opacity: 0.5;
+    background-image: radial-gradient(rgba(255,255,255,0.09) 1px, transparent 1px);
+    background-size: 14px 14px;
+  }
+  .band-top { display: flex; align-items: flex-start; justify-content: space-between; position: relative; z-index: 2; }
+  .brand { display: flex; align-items: center; gap: 9px; }
+  .brand-mark {
+    width: 34px; height: 34px; border-radius: 10px; background: rgba(255,255,255,0.2);
+    display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px);
+    border: 1px solid rgba(255,255,255,0.25);
+  }
+  .brand-name { font-family: 'Sora', sans-serif; font-weight: 800; font-size: 15px; color: #fff; letter-spacing: 0.03em; }
+  .brand-tag { font-size: 9.5px; color: rgba(255,255,255,0.7); margin-top: 2px; font-weight: 500; }
+  .eyebrow {
+    font-size: 9.5px; font-weight: 700; color: rgba(255,255,255,0.65); letter-spacing: 0.14em;
+    text-transform: uppercase; text-align: right; margin-bottom: 3px;
+  }
+  .header-amount { font-family: 'Sora', sans-serif; font-weight: 800; font-size: 25px; color: #fff; text-align: right; line-height: 1; }
+
+  /* Corner ribbon */
+  .ribbon {
+    position: absolute; top: 14px; right: -34px; width: 140px; text-align: center;
+    background: #10b981; color: #fff; font-family: 'Sora', sans-serif; font-weight: 800; font-size: 10.5px;
+    letter-spacing: 0.12em; padding: 4px 0; transform: rotate(45deg);
+    box-shadow: 0 3px 8px rgba(0,0,0,0.18); z-index: 3;
+  }
+
+  .receipt-title { font-family: 'Sora', sans-serif; font-weight: 800; font-size: 19px; color: #fff; margin: 20px 0 3px; position: relative; z-index: 2; }
+  .receipt-ref {
+    font-size: 10.5px; color: rgba(255,255,255,0.72); position: relative; z-index: 2;
+    font-family: 'JetBrains Mono', monospace; letter-spacing: 0.04em;
+  }
+
+  /* ── Perforation dividers ─────────────────────────────────────── */
+  .notch-row { display: flex; justify-content: space-between; margin-top: -14px; position: relative; z-index: 3; }
+  .notch { width: 26px; height: 26px; border-radius: 50%; background: #eeecfb; }
+  .notch.left { margin-left: -13px; } .notch.right { margin-right: -13px; }
+  .perforation {
+    height: 1px; margin: 0 24px;
+    background-image: linear-gradient(to right, #dfe1ee 50%, transparent 50%);
+    background-size: 9px 1px; background-repeat: repeat-x;
+  }
+
+  /* ── Body ─────────────────────────────────────────────────────── */
+  .body-pad { padding: 22px 28px 4px; position: relative; }
+  .body-pad::before {
+    content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0.6;
+    background-image: radial-gradient(#f1f0fb 1px, transparent 1px); background-size: 16px 16px;
+  }
+  .section-label {
+    font-size: 9.5px; font-weight: 800; color: #a5adc7; text-transform: uppercase; letter-spacing: 0.1em;
+    margin: 0 0 10px; position: relative;
+  }
+  .detail-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 9px 0; position: relative; border-bottom: 1px dashed #eef0f7;
+  }
+  .detail-row:last-child { border-bottom: none; }
+  .detail-label { display: flex; align-items: center; gap: 7px; color: #64748b; font-weight: 600; font-size: 12px; flex-shrink: 0; }
+  .detail-label svg { color: #a5adc7; flex-shrink: 0; }
+  .detail-value { color: #1e1b4b; font-weight: 700; font-size: 12.5px; text-align: right; }
+
+  /* ── Tear-off stub ────────────────────────────────────────────── */
+  .stub {
+    background: linear-gradient(135deg, #f5f4ff 0%, #eeecfb 100%);
+    padding: 20px 28px 22px; display: flex; align-items: center; justify-content: space-between;
+    position: relative;
+  }
+  .stub-ref { display: flex; flex-direction: column; gap: 6px; }
+  .barcode { display: flex; align-items: flex-end; gap: 2px; height: 26px; }
+  .barcode span { display: block; width: 2px; background: #4338ca; opacity: 0.75; }
+  .stub-ref-num { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #6b7292; letter-spacing: 0.06em; }
+  .stub-total { text-align: right; }
+  .stub-total-label { font-size: 10px; font-weight: 700; color: #6b7292; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 2px; }
+  .stub-total-amount { font-family: 'Sora', sans-serif; font-size: 27px; font-weight: 800; color: #d97706; line-height: 1; }
+
+  /* ── Footer ───────────────────────────────────────────────────── */
+  .footer { text-align: center; padding: 16px 20px 22px; }
+  .footer-divider { width: 40px; height: 3px; border-radius: 3px; background: linear-gradient(90deg,#6366f1,#d97706); margin: 0 auto 12px; }
+  .footer p { font-size: 9.5px; color: #a5adc7; margin: 2px 0; line-height: 1.7; }
+  .footer .thanks { font-size: 11.5px; color: #4338ca; font-weight: 700; margin-bottom: 5px; }
+
+  .watermark {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    pointer-events: none; z-index: 0; overflow: hidden;
+  }
+  .watermark span {
+    font-family: 'Sora', sans-serif; font-weight: 800; font-size: 92px; color: rgba(99,102,241,0.032);
+    transform: rotate(-22deg); white-space: nowrap; letter-spacing: 0.05em;
+  }
+
+  @media print {
+    body { background: #fff; padding: 0; }
+    .sheet { box-shadow: none; border-radius: 0; width: 100%; }
+  }
+</style>
+</head>
+<body>
+  <div class="sheet">
+    <div class="side-accent"></div>
+    <div class="watermark"><span>EDUPLA · VERIFIED</span></div>
+
+    <div class="band">
+      <div class="ribbon">CONFIRMED</div>
+      <div class="band-top">
+        <div class="brand">
+          <div class="brand-mark">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 2 3 3 6 3s6-1 6-3v-5"/></svg>
+          </div>
+          <div>
+            <div class="brand-name">EDUPLA</div>
+            <div class="brand-tag">School Management &amp; Assessment Platform</div>
+          </div>
+        </div>
+        <div>
+          <div class="eyebrow">Amount paid</div>
+          <div class="header-amount">${formatMoney(payment.amount, payment.currency)}</div>
+        </div>
+      </div>
+      <div class="receipt-title">Payment Receipt</div>
+      <div class="receipt-ref">REF ${refNumber} &nbsp;·&nbsp; ISSUED ${formatDate(new Date()).toUpperCase()}</div>
+    </div>
+
+    <div class="notch-row"><div class="notch left"></div><div class="notch right"></div></div>
+    <div class="perforation"></div>
+
+    <div class="body-pad">
+      <p class="section-label">Transaction details</p>
+      ${rowsHtml}
+    </div>
+
+    <div class="notch-row"><div class="notch left"></div><div class="notch right"></div></div>
+    <div class="perforation"></div>
+
+    <div class="stub">
+      <div class="stub-ref">
+        <div class="barcode">
+          ${Array.from({ length: 28 }).map((_, i) => `<span style="height:${8 + ((i * 37) % 18)}px"></span>`).join('')}
+        </div>
+        <div class="stub-ref-num">REF ${refNumber}</div>
+      </div>
+      <div class="stub-total">
+        <div class="stub-total-label">Total paid</div>
+        <div class="stub-total-amount">${formatMoney(payment.amount, payment.currency)}</div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <div class="footer-divider"></div>
+      <p class="thanks">Thank you for keeping Edupla running at your school.</p>
+      <p>Issued by Edupla administration &nbsp;·&nbsp; Reference #${refNumber}</p>
+    </div>
+  </div>
+  <script>
+    window.onload = function () {
+      setTimeout(function () { window.print(); }, 200);
+    };
+  </script>
+</body>
+</html>`;
+}
+
+
+function openReceiptPrintWindow(payment) {
+  const win = window.open('', '_blank', 'width=520,height=760');
+  if (!win) {
+    toast.error('Please allow pop-ups to print the receipt.');
+    return;
+  }
+  win.document.write(buildReceiptHtml(payment));
+  win.document.close();
+}
+
 // ── Printable receipt for a confirmed payment ────────────────────────────
 function ReceiptModal({ payment, onClose }) {
   const isManual = payment.method === 'manual';
@@ -169,7 +407,7 @@ function ReceiptModal({ payment, onClose }) {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--card-border)' }}>
           <h3 style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Receipt</h3>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={() => window.print()} className="pr-btn" style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 9, border: 'none', background: TOKENS.indigo, color: '#fff', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}>
+            <button onClick={() => openReceiptPrintWindow(payment)} className="pr-btn" style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 9, border: 'none', background: TOKENS.indigo, color: '#fff', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}>
               <Printer size={12} /> Print
             </button>
             <button onClick={onClose} className="pr-btn" style={{ width: 30, height: 30, borderRadius: 8, border: 'none', cursor: 'pointer', background: 'var(--surface-100)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -205,7 +443,7 @@ function ReceiptModal({ payment, onClose }) {
               ['Email', payment.admin_id?.email || '—'],
               ['Plan', payment.plan_name || `${payment.plan_days}-day plan`],
               ['Amount', formatMoney(payment.amount, payment.currency)],
-              ['Payment method', isManual ? 'MTN MoMo (manual transfer)' : 'MTN MoMo (API)'],
+              ['Payment method', isManual ? 'MTN Mobile Money' : 'MTN MoMo (API)'],
               ['Paid via', payment.phone],
               ['Confirmed by', payment.reviewed_by?.name || '—'],
               ['Date confirmed', formatDate(payment.reviewed_at || payment.created_at)],
