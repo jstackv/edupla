@@ -508,27 +508,47 @@ function AddSubscriptionModal({ onClose, onSubmitted }) {
   );
 }
 
-// ── Printable receipt modal ───────────────────────────────────────────
-// ── Printable receipt modal — print opens a dedicated, self-contained
-// window so the layout can't be clipped by the modal's own transforms. ──
+// ── Printable receipt — opens in its own window so nothing from the app
+// layout can clip it, and forces exact color printing so it looks
+// identical on screen, in the print preview, and in the saved PDF. ──────
 function buildReceiptHtml(payment, schoolName) {
   const isManual = payment.method === 'manual';
-  const isPaid = payment.status === 'SUCCESSFUL';
+  const statusKey = payment.status || 'PENDING';
+  const isPaid = statusKey === 'SUCCESSFUL';
+  const isRejected = statusKey === 'REJECTED' || statusKey === 'FAILED';
+  const sealClass = isPaid ? 'paid' : isRejected ? 'rejected' : 'pending';
+  const sealLabel = isPaid ? 'PAID' : isRejected ? (statusKey === 'REJECTED' ? 'REJECTED' : 'FAILED') : 'PENDING';
+  const statusLabel = STATUS_META[statusKey]?.label || 'Pending';
+  const statusColor = isPaid ? '#10b981' : isRejected ? '#f43f5e' : '#f59e0b';
   const receiptNo = String(payment._id).slice(-10).toUpperCase();
+  const now = new Date();
+
   const rows = [
     ['School', schoolName],
     ['Plan', payment.plan_name || `${payment.plan_days}-day plan`],
-    ['Payment method', isManual ? 'MTN Mobile Money' : 'MTN MoMo (API)'],
+    ['Payment method', isManual ? 'MTN Mobile Money' : 'MTN Mobile Money (API)'],
     ['Paid via', payment.phone || '—'],
     ['Date', formatDate(payment.reviewed_at || payment.created_at)],
     ['Access valid until', formatDate(payment.paid_until_after)],
   ];
 
-  const rowsHtml = rows.map(([label, value], i) => `
-    <tr style="background:${i % 2 === 0 ? '#faf9ff' : 'transparent'}">
-      <td style="padding:10px 14px;font-size:12.5px;font-weight:600;color:#64748b;white-space:nowrap;">${label}</td>
-      <td style="padding:10px 14px;font-size:12.5px;font-weight:700;color:#1e1b4b;text-align:right;">${value}</td>
+  const rowsHtml = rows.map(([label, value]) => `
+    <tr>
+      <td class="r-label">${label}</td>
+      <td class="r-value">${value}</td>
     </tr>`).join('');
+
+  const watermarkRows = Array.from({ length: 7 }).map((_, r) => `
+    <div class="wm-row" style="margin-left:${r % 2 === 0 ? '0' : '-90px'}">
+      ${Array.from({ length: 6 }).map(() => '<span>EDUPLA</span>').join('')}
+    </div>`).join('');
+
+  const barcode = Array.from({ length: 50 }).map((_, i) => {
+    const seed = (i * 37 + receiptNo.charCodeAt(i % receiptNo.length)) % 100;
+    const h = 12 + (seed % 22);
+    const w = seed % 5 === 0 ? 3 : 2;
+    return `<span style="height:${h}px;width:${w}px;"></span>`;
+  }).join('');
 
   return `<!DOCTYPE html>
 <html>
@@ -537,7 +557,12 @@ function buildReceiptHtml(payment, schoolName) {
 <title>Edupla Receipt — ${receiptNo}</title>
 <style>
   @page { size: A4; margin: 0; }
-  * { box-sizing: border-box; }
+  html, body {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+  * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
   body {
     margin: 0; padding: 0; background: #eef0f8;
     font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
@@ -545,63 +570,106 @@ function buildReceiptHtml(payment, schoolName) {
   }
   .sheet {
     width: 210mm; min-height: 297mm; background: #fff; position: relative; overflow: hidden;
-    box-shadow: 0 12px 40px rgba(30,27,75,0.14); border-radius: 4px;
+    box-shadow: 0 12px 44px rgba(30,27,75,0.16); border-radius: 6px;
+  }
+  .side-accent {
+    position: absolute; left: 0; top: 0; bottom: 0; width: 7px; z-index: 4;
+    background: linear-gradient(180deg,#6366f1 0%,#8b5cf6 45%,#d97706 100%);
   }
   .watermark {
-    position: absolute; inset: 0; z-index: 0; opacity: 0.035; pointer-events: none;
-    display: flex; flex-wrap: wrap; align-content: flex-start; gap: 28px; padding: 40px;
-    transform: rotate(-22deg) scale(1.4); transform-origin: center;
+    position: absolute; inset: 0; z-index: 0; opacity: 0.028; pointer-events: none;
+    transform: rotate(-24deg) scale(1.5); transform-origin: center; padding-top: 20px;
   }
-  .watermark span {
-    font-weight: 800; font-size: 34px; letter-spacing: 0.08em; color: #4338ca; white-space: nowrap;
-  }
+  .wm-row { display: flex; gap: 70px; margin-bottom: 46px; }
+  .wm-row span { font-weight: 800; font-size: 30px; letter-spacing: 0.1em; color: #4338ca; white-space: nowrap; }
+
   .band {
-    position: relative; z-index: 1; height: 132px;
+    position: relative; z-index: 1; height: 132px; margin-left: 7px;
     background: linear-gradient(135deg,#4338ca 0%,#6366f1 55%,#7c3aed 100%);
     display: flex; align-items: center; justify-content: space-between; padding: 0 48px;
   }
   .band::before {
-    content: ''; position: absolute; top: -40%; right: -6%; width: 260px; height: 260px; border-radius: 50%;
+    content: ''; position: absolute; top: -45%; right: -6%; width: 280px; height: 280px; border-radius: 50%;
     background: radial-gradient(circle, rgba(255,255,255,0.16) 0%, transparent 70%);
   }
-  .brand { display: flex; align-items: center; gap: 12px; position: relative; }
+  .band::after {
+    content: ''; position: absolute; bottom: -55%; left: 8%; width: 200px; height: 200px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 70%);
+  }
+  .brand { display: flex; align-items: center; gap: 13px; position: relative; z-index: 1; }
   .brand .logo {
-    width: 42px; height: 42px; border-radius: 12px; background: rgba(255,255,255,0.18);
+    width: 44px; height: 44px; border-radius: 13px; background: rgba(255,255,255,0.18);
     display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.25);
   }
-  .brand .logo svg { display: block; }
-  .brand .name { font-weight: 800; font-size: 19px; color: #fff; letter-spacing: 0.02em; }
-  .brand .tag { font-size: 11px; color: rgba(255,255,255,0.75); margin-top: 2px; }
-  .receipt-title { text-align: right; position: relative; }
-  .receipt-title .label { font-size: 10.5px; font-weight: 700; color: rgba(255,255,255,0.7); text-transform: uppercase; letter-spacing: 0.1em; margin: 0 0 4px; }
-  .receipt-title .num { font-size: 18px; font-weight: 800; color: #fff; margin: 0; font-family: 'Courier New', monospace; letter-spacing: 0.03em; }
+  .brand .name { font-weight: 800; font-size: 20px; color: #fff; letter-spacing: 0.02em; margin: 0; }
+  .brand .tag { font-size: 11px; color: rgba(255,255,255,0.78); margin-top: 2px; }
+  .receipt-title { text-align: right; position: relative; z-index: 1; }
+  .receipt-title .label { font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.68); text-transform: uppercase; letter-spacing: 0.12em; margin: 0 0 5px; }
+  .receipt-title .num { font-size: 19px; font-weight: 800; color: #fff; margin: 0; font-family: 'Courier New', monospace; letter-spacing: 0.04em; }
 
-  .body-content { position: relative; z-index: 1; padding: 44px 48px 40px; }
+  .body-content { position: relative; z-index: 1; padding: 46px 50px 36px; margin-left: 7px; }
 
-  .stamp {
-    position: absolute; top: 30px; right: 46px; z-index: 2;
-    border: 3px solid #10b981; color: #10b981; border-radius: 10px;
-    padding: 8px 22px; font-weight: 800; font-size: 18px; letter-spacing: 0.14em;
-    transform: rotate(-9deg); opacity: 0.92; background: rgba(16,185,129,0.04);
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px;
+    background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.2); color: #4338ca;
+    font-size: 10px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 14px;
   }
-  .stamp.rejected { border-color: #f43f5e; color: #f43f5e; background: rgba(244,63,94,0.04); }
+
+  .seal { position: absolute; top: 84px; right: 46px; width: 108px; height: 108px; transform: rotate(-11deg); z-index: 3; }
+  .seal-ring { position: absolute; inset: 0; border-radius: 50%; border: 2px dashed currentColor; opacity: 0.5; }
+  .seal-inner {
+    position: absolute; inset: 8px; border-radius: 50%; border: 2.5px solid currentColor;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: rgba(255,255,255,0.6);
+  }
+  .seal-inner svg { margin-bottom: 2px; }
+  .seal-inner .seal-label { font-weight: 800; font-size: 13px; letter-spacing: 0.06em; }
+  .seal-inner .seal-sub { font-size: 6.5px; font-weight: 700; letter-spacing: 0.14em; opacity: 0.75; margin-top: 1px; }
+  .seal.paid { color: #10b981; }
+  .seal.rejected { color: #f43f5e; }
+  .seal.pending { color: #f59e0b; }
+
+  h1.title { font-size: 21px; font-weight: 800; color: #1e1b4b; margin: 0 0 4px; }
+  .issued { font-size: 12px; color: #94a3b8; margin: 0 0 22px; }
 
   .amount-block {
     display: flex; justify-content: space-between; align-items: center;
-    background: linear-gradient(135deg, rgba(99,102,241,0.06), rgba(217,119,6,0.05));
-    border: 1px solid rgba(99,102,241,0.16); border-radius: 14px; padding: 22px 26px; margin: 26px 0 30px;
+    background: linear-gradient(135deg, rgba(99,102,241,0.07), rgba(217,119,6,0.05));
+    border: 1px solid rgba(99,102,241,0.18); border-left: 4px solid #d97706;
+    border-radius: 14px; padding: 22px 26px; margin: 0 0 30px;
   }
-  .amount-block .label { font-size: 12.5px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 4px; }
-  .amount-block .amount { font-size: 32px; font-weight: 800; color: #d97706; margin: 0; letter-spacing: -0.01em; }
+  .amount-block .label { font-size: 11.5px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.06em; margin: 0 0 5px; }
+  .amount-block .amount { font-size: 33px; font-weight: 800; color: #d97706; margin: 0; letter-spacing: -0.01em; }
+  .status-pill {
+    display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px;
+    font-size: 12.5px; font-weight: 800;
+  }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; }
 
-  table { width: 100%; border-collapse: collapse; border: 1px solid #e9e7f5; border-radius: 12px; overflow: hidden; }
+  .section-label {
+    display: flex; align-items: center; gap: 7px; font-size: 11.5px; font-weight: 800; color: #64748b;
+    text-transform: uppercase; letter-spacing: 0.06em; margin: 0 0 10px;
+  }
 
-  .footer { margin-top: 40px; padding-top: 24px; border-top: 1.5px dashed #e2e8f0; text-align: center; }
+  .table-wrap { border: 1px solid #e9e7f5; border-radius: 13px; overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; }
+  tr:nth-child(even) { background: #faf9ff; }
+  tr:not(:last-child) td { border-bottom: 1px solid #f1f0fa; }
+  .r-label { padding: 11px 16px; font-size: 12.5px; font-weight: 600; color: #64748b; white-space: nowrap; }
+  .r-value { padding: 11px 16px; font-size: 12.5px; font-weight: 700; color: #1e1b4b; text-align: right; }
+
+  .footer { margin-top: 40px; padding-top: 22px; border-top: 1.5px dashed #e2e8f0; text-align: center; }
+  .footer .thanks { font-size: 13.5px; font-weight: 700; color: #1e1b4b; margin: 0 0 6px; }
   .footer p { font-size: 11px; color: #94a3b8; line-height: 1.7; margin: 0; }
-  .footer .thanks { font-size: 13px; font-weight: 700; color: #1e1b4b; margin: 0 0 6px; }
 
-  .barcode { display: flex; gap: 2px; align-items: flex-end; justify-content: center; margin: 22px 0 6px; height: 34px; }
-  .barcode span { display: inline-block; width: 2px; background: #1e1b4b; opacity: 0.7; }
+  .barcode { display: flex; gap: 2px; align-items: flex-end; justify-content: center; margin: 22px 0 6px; height: 36px; }
+  .barcode span { display: inline-block; background: #1e1b4b; opacity: 0.72; }
+
+  .meta-row {
+    display: flex; justify-content: space-between; margin-top: 26px; padding-top: 14px;
+    border-top: 1px solid #f1f0fa; font-size: 9.5px; color: #b3b8ce; letter-spacing: 0.03em;
+  }
 
   @media print {
     body { background: #fff; padding: 0; }
@@ -611,20 +679,19 @@ function buildReceiptHtml(payment, schoolName) {
 </head>
 <body>
   <div class="sheet">
-    <div class="watermark">
-      ${Array.from({ length: 24 }).map(() => '<span>EDUPLA</span>').join('')}
-    </div>
+    <div class="side-accent"></div>
+    <div class="watermark">${watermarkRows}</div>
 
     <div class="band">
       <div class="brand">
         <div class="logo">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 1.66 2.69 3 6 3s6-1.34 6-3v-5"/>
           </svg>
         </div>
         <div>
-          <div class="name">EDUPLA</div>
-          <div class="tag">School Management &amp; Online Assessment</div>
+          <p class="name">EDUPLA</p>
+          <p class="tag">School Management &amp; Online Assessment</p>
         </div>
       </div>
       <div class="receipt-title">
@@ -634,39 +701,51 @@ function buildReceiptHtml(payment, schoolName) {
     </div>
 
     <div class="body-content">
-      ${isPaid ? '<div class="stamp">PAID</div>' : payment.status === 'REJECTED' || payment.status === 'FAILED' ? `<div class="stamp rejected">${payment.status === 'REJECTED' ? 'REJECTED' : 'FAILED'}</div>` : ''}
+      <div class="seal ${sealClass}">
+        <div class="seal-ring"></div>
+        <div class="seal-inner">
+          ${isPaid ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>` : ''}
+          <span class="seal-label">${sealLabel}</span>
+          <span class="seal-sub">EDUPLA · VERIFIED</span>
+        </div>
+      </div>
 
-      <h1 style="font-size:20px;font-weight:800;color:#1e1b4b;margin:0 0 4px;">Payment Receipt</h1>
-      <p style="font-size:12px;color:#94a3b8;margin:0 0 18px;">Issued on ${formatDate(new Date())}</p>
+      <span class="eyebrow">Official Receipt</span>
+      <h1 class="title">Payment Receipt</h1>
+      <p class="issued">Issued on ${formatDate(now)}</p>
 
       <div class="amount-block">
         <div>
           <p class="label">Total amount paid</p>
           <p class="amount">${formatMoney(payment.amount, payment.currency)}</p>
         </div>
-        <div style="text-align:right;">
-          <p class="label">Status</p>
-          <p style="font-size:14px;font-weight:800;color:${isPaid ? '#10b981' : '#f59e0b'};margin:0;">${STATUS_META[payment.status]?.label || 'Pending'}</p>
-        </div>
+        <span class="status-pill" style="background:${statusColor}18;color:${statusColor};">
+          <span class="status-dot" style="background:${statusColor};box-shadow:0 0 6px ${statusColor};"></span>
+          ${statusLabel}
+        </span>
       </div>
 
-      <table>
-        <tbody>${rowsHtml}</tbody>
-      </table>
+      <p class="section-label">Transaction Details</p>
+      <div class="table-wrap">
+        <table><tbody>${rowsHtml}</tbody></table>
+      </div>
 
       <div class="footer">
         <p class="thanks">Thank you for keeping Edupla running at your school.</p>
         <p>This receipt was generated automatically by Edupla.<br/>Questions about this receipt? jstackvm@gmail.com</p>
-        <div class="barcode">
-          ${Array.from({ length: 46 }).map(() => `<span style="height:${14 + Math.round(Math.random() * 20)}px;width:${Math.random() > 0.7 ? 3 : 2}px;"></span>`).join('')}
-        </div>
-        <p style="font-size:9.5px;letter-spacing:0.08em;">${receiptNo}</p>
+        <div class="barcode">${barcode}</div>
+        <p style="font-size:9.5px;letter-spacing:0.1em;">${receiptNo}</p>
+      </div>
+
+      <div class="meta-row">
+        <span>Generated electronically — no signature required</span>
+        <span>Page 1 of 1</span>
       </div>
     </div>
   </div>
   <script>
     window.onload = function () {
-      setTimeout(function () { window.print(); }, 250);
+      setTimeout(function () { window.print(); }, 350);
     };
   </script>
 </body>
