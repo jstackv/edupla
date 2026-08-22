@@ -50,8 +50,6 @@ import {
 } from 'lucide-react';
 
 const TERMS = ['Term 1', 'Term 2', 'Term 3'];
-const CURRENT_YEAR = new Date().getFullYear();
-const YEARS = [`${CURRENT_YEAR - 1}-${CURRENT_YEAR}`, `${CURRENT_YEAR}-${CURRENT_YEAR + 1}`, `${CURRENT_YEAR + 1}-${CURRENT_YEAR + 2}`];
 const ASSESSMENT_TYPES = [
   { key: 'FA', label: 'Formative Assessment', color: '#6366f1', icon: FileEdit },
   { key: 'IA', label: 'Integrated Assessment', color: '#8b5cf6', icon: Layers },
@@ -303,10 +301,12 @@ function AssessmentCard({ a, i, onQuestions, onShare, onAddAttempt, onEdit, onDe
    title is what tells them apart — left blank, the backend auto-numbers it
    ("Formative Assessment 2", "…3", …). Only reachable pre-share for edits;
    the parent never opens this for an already-shared assessment. */
-function AssessmentFormModal({ course, cls, editing, existingAssessments, onClose, onSaved }) {
+function AssessmentFormModal({ course, cls, editing, existingAssessments, activeYear, onClose, onSaved }) {
   const [type, setType] = useState(editing?.type || 'FA');
   const [term, setTerm] = useState(editing?.term || TERMS[0]);
-  const [academicYear, setAcademicYear] = useState(editing?.academic_year || YEARS[1]);
+  // Never chosen by the teacher — always the School Manager's active year
+  // (or, if editing, the year the assessment was originally created under).
+  const academicYear = editing?.academic_year || activeYear?.name || '—';
   const [title, setTitle] = useState(editing?.title || '');
   const [saving, setSaving] = useState(false);
 
@@ -322,11 +322,11 @@ function AssessmentFormModal({ course, cls, editing, existingAssessments, onClos
     try {
       if (editing) {
         await api.put(`/assessment/teacher/assessments/${editing.id}`, {
-          type, term, academic_year: academicYear, title: title.trim() || undefined,
+          type, term, title: title.trim() || undefined,
         });
       } else {
         await api.post('/assessment/teacher/assessments', {
-          course_id: course.id, class_id: cls.id || cls._id, type, term, academic_year: academicYear,
+          course_id: course.id, class_id: cls.id || cls._id, type, term,
           mode: 'quiz', title: title.trim() || undefined,
         });
       }
@@ -387,16 +387,23 @@ function AssessmentFormModal({ course, cls, editing, existingAssessments, onClos
               <span className="qm-field-icon-wrap"><Clock className="w-3.5 h-3.5" /></span> Term
             </label>
             <select value={term} onChange={e => setTerm(e.target.value)} className="chat-form-field qm-field w-full text-sm">
-              {TERMS.map(t => <option key={t} value={t}>{t}</option>)}
+              {TERMS.map(t => {
+                const closed = (activeYear?.disabled_terms || []).includes(t);
+                return <option key={t} value={t} disabled={closed}>{t}{closed ? ' (closed by School Manager)' : ''}</option>;
+              })}
             </select>
           </div>
           <div className="qm-field-group" style={{ '--qm-accent': '#6366f1' }}>
             <label className="text-xs font-semibold mb-1.5 flex items-center gap-1.5" style={{ color: 'var(--text-secondary)' }}>
               <span className="qm-field-icon-wrap"><CalendarRange className="w-3.5 h-3.5" /></span> Academic year
             </label>
-            <select value={academicYear} onChange={e => setAcademicYear(e.target.value)} className="chat-form-field qm-field w-full text-sm">
-              {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
-            </select>
+            <div
+              className="chat-form-field qm-field w-full text-sm flex items-center gap-1.5"
+              style={{ cursor: 'not-allowed', opacity: 0.85 }}
+              title="Set by your School Manager — you can't change this"
+            >
+              {academicYear}
+            </div>
           </div>
         </div>
 
@@ -443,6 +450,9 @@ export default function AssessmentsOnline() {
   const [loadingCourses, setLoadingCourses] = useState(true);
   const [courses, setCourses] = useState([]);
 
+  /* ── Academic Year: set by the School Manager, never by the teacher. ── */
+  const [activeYear, setActiveYear] = useState(null); // { id, name }
+
   const [selectedClass, setSelectedClass] = useState(null);   // { _id/id, name }
   const [selectedCourse, setSelectedCourse] = useState(null); // module
 
@@ -457,6 +467,12 @@ export default function AssessmentsOnline() {
   const [attemptsModal, setAttemptsModal] = useState(null);   // single-assessment results
   const [overallModal, setOverallModal] = useState(null);     // combined ("Overall") results for a type/term/year group
   const [confirmModal, setConfirmModal] = useState({ open: false });
+
+  useEffect(() => {
+    api.get('/academic-years/active')
+      .then(({ data }) => { if (data?.academicYear) setActiveYear(data.academicYear); })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -574,9 +590,16 @@ export default function AssessmentsOnline() {
         <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-indigo-100 dark:bg-indigo-900/40 flex-shrink-0">
           <ClipboardCheck className="w-5 h-5 text-indigo-600 dark:text-indigo-400 assessment-icon-float" />
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h1 className="font-display text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Assessments</h1>
           <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Build and share online assessments students attempt digitally</p>
+        </div>
+        <div
+          title="Set by your School Manager — you can't change this"
+          className="hidden sm:flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg flex-shrink-0"
+          style={{ color: '#6366f1', background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.25)' }}
+        >
+          <CalendarRange className="w-3.5 h-3.5" /> {activeYear?.name || '—'}
         </div>
       </div>
 
@@ -698,6 +721,7 @@ export default function AssessmentsOnline() {
           cls={selectedClass}
           editing={formModal.editing}
           existingAssessments={assessments}
+          activeYear={activeYear}
           onClose={() => setFormModal(null)}
           onSaved={loadAssessments}
         />

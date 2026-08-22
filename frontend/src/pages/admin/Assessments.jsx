@@ -6,11 +6,11 @@ import toast from 'react-hot-toast';
 import ConfirmModal from '../../components/common/ConfirmModal';
 import {
   BookOpen, Plus, Edit2, Trash2, UserCheck, BarChart2, X, Search,
-  GraduationCap, FileText, Users, Printer, ChevronRight, Award,
+  GraduationCap, FileText, Users, Printer, ChevronRight, ChevronDown, Award,
   TrendingUp, Hash, School, User2, Calendar, Target, Settings,
   Save, Image, AlignLeft, Phone, Mail, Globe, MapPin, Building2,
   CheckCircle2, Sparkles, Download, Eye, RefreshCw, ClipboardCheck,
-  CheckCircle, XCircle, Clock, Filter, UploadCloud,
+  CheckCircle, XCircle, Clock, Filter, UploadCloud, Lock, Unlock,
 } from 'lucide-react';
 
 /* ─────────── Constants ─────────── */
@@ -30,6 +30,20 @@ const ASSESSMENT_TYPES = [
   { key: 'IA', label: 'Integrated Assessment',    short: 'IA', color: '#10b981' },
   { key: 'CA', label: 'Comprehensive Assessment', short: 'CA', color: '#8b5cf6' },
 ];
+
+/* ─────────── Mark Submissions drill-down: class card gradients ─────────── */
+const CLASS_CARD_GRADIENTS = [
+  ['#6366f1', '#4338ca'], ['#0ea5e9', '#0369a1'], ['#10b981', '#047857'],
+  ['#f59e0b', '#b45309'], ['#ec4899', '#be185d'], ['#8b5cf6', '#6d28d9'],
+  ['#14b8a6', '#0f766e'], ['#f43f5e', '#be123c'],
+];
+
+function initials(name = '') {
+  const parts = String(name).trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+}
 
 const DEFAULT_REPORT_CONFIG = {
   schoolName: 'EDUPLA Academy',
@@ -139,6 +153,65 @@ function TypeBadge({ type }) {
       fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 5,
       background: color + '20', color, border: '1px solid ' + color + '40',
     }}>{type}</span>
+  );
+}
+
+/* Small pill used on the class/teacher drill-down cards to surface a status
+ * count at a glance. Renders nothing for a zero count so cards don't get
+ * cluttered with "0 Rejected" style noise. */
+function StatPill({ color, label, value, icon: Icon }) {
+  if (!value) return null;
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 800,
+      padding: '3px 9px', borderRadius: 7, background: color + '18', color, border: `1px solid ${color}38`,
+      whiteSpace: 'nowrap',
+    }}>
+      {Icon && <Icon size={10} />}{value} {label}
+    </span>
+  );
+}
+
+/* ─────────── Scope selector (Academic Year / Term) header card ───────────
+ * Deliberately styled unlike the plain stat pills next to it (solid gradient
+ * fill, icon, chevron, lift-on-hover) so it reads as an actual control the
+ * admin can change, not just another readout. A real <select> is stretched
+ * invisibly over the whole card so the entire pill — not just the text —
+ * is clickable, and clicking anywhere on it also focuses the select so a
+ * keyboard/assistive-tech user lands on the right control immediately. */
+function ScopeSelectorCard({ icon: Icon, colorFrom, colorTo, value, displayValue, onChange, options, label, title }) {
+  const selectRef = useRef(null);
+  return (
+    <div
+      title={title}
+      onClick={() => selectRef.current?.focus()}
+      className="assess-scope-card"
+      style={{
+        position: 'relative', padding: '9px 18px', borderRadius: 14, cursor: 'pointer',
+        background: `linear-gradient(135deg, ${colorFrom}, ${colorTo})`,
+        border: '1px solid rgba(255,255,255,0.16)',
+        boxShadow: `0 6px 16px ${colorFrom}4d`,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 128,
+      }}
+    >
+      <select
+        ref={selectRef}
+        value={value}
+        onChange={onChange}
+        aria-label={label}
+        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer', border: 'none' }}
+      >
+        {options}
+      </select>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 5, pointerEvents: 'none' }}>
+        {Icon && <Icon size={13} color="rgba(255,255,255,0.9)" />}
+        <span style={{ fontSize: 14, fontWeight: 800, color: '#fff', lineHeight: 1.2, whiteSpace: 'nowrap' }}>{displayValue}</span>
+        <ChevronDown size={13} color="rgba(255,255,255,0.75)" />
+      </div>
+      <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.8)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: 2, pointerEvents: 'none' }}>
+        {label}
+      </span>
+    </div>
   );
 }
 
@@ -652,6 +725,13 @@ export default function AdminAssessments() {
   const [assessments, setAssessments] = useState([]);
   const [loading,     setLoading]     = useState(false);
 
+  /* ── Academic Year management ── */
+  const [academicYears,        setAcademicYears]        = useState([]);
+  const [academicYearsLoading, setAcademicYearsLoading] = useState(false);
+  const [newYearName,          setNewYearName]           = useState('');
+  const [academicYearBusy,     setAcademicYearBusy]      = useState(false);
+  const activeAcademicYear = academicYears.find(y => y.is_active) || null;
+
   /* ── Course tab filters + view mode ── */
   const [courseView,           setCourseView]           = useState('cards');
   const [courseFilterTeacher,  setCourseFilterTeacher]  = useState('');
@@ -668,9 +748,11 @@ export default function AdminAssessments() {
   const [submissionsLoading,       setSubmissionsLoading]       = useState(false);
   const [submissionFilter,         setSubmissionFilter]         = useState('');
   const [submissionTeacherFilter,  setSubmissionTeacherFilter]  = useState('');
-  const [submissionCourseFilter,   setSubmissionCourseFilter]   = useState('');
+  const [submissionCourseFilter,   setSubmissionCourseFilter]   = useState(''); // course/module id — truthy means the Module Assessment Modal is open
   const [submissionClassFilter,    setSubmissionClassFilter]    = useState('');
-  const [submissionCategoryFilter, setSubmissionCategoryFilter] = useState('');
+  const [submissionTypeFilter,     setSubmissionTypeFilter]     = useState(''); // FA / IA / CA — the active tab inside the Module Assessment Modal
+  const [submissionYearFilter,     setSubmissionYearFilter]     = useState(''); // Academic year scope, selected via the header card
+  const [submissionTermFilter,     setSubmissionTermFilter]     = useState(''); // Term scope ('' = all terms of the selected year), selected via the header card
   const [viewingSubmission,        setViewingSubmission]        = useState(null);
   const [viewingSubmissionLoading, setViewingSubmissionLoading] = useState(false);
   const [rejectingId,              setRejectingId]              = useState(null);
@@ -711,7 +793,14 @@ export default function AdminAssessments() {
         api.get('/assessment/admin/courses'),
         api.get('/admin/teachers'),
         api.get('/admin/classes'),
-        api.get('/admin/students'),
+        // This page needs EVERY student (to compute accurate per-class
+        // rosters/counts across the whole school), not the paginated
+        // default (12/page) that /admin/students returns when called
+        // bare — that silently truncated the roster to whichever 12
+        // students happened to be newest school-wide, making classes with
+        // older students look almost empty. A large explicit limit opts
+        // out of pagination here, same fix already used in Classes.jsx.
+        api.get('/admin/students?limit=10000'),
         api.get('/assessment/admin/assessments'),
       ]);
       setCourses(cRes.data.courses || []);
@@ -725,6 +814,104 @@ export default function AdminAssessments() {
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
   useEffect(() => { fetchReportConfig().then(setReportConfig); }, []);
+
+  /* ── Academic Year fetch + actions ── */
+  const fetchAcademicYears = useCallback(async () => {
+    setAcademicYearsLoading(true);
+    try {
+      const { data } = await api.get('/academic-years/admin');
+      setAcademicYears(data.academicYears || []);
+    } catch { toast.error('Failed to load academic years'); }
+    finally { setAcademicYearsLoading(false); }
+  }, []);
+  useEffect(() => { fetchAcademicYears(); }, [fetchAcademicYears]);
+
+  // Default the Reports tab's year filter to the active academic year once
+  // it's known, so "Reports" opens scoped to the current year rather than
+  // "All Years" by default. Only runs once it becomes available and only if
+  // the admin hasn't already picked a year themselves.
+  useEffect(() => {
+    if (activeAcademicYear && !reportFilter.year) {
+      setReportFilter(f => (f.year ? f : { ...f, year: activeAcademicYear.name }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeAcademicYear]);
+
+  // Same idea for the header's Academic Year card that scopes Mark
+  // Submissions: default it to the active year once known, but only if the
+  // admin hasn't already picked one themselves.
+  useEffect(() => {
+    if (activeAcademicYear && !submissionYearFilter) {
+      setSubmissionYearFilter(activeAcademicYear.name);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeAcademicYear]);
+
+  async function createAcademicYear() {
+    const name = newYearName.trim();
+    if (!name) { toast.error('Enter an academic year, e.g. 2027-2028'); return; }
+    if (!/^\d{4}-\d{4}$/.test(name) || Number(name.split('-')[1]) !== Number(name.split('-')[0]) + 1) {
+      toast.error('Format must be two consecutive years, e.g. 2027-2028'); return;
+    }
+    setAcademicYearBusy(true);
+    try {
+      await api.post('/academic-years/admin', { name });
+      toast.success(`Academic year ${name} created`);
+      setNewYearName('');
+      fetchAcademicYears();
+    } catch (e) { toast.error(e.response?.data?.message || 'Failed to create academic year'); }
+    finally { setAcademicYearBusy(false); }
+  }
+
+  async function activateAcademicYear(id, name) {
+    setAcademicYearBusy(true);
+    try {
+      await api.post(`/academic-years/admin/${id}/activate`);
+      toast.success(`${name} is now the active academic year`);
+      fetchAcademicYears();
+    } catch (e) { toast.error(e.response?.data?.message || 'Failed to activate academic year'); }
+    finally { setAcademicYearBusy(false); }
+  }
+
+  // Tracks which specific term is mid-toggle (rather than one busy flag for
+  // the whole tab) so clicking one term's pill doesn't visually freeze the
+  // others while the request is in flight.
+  const [termToggleBusyKey, setTermToggleBusyKey] = useState('');
+  async function setTermStatus(yearId, yearName, term, open) {
+    const key = `${yearId}:${term}`;
+    setTermToggleBusyKey(key);
+    try {
+      await api.post(`/academic-years/admin/${yearId}/terms/${encodeURIComponent(term)}/status`, { open });
+      toast.success(`${term} is now ${open ? 'open' : 'closed'} for ${yearName}`);
+      fetchAcademicYears();
+    } catch (e) {
+      toast.error(e.response?.data?.message || `Failed to update ${term}`);
+    } finally {
+      setTermToggleBusyKey('');
+    }
+  }
+
+  function deleteAcademicYear(id, name) {
+    openConfirm({
+      title: 'Delete academic year?',
+      message: `This only works if "${name}" isn't the active year and has no assessments/marks recorded against it yet.`,
+      variant: 'danger',
+      confirmText: 'Delete',
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, loading: true }));
+        try {
+          await api.delete(`/academic-years/admin/${id}`);
+          toast.success('Academic year deleted');
+          closeConfirm();
+          fetchAcademicYears();
+        } catch (e) {
+          toast.error(e.response?.data?.message || 'Failed to delete academic year');
+          setConfirmModal(prev => ({ ...prev, loading: false }));
+        }
+      },
+    });
+  }
+
 
   const fetchSubmissions = useCallback(async () => {
     setSubmissionsLoading(true);
@@ -965,6 +1152,7 @@ export default function AdminAssessments() {
 
   const tabs = [
     { key: 'courses',     label: 'Courses & Modules', icon: BookOpen },
+    { key: 'academicYear',label: 'Academic Year',     icon: Calendar },
     { key: 'submissions', label: 'Mark Submissions',  icon: ClipboardCheck },
     { key: 'reports',     label: 'Reports',           icon: BarChart2 },
     { key: 'config',      label: 'Report Settings',   icon: Settings },
@@ -988,27 +1176,194 @@ export default function AdminAssessments() {
   });
   const hasActiveCourseFilter = courseFilterTeacher || courseFilterCategory || courseFilterClass;
 
-  /* ── Filtered submissions ── */
-  const filteredSubmissions = submissions.filter(a => {
-    if (submissionTeacherFilter) {
-      const tid = a.teacher_id?._id || a.teacher_id;
-      if (tid !== submissionTeacherFilter) return false;
-    }
-    if (submissionCourseFilter) {
-      const cid = a.course_id?._id || a.course_id;
-      if (cid !== submissionCourseFilter) return false;
-    }
-    if (submissionClassFilter) {
-      const courseId = a.course_id?._id || a.course_id;
-      const inClass  = coursesForSubmissionClass.some(c => (c._id || c.id) === courseId);
-      if (!inClass) return false;
-    }
-    if (submissionCategoryFilter) {
-      const cat = a.course_id?.category || '';
-      if (cat !== submissionCategoryFilter) return false;
-    }
+  /* ── Submissions scoped to the header's Academic Year / Term cards ──
+   * Everything the Mark Submissions drill-down shows (class cards, teacher
+   * cards, module cards, assessment-type cards, and the final table) is
+   * derived from this instead of the raw `submissions` list, so picking a
+   * year and/or term up in the header narrows the whole drill-down to it. */
+  const scopedSubmissions = submissions.filter(a => {
+    if (submissionYearFilter && a.academic_year !== submissionYearFilter) return false;
+    if (submissionTermFilter && a.term !== submissionTermFilter) return false;
     return true;
   });
+
+  /* Same year/term scoping applied to the header's "Assessments" count, so
+   * that stat stays consistent with whatever the Academic Year / Term cards
+   * currently have selected. */
+  const scopedAssessmentsCount = assessments.filter(a => {
+    if (submissionYearFilter && a.academic_year !== submissionYearFilter) return false;
+    if (submissionTermFilter && a.term !== submissionTermFilter) return false;
+    return true;
+  }).length;
+
+  /* ═══════════ Mark Submissions drill-down helpers ═══════════
+   * Classes → Teachers → Assessments. These derive purely from data already
+   * fetched (courses/teachers/classes/submissions), so no extra API calls
+   * are needed to power the drill-down cards. */
+  function coursesForClassId(classId) {
+    return courses.filter(c => {
+      const ids = Array.isArray(c.class_ids) && c.class_ids.length > 0
+        ? c.class_ids.map(x => typeof x === 'object' ? x._id || x.id : x)
+        : [c.class_id?._id || c.class_id].filter(Boolean);
+      return ids.includes(classId);
+    });
+  }
+
+  function submissionsForClassId(classId) {
+    const courseIds = coursesForClassId(classId).map(c => c._id || c.id);
+    return scopedSubmissions.filter(a => courseIds.includes(a.course_id?._id || a.course_id));
+  }
+
+  function statusCounts(list) {
+    return {
+      total:    list.length,
+      pending:  list.filter(a => a.submission_status === 'submitted').length,
+      approved: list.filter(a => a.submission_status === 'approved').length,
+      rejected: list.filter(a => a.submission_status === 'rejected').length,
+      draft:    list.filter(a => a.submission_status === 'draft').length,
+    };
+  }
+
+  /* One summary card per class: teacher/course/student counts + a live
+   * breakdown of how many of that class's assessments are pending, approved,
+   * rejected, or still drafts. */
+  const classSubmissionCards = classes
+    .map(cls => {
+      const classId = cls._id || cls.id;
+      const clsCourses     = coursesForClassId(classId);
+      const clsSubmissions = submissionsForClassId(classId);
+      const teacherIds = new Set();
+      clsCourses.forEach(c => { const tid = c.teacher_id?._id || c.teacher_id; if (tid) teacherIds.add(tid); });
+      clsSubmissions.forEach(a => { const tid = a.teacher_id?._id || a.teacher_id; if (tid) teacherIds.add(tid); });
+      return {
+        cls, classId,
+        courseCount:  clsCourses.length,
+        teacherCount: teacherIds.size,
+        studentCount: classStudents(classId).length,
+        ...statusCounts(clsSubmissions),
+      };
+    })
+    .sort((a, b) => (a.cls.name || '').localeCompare(b.cls.name || ''));
+
+  /* Every teacher who teaches a course in this class, or who has a
+   * submission recorded against it — with per-teacher status counts. */
+  function teachersForClassId(classId) {
+    const clsCourses     = coursesForClassId(classId);
+    const clsSubmissions = submissionsForClassId(classId);
+    const teacherIds = new Set();
+    clsCourses.forEach(c => { const tid = c.teacher_id?._id || c.teacher_id; if (tid) teacherIds.add(tid); });
+    clsSubmissions.forEach(a => { const tid = a.teacher_id?._id || a.teacher_id; if (tid) teacherIds.add(tid); });
+    return Array.from(teacherIds).map(tid => {
+      const teacherObj = teachers.find(t => (t._id || t.id) === tid);
+      const tSubs    = clsSubmissions.filter(a => (a.teacher_id?._id || a.teacher_id) === tid);
+      const tCourses = clsCourses.filter(c => (c.teacher_id?._id || c.teacher_id) === tid);
+      return {
+        id: tid,
+        name: teacherObj?.name || 'Unknown Teacher',
+        courseNames: tCourses.map(c => c.name),
+        ...statusCounts(tSubs),
+      };
+    }).sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  /* Every module (course) a given teacher teaches within a given class, plus
+   * a per-type (FA/IA/CA) breakdown of how many assessments of each type
+   * they've recorded for it. Powers the "modules taught" drill-down level. */
+  function modulesForClassTeacher(classId, teacherId) {
+    const clsCourses     = coursesForClassId(classId);
+    const clsSubmissions = submissionsForClassId(classId);
+    const courseIds = new Set();
+    clsCourses.forEach(c => {
+      const tid = c.teacher_id?._id || c.teacher_id;
+      if (tid === teacherId) courseIds.add(c._id || c.id);
+    });
+    clsSubmissions.forEach(a => {
+      const tid = a.teacher_id?._id || a.teacher_id;
+      if (tid === teacherId) {
+        const cid = a.course_id?._id || a.course_id;
+        if (cid) courseIds.add(cid);
+      }
+    });
+    return Array.from(courseIds).map(cid => {
+      const courseObj = clsCourses.find(c => (c._id || c.id) === cid) || courses.find(c => (c._id || c.id) === cid);
+      const cSubs = clsSubmissions.filter(a =>
+        (a.course_id?._id || a.course_id) === cid && (a.teacher_id?._id || a.teacher_id) === teacherId
+      );
+      return {
+        id: cid,
+        course: courseObj,
+        ...statusCounts(cSubs),
+        types: ASSESSMENT_TYPES.map(t => ({ ...t, count: cSubs.filter(a => a.type === t.key).length })),
+      };
+    }).sort((a, b) => (a.course?.name || '').localeCompare(b.course?.name || ''));
+  }
+
+  /* Which assessment-type tabs the Module modal should offer. Integrated
+   * Assessment only happens in Term 2, but its record is reviewed alongside
+   * everything else once Term 3 (the end-of-year view) is selected — so the
+   * IA tab shows for Term 3 and for "All Terms", and is hidden while Term 1
+   * or Term 2 is the active header scope. */
+  const moduleModalTabs = ASSESSMENT_TYPES.filter(t =>
+    t.key !== 'IA' || submissionTermFilter === 'Term 3' || !submissionTermFilter
+  );
+
+  /* Every submission recorded for a given module + teacher + assessment
+   * type, already narrowed to whatever the header's Year/Term cards have
+   * selected (via scopedSubmissions). Normally 0 or 1 entries; can be more
+   * than 1 only when "All Terms" is selected and the teacher has submitted
+   * that type in more than one term. */
+  function submissionsForModuleType(courseId, teacherId, type) {
+    return scopedSubmissions.filter(a =>
+      (a.course_id?._id || a.course_id) === courseId &&
+      (a.teacher_id?._id || a.teacher_id) === teacherId &&
+      a.type === type
+    );
+  }
+
+  const TERM_RANK = { 'Term 3': 3, 'Term 2': 2, 'Term 1': 1 };
+  /* When more than one submission matches (only possible with "All Terms"
+   * selected), the most recent term's submission is treated as the primary
+   * one shown in the modal. */
+  function primarySubmissionFor(courseId, teacherId, type) {
+    const list = submissionsForModuleType(courseId, teacherId, type);
+    if (list.length === 0) return null;
+    if (list.length === 1) return list[0];
+    return [...list].sort((a, b) => (TERM_RANK[b.term] || 0) - (TERM_RANK[a.term] || 0))[0];
+  }
+
+  /* Opens the Module Assessment Modal for a given course, defaulting to its
+   * first available tab (respecting the Term-based IA gating above). */
+  function openModuleModal(courseId) {
+    setSubmissionCourseFilter(courseId);
+    const tabs = ASSESSMENT_TYPES.filter(t =>
+      t.key !== 'IA' || submissionTermFilter === 'Term 3' || !submissionTermFilter
+    );
+    setSubmissionTypeFilter(tabs[0]?.key || 'FA');
+  }
+  function closeModuleModal() {
+    setSubmissionCourseFilter('');
+    setSubmissionTypeFilter('');
+    setViewingSubmission(null);
+  }
+
+  const selectedSubmissionClass   = classes.find(c => (c._id || c.id) === submissionClassFilter) || null;
+  const selectedSubmissionTeacher = teachers.find(t => (t._id || t.id) === submissionTeacherFilter) || null;
+  const selectedSubmissionCourse  = courses.find(c => (c._id || c.id) === submissionCourseFilter) || null;
+
+  /* Keeps the modal's embedded preview (viewingSubmission) in sync with
+   * whichever assessment the open tab currently points at — including after
+   * an Approve/Reject refreshes `submissions`, or when the tab changes. */
+  useEffect(() => {
+    if (!submissionCourseFilter || !submissionTypeFilter) return;
+    const primary = primarySubmissionFor(submissionCourseFilter, submissionTeacherFilter, submissionTypeFilter);
+    const currentId = viewingSubmission?.assessment?._id || viewingSubmission?.assessment?.id;
+    if (primary) {
+      if (primary._id !== currentId) viewSubmission(primary._id);
+    } else if (viewingSubmission) {
+      setViewingSubmission(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [submissionCourseFilter, submissionTeacherFilter, submissionTypeFilter, submissions]);
 
   /* ── Helper: resolve class names for a course (multi or single) ── */
   function getCourseClassNames(c) {
@@ -1116,6 +1471,44 @@ export default function AdminAssessments() {
           opacity: 0.6; animation: rtPulseRing 1.7s ease-out infinite;
         }
         @keyframes rtPulseRing { 0% { transform: scale(0.6); opacity: 0.7; } 100% { transform: scale(1.9); opacity: 0; } }
+
+        /* ── Mark Submissions drill-down: class & teacher cards ── */
+        .subm-crumb-btn { transition: background 0.18s ease, color 0.18s ease, transform 0.15s ease; }
+        .subm-crumb-btn:hover:not(:disabled) { transform: translateY(-1px); }
+        .subm-crumb-btn:active:not(:disabled) { transform: translateY(0) scale(0.98); }
+
+        .subm-class-card, .subm-teacher-card {
+          transition: transform 0.25s cubic-bezier(.22,1,.36,1), box-shadow 0.25s ease, border-color 0.25s ease;
+        }
+        .subm-class-card:hover, .subm-teacher-card:hover {
+          transform: translateY(-5px);
+          box-shadow: 0 16px 36px rgba(99,102,241,0.2);
+          border-color: #6366f1 !important;
+        }
+        .subm-class-card:active, .subm-teacher-card:active { transform: translateY(-2px) scale(0.99); }
+        .subm-class-card:focus-visible, .subm-teacher-card:focus-visible {
+          outline: none; box-shadow: 0 0 0 3px rgba(99,102,241,0.32), 0 12px 28px rgba(99,102,241,0.2);
+        }
+        .subm-card-icon { transition: transform 0.28s cubic-bezier(.22,1,.36,1); }
+        .subm-class-card:hover .subm-card-icon, .subm-teacher-card:hover .subm-card-icon {
+          transform: scale(1.08) rotate(-4deg);
+        }
+        .subm-card-arrow { transition: transform 0.22s ease; }
+        .subm-class-card:hover .subm-card-arrow, .subm-teacher-card:hover .subm-card-arrow {
+          transform: translateX(4px);
+        }
+        .subm-class-card::before {
+          content: ''; position: absolute; inset: 0; opacity: 0; pointer-events: none;
+          background: radial-gradient(120px 80px at 20% 0%, rgba(255,255,255,0.16), transparent 70%);
+          transition: opacity 0.25s ease;
+        }
+        .subm-class-card:hover::before { opacity: 1; }
+
+        /* ── Academic Year / Term scope selector cards ── */
+        .assess-scope-card { transition: transform 0.2s cubic-bezier(.22,1,.36,1), box-shadow 0.2s ease; }
+        .assess-scope-card:hover { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(0,0,0,0.28); filter: brightness(1.08); }
+        .assess-scope-card:active { transform: translateY(0) scale(0.98); }
+        .assess-scope-card:focus-within { outline: none; box-shadow: 0 0 0 3px rgba(255,255,255,0.35), 0 10px 22px rgba(0,0,0,0.28); }
       `}</style>
 
       {/* ── Page Header ── */}
@@ -1135,9 +1528,36 @@ export default function AdminAssessments() {
             </p>
           </div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <ScopeSelectorCard
+              icon={Calendar}
+              colorFrom="#6366f1"
+              colorTo="#4338ca"
+              value={submissionYearFilter}
+              displayValue={submissionYearFilter || 'All Years'}
+              onChange={e => setSubmissionYearFilter(e.target.value)}
+              label="Academic Year"
+              title="Scopes Mark Submissions to this academic year — click to change"
+              options={(academicYears.length > 0 ? academicYears.map(y => y.name) : YEARS).map(y => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            />
+            <ScopeSelectorCard
+              icon={Clock}
+              colorFrom="#0ea5e9"
+              colorTo="#0369a1"
+              value={submissionTermFilter}
+              displayValue={submissionTermFilter || 'All Terms'}
+              onChange={e => setSubmissionTermFilter(e.target.value)}
+              label="Term"
+              title="Scopes Mark Submissions to this term — click to change"
+              options={[
+                <option key="" value="">All Terms</option>,
+                ...TERMS.map(t => <option key={t} value={t}>{t}</option>),
+              ]}
+            />
             {[
               { label: 'Courses',     val: courses.length,     color: '#6366f1' },
-              { label: 'Assessments', val: assessments.length, color: '#8b5cf6' },
+              { label: 'Assessments', val: scopedAssessmentsCount, color: '#8b5cf6' },
               { label: 'Students',    val: students.length,    color: '#10b981' },
             ].map(s => (
               <div key={s.label} style={{ padding: '8px 16px', borderRadius: 12, background: s.color + '18', border: '1px solid ' + s.color + '33', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -1415,223 +1835,547 @@ export default function AdminAssessments() {
         </div>
       )}
 
-      {/* ══════════ MARK SUBMISSIONS TAB ══════════ */}
-      {tab === 'submissions' && (
+      {/* ══════════ ACADEMIC YEAR TAB ══════════ */}
+      {tab === 'academicYear' && (
         <div className="no-print" style={{ animation: 'fadeUp 0.3s ease' }}>
-          <div style={{ ...card, marginBottom: 16, padding: '14px 18px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 12, color: dark ? '#7b839a' : '#6b7280', fontWeight: 700 }}>Filters:</span>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <label style={{ fontSize: 10, fontWeight: 700, color: dark ? '#7b839a' : '#9ca3af', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Class</label>
-                <select
-                  value={submissionClassFilter}
-                  onChange={e => { setSubmissionClassFilter(e.target.value); setSubmissionCourseFilter(''); }}
-                  style={filterSelect(submissionClassFilter)}
-                >
-                  <option value="">All Classes</option>
-                  {classes.map(c => <option key={c._id || c.id} value={c._id || c.id}>{c.name}</option>)}
-                </select>
+          <div style={{ ...card, marginBottom: 20, background: 'linear-gradient(135deg,#6366f110,#4338ca08)', borderColor: '#6366f125' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div style={{ width: 52, height: 52, borderRadius: 16, background: 'linear-gradient(135deg,#6366f1,#4338ca)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Calendar size={24} color="#fff" />
               </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <label style={{ fontSize: 10, fontWeight: 700, color: dark ? '#7b839a' : '#9ca3af', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Teacher</label>
-                <select value={submissionTeacherFilter} onChange={e => setSubmissionTeacherFilter(e.target.value)} style={filterSelect(submissionTeacherFilter)}>
-                  <option value="">All Teachers</option>
-                  {teachers.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
-                </select>
+              <div>
+                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: dark ? '#f1f5f9' : '#111827' }}>Academic Year</h2>
+                <p style={{ margin: '4px 0 0', fontSize: 13, color: dark ? '#7b839a' : '#6b7280' }}>
+                  Set the current academic year. All new mark-recording activity by teachers automatically belongs to whichever year is active here — teachers can't change it themselves.
+                </p>
               </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <label style={{ fontSize: 10, fontWeight: 700, color: dark ? '#7b839a' : '#9ca3af', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                  Course {submissionClassFilter ? `(${coursesForSubmissionClass.length})` : ''}
-                </label>
-                <select value={submissionCourseFilter} onChange={e => setSubmissionCourseFilter(e.target.value)} style={filterSelect(submissionCourseFilter)}>
-                  <option value="">{submissionClassFilter ? 'All Class Courses' : 'All Courses'}</option>
-                  {coursesForSubmissionClass.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
-                </select>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <label style={{ fontSize: 10, fontWeight: 700, color: dark ? '#7b839a' : '#9ca3af', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Module Type</label>
-                <select value={submissionCategoryFilter} onChange={e => setSubmissionCategoryFilter(e.target.value)} style={filterSelect(submissionCategoryFilter)}>
-                  <option value="">All Types</option>
-                  {ALL_MODULE_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                </select>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <label style={{ fontSize: 10, fontWeight: 700, color: dark ? '#7b839a' : '#9ca3af', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Status</label>
-                <select value={submissionFilter} onChange={e => setSubmissionFilter(e.target.value)} style={filterSelect(submissionFilter)}>
-                  <option value="">All Statuses</option>
-                  <option value="submitted">Pending Review</option>
-                  <option value="approved">Approved</option>
-                  <option value="rejected">Rejected</option>
-                  <option value="draft">Draft</option>
-                </select>
-              </div>
-
-              {(submissionClassFilter || submissionTeacherFilter || submissionCourseFilter || submissionFilter || submissionCategoryFilter) && (
-                <button
-                  onClick={() => { setSubmissionClassFilter(''); setSubmissionTeacherFilter(''); setSubmissionCourseFilter(''); setSubmissionFilter(''); setSubmissionCategoryFilter(''); }}
-                  style={{ marginTop: 14, padding: '7px 12px', borderRadius: 8, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#7b839a' : '#6b7280', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}
-                >
-                  Clear
-                </button>
-              )}
-              <button onClick={fetchSubmissions} style={{ marginLeft: 'auto', marginTop: 14, display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 8, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#7b839a' : '#6b7280', fontSize: 12, cursor: 'pointer' }}>
-                <RefreshCw size={12} /> Refresh
-              </button>
             </div>
           </div>
 
-          {submissionsLoading ? (
-            <div style={{ textAlign: 'center', padding: 80 }}>
-              <div style={{ width: 40, height: 40, borderRadius: '50%', border: '3px solid #6366f1', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
-              <p style={{ color: dark ? '#7b839a' : '#9ca3af' }}>Loading submissions…</p>
-            </div>
-          ) : filteredSubmissions.length === 0 ? (
-            <div style={{ ...card, textAlign: 'center', padding: 60 }}>
-              <div style={{ width: 64, height: 64, borderRadius: 20, background: 'rgba(99,102,241,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                <ClipboardCheck size={28} color="#6366f1" />
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 340px', gap: 20, alignItems: 'start' }}>
+            {/* ── List of academic years ── */}
+            <div style={card}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: dark ? '#7b839a' : '#6b7280', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
+                All academic years
               </div>
-              <p style={{ color: dark ? '#e8ecf4' : '#111827', fontWeight: 700, fontSize: 15, margin: '0 0 6px' }}>No Submissions Found</p>
-              <p style={{ color: dark ? '#7b839a' : '#9ca3af', margin: 0, fontSize: 13 }}>
-                {submissionClassFilter ? 'No mark submissions found for this class.' : 'Marks submitted by teachers will appear here.'}
-              </p>
+              {academicYearsLoading ? (
+                <p style={{ fontSize: 13, color: dark ? '#7b839a' : '#6b7280' }}>Loading…</p>
+              ) : academicYears.length === 0 ? (
+                <p style={{ fontSize: 13, color: dark ? '#7b839a' : '#6b7280' }}>No academic years yet — create one to get started.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {academicYears.map(y => {
+                    const disabledTerms = y.disabled_terms || [];
+                    return (
+                    <div key={y.id || y._id} style={{
+                      display: 'flex', flexDirection: 'column', gap: 10,
+                      padding: '12px 14px', borderRadius: 12,
+                      border: `1.5px solid ${y.is_active ? '#6366f1' : (dark ? '#2a3042' : '#e5e7eb')}`,
+                      background: y.is_active ? 'rgba(99,102,241,0.08)' : 'transparent',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <Calendar size={16} color={y.is_active ? '#6366f1' : (dark ? '#7b839a' : '#9ca3af')} />
+                          <div>
+                            <div style={{ fontSize: 14, fontWeight: 700, color: dark ? '#e2e8f0' : '#111827' }}>{y.name}</div>
+                            {y.is_active && (
+                              <div style={{ fontSize: 10.5, fontWeight: 700, color: '#6366f1', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                Current / Active
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          {!y.is_active && (
+                            <button
+                              disabled={academicYearBusy}
+                              onClick={() => activateAcademicYear(y.id || y._id, y.name)}
+                              style={{ padding: '6px 12px', borderRadius: 8, border: 'none', background: '#6366f1', color: '#fff', fontSize: 12, fontWeight: 700, cursor: academicYearBusy ? 'default' : 'pointer', opacity: academicYearBusy ? 0.6 : 1 }}
+                            >
+                              Set Active
+                            </button>
+                          )}
+                          {!y.is_active && (
+                            <button
+                              disabled={academicYearBusy}
+                              onClick={() => deleteAcademicYear(y.id || y._id, y.name)}
+                              title="Delete this academic year"
+                              style={{ padding: '6px 10px', borderRadius: 8, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: 'transparent', color: '#dc2626', fontSize: 12, cursor: academicYearBusy ? 'default' : 'pointer' }}
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* ── Per-term open/closed toggles ──
+                          Closing a term blocks teachers from creating or
+                          recording marks for NEW assessments in it — it
+                          never touches assessments/marks already recorded
+                          there. Works for any year, not just the active
+                          one, so terms can be pre-closed ahead of time. */}
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', paddingTop: 8, borderTop: `1px dashed ${dark ? '#2a3042' : '#e5e7eb'}` }}>
+                        {TERMS.map(t => {
+                          const isOpen = !disabledTerms.includes(t);
+                          const busy = termToggleBusyKey === `${y.id || y._id}:${t}`;
+                          return (
+                            <button
+                              key={t}
+                              disabled={busy}
+                              onClick={() => setTermStatus(y.id || y._id, y.name, t, !isOpen)}
+                              title={isOpen ? `Click to close ${t} — teachers won't be able to create/record assessments in it` : `Click to reopen ${t}`}
+                              style={{
+                                display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 999,
+                                fontSize: 11, fontWeight: 700, cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.6 : 1,
+                                border: `1px solid ${isOpen ? (dark ? '#2a3042' : '#e5e7eb') : '#dc262655'}`,
+                                background: isOpen ? 'transparent' : 'rgba(220,38,38,0.1)',
+                                color: isOpen ? (dark ? '#9aa2b5' : '#4b5563') : '#dc2626',
+                              }}
+                            >
+                              {isOpen ? <Unlock size={11} /> : <Lock size={11} />} {t}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )})}
+                </div>
+              )}
             </div>
+
+            {/* ── Create new academic year ── */}
+            <div style={{ position: isMobile ? 'static' : 'sticky', top: 20 }}>
+              <div style={card}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: dark ? '#7b839a' : '#6b7280', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
+                  Create a new academic year
+                </div>
+                <label style={labelStyle}>Academic Year</label>
+                <input
+                  value={newYearName}
+                  onChange={e => setNewYearName(e.target.value)}
+                  placeholder="e.g. 2027-2028"
+                  style={inputStyle}
+                  onKeyDown={e => { if (e.key === 'Enter') createAcademicYear(); }}
+                />
+                <p style={{ margin: '6px 0 14px', fontSize: 11, color: dark ? '#7b839a' : '#9ca3af' }}>
+                  Format: two consecutive years, e.g. "2027-2028".
+                </p>
+                <button
+                  disabled={academicYearBusy}
+                  onClick={createAcademicYear}
+                  style={{ width: '100%', padding: '10px 16px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#6366f1,#4338ca)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: academicYearBusy ? 'default' : 'pointer', opacity: academicYearBusy ? 0.6 : 1 }}
+                >
+                  + Create Academic Year
+                </button>
+              </div>
+              <div style={{ marginTop: 12, padding: '12px 16px', borderRadius: 12, background: dark ? '#1a1f2e' : '#f0f9ff', border: `1px solid ${dark ? '#2a3042' : '#bae6fd'}` }}>
+                <p style={{ margin: 0, fontSize: 11, color: dark ? '#7b839a' : '#0369a1', lineHeight: 1.6 }}>
+                  💡 <strong>Tip:</strong> Switching the active year doesn't touch existing assessments or marks — they stay tied to the year they were recorded in. Only new assessments teachers create from now on will use{activeAcademicYear ? ` "${activeAcademicYear.name}"` : ' the new active year'}.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+      {tab === 'submissions' && (
+        <div className="no-print" style={{ animation: 'fadeUp 0.3s ease' }}>
+
+          {/* ── Breadcrumb: All Classes → Class → Teacher (module + type live in the modal) ── */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 18 }}>
+            <button
+              className="subm-crumb-btn"
+              onClick={() => { setSubmissionClassFilter(''); setSubmissionTeacherFilter(''); setSubmissionCourseFilter(''); setSubmissionTypeFilter(''); }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 9, cursor: 'pointer',
+                border: `1px solid ${!submissionClassFilter ? '#6366f1' : (dark ? '#2a3042' : '#e5e7eb')}`,
+                background: !submissionClassFilter ? 'rgba(99,102,241,0.1)' : (dark ? '#1a1f2e' : '#f9fafb'),
+                color: !submissionClassFilter ? '#6366f1' : (dark ? '#c4c9d4' : '#374151'),
+                fontSize: 12.5, fontWeight: 700,
+              }}
+            >
+              <School size={13} /> All Classes
+            </button>
+
+            {submissionClassFilter && (
+              <>
+                <ChevronRight size={14} color={dark ? '#3f4759' : '#cbd5e1'} />
+                <button
+                  className="subm-crumb-btn"
+                  onClick={() => { setSubmissionTeacherFilter(''); setSubmissionCourseFilter(''); setSubmissionTypeFilter(''); }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 9, cursor: 'pointer',
+                    border: `1px solid ${!submissionTeacherFilter ? '#6366f1' : (dark ? '#2a3042' : '#e5e7eb')}`,
+                    background: !submissionTeacherFilter ? 'rgba(99,102,241,0.1)' : (dark ? '#1a1f2e' : '#f9fafb'),
+                    color: !submissionTeacherFilter ? '#6366f1' : (dark ? '#c4c9d4' : '#374151'),
+                    fontSize: 12.5, fontWeight: 700,
+                  }}
+                >
+                  <Users size={13} /> {selectedSubmissionClass?.name || 'Class'}
+                </button>
+              </>
+            )}
+
+            {submissionTeacherFilter && (
+              <>
+                <ChevronRight size={14} color={dark ? '#3f4759' : '#cbd5e1'} />
+                <button
+                  className="subm-crumb-btn"
+                  onClick={() => { setSubmissionCourseFilter(''); setSubmissionTypeFilter(''); }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 9, cursor: 'pointer',
+                    border: `1px solid ${!submissionCourseFilter ? '#6366f1' : (dark ? '#2a3042' : '#e5e7eb')}`,
+                    background: !submissionCourseFilter ? 'rgba(99,102,241,0.1)' : (dark ? '#1a1f2e' : '#f9fafb'),
+                    color: !submissionCourseFilter ? '#6366f1' : (dark ? '#c4c9d4' : '#374151'),
+                    fontSize: 12.5, fontWeight: 700,
+                  }}
+                >
+                  <User2 size={13} /> {selectedSubmissionTeacher?.name || 'Teacher'}
+                </button>
+              </>
+            )}
+
+            <button onClick={fetchSubmissions} style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 9, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#7b839a' : '#6b7280', fontSize: 12, cursor: 'pointer' }}>
+              <RefreshCw size={12} /> Refresh
+            </button>
+          </div>
+
+          {!submissionClassFilter ? (
+            /* ═══ LEVEL 1: Class cards ═══ */
+            classSubmissionCards.length === 0 ? (
+              <div style={{ ...card, textAlign: 'center', padding: 60 }}>
+                <div style={{ width: 64, height: 64, borderRadius: 20, background: 'rgba(99,102,241,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                  <School size={28} color="#6366f1" />
+                </div>
+                <p style={{ color: dark ? '#e8ecf4' : '#111827', fontWeight: 700, fontSize: 15, margin: '0 0 6px' }}>No Classes Yet</p>
+                <p style={{ color: dark ? '#7b839a' : '#9ca3af', margin: 0, fontSize: 13 }}>Create a class first to start reviewing mark submissions.</p>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(270px,1fr))', gap: 16 }}>
+                {classSubmissionCards.map(({ cls, classId, courseCount, teacherCount, studentCount, total, pending, approved, rejected, draft }, idx) => {
+                  const [g1, g2] = CLASS_CARD_GRADIENTS[idx % CLASS_CARD_GRADIENTS.length];
+                  return (
+                    <button
+                      key={classId}
+                      className="subm-class-card"
+                      onClick={() => setSubmissionClassFilter(classId)}
+                      style={{
+                        position: 'relative', textAlign: 'left', cursor: 'pointer', padding: 0, overflow: 'hidden',
+                        border: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}`, borderRadius: 18,
+                        background: dark ? '#13161f' : '#fff', animation: `fadeUp 0.35s ease ${idx * 0.03}s both`,
+                      }}
+                    >
+                      <div style={{ height: 64, background: `linear-gradient(135deg, ${g1}, ${g2})`, position: 'relative' }}>
+                        {pending > 0 && (
+                          <span style={{ position: 'absolute', top: 10, right: 10, display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 800, padding: '3px 9px', borderRadius: 20, background: 'rgba(255,255,255,0.94)', color: '#b45309' }}>
+                            <Clock size={10} /> {pending} pending
+                          </span>
+                        )}
+                      </div>
+                      <div className="subm-card-icon" style={{
+                        position: 'absolute', top: 42, left: 18, width: 46, height: 46, borderRadius: 14,
+                        background: dark ? '#13161f' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        boxShadow: '0 6px 16px rgba(0,0,0,0.18)', border: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}`,
+                      }}>
+                        <School size={20} color={g1} />
+                      </div>
+                      <div style={{ padding: '26px 18px 18px' }}>
+                        <p style={{ margin: '0 0 3px', fontSize: 15, fontWeight: 800, color: dark ? '#f1f5f9' : '#111827' }}>{cls.name}</p>
+                        <p style={{ margin: '0 0 14px', fontSize: 11.5, color: dark ? '#7b839a' : '#9ca3af' }}>
+                          {teacherCount} teacher{teacherCount !== 1 ? 's' : ''} · {courseCount} course{courseCount !== 1 ? 's' : ''} · {studentCount} student{studentCount !== 1 ? 's' : ''}
+                        </p>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', minHeight: 22 }}>
+                          <StatPill color="#f59e0b" label="Pending"  value={pending} />
+                          <StatPill color="#10b981" label="Approved" value={approved} />
+                          <StatPill color="#ef4444" label="Rejected" value={rejected} />
+                          <StatPill color="#9ca3af" label="Draft"    value={draft} />
+                        </div>
+                        <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${dark ? '#1e2130' : '#f1f5f9'}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span style={{ fontSize: 11.5, fontWeight: 700, color: '#6366f1' }}>{total} assessment{total !== 1 ? 's' : ''} total</span>
+                          <ChevronRight size={16} color="#6366f1" className="subm-card-arrow" />
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )
+          ) : !submissionTeacherFilter ? (
+            /* ═══ LEVEL 2: Teacher cards for the selected class ═══ */
+            (() => {
+              const classTeachers = teachersForClassId(submissionClassFilter);
+              return classTeachers.length === 0 ? (
+                <div style={{ ...card, textAlign: 'center', padding: 60 }}>
+                  <div style={{ width: 64, height: 64, borderRadius: 20, background: 'rgba(99,102,241,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                    <Users size={28} color="#6366f1" />
+                  </div>
+                  <p style={{ color: dark ? '#e8ecf4' : '#111827', fontWeight: 700, fontSize: 15, margin: '0 0 6px' }}>No Teachers Found</p>
+                  <p style={{ color: dark ? '#7b839a' : '#9ca3af', margin: 0, fontSize: 13 }}>
+                    No teacher is assigned to a course in <strong>{selectedSubmissionClass?.name}</strong> yet.
+                  </p>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 14 }}>
+                  {classTeachers.map((t, idx) => (
+                    <button
+                      key={t.id}
+                      className="subm-teacher-card"
+                      onClick={() => setSubmissionTeacherFilter(t.id)}
+                      style={{
+                        textAlign: 'left', cursor: 'pointer', padding: 16, borderRadius: 16,
+                        border: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}`, background: dark ? '#13161f' : '#fff',
+                        animation: `fadeUp 0.3s ease ${idx * 0.03}s both`,
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div className="subm-card-icon" style={{
+                          width: 44, height: 44, borderRadius: '50%', flexShrink: 0,
+                          background: 'linear-gradient(135deg,#6366f1,#4338ca)', display: 'flex',
+                          alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 14,
+                        }}>
+                          {initials(t.name)}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ margin: 0, fontSize: 13.5, fontWeight: 800, color: dark ? '#f1f5f9' : '#111827', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.name}</p>
+                          <p style={{ margin: '2px 0 0', fontSize: 11, color: dark ? '#7b839a' : '#9ca3af', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {t.courseNames.length ? t.courseNames.join(', ') : 'No course assigned'}
+                          </p>
+                        </div>
+                        <ChevronRight size={16} color="#6366f1" className="subm-card-arrow" style={{ flexShrink: 0 }} />
+                      </div>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 12, minHeight: 22 }}>
+                        <StatPill color="#f59e0b" label="Pending"  value={t.pending} />
+                        <StatPill color="#10b981" label="Approved" value={t.approved} />
+                        <StatPill color="#ef4444" label="Rejected" value={t.rejected} />
+                        <StatPill color="#9ca3af" label="Draft"    value={t.draft} />
+                        {t.total === 0 && (
+                          <span style={{ fontSize: 10.5, color: dark ? '#7b839a' : '#9ca3af', fontWeight: 600 }}>No assessments yet</span>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              );
+            })()
           ) : (
-            <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr>
-                      {['Assessment', 'Course', 'Category', 'Teacher', 'Type', 'Term', 'Marked', 'Status', 'Actions'].map(h => (
-                        <th key={h} style={{ padding: '10px 14px', background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#7b839a' : '#6b7280', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: 'left', borderBottom: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}` }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredSubmissions.map((a, i) => {
-                      const statusInfo = {
-                        draft:     { label: 'Draft',    color: '#9ca3af', icon: Clock },
-                        submitted: { label: 'Pending',  color: '#f59e0b', icon: Clock },
-                        approved:  { label: 'Approved', color: '#10b981', icon: CheckCircle },
-                        rejected:  { label: 'Rejected', color: '#ef4444', icon: XCircle },
-                      }[a.submission_status] || { label: a.submission_status, color: '#9ca3af', icon: Clock };
-                      const StatusIcon = statusInfo.icon;
-                      const courseCat  = a.course_id?.category || '';
-                      const cb         = catBadge(courseCat);
-                      return (
-                        <tr key={a._id} style={{ background: i % 2 === 0 ? 'transparent' : (dark ? '#ffffff04' : '#f9fafb40'), borderBottom: `1px solid ${dark ? '#1e2130' : '#f1f5f9'}` }}>
-                          <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 700, color: dark ? '#e8ecf4' : '#111827' }}>{a.title}</td>
-                          <td style={{ padding: '10px 14px', fontSize: 12, color: dark ? '#c4c9d4' : '#374151' }}>{a.course_id?.name}</td>
-                          <td style={{ padding: '10px 14px' }}>
-                            {courseCat && (
-                              <span style={{ fontSize: 9, fontWeight: 800, padding: '2px 7px', borderRadius: 5, background: cb.bg, color: cb.text, border: `1px solid ${cb.border}`, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
-                                {courseCat.replace(' modules', '')}
+            /* ═══ LEVEL 3: Modules the selected teacher teaches in this class ═══ */
+            (() => {
+              const teacherModules = modulesForClassTeacher(submissionClassFilter, submissionTeacherFilter);
+              return teacherModules.length === 0 ? (
+                <div style={{ ...card, textAlign: 'center', padding: 60 }}>
+                  <div style={{ width: 64, height: 64, borderRadius: 20, background: 'rgba(99,102,241,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                    <BookOpen size={28} color="#6366f1" />
+                  </div>
+                  <p style={{ color: dark ? '#e8ecf4' : '#111827', fontWeight: 700, fontSize: 15, margin: '0 0 6px' }}>No Modules Found</p>
+                  <p style={{ color: dark ? '#7b839a' : '#9ca3af', margin: 0, fontSize: 13 }}>
+                    <strong>{selectedSubmissionTeacher?.name}</strong> doesn't teach any module in <strong>{selectedSubmissionClass?.name}</strong> yet.
+                  </p>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 14 }}>
+                  {teacherModules.map((m, idx) => {
+                    const cb = catBadge(m.course?.category);
+                    return (
+                      <button
+                        key={m.id}
+                        className="subm-teacher-card"
+                        onClick={() => openModuleModal(m.id)}
+                        style={{
+                          textAlign: 'left', cursor: 'pointer', padding: 16, borderRadius: 16,
+                          border: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}`, background: dark ? '#13161f' : '#fff',
+                          animation: `fadeUp 0.3s ease ${idx * 0.03}s both`,
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                          <div className="subm-card-icon" style={{
+                            width: 44, height: 44, borderRadius: 14, flexShrink: 0,
+                            background: 'linear-gradient(135deg,#6366f1,#4338ca)', display: 'flex',
+                            alignItems: 'center', justifyContent: 'center', color: '#fff',
+                          }}>
+                            <BookOpen size={19} />
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ margin: 0, fontSize: 13.5, fontWeight: 800, color: dark ? '#f1f5f9' : '#111827', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.course?.name || 'Untitled Module'}</p>
+                            {m.course?.category && (
+                              <span style={{ display: 'inline-block', marginTop: 3, fontSize: 9, fontWeight: 800, padding: '2px 7px', borderRadius: 5, background: cb.bg, color: cb.text, border: `1px solid ${cb.border}`, textTransform: 'uppercase' }}>
+                                {m.course.category.replace(' modules', '')}
                               </span>
                             )}
-                          </td>
-                          <td style={{ padding: '10px 14px', fontSize: 12, color: dark ? '#c4c9d4' : '#374151' }}>{a.teacher_id?.name || '—'}</td>
-                          <td style={{ padding: '10px 14px' }}><TypeBadge type={a.type} /></td>
-                          <td style={{ padding: '10px 14px', fontSize: 12, color: dark ? '#c4c9d4' : '#374151' }}>{a.term}</td>
-                          <td style={{ padding: '10px 14px', fontSize: 12, color: dark ? '#c4c9d4' : '#374151' }}>{a.marked_count}</td>
-                          <td style={{ padding: '10px 14px' }}>
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 7, background: statusInfo.color + '18', color: statusInfo.color, border: `1px solid ${statusInfo.color}40` }}>
-                              <StatusIcon size={11} /> {statusInfo.label}
+                          </div>
+                          <ChevronRight size={16} color="#6366f1" className="subm-card-arrow" style={{ flexShrink: 0 }} />
+                        </div>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 12, minHeight: 22 }}>
+                          <StatPill color="#f59e0b" label="Pending"  value={m.pending} />
+                          <StatPill color="#10b981" label="Approved" value={m.approved} />
+                          <StatPill color="#ef4444" label="Rejected" value={m.rejected} />
+                          <StatPill color="#9ca3af" label="Draft"    value={m.draft} />
+                          {m.total === 0 && (
+                            <span style={{ fontSize: 10.5, color: dark ? '#7b839a' : '#9ca3af', fontWeight: 600 }}>No assessments yet</span>
+                          )}
+                        </div>
+                        <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${dark ? '#1e2130' : '#f1f5f9'}`, display: 'flex', gap: 8 }}>
+                          {m.types.map(t => (
+                            <span key={t.key} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 700, color: t.count ? t.color : (dark ? '#3f4759' : '#cbd5e1') }}>
+                              <span style={{ width: 6, height: 6, borderRadius: '50%', background: t.count ? t.color : (dark ? '#2a3042' : '#e5e7eb'), display: 'inline-block' }} />
+                              {t.short}{t.count ? '' : ' —'}
                             </span>
-                          </td>
-                          <td style={{ padding: '10px 14px' }}>
-                            <div style={{ display: 'flex', gap: 6 }}>
-                              <button onClick={() => viewSubmission(a._id)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 8, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#e2e8f0' : '#374151', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
-                                <Eye size={11} /> View
-                              </button>
-                              {(a.submission_status === 'submitted' || a.submission_status === 'approved') && (
-                                <>
-                                  {a.submission_status === 'submitted' && (
-                                    <button onClick={() => approveSubmission(a._id)} disabled={submissionActionLoading} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 8, border: 'none', background: 'linear-gradient(135deg,#10b981,#059669)', color: '#fff', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
-                                      <CheckCircle size={11} /> Approve
-                                    </button>
-                                  )}
-                                  <button onClick={() => openRejectModal(a._id)} disabled={submissionActionLoading} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.07)', color: '#ef4444', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
-                                    <XCircle size={11} /> Reject
-                                  </button>
-                                </>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+                          ))}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })()
           )}
 
-          {/* Submission Detail Modal */}
-          {(viewingSubmission || viewingSubmissionLoading) && (
-            <div onClick={e => { if (e.target === e.currentTarget) setViewingSubmission(null); }} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-              <div style={{ width: 720, maxWidth: '100%', maxHeight: '88vh', overflowY: 'auto', borderRadius: 18, background: dark ? '#13161f' : '#fff', border: `1px solid ${dark ? '#1e2535' : '#e5e7eb'}`, padding: 26, boxShadow: '0 32px 80px rgba(0,0,0,0.4)' }}>
-                {viewingSubmissionLoading ? (
-                  <div style={{ textAlign: 'center', padding: 60 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: '50%', border: '3px solid #6366f1', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
-                    <p style={{ color: dark ? '#7b839a' : '#9ca3af' }}>Loading…</p>
-                  </div>
-                ) : (
-                  <>
-                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>
-                      <div>
-                        <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: dark ? '#f1f5f9' : '#111827' }}>{viewingSubmission.assessment?.title}</h3>
-                        <p style={{ margin: '4px 0 0', fontSize: 12, color: dark ? '#7b839a' : '#9ca3af' }}>
-                          {viewingSubmission.assessment?.course_id?.name} · {viewingSubmission.assessment?.term} · {viewingSubmission.assessment?.academic_year} · Teacher: {viewingSubmission.assessment?.teacher_id?.name}
-                        </p>
+          {/* ═══ Module Assessment Modal: tabs for FA / IA / CA, with an
+              embedded, polished student-marks preview + Approve/Reject ═══ */}
+          {submissionCourseFilter && (() => {
+            const modalTabs = moduleModalTabs;
+            const activeType = submissionTypeFilter || modalTabs[0]?.key || 'FA';
+            const activeTypeMeta = ASSESSMENT_TYPES.find(t => t.key === activeType) || modalTabs[0];
+            const matches = submissionsForModuleType(submissionCourseFilter, submissionTeacherFilter, activeType);
+            const primary = primarySubmissionFor(submissionCourseFilter, submissionTeacherFilter, activeType);
+            const extraCount = Math.max(0, matches.length - 1);
+
+            return (
+              <div onClick={e => { if (e.target === e.currentTarget) closeModuleModal(); }} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+                <div style={{ width: 780, maxWidth: '100%', maxHeight: '90vh', overflowY: 'auto', borderRadius: 20, background: dark ? '#13161f' : '#fff', border: `1px solid ${dark ? '#1e2535' : '#e5e7eb'}`, padding: 0, boxShadow: '0 32px 80px rgba(0,0,0,0.4)' }}>
+
+                  {/* Header */}
+                  <div style={{ padding: '22px 26px 0', position: 'sticky', top: 0, background: dark ? '#13161f' : '#fff', zIndex: 2 }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div style={{ width: 42, height: 42, borderRadius: 13, flexShrink: 0, background: 'linear-gradient(135deg,#6366f1,#4338ca)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+                          <BookOpen size={18} />
+                        </div>
+                        <div>
+                          <h3 style={{ margin: 0, fontSize: 16.5, fontWeight: 800, color: dark ? '#f1f5f9' : '#111827' }}>{selectedSubmissionCourse?.name || 'Module'}</h3>
+                          <p style={{ margin: '3px 0 0', fontSize: 12, color: dark ? '#7b839a' : '#9ca3af' }}>
+                            {selectedSubmissionTeacher?.name} · {selectedSubmissionClass?.name}
+                            {submissionTermFilter && <> · {submissionTermFilter}</>}
+                            {submissionYearFilter && <> · {submissionYearFilter}</>}
+                          </p>
+                        </div>
                       </div>
-                      <button onClick={() => setViewingSubmission(null)} style={{ border: 'none', background: dark ? '#1e2130' : '#f3f4f6', borderRadius: 8, width: 32, height: 32, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <button onClick={closeModuleModal} style={{ border: 'none', background: dark ? '#1e2130' : '#f3f4f6', borderRadius: 8, width: 32, height: 32, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         <X size={16} />
                       </button>
                     </div>
-                    <div style={{ overflowX: 'auto', marginTop: 16 }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead>
-                          <tr>
-                            {['#', 'Student', 'Marks', `/ ${viewingSubmission.assessment?.max_marks}`, '%', 'Grade'].map(h => (
-                              <th key={h} style={{ padding: '8px 12px', background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#7b839a' : '#6b7280', fontSize: 11, fontWeight: 700, textAlign: 'left' }}>{h}</th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(viewingSubmission.students || []).map((s, i) => (
-                            <tr key={s.student_id} style={{ background: i % 2 === 0 ? 'transparent' : (dark ? '#ffffff05' : '#f9fafb50') }}>
-                              <td style={{ padding: '8px 12px', fontSize: 12, color: dark ? '#7b839a' : '#9ca3af' }}>{i + 1}</td>
-                              <td style={{ padding: '8px 12px', fontSize: 13, fontWeight: 600, color: dark ? '#e2e8f0' : '#374151' }}>{s.name}</td>
-                              <td style={{ padding: '8px 12px', fontSize: 13, fontWeight: 700, color: pctColor(s.percentage) }}>{s.marks ?? '—'}</td>
-                              <td style={{ padding: '8px 12px', fontSize: 13, color: dark ? '#e2e8f0' : '#374151' }}>{s.max_marks}</td>
-                              <td style={{ padding: '8px 12px', fontSize: 13, fontWeight: 700, color: pctColor(s.percentage) }}>{s.percentage != null ? Math.min(s.percentage, 100) + '%' : '—'}</td>
-                              <td style={{ padding: '8px 12px' }}><GradeBadge grade={s.grade} /></td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                    {(viewingSubmission.submission?.status === 'submitted' || viewingSubmission.submission?.status === 'approved') && (
-                      <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-                        <button onClick={() => openRejectModal(viewingSubmission.assessment?.id || viewingSubmission.assessment?._id)} style={{ flex: 1, padding: '11px', borderRadius: 10, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.07)', color: '#ef4444', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                          <XCircle size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />Reject
-                        </button>
-                        {viewingSubmission.submission?.status === 'submitted' && (
-                          <button onClick={() => approveSubmission(viewingSubmission.assessment?.id || viewingSubmission.assessment?._id)} style={{ flex: 1, padding: '11px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#10b981,#059669)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                            <CheckCircle size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />Approve
+
+                    {/* Tabs */}
+                    <div style={{ display: 'flex', gap: 4, marginTop: 20, borderBottom: `2px solid ${dark ? '#1e2130' : '#e5e7eb'}` }}>
+                      {modalTabs.map(t => {
+                        const tMatches = submissionsForModuleType(submissionCourseFilter, submissionTeacherFilter, t.key);
+                        const isActive = t.key === activeType;
+                        return (
+                          <button
+                            key={t.key}
+                            onClick={() => setSubmissionTypeFilter(t.key)}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', border: 'none',
+                              borderRadius: '10px 10px 0 0', background: isActive ? (dark ? '#1d2235' : '#f8f9fd') : 'transparent',
+                              color: isActive ? t.color : (dark ? '#7b839a' : '#6b7280'),
+                              fontWeight: isActive ? 800 : 600, fontSize: 12.5, cursor: 'pointer', marginBottom: -2,
+                              borderBottom: isActive ? `2px solid ${t.color}` : '2px solid transparent',
+                            }}
+                          >
+                            {t.label}
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: tMatches.length ? t.color : (dark ? '#2a3042' : '#e5e7eb'), display: 'inline-block' }} />
                           </button>
-                        )}
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Tab content */}
+                  <div style={{ padding: '22px 26px 26px' }}>
+                    {matches.length === 0 ? (
+                      <div style={{ textAlign: 'center', padding: '48px 20px' }}>
+                        <div style={{ width: 60, height: 60, borderRadius: 18, background: (activeTypeMeta?.color || '#f59e0b') + '18', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                          <Clock size={26} color={activeTypeMeta?.color || '#f59e0b'} />
+                        </div>
+                        <p style={{ color: dark ? '#e8ecf4' : '#111827', fontWeight: 700, fontSize: 15, margin: '0 0 6px' }}>Not Submitted Yet</p>
+                        <p style={{ color: dark ? '#7b839a' : '#9ca3af', margin: '0 auto', fontSize: 13, maxWidth: 400 }}>
+                          {selectedSubmissionTeacher?.name || 'This teacher'} has not submitted any {activeTypeMeta?.label || 'assessment'} for {selectedSubmissionCourse?.name || 'this module'} yet.
+                        </p>
                       </div>
-                    )}
-                  </>
-                )}
+                    ) : (!viewingSubmission || viewingSubmissionLoading || (viewingSubmission.assessment?._id || viewingSubmission.assessment?.id) !== primary?._id) ? (
+                      <div style={{ textAlign: 'center', padding: '48px 20px' }}>
+                        <div style={{ width: 36, height: 36, borderRadius: '50%', border: '3px solid #6366f1', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
+                        <p style={{ color: dark ? '#7b839a' : '#9ca3af' }}>Loading submission…</p>
+                      </div>
+                    ) : (() => {
+                      const statusInfo = {
+                        draft:     { label: 'Draft',    color: '#9ca3af', icon: Clock },
+                        submitted: { label: 'Pending Review', color: '#f59e0b', icon: Clock },
+                        approved:  { label: 'Approved', color: '#10b981', icon: CheckCircle },
+                        rejected:  { label: 'Rejected', color: '#ef4444', icon: XCircle },
+                      }[viewingSubmission.submission?.status] || { label: viewingSubmission.submission?.status, color: '#9ca3af', icon: Clock };
+                      const StatusIcon = statusInfo.icon;
+                      return (
+                        <>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                            <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600, color: dark ? '#c4c9d4' : '#374151' }}>
+                              View and manage the assessment submitted by the teacher.
+                            </p>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 700, padding: '5px 12px', borderRadius: 8, background: statusInfo.color + '18', color: statusInfo.color, border: `1px solid ${statusInfo.color}40`, flexShrink: 0 }}>
+                              <StatusIcon size={12} /> {statusInfo.label}
+                            </span>
+                          </div>
+
+                          <div style={{ overflowX: 'auto', marginTop: 18, borderRadius: 14, border: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}` }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                              <thead>
+                                <tr>
+                                  {['#', 'Student', 'Marks', `/ ${viewingSubmission.assessment?.max_marks}`, '%', 'Grade'].map(h => (
+                                    <th key={h} style={{ padding: '9px 14px', background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#7b839a' : '#6b7280', fontSize: 11, fontWeight: 700, textAlign: 'left' }}>{h}</th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {(viewingSubmission.students || []).map((s, i) => (
+                                  <tr key={s.student_id} style={{ background: i % 2 === 0 ? 'transparent' : (dark ? '#ffffff05' : '#f9fafb50') }}>
+                                    <td style={{ padding: '9px 14px', fontSize: 12, color: dark ? '#7b839a' : '#9ca3af' }}>{i + 1}</td>
+                                    <td style={{ padding: '9px 14px', fontSize: 13, fontWeight: 600, color: dark ? '#e2e8f0' : '#374151' }}>{s.name}</td>
+                                    <td style={{ padding: '9px 14px', fontSize: 13, fontWeight: 700, color: pctColor(s.percentage) }}>{s.marks ?? '—'}</td>
+                                    <td style={{ padding: '9px 14px', fontSize: 13, color: dark ? '#e2e8f0' : '#374151' }}>{s.max_marks}</td>
+                                    <td style={{ padding: '9px 14px', fontSize: 13, fontWeight: 700, color: pctColor(s.percentage) }}>{s.percentage != null ? Math.min(s.percentage, 100) + '%' : '—'}</td>
+                                    <td style={{ padding: '9px 14px' }}><GradeBadge grade={s.grade} /></td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+
+                          {extraCount > 0 && (
+                            <p style={{ margin: '10px 2px 0', fontSize: 11.5, color: dark ? '#7b839a' : '#9ca3af' }}>
+                              Showing the {primary.term} submission — {extraCount} other term{extraCount !== 1 ? 's' : ''} also {extraCount !== 1 ? 'have' : 'has'} a {activeTypeMeta?.label} on record for this module.
+                            </p>
+                          )}
+
+                          {(viewingSubmission.submission?.status === 'submitted' || viewingSubmission.submission?.status === 'approved') && (
+                            <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+                              <button onClick={() => openRejectModal(viewingSubmission.assessment?.id || viewingSubmission.assessment?._id)} disabled={submissionActionLoading} style={{ flex: 1, padding: '11px', borderRadius: 10, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.07)', color: '#ef4444', fontSize: 13, fontWeight: 700, cursor: submissionActionLoading ? 'default' : 'pointer', opacity: submissionActionLoading ? 0.6 : 1 }}>
+                                <XCircle size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />Reject
+                              </button>
+                              {viewingSubmission.submission?.status === 'submitted' && (
+                                <button onClick={() => approveSubmission(viewingSubmission.assessment?.id || viewingSubmission.assessment?._id)} disabled={submissionActionLoading} style={{ flex: 1, padding: '11px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#10b981,#059669)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: submissionActionLoading ? 'default' : 'pointer', opacity: submissionActionLoading ? 0.6 : 1 }}>
+                                  <CheckCircle size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />Approve
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
       )}
 
@@ -1770,7 +2514,7 @@ export default function AdminAssessments() {
                       <label style={labelStyle}>Academic Year</label>
                       <select value={reportFilter.year} onChange={e => setReportFilter(f => ({ ...f, year: e.target.value }))} className="filter-select" style={inputStyle}>
                         <option value="">All Years</option>
-                        {YEARS.map(y => <option key={y}>{y}</option>)}
+                        {(academicYears.length > 0 ? academicYears.map(y => y.name) : YEARS).map(y => <option key={y}>{y}</option>)}
                       </select>
                     </div>
                   </>

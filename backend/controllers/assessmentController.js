@@ -5,6 +5,7 @@ const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
 const { createInAppNotification, createDirectNotification, getStudentEmails, getTeacherEmail } = require('../services/notificationHelpers');
 const { notifyAssessmentShared } = require('../services/emailService');
+const { resolveOwnerId, getActiveYearDoc, isTermOpenForYearName } = require('../utils/academicYear');
 
 /* ─────────────────────────────────────────────────────────
    Assessment title is derived from the assessment type.
@@ -938,7 +939,7 @@ exports.teacherGetCourses = async (req, res) => {
 
 exports.teacherGetAssessments = async (req, res) => {
   try {
-    const { course_id, class_id, mode } = req.query;
+    const { course_id, class_id, mode, academic_year } = req.query;
     const filter = { teacher_id: req.user.id };
     if (course_id) filter.course_id = course_id;
     if (class_id) filter.class_id = class_id;
@@ -951,6 +952,29 @@ exports.teacherGetAssessments = async (req, res) => {
     // AND a missing field alike, so those legacy records aren't silently
     // hidden — quiz is the only mode that ever needs to be excluded here.
     filter.mode = mode === 'quiz' ? 'quiz' : { $ne: 'quiz' };
+
+    // ── Academic year scoping ──────────────────────────────────────────
+    // A teacher's assessment list is scoped to a single academic year at a
+    // time so that once the School Manager moves the school on to a new
+    // year, last year's assessments stop cluttering the "current" view —
+    // exactly like they'd disappear from a paper gradebook once you close
+    // it and open a new one for the new year.
+    //   • no `academic_year` param  -> defaults to the school's ACTIVE year
+    //   • `academic_year=all`       -> no year filter at all (every year)
+    //   • `academic_year=2025-2026` -> that specific year only
+    // The teacher never gets to pick which year is "current" — only the
+    // active-year default is automatic; an explicit param is an opt-in
+    // history view (e.g. a future "browse past years" control), not a way
+    // to redefine what's current.
+    if (academic_year === 'all') {
+      // no filter — every year this teacher has ever recorded
+    } else if (academic_year) {
+      filter.academic_year = academic_year;
+    } else {
+      const ownerId = await resolveOwnerId(req.user);
+      const activeYear = await getActiveYearDoc(ownerId);
+      if (activeYear) filter.academic_year = activeYear.name;
+    }
 
     const assessments = await Assessment.find(filter)
       .populate('course_id', 'name code class_id class_ids total_marks category')
@@ -1031,11 +1055,31 @@ exports.teacherGetAssessments = async (req, res) => {
 
 exports.teacherCreateAssessment = async (req, res) => {
   try {
-    const { course_id, class_id, type, term, academic_year, mode, title } = req.body;
+    const { course_id, class_id, type, term, mode, title } = req.body;
     const assessmentMode = mode === 'quiz' ? 'quiz' : 'marks';
 
-    if (!course_id || !class_id || !type || !term || !academic_year) {
-      return res.status(400).json({ message: 'Class, module, type, term, and year are required' });
+    if (!course_id || !class_id || !type || !term) {
+      return res.status(400).json({ message: 'Class, module, type, and term are required' });
+    }
+
+    // ── Academic year is never chosen by the teacher. It always follows
+    // whatever the School Manager has set as the active academic year for
+    // the school — any academic_year the client might send is ignored. ──
+    const ownerId = await resolveOwnerId(req.user);
+    const activeYear = await getActiveYearDoc(ownerId);
+    if (!activeYear) {
+      return res.status(400).json({ message: 'No active academic year is set for your school yet. Ask your School Manager to set one.' });
+    }
+    const academic_year = activeYear.name;
+
+    // ── A term the School Manager has closed for this academic year can't
+    // be used to create/record NEW assessments. Existing assessments/marks
+    // already in that term are untouched — this only blocks new activity,
+    // same principle as switching the active academic year itself. ──
+    if ((activeYear.disabled_terms || []).includes(term)) {
+      return res.status(400).json({
+        message: `${term} is closed for ${academic_year} by your School Manager. You can't create new assessments in this term.`,
+      });
     }
 
     if (!TYPE_TITLES[type]) {
@@ -1125,11 +1169,30 @@ exports.teacherCreateAssessment = async (req, res) => {
 
 exports.teacherUpdateAssessment = async (req, res) => {
   try {
-    const { type, term, academic_year, class_id, title } = req.body;
+    // Note: academic_year is intentionally not accepted here. It's stamped
+    // once at creation time from the School Manager's active year and never
+    // changes afterwards — not even for the teacher who created it. If the
+    // active year has since moved on, this assessment (and its marks)
+    // simply stays part of the year it was created under, which is exactly
+    // what "marks are associated with a specific academic year" requires.
+    const { type, term, class_id, title } = req.body;
 
     const assessment = await Assessment.findOne({ _id: req.params.id, teacher_id: req.user.id })
       .populate('course_id', 'total_marks class_id class_ids');
     if (!assessment) return res.status(404).json({ message: 'Assessment not found' });
+
+    // ── A term the School Manager has closed is frozen: an assessment
+    // already sitting in it can't be edited, and it can't be moved INTO a
+    // closed term either. ──
+    const ownerId = await resolveOwnerId(req.user);
+    if (!(await isTermOpenForYearName(ownerId, assessment.academic_year, assessment.term))) {
+      return res.status(400).json({
+        message: `${assessment.term} is closed for ${assessment.academic_year} by your School Manager. This assessment can no longer be edited.`,
+      });
+    }
+    if (term && term !== assessment.term && !(await isTermOpenForYearName(ownerId, assessment.academic_year, term))) {
+      return res.status(400).json({ message: `${term} is closed for ${assessment.academic_year} by your School Manager.` });
+    }
 
     /* Once an assessment has been shared with students, its core details
        (type/term/year/class/title) are locked — editing them after students
@@ -1157,7 +1220,6 @@ exports.teacherUpdateAssessment = async (req, res) => {
     }
     if (title && title.toString().trim()) update.title = title.toString().trim();
     if (term) update.term = term;
-    if (academic_year) update.academic_year = academic_year;
 
     /* If the class is being changed, make sure it's still one of the classes
        this module is assigned to. */
@@ -1177,7 +1239,7 @@ exports.teacherUpdateAssessment = async (req, res) => {
        class AND title, since a module/class/term/year can now legitimately
        hold several assessments of the same type as long as titles differ. */
     const checkTerm  = term          || assessment.term;
-    const checkYear  = academic_year || assessment.academic_year;
+    const checkYear  = assessment.academic_year; // never changes on update
     const checkClass = class_id      || assessment.class_id;
     const checkTitle = update.title  || assessment.title;
     const duplicate = await Assessment.findOne({
@@ -1296,6 +1358,16 @@ exports.teacherSaveMarks = async (req, res) => {
     const assessment = await Assessment.findOne({ _id: req.params.id, teacher_id: req.user.id })
       .populate('course_id', 'total_marks');
     if (!assessment) return res.status(403).json({ message: 'Access denied' });
+
+    // ── A term the School Manager has since closed can't have marks
+    // recorded into it anymore, even for an assessment that was created
+    // back when the term was still open. ──
+    const ownerId = await resolveOwnerId(req.user);
+    if (!(await isTermOpenForYearName(ownerId, assessment.academic_year, assessment.term))) {
+      return res.status(400).json({
+        message: `${assessment.term} is closed for ${assessment.academic_year} by your School Manager. Marks can no longer be recorded for this term.`,
+      });
+    }
 
     const submission = await AssessmentSubmission.findOne({ assessment_id: req.params.id });
     if (submission && (submission.status === 'submitted' || submission.status === 'approved')) {
@@ -1646,6 +1718,13 @@ exports.teacherUploadMarks = async (req, res) => {
       .populate('course_id', 'total_marks');
     if (!assessment) return res.status(403).json({ message: 'Access denied' });
 
+    const ownerId = await resolveOwnerId(req.user);
+    if (!(await isTermOpenForYearName(ownerId, assessment.academic_year, assessment.term))) {
+      return res.status(400).json({
+        message: `${assessment.term} is closed for ${assessment.academic_year} by your School Manager. Marks can no longer be uploaded for this term.`,
+      });
+    }
+
     const submission = await AssessmentSubmission.findOne({ assessment_id: req.params.id });
     if (submission && (submission.status === 'submitted' || submission.status === 'approved')) {
       return res.status(403).json({ message: 'Marks are locked. This assessment has already been submitted for review.' });
@@ -1803,6 +1882,13 @@ exports.teacherSubmitMarks = async (req, res) => {
     const assessment = await Assessment.findOne({ _id: req.params.id, teacher_id: req.user.id })
       .populate('course_id', 'total_marks');
     if (!assessment) return res.status(403).json({ message: 'Access denied' });
+
+    const ownerId = await resolveOwnerId(req.user);
+    if (!(await isTermOpenForYearName(ownerId, assessment.academic_year, assessment.term))) {
+      return res.status(400).json({
+        message: `${assessment.term} is closed for ${assessment.academic_year} by your School Manager. Marks can no longer be submitted for this term.`,
+      });
+    }
 
     const submission = await AssessmentSubmission.findOne({ assessment_id: req.params.id });
     if (submission && (submission.status === 'submitted' || submission.status === 'approved')) {

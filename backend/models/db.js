@@ -19,6 +19,12 @@ const connectDB = async () => {
     } catch (err) {
       console.error("⚠️  Assessment index sync failed:", err.message);
     }
+
+    try {
+      await AcademicYear.syncIndexes();
+    } catch (err) {
+      console.error("⚠️  AcademicYear index sync failed:", err.message);
+    }
   } catch (err) {
     console.error("❌ MongoDB connection error:", err.message);
     throw err;
@@ -384,6 +390,47 @@ const tradeSchema = new mongoose.Schema(
   { timestamps: { createdAt: "created_at" } },
 );
 tradeSchema.index({ value: 1, created_by: 1 }, { unique: true });
+
+// ── Academic Year ─────────────────────────────────────────────────────
+// One school (identified by created_by = the admin/school-manager's own
+// user id, same convention as Level/Trade/Course) can define several
+// academic years over time ("2025-2026", "2026-2027", …) but only ONE of
+// them is ever the active/current year at a given moment. Marks recorded
+// by teachers are always stamped with whichever year is active — teachers
+// never choose it themselves (see utils/academicYear.js).
+const academicYearSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, trim: true }, // e.g. "2026-2027"
+    is_active: { type: Boolean, default: false },
+    // Terms the School Manager has closed for this academic year. Empty
+    // array (the default) means every term is open, matching how things
+    // behaved before this field existed. A term listed here can't be used
+    // to create/record NEW assessments — see assessmentController's
+    // teacherCreateAssessment — but existing assessments/marks already
+    // recorded in that term are left untouched; disabling a term only
+    // blocks new mark-recording activity, exactly like moving to a new
+    // active academic year doesn't touch old years' data.
+    disabled_terms: {
+      type: [String],
+      enum: ["Term 1", "Term 2", "Term 3"],
+      default: [],
+    },
+    created_by: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+  },
+  { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } },
+);
+academicYearSchema.index({ created_by: 1, name: 1 }, { unique: true });
+// At most one active year per school. Partial index so it only applies to
+// documents where is_active is actually true (Mongo can't otherwise infer
+// that from a boolean field), letting every inactive year coexist freely.
+academicYearSchema.index(
+  { created_by: 1, is_active: 1 },
+  { unique: true, partialFilterExpression: { is_active: true } },
+);
 
 // ── Assessment Feature Schemas ──────────────────────────────────────────
 
@@ -1024,6 +1071,7 @@ teacherDmConversationStateSchema.index(
 
 // ── Models ────────────────────────────────────────────────────────────
 
+const AcademicYear = mongoose.model("AcademicYear", academicYearSchema);
 const User = mongoose.model("User", userSchema);
 const Class = mongoose.model("Class", classSchema);
 const Document = mongoose.model("Document", documentSchema);
@@ -1073,6 +1121,7 @@ const TeacherDmConversationState = mongoose.model(
 
 module.exports = {
   connectDB,
+  AcademicYear,
   User,
   Class,
   Document,

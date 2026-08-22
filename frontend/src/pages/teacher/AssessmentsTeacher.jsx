@@ -40,12 +40,6 @@ import {
 
 /* ─────────── Constants ─────────── */
 const TERMS = ['Term 1', 'Term 2', 'Term 3'];
-const CURRENT_YEAR = new Date().getFullYear();
-const YEARS = [
-  `${CURRENT_YEAR - 1}-${CURRENT_YEAR}`,
-  `${CURRENT_YEAR}-${CURRENT_YEAR + 1}`,
-  `${CURRENT_YEAR + 1}-${CURRENT_YEAR + 2}`,
-];
 
 const ASSESSMENT_TYPES = [
   { key: 'FA', label: 'Formative Assessment',     color: '#2563eb', desc: 'Ongoing evaluation during the learning process' },
@@ -266,6 +260,11 @@ export default function TeacherAssessments() {
   const [loading, setLoading]         = useState(false);
   const [refreshSpin, setRefreshSpin] = useState(false);
 
+  /* ── Academic Year: set by the School Manager, never by the teacher.
+     Fetched once and used to stamp every new assessment automatically. ── */
+  const [activeYear, setActiveYear] = useState(null); // { id, name }
+  const currentYearName = activeYear?.name || '—';
+
   /* ── Unique classes derived from teacher's courses ── */
   /* Supports both new class_ids[] array and legacy class_id field.  */
   const teacherClasses = (() => {
@@ -301,7 +300,7 @@ export default function TeacherAssessments() {
     course_id: '',
     type: '',
     term: '',
-    academic_year: YEARS[1],
+    academic_year: '',
   });
 
   /* ── Marks modal state ── */
@@ -352,12 +351,14 @@ export default function TeacherAssessments() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [cRes, aRes] = await Promise.all([
+      const [cRes, aRes, yRes] = await Promise.all([
         api.get('/assessment/teacher/courses'),
         api.get('/assessment/teacher/assessments'),
+        api.get('/academic-years/active').catch(() => null),
       ]);
       setCourses(cRes.data.courses || []);
       setAssessments(aRes.data.assessments || []);
+      if (yRes?.data?.academicYear) setActiveYear(yRes.data.academicYear);
     } catch { toast.error('Failed to load data'); }
     finally { setLoading(false); }
   }, []);
@@ -403,7 +404,7 @@ export default function TeacherAssessments() {
   /* ── Open create modal ── */
   function openCreate() {
     setEditingId(null);
-    setForm({ selectedClassId: '', course_id: '', type: '', term: '', academic_year: YEARS[1] });
+    setForm({ selectedClassId: '', course_id: '', type: '', term: '', academic_year: currentYearName });
     setShowModal(true);
   }
 
@@ -416,7 +417,9 @@ export default function TeacherAssessments() {
       course_id: String(a.course_id?._id || a.course_id || ''),
       type: a.type || '',
       term: a.term || '',
-      academic_year: a.academic_year || YEARS[1],
+      // The academic year an assessment was created under never changes —
+      // this is display-only here, not something the teacher can edit.
+      academic_year: a.academic_year || currentYearName,
     });
     setShowModal(true);
   }
@@ -806,7 +809,13 @@ export default function TeacherAssessments() {
             </p>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <div title="Set by your School Manager — you can't change this" style={{
+            display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 10,
+            border: `1px solid ${T.navy}33`, background: `${T.navy}0f`, color: T.navy, fontSize: 12, fontWeight: 700,
+          }}>
+            <Clock size={13} /> Academic Year: {currentYearName}
+          </div>
           <button
             className="ta-btn ta-icon-btn"
             onClick={handleRefreshClick}
@@ -1165,14 +1174,24 @@ export default function TeacherAssessments() {
                     <label style={lbl}>Step 3 — Term *</label>
                     <select className="ta-input-focus" value={form.term} onChange={e => setForm(f => ({ ...f, term: e.target.value, type: '' }))} style={inp}>
                       <option value="">Select term…</option>
-                      {TERMS.map(t => <option key={t}>{t}</option>)}
+                      {TERMS.map(t => {
+                        const closed = (activeYear?.disabled_terms || []).includes(t);
+                        return <option key={t} value={t} disabled={closed}>{t}{closed ? ' (Disabled)' : ''}</option>;
+                      })}
                     </select>
                   </div>
                   <div>
-                    <label style={lbl}>Academic Year *</label>
-                    <select className="ta-input-focus" value={form.academic_year} onChange={e => setForm(f => ({ ...f, academic_year: e.target.value, type: '' }))} style={inp}>
-                      {YEARS.map(y => <option key={y}>{y}</option>)}
-                    </select>
+                    <label style={lbl}>Academic Year</label>
+                    <div style={{
+                      ...inp, display: 'flex', alignItems: 'center', gap: 7,
+                      background: dark ? '#161a26' : '#f3f4f6', cursor: 'not-allowed',
+                      color: dark ? '#9aa2b5' : '#4b5563', fontWeight: 700,
+                    }}>
+                      {currentYearName}
+                      <span style={{ fontSize: 10, fontWeight: 500, fontStyle: 'italic', color: dark ? '#7b839a' : '#9ca3af' }}>
+                        (set by School Manager)
+                      </span>
+                    </div>
                   </div>
                 </div>
               )}
