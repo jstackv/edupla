@@ -31,6 +31,10 @@ const ASSESSMENT_TYPES = [
   { key: 'CA', label: 'Comprehensive Assessment', short: 'CA', color: '#8b5cf6' },
 ];
 
+// Synthetic bucket id for courses with no teacher_id assigned yet (Course.teacher_id
+// can be null) — see teachersForClassId/modulesForClassTeacher below.
+const UNASSIGNED_TEACHER_ID = '__unassigned__';
+
 /* ─────────── Mark Submissions drill-down: class card gradients ─────────── */
 const CLASS_CARD_GRADIENTS = [
   ['#6366f1', '#4338ca'], ['#0ea5e9', '#0369a1'], ['#10b981', '#047857'],
@@ -173,44 +177,98 @@ function StatPill({ color, label, value, icon: Icon }) {
 }
 
 /* ─────────── Scope selector (Academic Year / Term) header card ───────────
- * Deliberately styled unlike the plain stat pills next to it (solid gradient
- * fill, icon, chevron, lift-on-hover) so it reads as an actual control the
- * admin can change, not just another readout. A real <select> is stretched
- * invisibly over the whole card so the entire pill — not just the text —
- * is clickable, and clicking anywhere on it also focuses the select so a
- * keyboard/assistive-tech user lands on the right control immediately. */
-function ScopeSelectorCard({ icon: Icon, colorFrom, colorTo, value, displayValue, onChange, options, label, title }) {
-  const selectRef = useRef(null);
+ * A fully custom dropdown rather than a native <select> — native option
+ * lists render with the OS/browser's own colors (typically dark text on a
+ * near-white background) which we can't reliably restyle cross-browser, so
+ * on a dark theme like this one the popup ends up looking washed-out and
+ * barely readable. Building our own floating menu gives full control over
+ * colors, hover states, and the selected-item highlight, and keeps the
+ * "this is clickable" affordance (gradient fill + chevron) consistent with
+ * the closed state. */
+function ScopeSelectorCard({ icon: Icon, colorFrom, colorTo, value, displayValue, onChange, options, label, title, dark }) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    function onDocPointerDown(e) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+    }
+    function onKeyDown(e) { if (e.key === 'Escape') setOpen(false); }
+    document.addEventListener('mousedown', onDocPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onDocPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open]);
+
   return (
-    <div
-      title={title}
-      onClick={() => selectRef.current?.focus()}
-      className="assess-scope-card"
-      style={{
-        position: 'relative', padding: '9px 18px', borderRadius: 14, cursor: 'pointer',
-        background: `linear-gradient(135deg, ${colorFrom}, ${colorTo})`,
-        border: '1px solid rgba(255,255,255,0.16)',
-        boxShadow: `0 6px 16px ${colorFrom}4d`,
-        display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 128,
-      }}
-    >
-      <select
-        ref={selectRef}
-        value={value}
-        onChange={onChange}
-        aria-label={label}
-        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer', border: 'none' }}
+    <div ref={wrapRef} style={{ position: 'relative' }}>
+      <button
+        type="button"
+        title={title}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen(o => !o)}
+        className="assess-scope-card"
+        style={{
+          position: 'relative', padding: '9px 18px', borderRadius: 14, cursor: 'pointer',
+          background: `linear-gradient(135deg, ${colorFrom}, ${colorTo})`,
+          border: '1px solid rgba(255,255,255,0.16)',
+          boxShadow: open ? `0 10px 22px ${colorFrom}66` : `0 6px 16px ${colorFrom}4d`,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 128,
+        }}
       >
-        {options}
-      </select>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 5, pointerEvents: 'none' }}>
-        {Icon && <Icon size={13} color="rgba(255,255,255,0.9)" />}
-        <span style={{ fontSize: 14, fontWeight: 800, color: '#fff', lineHeight: 1.2, whiteSpace: 'nowrap' }}>{displayValue}</span>
-        <ChevronDown size={13} color="rgba(255,255,255,0.75)" />
-      </div>
-      <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.8)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: 2, pointerEvents: 'none' }}>
-        {label}
-      </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          {Icon && <Icon size={13} color="rgba(255,255,255,0.9)" />}
+          <span style={{ fontSize: 14, fontWeight: 800, color: '#fff', lineHeight: 1.2, whiteSpace: 'nowrap' }}>{displayValue}</span>
+          <ChevronDown size={13} color="rgba(255,255,255,0.85)" style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.18s ease' }} />
+        </div>
+        <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.85)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: 2 }}>
+          {label}
+        </span>
+      </button>
+
+      {open && (
+        <div
+          role="listbox"
+          aria-label={label}
+          className="assess-scope-menu"
+          style={{
+            position: 'absolute', top: 'calc(100% + 8px)', left: 0, minWidth: 180, zIndex: 50,
+            background: dark ? '#161a26' : '#ffffff',
+            border: `1px solid ${dark ? '#2f3650' : '#e5e7eb'}`,
+            borderRadius: 12, boxShadow: '0 16px 34px rgba(0,0,0,0.4)', overflow: 'hidden',
+            padding: 5,
+          }}
+        >
+          {options.map(opt => {
+            const selected = opt.value === value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                role="option"
+                aria-selected={selected}
+                onClick={() => { onChange(opt.value); setOpen(false); }}
+                className={`assess-scope-menu-item${selected ? '' : ' assess-scope-menu-item--idle'}`}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+                  width: '100%', padding: '9px 12px', borderRadius: 8, marginBottom: 2,
+                  fontSize: 13, fontWeight: selected ? 800 : 600, textAlign: 'left', whiteSpace: 'nowrap',
+                  background: selected ? `linear-gradient(135deg, ${colorFrom}, ${colorTo})` : 'transparent',
+                  color: selected ? '#fff' : (dark ? '#dbe1ee' : '#1f2937'),
+                  border: 'none', cursor: 'pointer',
+                }}
+              >
+                {opt.label}
+                {selected && <CheckCircle2 size={14} />}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -936,7 +994,7 @@ export default function AdminAssessments() {
 
   async function approveSubmission(assessmentId) {
     openConfirm({
-      variant: 'success', title: 'Approve Submission',
+      variant: 'approve', title: 'Approve Submission',
       message: 'Approving this submission will update all reports. This action cannot be undone.',
       confirmText: 'Approve & Publish',
       onConfirm: async () => {
@@ -1142,12 +1200,7 @@ export default function AdminAssessments() {
 
   /* ── Derived: courses belonging to selected class (submissions tab) ── */
   const coursesForSubmissionClass = submissionClassFilter
-    ? courses.filter(c => {
-        const ids = Array.isArray(c.class_ids) && c.class_ids.length > 0
-          ? c.class_ids.map(x => typeof x === 'object' ? x._id || x.id : x)
-          : [c.class_id?._id || c.class_id].filter(Boolean);
-        return ids.includes(submissionClassFilter);
-      })
+    ? coursesForClassId(submissionClassFilter)
     : courses;
 
   const tabs = [
@@ -1189,8 +1242,14 @@ export default function AdminAssessments() {
 
   /* Same year/term scoping applied to the header's "Assessments" count, so
    * that stat stays consistent with whatever the Academic Year / Term cards
-   * currently have selected. */
+   * currently have selected — AND with what the Mark Submissions drill-down
+   * below can actually show. Online quiz assessments (mode: 'quiz') never
+   * go through the submit-for-review workflow and have no presence
+   * anywhere in this page's class/teacher/module drill-down, so counting
+   * them here would inflate this number past anything the admin could
+   * actually click into and reconcile against the cards below. */
   const scopedAssessmentsCount = assessments.filter(a => {
+    if (a.mode === 'quiz') return false;
     if (submissionYearFilter && a.academic_year !== submissionYearFilter) return false;
     if (submissionTermFilter && a.term !== submissionTermFilter) return false;
     return true;
@@ -1201,17 +1260,25 @@ export default function AdminAssessments() {
    * fetched (courses/teachers/classes/submissions), so no extra API calls
    * are needed to power the drill-down cards. */
   function coursesForClassId(classId) {
+    const target = idStr(classId);
     return courses.filter(c => {
       const ids = Array.isArray(c.class_ids) && c.class_ids.length > 0
-        ? c.class_ids.map(x => typeof x === 'object' ? x._id || x.id : x)
-        : [c.class_id?._id || c.class_id].filter(Boolean);
-      return ids.includes(classId);
+        ? c.class_ids.map(idStr)
+        : [idStr(c.class_id)].filter(Boolean);
+      return ids.includes(target);
     });
   }
 
+  /* Submissions/assessments that were actually CREATED for this specific
+   * class — matched on the assessment's own `class_id`, not on whether its
+   * course happens to also be assigned to this class. A course shared
+   * across multiple classes (e.g. one module taught to both L3SOD A and
+   * L3SOD B) would otherwise leak every assessment recorded for EITHER
+   * class into BOTH classes' counts here, inflating and cross-contaminating
+   * the per-class totals shown on the drill-down cards below. */
   function submissionsForClassId(classId) {
-    const courseIds = coursesForClassId(classId).map(c => c._id || c.id);
-    return scopedSubmissions.filter(a => courseIds.includes(a.course_id?._id || a.course_id));
+    const target = idStr(classId);
+    return scopedSubmissions.filter(a => idStr(a.class_id) === target);
   }
 
   function statusCounts(list) {
@@ -1245,18 +1312,35 @@ export default function AdminAssessments() {
     })
     .sort((a, b) => (a.cls.name || '').localeCompare(b.cls.name || ''));
 
+  /* Which assessment types are even meaningful for the currently-selected
+   * Term scope. Integrated Assessment (IA) only happens in Term 3, but its
+   * record is reviewed alongside everything else once Term 3 (the
+   * end-of-year view) is selected — so IA shows for Term 3 and for "All
+   * Terms", and is hidden while Term 1 or Term 2 is the active header
+   * scope. Shared by the module-card type dots, the modal's tabs, and the
+   * initial-tab picker so all three always agree. */
+  const visibleAssessmentTypes = ASSESSMENT_TYPES.filter(t =>
+    t.key !== 'IA' || submissionTermFilter === 'Term 3' || !submissionTermFilter
+  );
+
   /* Every teacher who teaches a course in this class, or who has a
-   * submission recorded against it — with per-teacher status counts. */
+   * submission recorded against it — with per-teacher status counts.
+   * Courses with no teacher assigned yet (Course.teacher_id can be null)
+   * are grouped into a synthetic "Unassigned" bucket rather than silently
+   * dropped, so every course counted in the class card up above is always
+   * reachable somewhere in this drill-down — otherwise the class card's
+   * "X courses" total would never match what you find after opening it. */
   function teachersForClassId(classId) {
     const clsCourses     = coursesForClassId(classId);
     const clsSubmissions = submissionsForClassId(classId);
     const teacherIds = new Set();
-    clsCourses.forEach(c => { const tid = c.teacher_id?._id || c.teacher_id; if (tid) teacherIds.add(tid); });
-    clsSubmissions.forEach(a => { const tid = a.teacher_id?._id || a.teacher_id; if (tid) teacherIds.add(tid); });
-    return Array.from(teacherIds).map(tid => {
-      const teacherObj = teachers.find(t => (t._id || t.id) === tid);
-      const tSubs    = clsSubmissions.filter(a => (a.teacher_id?._id || a.teacher_id) === tid);
-      const tCourses = clsCourses.filter(c => (c.teacher_id?._id || c.teacher_id) === tid);
+    let hasUnassigned = false;
+    clsCourses.forEach(c => { const tid = idStr(c.teacher_id); if (tid) teacherIds.add(tid); else hasUnassigned = true; });
+    clsSubmissions.forEach(a => { const tid = idStr(a.teacher_id); if (tid) teacherIds.add(tid); });
+    const list = Array.from(teacherIds).map(tid => {
+      const teacherObj = teachers.find(t => idStr(t._id || t.id) === tid);
+      const tSubs    = clsSubmissions.filter(a => idStr(a.teacher_id) === tid);
+      const tCourses = clsCourses.filter(c => idStr(c.teacher_id) === tid);
       return {
         id: tid,
         name: teacherObj?.name || 'Unknown Teacher',
@@ -1264,59 +1348,75 @@ export default function AdminAssessments() {
         ...statusCounts(tSubs),
       };
     }).sort((a, b) => a.name.localeCompare(b.name));
+
+    if (hasUnassigned) {
+      const tCourses = clsCourses.filter(c => !idStr(c.teacher_id));
+      list.push({
+        id: UNASSIGNED_TEACHER_ID,
+        name: 'Unassigned',
+        courseNames: tCourses.map(c => c.name),
+        ...statusCounts([]), // an assessment always requires a teacher_id, so an unassigned course can never have one
+        unassigned: true,
+      });
+    }
+    return list;
   }
 
   /* Every module (course) a given teacher teaches within a given class, plus
    * a per-type (FA/IA/CA) breakdown of how many assessments of each type
-   * they've recorded for it. Powers the "modules taught" drill-down level. */
+   * they've recorded for it. Powers the "modules taught" drill-down level.
+   * `teacherId === UNASSIGNED_TEACHER_ID` pulls in courses with no
+   * teacher_id at all — see teachersForClassId above. */
   function modulesForClassTeacher(classId, teacherId) {
     const clsCourses     = coursesForClassId(classId);
     const clsSubmissions = submissionsForClassId(classId);
+    const isUnassigned = teacherId === UNASSIGNED_TEACHER_ID;
     const courseIds = new Set();
     clsCourses.forEach(c => {
-      const tid = c.teacher_id?._id || c.teacher_id;
-      if (tid === teacherId) courseIds.add(c._id || c.id);
+      const tid = idStr(c.teacher_id);
+      if (isUnassigned ? !tid : tid === teacherId) courseIds.add(idStr(c._id || c.id));
     });
-    clsSubmissions.forEach(a => {
-      const tid = a.teacher_id?._id || a.teacher_id;
-      if (tid === teacherId) {
-        const cid = a.course_id?._id || a.course_id;
-        if (cid) courseIds.add(cid);
-      }
-    });
+    if (!isUnassigned) {
+      clsSubmissions.forEach(a => {
+        const tid = idStr(a.teacher_id);
+        if (tid === teacherId) {
+          const cid = idStr(a.course_id);
+          if (cid) courseIds.add(cid);
+        }
+      });
+    }
     return Array.from(courseIds).map(cid => {
-      const courseObj = clsCourses.find(c => (c._id || c.id) === cid) || courses.find(c => (c._id || c.id) === cid);
-      const cSubs = clsSubmissions.filter(a =>
-        (a.course_id?._id || a.course_id) === cid && (a.teacher_id?._id || a.teacher_id) === teacherId
+      const courseObj = clsCourses.find(c => idStr(c._id || c.id) === cid) || courses.find(c => idStr(c._id || c.id) === cid);
+      const cSubs = isUnassigned ? [] : clsSubmissions.filter(a =>
+        idStr(a.course_id) === cid && idStr(a.teacher_id) === teacherId
       );
       return {
         id: cid,
         course: courseObj,
         ...statusCounts(cSubs),
-        types: ASSESSMENT_TYPES.map(t => ({ ...t, count: cSubs.filter(a => a.type === t.key).length })),
+        types: visibleAssessmentTypes.map(t => ({ ...t, count: cSubs.filter(a => a.type === t.key).length })),
       };
     }).sort((a, b) => (a.course?.name || '').localeCompare(b.course?.name || ''));
   }
 
-  /* Which assessment-type tabs the Module modal should offer. Integrated
-   * Assessment only happens in Term 2, but its record is reviewed alongside
-   * everything else once Term 3 (the end-of-year view) is selected — so the
-   * IA tab shows for Term 3 and for "All Terms", and is hidden while Term 1
-   * or Term 2 is the active header scope. */
-  const moduleModalTabs = ASSESSMENT_TYPES.filter(t =>
-    t.key !== 'IA' || submissionTermFilter === 'Term 3' || !submissionTermFilter
-  );
+  const moduleModalTabs = visibleAssessmentTypes;
 
   /* Every submission recorded for a given module + teacher + assessment
    * type, already narrowed to whatever the header's Year/Term cards have
-   * selected (via scopedSubmissions). Normally 0 or 1 entries; can be more
-   * than 1 only when "All Terms" is selected and the teacher has submitted
-   * that type in more than one term. */
+   * selected (via scopedSubmissions) AND to the class currently being
+   * drilled into. The class check matters whenever the same teacher
+   * teaches the same course to more than one class — without it, opening
+   * this module from Class A could pull in an assessment actually created
+   * for Class B of that same shared course. Normally 0 or 1 entries after
+   * that; can be more than 1 only when "All Terms" is selected and the
+   * teacher has submitted that type in more than one term. */
   function submissionsForModuleType(courseId, teacherId, type) {
+    const classTarget = idStr(submissionClassFilter);
     return scopedSubmissions.filter(a =>
-      (a.course_id?._id || a.course_id) === courseId &&
-      (a.teacher_id?._id || a.teacher_id) === teacherId &&
-      a.type === type
+      idStr(a.course_id) === idStr(courseId) &&
+      idStr(a.teacher_id) === idStr(teacherId) &&
+      a.type === type &&
+      (!classTarget || idStr(a.class_id) === classTarget)
     );
   }
 
@@ -1335,10 +1435,7 @@ export default function AdminAssessments() {
    * first available tab (respecting the Term-based IA gating above). */
   function openModuleModal(courseId) {
     setSubmissionCourseFilter(courseId);
-    const tabs = ASSESSMENT_TYPES.filter(t =>
-      t.key !== 'IA' || submissionTermFilter === 'Term 3' || !submissionTermFilter
-    );
-    setSubmissionTypeFilter(tabs[0]?.key || 'FA');
+    setSubmissionTypeFilter(visibleAssessmentTypes[0]?.key || 'FA');
   }
   function closeModuleModal() {
     setSubmissionCourseFilter('');
@@ -1347,7 +1444,9 @@ export default function AdminAssessments() {
   }
 
   const selectedSubmissionClass   = classes.find(c => (c._id || c.id) === submissionClassFilter) || null;
-  const selectedSubmissionTeacher = teachers.find(t => (t._id || t.id) === submissionTeacherFilter) || null;
+  const selectedSubmissionTeacher = submissionTeacherFilter === UNASSIGNED_TEACHER_ID
+    ? { id: UNASSIGNED_TEACHER_ID, name: 'Unassigned', unassigned: true }
+    : teachers.find(t => (t._id || t.id) === submissionTeacherFilter) || null;
   const selectedSubmissionCourse  = courses.find(c => (c._id || c.id) === submissionCourseFilter) || null;
 
   /* Keeps the modal's embedded preview (viewingSubmission) in sync with
@@ -1508,7 +1607,45 @@ export default function AdminAssessments() {
         .assess-scope-card { transition: transform 0.2s cubic-bezier(.22,1,.36,1), box-shadow 0.2s ease; }
         .assess-scope-card:hover { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(0,0,0,0.28); filter: brightness(1.08); }
         .assess-scope-card:active { transform: translateY(0) scale(0.98); }
-        .assess-scope-card:focus-within { outline: none; box-shadow: 0 0 0 3px rgba(255,255,255,0.35), 0 10px 22px rgba(0,0,0,0.28); }
+        .assess-scope-card:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(255,255,255,0.35), 0 10px 22px rgba(0,0,0,0.28); }
+        .assess-scope-menu { animation: assessScopeMenuIn 0.16s ease; }
+        @keyframes assessScopeMenuIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+        .assess-scope-menu-item--idle:hover { background: ${dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.045)'} !important; }
+
+        /* ── Approve / Reject action buttons (Module Assessment Modal) ── */
+        .subm-action-btn {
+          flex: 1; display: flex; align-items: center; justify-content: center; gap: 10px;
+          padding: 13px; border-radius: 13px; font-size: 14px; font-weight: 800;
+          border: none; cursor: pointer;
+          transition: transform 0.16s cubic-bezier(.22,1,.36,1), box-shadow 0.16s ease, filter 0.16s ease, background 0.16s ease;
+        }
+        .subm-action-btn:disabled { cursor: default; opacity: 0.55; }
+        .subm-action-btn:not(:disabled):hover { transform: translateY(-2px); }
+        .subm-action-btn:not(:disabled):active { transform: translateY(0) scale(0.98); }
+        .subm-action-icon {
+          display: flex; align-items: center; justify-content: center;
+          width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+        }
+        .subm-action-btn--reject {
+          background: ${dark ? 'rgba(239,68,68,0.1)' : 'rgba(239,68,68,0.08)'};
+          color: #ef4444; border: 1.5px solid rgba(239,68,68,0.35);
+        }
+        .subm-action-btn--reject:not(:disabled):hover {
+          background: rgba(239,68,68,0.16);
+          box-shadow: 0 10px 22px rgba(239,68,68,0.18);
+          border-color: rgba(239,68,68,0.5);
+        }
+        .subm-action-icon--reject { border: 1.5px solid rgba(239,68,68,0.45); }
+        .subm-action-btn--approve {
+          background: linear-gradient(135deg, #6366f1, #4338ca);
+          color: #fff;
+          box-shadow: 0 6px 18px rgba(99,102,241,0.35);
+        }
+        .subm-action-btn--approve:not(:disabled):hover {
+          box-shadow: 0 12px 28px rgba(99,102,241,0.5);
+          filter: brightness(1.08);
+        }
+        .subm-action-icon--approve { border: 1.5px solid rgba(255,255,255,0.55); }
       `}</style>
 
       {/* ── Page Header ── */}
@@ -1534,12 +1671,11 @@ export default function AdminAssessments() {
               colorTo="#4338ca"
               value={submissionYearFilter}
               displayValue={submissionYearFilter || 'All Years'}
-              onChange={e => setSubmissionYearFilter(e.target.value)}
+              onChange={val => setSubmissionYearFilter(val)}
               label="Academic Year"
               title="Scopes Mark Submissions to this academic year — click to change"
-              options={(academicYears.length > 0 ? academicYears.map(y => y.name) : YEARS).map(y => (
-                <option key={y} value={y}>{y}</option>
-              ))}
+              dark={dark}
+              options={(academicYears.length > 0 ? academicYears.map(y => y.name) : YEARS).map(y => ({ value: y, label: y }))}
             />
             <ScopeSelectorCard
               icon={Clock}
@@ -1547,13 +1683,11 @@ export default function AdminAssessments() {
               colorTo="#0369a1"
               value={submissionTermFilter}
               displayValue={submissionTermFilter || 'All Terms'}
-              onChange={e => setSubmissionTermFilter(e.target.value)}
+              onChange={val => setSubmissionTermFilter(val)}
               label="Term"
               title="Scopes Mark Submissions to this term — click to change"
-              options={[
-                <option key="" value="">All Terms</option>,
-                ...TERMS.map(t => <option key={t} value={t}>{t}</option>),
-              ]}
+              dark={dark}
+              options={[{ value: '', label: 'All Terms' }, ...TERMS.map(t => ({ value: t, label: t }))]}
             />
             {[
               { label: 'Courses',     val: courses.length,     color: '#6366f1' },
@@ -2124,22 +2258,24 @@ export default function AdminAssessments() {
                       onClick={() => setSubmissionTeacherFilter(t.id)}
                       style={{
                         textAlign: 'left', cursor: 'pointer', padding: 16, borderRadius: 16,
-                        border: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}`, background: dark ? '#13161f' : '#fff',
+                        border: `1px solid ${t.unassigned ? (dark ? '#3a3220' : '#fde68a') : (dark ? '#1e2130' : '#e5e7eb')}`,
+                        background: dark ? '#13161f' : '#fff',
                         animation: `fadeUp 0.3s ease ${idx * 0.03}s both`,
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                         <div className="subm-card-icon" style={{
                           width: 44, height: 44, borderRadius: '50%', flexShrink: 0,
-                          background: 'linear-gradient(135deg,#6366f1,#4338ca)', display: 'flex',
-                          alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 14,
+                          background: t.unassigned ? (dark ? '#2a2818' : '#fef3c7') : 'linear-gradient(135deg,#6366f1,#4338ca)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          color: t.unassigned ? '#f59e0b' : '#fff', fontWeight: 800, fontSize: 14,
                         }}>
-                          {initials(t.name)}
+                          {t.unassigned ? <Users size={18} /> : initials(t.name)}
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <p style={{ margin: 0, fontSize: 13.5, fontWeight: 800, color: dark ? '#f1f5f9' : '#111827', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.name}</p>
+                          <p style={{ margin: 0, fontSize: 13.5, fontWeight: 800, color: t.unassigned ? '#f59e0b' : (dark ? '#f1f5f9' : '#111827'), whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.name}</p>
                           <p style={{ margin: '2px 0 0', fontSize: 11, color: dark ? '#7b839a' : '#9ca3af', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {t.courseNames.length ? t.courseNames.join(', ') : 'No course assigned'}
+                            {t.unassigned ? 'No teacher assigned to these modules yet' : (t.courseNames.length ? t.courseNames.join(', ') : 'No course assigned')}
                           </p>
                         </div>
                         <ChevronRight size={16} color="#6366f1" className="subm-card-arrow" style={{ flexShrink: 0 }} />
@@ -2150,7 +2286,9 @@ export default function AdminAssessments() {
                         <StatPill color="#ef4444" label="Rejected" value={t.rejected} />
                         <StatPill color="#9ca3af" label="Draft"    value={t.draft} />
                         {t.total === 0 && (
-                          <span style={{ fontSize: 10.5, color: dark ? '#7b839a' : '#9ca3af', fontWeight: 600 }}>No assessments yet</span>
+                          <span style={{ fontSize: 10.5, color: dark ? '#7b839a' : '#9ca3af', fontWeight: 600 }}>
+                            {t.unassigned ? `${t.courseNames.length} module${t.courseNames.length !== 1 ? 's' : ''} awaiting a teacher` : 'No assessments yet'}
+                          </span>
                         )}
                       </div>
                     </button>
@@ -2357,13 +2495,23 @@ export default function AdminAssessments() {
                           )}
 
                           {(viewingSubmission.submission?.status === 'submitted' || viewingSubmission.submission?.status === 'approved') && (
-                            <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-                              <button onClick={() => openRejectModal(viewingSubmission.assessment?.id || viewingSubmission.assessment?._id)} disabled={submissionActionLoading} style={{ flex: 1, padding: '11px', borderRadius: 10, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.07)', color: '#ef4444', fontSize: 13, fontWeight: 700, cursor: submissionActionLoading ? 'default' : 'pointer', opacity: submissionActionLoading ? 0.6 : 1 }}>
-                                <XCircle size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />Reject
+                            <div style={{ display: 'flex', gap: 12, marginTop: 22 }}>
+                              <button
+                                onClick={() => openRejectModal(viewingSubmission.assessment?.id || viewingSubmission.assessment?._id)}
+                                disabled={submissionActionLoading}
+                                className="subm-action-btn subm-action-btn--reject"
+                              >
+                                <span className="subm-action-icon subm-action-icon--reject"><XCircle size={15} /></span>
+                                Reject
                               </button>
                               {viewingSubmission.submission?.status === 'submitted' && (
-                                <button onClick={() => approveSubmission(viewingSubmission.assessment?.id || viewingSubmission.assessment?._id)} disabled={submissionActionLoading} style={{ flex: 1, padding: '11px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#10b981,#059669)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: submissionActionLoading ? 'default' : 'pointer', opacity: submissionActionLoading ? 0.6 : 1 }}>
-                                  <CheckCircle size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />Approve
+                                <button
+                                  onClick={() => approveSubmission(viewingSubmission.assessment?.id || viewingSubmission.assessment?._id)}
+                                  disabled={submissionActionLoading}
+                                  className="subm-action-btn subm-action-btn--approve"
+                                >
+                                  <span className="subm-action-icon subm-action-icon--approve"><CheckCircle size={15} /></span>
+                                  Approve
                                 </button>
                               )}
                             </div>

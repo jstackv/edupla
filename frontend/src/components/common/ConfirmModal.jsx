@@ -93,6 +93,19 @@ export default function ConfirmModal({
       btnShadow: '0 4px 16px rgba(16,185,129,0.35)',
       accentBorder: '#10b98140',
     },
+    // Used for approving a submitted assessment. Deliberately indigo rather
+    // than green (the more common "approve/success" color) to match this
+    // app's primary accent color instead of the generic traffic-light
+    // convention — 'success' above is kept green for anything else that
+    // wants the traditional meaning.
+    approve: {
+      icon: CheckCircle,
+      iconBg: 'rgba(99,102,241,0.12)',
+      iconColor: '#6366f1',
+      btnBg: 'linear-gradient(135deg,#6366f1,#4338ca)',
+      btnShadow: '0 4px 16px rgba(99,102,241,0.35)',
+      accentBorder: '#6366f140',
+    },
     save: {
       icon: Save,
       iconBg: 'rgba(99,102,241,0.12)',

@@ -2104,6 +2104,21 @@ function LeaderDmPanel({ groupId, myId, peerName, onClose }) {
 /* ══════════════════════════════════════════════
    Open Collaboration Panel
 ══════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════════════════
+   Open Collaboration Panel — redesign
+   ────────────────────────────────────────────────────────────────────
+   Signature element: a "signal ring" — a slowly rotating conic-gradient
+   halo around each live class's avatar, echoing the Radio/broadcast idea
+   the feature is named after. Live classes also carry a soft indigo
+   ambient glow on the row itself; dormant classes sit flat and quiet so
+   the live ones read instantly at a glance. Replaces the flat green
+   pill-button design with a proper iOS-style toggle switch.
+
+   Drop-in replacement for OpenCollaborationPanel + CollaborationClassRow
+   in teacher/Groups.jsx. No new imports required — uses the same lucide
+   icons (Radio, Users) already imported at the top of that file.
+══════════════════════════════════════════════════════════════════════ */
+
 function OpenCollaborationPanel() {
   const [classes, setClasses]   = useState([]);
   const [loading, setLoading]   = useState(true);
@@ -2128,111 +2143,258 @@ function OpenCollaborationPanel() {
         toast.success(`Collaboration closed for ${cls.name}`);
       } else {
         await api.post(`/collaborations/${cls.id}/open`);
-        toast.success(`🟢 Collaboration is now live for ${cls.name}!`);
+        toast.success(`Collaboration is now live for ${cls.name}`);
       }
       fetchClasses();
     } catch (err) { toast.error(err.response?.data?.message || 'Action failed'); }
     finally { setToggling(null); }
   };
 
+  const liveCount = classes.filter(c => c.collaboration_active).length;
+
   return (
-    <div className="flex flex-col h-full">
+    <div className="oc-panel flex flex-col h-full">
+      <style>{`
+        .oc-panel { position: relative; background: var(--card-bg); }
+
+        /* ── Ambient indigo mesh, contained to the header zone ───────── */
+        .oc-mesh {
+          position: absolute; inset: 0 0 auto 0; height: 190px; pointer-events: none; z-index: 0;
+          background:
+            radial-gradient(420px 220px at 8% -20%, rgba(99,102,241,0.30), transparent 62%),
+            radial-gradient(360px 200px at 92% -10%, rgba(124,58,237,0.22), transparent 60%),
+            radial-gradient(300px 160px at 50% 100%, rgba(79,70,229,0.14), transparent 65%);
+        }
+        .dark .oc-mesh {
+          background:
+            radial-gradient(420px 220px at 8% -20%, rgba(99,102,241,0.38), transparent 62%),
+            radial-gradient(360px 200px at 92% -10%, rgba(124,58,237,0.30), transparent 60%),
+            radial-gradient(300px 160px at 50% 100%, rgba(79,70,229,0.20), transparent 65%);
+        }
+
+        .oc-header { position: relative; z-index: 1; padding: 22px 22px 16px; }
+        .oc-header-row { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 16px; }
+
+        .oc-hero-icon {
+          position: relative; flex-shrink: 0; width: 46px; height: 46px; border-radius: 15px;
+          display: flex; align-items: center; justify-content: center; color: #fff;
+          background: linear-gradient(135deg, #6366f1, #4338ca);
+          box-shadow: 0 8px 20px -6px rgba(79,70,229,0.55);
+        }
+        .oc-hero-icon-ring {
+          position: absolute; inset: -5px; border-radius: 18px;
+          border: 1.5px solid rgba(129,140,248,0.5);
+          animation: ocRingPing 2.4s cubic-bezier(0.2,0.65,0.4,1) infinite;
+        }
+        @keyframes ocRingPing { 0% { transform: scale(0.9); opacity: 0.9; } 100% { transform: scale(1.3); opacity: 0; } }
+
+        .oc-title { font-weight: 800; font-size: 16px; letter-spacing: -0.01em; color: var(--text-primary); line-height: 1.25; }
+        .oc-subtitle { font-size: 12.5px; color: var(--text-secondary); margin-top: 2px; }
+
+        .oc-live-count {
+          flex-shrink: 0; display: flex; align-items: center; gap: 6px;
+          font-size: 11px; font-weight: 800; letter-spacing: 0.01em;
+          padding: 6px 11px; border-radius: 999px; margin-top: 2px;
+          color: #eef2ff; background: linear-gradient(135deg, #6366f1, #4f46e5);
+          box-shadow: 0 4px 14px -4px rgba(79,70,229,0.55);
+        }
+        .oc-live-count-dot { width: 6px; height: 6px; border-radius: 50%; background: #c7d2fe; animation: ocDotPulse 1.4s ease-in-out infinite; }
+        @keyframes ocDotPulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.45; transform: scale(0.8); } }
+
+        .oc-info-card {
+          display: flex; gap: 10px; align-items: flex-start;
+          padding: 13px 15px; border-radius: 14px; font-size: 12.5px; line-height: 1.55;
+          color: var(--text-secondary);
+          background: linear-gradient(135deg, rgba(99,102,241,0.09), rgba(124,58,237,0.05));
+          border: 1px solid rgba(99,102,241,0.18);
+        }
+        .oc-info-card strong { color: #6366f1; font-weight: 800; }
+        .oc-info-icon {
+          flex-shrink: 0; width: 24px; height: 24px; border-radius: 8px; margin-top: 1px;
+          display: flex; align-items: center; justify-content: center;
+          background: rgba(99,102,241,0.16); color: #6366f1;
+        }
+
+        .oc-list { position: relative; z-index: 1; padding: 6px 14px 14px; }
+
+        /* ── Class row card ───────────────────────────────────────────── */
+        .oc-row {
+          position: relative; display: flex; align-items: center; gap: 14px;
+          padding: 13px 14px; margin: 7px 0; border-radius: 16px;
+          background: linear-gradient(160deg, var(--surface-100), color-mix(in srgb, var(--surface-100) 85%, var(--card-border)));
+          border: 1px solid var(--card-border);
+          box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+          transition: border-color 0.2s ease, box-shadow 0.25s ease, transform 0.18s cubic-bezier(0.22,1,0.36,1), background 0.2s ease;
+          animation: ocRowIn 0.35s cubic-bezier(0.22,1,0.36,1) both;
+        }
+        @keyframes ocRowIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+        .oc-row:hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--card-border) 40%, #6366f1); }
+        .oc-row-live {
+          border-color: rgba(99,102,241,0.35);
+          background: linear-gradient(135deg, rgba(99,102,241,0.08), rgba(124,58,237,0.03));
+          box-shadow: 0 10px 26px -14px rgba(79,70,229,0.55);
+        }
+
+        /* Avatar — a fine 2px ring via box-shadow, not a stacked layer,
+           so it reads as a crisp outline rather than a thick halo. */
+        .oc-avatar-wrap { position: relative; flex-shrink: 0; width: 44px; height: 44px; }
+        .oc-avatar {
+          width: 100%; height: 100%; border-radius: 50%;
+          display: flex; align-items: center; justify-content: center;
+          font-weight: 800; font-size: 13px; letter-spacing: 0.01em;
+          color: var(--text-secondary);
+          background: linear-gradient(160deg, color-mix(in srgb, var(--surface-100) 60%, var(--card-border)), var(--surface-100));
+          box-shadow: 0 0 0 1px var(--card-border), inset 0 1px 1px rgba(255,255,255,0.04);
+          transition: box-shadow 0.2s ease, background 0.2s ease;
+        }
+        .oc-avatar-live {
+          color: #fff;
+          background: linear-gradient(160deg, #7178f5, #4338ca);
+          box-shadow: 0 0 0 2px rgba(129,140,248,0.55), 0 0 0 4.5px rgba(99,102,241,0.14), 0 3px 10px -3px rgba(67,56,202,0.7);
+        }
+
+        .oc-row-body { flex: 1; min-width: 0; }
+        .oc-row-name { font-weight: 700; font-size: 13.5px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .oc-status-line { display: flex; align-items: center; gap: 6px; margin-top: 3px; }
+        .oc-status-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+        .oc-status-dot-live { background: #818cf8; box-shadow: 0 0 0 3px rgba(99,102,241,0.18); animation: ocDotPulse 1.4s ease-in-out infinite; }
+        .oc-status-dot-off { background: color-mix(in srgb, var(--text-secondary) 45%, transparent); }
+        .oc-status-text { font-size: 11px; font-weight: 700; }
+        .oc-status-text-live { color: #6366f1; }
+        .oc-status-text-off { color: var(--text-secondary); opacity: 0.75; }
+        .oc-opened-at { font-size: 10.5px; color: var(--text-secondary); opacity: 0.6; margin-top: 1px; }
+
+        /* ── Toggle switch ─────────────────────────────────────────────── */
+        .oc-switch {
+          position: relative; flex-shrink: 0; width: 46px; height: 26px; border-radius: 999px;
+          border: none; cursor: pointer; padding: 0;
+          background: color-mix(in srgb, var(--surface-100) 40%, var(--card-border));
+          box-shadow: inset 0 1.5px 3px rgba(0,0,0,0.18), inset 0 0 0 1px var(--card-border);
+          transition: background 0.25s ease, box-shadow 0.25s ease;
+        }
+        .oc-switch-on {
+          background: linear-gradient(135deg, #6366f1, #4f46e5);
+          box-shadow: 0 0 0 4px rgba(99,102,241,0.15), 0 4px 12px -3px rgba(79,70,229,0.6);
+        }
+        .oc-switch:disabled { opacity: 0.6; cursor: default; }
+        .oc-switch-knob {
+          position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%;
+          background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+          display: flex; align-items: center; justify-content: center;
+          transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1);
+        }
+        .oc-switch-on .oc-switch-knob { transform: translateX(20px); }
+        .oc-switch-spinner {
+          width: 11px; height: 11px; border-radius: 50%;
+          border: 2px solid rgba(99,102,241,0.25); border-top-color: #6366f1;
+          animation: spin 0.7s linear infinite;
+        }
+
+        /* ── Loading skeleton ─────────────────────────────────────────── */
+        .oc-loading { padding-top: 4px; }
+        .oc-row-skeleton {
+          height: 72px; border-radius: 16px; margin: 7px 0;
+          background: linear-gradient(90deg, var(--surface-100) 25%, color-mix(in srgb, var(--surface-100) 60%, var(--card-border)) 37%, var(--surface-100) 63%);
+          background-size: 400% 100%; animation: ocShimmer 1.4s ease infinite;
+        }
+        @keyframes ocShimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
+
+        /* ── Empty state ──────────────────────────────────────────────── */
+        .oc-empty { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 56px 24px; animation: ocRowIn 0.4s ease both; }
+        .oc-empty-icon {
+          width: 60px; height: 60px; border-radius: 18px; margin-bottom: 14px;
+          display: flex; align-items: center; justify-content: center;
+          background: linear-gradient(135deg, rgba(99,102,241,0.14), rgba(124,58,237,0.08));
+          color: #6366f1;
+        }
+        .oc-empty-title { font-weight: 800; font-size: 14px; color: var(--text-primary); margin-bottom: 3px; }
+        .oc-empty-sub { font-size: 12.5px; color: var(--text-secondary); max-width: 220px; }
+
+        @media (prefers-reduced-motion: reduce) {
+          .oc-hero-icon-ring, .oc-status-dot-live, .oc-live-count-dot, .oc-row-skeleton { animation: none !important; }
+        }
+      `}</style>
+
+      {/* Ambient indigo mesh backdrop */}
+      <div className="oc-mesh" aria-hidden="true" />
+
       {/* Header */}
-      <div className="flex-shrink-0 px-5 py-5" style={{ borderBottom: '1px solid var(--card-border)' }}>
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-10 h-10 rounded-2xl flex items-center justify-center"
-            style={{ background: 'linear-gradient(135deg, #059669, #0d9488)' }}>
-            <Radio className="w-5 h-5 text-white" />
+      <div className="oc-header flex-shrink-0">
+        <div className="oc-header-row">
+          <div className="oc-hero-icon">
+            <span className="oc-hero-icon-ring" />
+            <Radio className="w-5 h-5" style={{ position: 'relative', zIndex: 1 }} />
           </div>
-          <div>
-            <h3 className="font-bold text-base" style={{ color: 'var(--text-primary)' }}>Open Collaboration</h3>
-            <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-              Allow students to send private one-to-one messages within a class
-            </p>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h3 className="oc-title">Open Collaboration</h3>
+            <p className="oc-subtitle">Let students message any classmate, privately, one-to-one</p>
           </div>
+          {!loading && classes.length > 0 && (
+            <div className="oc-live-count">
+              <span className="oc-live-count-dot" />
+              {liveCount} live
+            </div>
+          )}
         </div>
-        <div className="mt-3 px-4 py-3 rounded-xl text-xs" style={{ background: 'rgba(5,150,105,0.07)', border: '1px solid rgba(5,150,105,0.15)', color: '#059669' }}>
-          <strong>How it works:</strong> When collaboration is live, every student in that class can search for and privately message any classmate. Only the two participants see their own conversation — no one else (not even the teacher) can read their private messages.
+
+        <div className="oc-info-card">
+          <div className="oc-info-icon"><Radio className="w-3.5 h-3.5" /></div>
+          <p><strong>How it works.</strong> When a class is live, every student in it can find and privately message any classmate. Only the two people in a conversation can read it — not even you.</p>
         </div>
       </div>
 
       {/* Class list */}
-      <div className="flex-1 overflow-y-auto tg-scroll">
+      <div className="flex-1 overflow-y-auto tg-scroll oc-list">
         {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="animate-spin w-7 h-7 rounded-full" style={{ border: '3px solid var(--card-border)', borderTopColor: '#059669' }} />
+          <div className="oc-loading">
+            {[0, 1, 2].map(i => <div key={i} className="oc-row-skeleton" style={{ animationDelay: `${i * 70}ms` }} />)}
           </div>
         ) : classes.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
-            <div className="w-16 h-16 rounded-2xl mb-4 flex items-center justify-center" style={{ background: 'rgba(5,150,105,0.08)' }}>
-              <Users className="w-8 h-8" style={{ color: '#059669', opacity: 0.5 }} />
-            </div>
-            <p className="font-bold mb-1" style={{ color: 'var(--text-primary)' }}>No classes found</p>
-            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Classes you are assigned to will appear here.</p>
+          <div className="oc-empty">
+            <div className="oc-empty-icon"><Users className="w-7 h-7" /></div>
+            <p className="oc-empty-title">No classes found</p>
+            <p className="oc-empty-sub">Classes you're assigned to will appear here.</p>
           </div>
-        ) : classes.map(cls => (
-          <CollaborationClassRow
-            key={cls.id}
-            cls={cls}
-            onToggle={handleToggle}
-            toggling={toggling === cls.id}
-          />
+        ) : classes.map((cls, i) => (
+          <CollaborationClassRow key={cls.id} cls={cls} onToggle={handleToggle} toggling={toggling === cls.id} index={i} />
         ))}
       </div>
     </div>
   );
 }
 
-function CollaborationClassRow({ cls, onToggle, toggling }) {
+function CollaborationClassRow({ cls, onToggle, toggling, index = 0 }) {
   const isActive = cls.collaboration_active;
   return (
-    <div className="tg-collab-row flex items-center gap-4 px-5 py-4" style={{ borderBottom: '1px solid var(--card-border)', transition: 'background 0.15s ease' }}>
-      {/* Class avatar */}
-      <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
-        style={{ background: isActive ? 'linear-gradient(135deg, #059669, #0d9488)' : 'var(--surface-100)', color: isActive ? '#fff' : 'var(--text-secondary)', border: isActive ? 'none' : '1.5px solid var(--card-border)' }}>
-        {(cls.name || 'C').slice(0, 2).toUpperCase()}
+    <div className={`oc-row${isActive ? ' oc-row-live' : ''}`} style={{ animationDelay: `${index * 45}ms` }}>
+      <div className="oc-avatar-wrap">
+        <div className={`oc-avatar${isActive ? ' oc-avatar-live' : ''}`}>
+          {(cls.name || 'C').slice(0, 2).toUpperCase()}
+        </div>
       </div>
 
-      <div className="flex-1 min-w-0">
-        <div className="font-bold text-sm truncate" style={{ color: 'var(--text-primary)' }}>{cls.name}</div>
-        {/* Status badge */}
-        <div className="flex items-center gap-1.5 mt-0.5">
-          {isActive ? (
-            <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold"
-              style={{ background: 'rgba(5,150,105,0.12)', color: '#059669' }}>
-              <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse inline-block" />
-              Collaboration is live
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold"
-              style={{ background: 'var(--surface-100)', color: 'var(--text-secondary)' }}>
-              <span className="w-1.5 h-1.5 rounded-full bg-gray-400 inline-block" />
-              Collaboration is off
-            </span>
-          )}
+      <div className="oc-row-body">
+        <div className="oc-row-name">{cls.name}</div>
+        <div className="oc-status-line">
+          <span className={`oc-status-dot ${isActive ? 'oc-status-dot-live' : 'oc-status-dot-off'}`} />
+          <span className={`oc-status-text ${isActive ? 'oc-status-text-live' : 'oc-status-text-off'}`}>
+            {isActive ? 'Collaboration is live' : 'Collaboration is off'}
+          </span>
         </div>
         {isActive && cls.opened_at && (
-          <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-secondary)', opacity: 0.7 }}>
-            Opened {timeAgo(cls.opened_at)}
-          </p>
+          <div className="oc-opened-at">Opened {timeAgo(cls.opened_at)}</div>
         )}
       </div>
 
-      {/* Toggle button */}
       <button
         onClick={() => onToggle(cls)}
         disabled={toggling}
-        className="tg-pill-btn flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-xl disabled:opacity-50 flex-shrink-0"
-        style={isActive
-          ? { background: 'rgba(220,38,38,0.1)', color: '#dc2626', border: '1px solid rgba(220,38,38,0.2)' }
-          : { background: 'linear-gradient(135deg, #059669, #0d9488)', color: '#fff' }
-        }>
-        {toggling
-          ? <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-          : isActive
-            ? <><ZapOff className="w-3.5 h-3.5" /> Close</>
-            : <><Zap className="w-3.5 h-3.5" /> Open</>
-        }
+        aria-pressed={isActive}
+        title={isActive ? `Close collaboration for ${cls.name}` : `Open collaboration for ${cls.name}`}
+        className={`oc-switch${isActive ? ' oc-switch-on' : ''}`}>
+        <span className="oc-switch-knob">
+          {toggling && <span className="oc-switch-spinner" />}
+        </span>
       </button>
     </div>
   );
