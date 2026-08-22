@@ -389,7 +389,7 @@ function AssessmentFormModal({ course, cls, editing, existingAssessments, active
             <select value={term} onChange={e => setTerm(e.target.value)} className="chat-form-field qm-field w-full text-sm">
               {TERMS.map(t => {
                 const closed = (activeYear?.disabled_terms || []).includes(t);
-                return <option key={t} value={t} disabled={closed}>{t}{closed ? ' (closed by School Manager)' : ''}</option>;
+                return <option key={t} value={t} disabled={closed}>{t}{closed ? ' (Disabled)' : ''}</option>;
               })}
             </select>
           </div>
@@ -424,16 +424,6 @@ function AssessmentFormModal({ course, cls, editing, existingAssessments, active
             </p>
           )}
         </div>
-
-        {!editing && (
-          <div className="qm-note p-3 rounded-xl text-sm flex items-start gap-2" style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)' }}>
-            <Sparkles className="qm-note-sparkle w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#6366f1' }} />
-            <p style={{ color: 'var(--text-secondary)' }}>
-              No need to set a maximum here — once you build the question paper, the total is calculated automatically from each question's marks. It doesn't need to match the module weight ({course.total_marks || 100} marks) exactly — results are scaled onto it automatically.
-            </p>
-          </div>
-        )}
-
         <div className="flex justify-end gap-2 pt-2">
           <button onClick={onClose} className="btn-secondary">Cancel</button>
           <button onClick={handleSave} disabled={saving} className={`btn-primary assessment-cta flex items-center gap-2 ${!saving ? 'qm2-cta-ready' : ''}`}>

@@ -35,7 +35,8 @@ import {
   AlertCircle, School, GraduationCap, RefreshCw,
   Download, Upload, TrendingUp, Search, ArrowUp, ArrowDown,
   ArrowUpDown, Sparkles, Filter, X as XSmall, Eraser,
-  BarChart3,
+  BarChart3, CalendarDays, Inbox,
+  ArrowRight, Home, Layers,
 } from 'lucide-react';
 
 /* ─────────── Constants ─────────── */
@@ -67,6 +68,16 @@ const T = {
   amber:     '#f59e0b',
   red:       '#ef4444',
 };
+
+/* ─────────── Class / module tile palette — cycled for visual variety
+   across the drill-down cards, reusing the same design tokens as the
+   rest of the page so nothing feels bolted on. ─────────── */
+const TILE_PALETTE = [
+  { grad: [T.navy, T.blueBright],     solid: T.blueBright,   soft: `${T.blueBright}16` },
+  { grad: [T.teal, T.tealBright],     solid: T.tealBright,   soft: `${T.tealBright}16` },
+  { grad: [T.violet, T.violetBright], solid: T.violetBright, soft: `${T.violetBright}16` },
+  { grad: ['#a8720a', T.goldBright],  solid: T.goldBright,   soft: `${T.goldBright}1c` },
+];
 
 const FONT_IMPORT = `@import url('https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap');`;
 
@@ -114,6 +125,29 @@ const GLOBAL_KEYFRAMES = `
 
   .ta-mastery-badge { animation: pulseGlow 2.2s ease-in-out infinite; }
   .ta-sparkle { animation: sparklePulse 1.6s ease-in-out infinite; }
+
+  /* ── NEW: drill-down tiles (classes → modules) — softer, smoother ── */
+  @keyframes tileGlowIn { from { opacity: 0; transform: scale(0.94); } to { opacity: 0.22; transform: scale(1); } }
+  .ta-tile { transition: transform 0.28s cubic-bezier(0.16,1,0.3,1), box-shadow 0.28s cubic-bezier(0.16,1,0.3,1), border-color 0.28s ease; cursor: pointer; text-align: left; }
+  .ta-tile:hover { transform: translateY(-3px); box-shadow: 0 10px 26px rgba(15,23,42,0.10); }
+  .ta-tile:active { transform: translateY(-1px); transition-duration: 0.12s; }
+  .ta-tile-arrow { transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1); }
+  .ta-tile:hover .ta-tile-arrow { transform: translateX(3px); }
+  .ta-tile-glow {
+    position: absolute; inset: 6px; border-radius: inherit; opacity: 0;
+    filter: blur(26px); pointer-events: none; z-index: -1;
+    transition: opacity 0.4s cubic-bezier(0.16,1,0.3,1);
+  }
+  .ta-tile:hover .ta-tile-glow { opacity: 0.22; animation: tileGlowIn 0.4s cubic-bezier(0.16,1,0.3,1) both; }
+
+  /* ── NEW: term selector, next to the Academic Year badge ── */
+  .ta-term-track { display: inline-flex; align-items: center; gap: 2px; padding: 3px; border-radius: 12px; }
+  .ta-term-pill { transition: background 0.18s ease, color 0.18s ease, transform 0.15s ease, box-shadow 0.18s ease; cursor: pointer; white-space: nowrap; }
+  .ta-term-pill:hover { transform: translateY(-1px); }
+  .ta-term-pill:active { transform: translateY(0); }
+
+  .ta-crumb { transition: color 0.15s ease, background 0.15s ease; cursor: pointer; }
+  .ta-crumb:hover { color: inherit; }
 
   @media (prefers-reduced-motion: reduce) {
     .ta-root, .ta-root * { animation-duration: 0.001s !important; animation-iteration-count: 1 !important; transition-duration: 0.001s !important; }
@@ -235,14 +269,9 @@ function SkeletonRow({ dark, i }) {
   );
   return (
     <tr style={{ borderBottom: `1px solid ${dark ? '#1e2130' : '#f1f5f9'}`, opacity: 1 - i * 0.08 }}>
-      <td style={cellStyle}>{bar(140)}</td>
-      <td style={cellStyle}>{bar(90)}</td>
-      <td style={cellStyle}>{bar(110)}</td>
-      <td style={cellStyle}>{bar(34)}</td>
-      <td style={cellStyle}>{bar(60)}</td>
+      <td style={cellStyle}>{bar(160)}</td>
       <td style={cellStyle}>{bar(70)}</td>
-      <td style={cellStyle}>{bar(90)}</td>
-      <td style={cellStyle}>{bar(80)}</td>
+      <td style={cellStyle}>{bar(70)}</td>
       <td style={cellStyle}>{bar(120)}</td>
     </tr>
   );
@@ -291,7 +320,12 @@ export default function TeacherAssessments() {
     return result;
   })();
 
-  /* ── Modal state ── */
+  /* ── Modal state ──
+     Class, module, and term are always already known by the time this
+     modal opens — class + module from the drill-down browser the teacher
+     is standing in (or fixed, if editing an existing assessment), and
+     term from the term selector up in the header. The modal itself only
+     ever asks for the one thing that's genuinely still undecided: type. */
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
 
@@ -325,6 +359,27 @@ export default function TeacherAssessments() {
   const [classFilter, setClassFilter]   = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortConfig, setSortConfig]     = useState({ key: null, dir: 'asc' });
+
+  /* ── NEW: drill-down navigation — Classes → Modules → Assessments —
+     plus a global term filter (next to the Academic Year badge) that
+     narrows the counts and lists at every level at once. Purely a
+     client-side view layer: fetchData() and the API contract are
+     completely unaffected by any of this. ── */
+  const [navClassId, setNavClassId]   = useState(null);
+  const [navCourseId, setNavCourseId] = useState(null);
+  /* NEW: there's always exactly one active term now — everything below
+     (drill-down counts, the assessments table, and what "New Assessment"
+     creates) is scoped to it. Defaults to the first term and hops off a
+     term the School Manager has disabled once we know which those are. */
+  const [termFilter, setTermFilter]   = useState(TERMS[0]);
+
+  useEffect(() => {
+    const disabled = activeYear?.disabled_terms || [];
+    if (disabled.includes(termFilter)) {
+      const nextOpen = TERMS.find(t => !disabled.includes(t));
+      if (nextOpen) setTermFilter(nextOpen);
+    }
+  }, [activeYear]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ── Styles ── */
   const card = {
@@ -383,6 +438,51 @@ export default function TeacherAssessments() {
       })
     : [];
 
+  /* ── NEW: generalized "modules assigned to a class" lookup, used by
+     the drill-down browser below. Same matching rules as classModules
+     above (new class_ids[] array or legacy class_id), just parameterized
+     by an arbitrary class id instead of only the create-modal's form
+     state, so browsing and the create wizard can't drift apart. ── */
+  function modulesForClass(classId) {
+    if (!classId) return [];
+    const target = String(classId);
+    return courses.filter(c => {
+      if (Array.isArray(c.class_ids) && c.class_ids.length > 0) {
+        if (c.class_ids.some(x => String(x._id || x) === target)) return true;
+      }
+      const cid = c.class_id?._id || c.class_id;
+      return cid && String(cid) === target;
+    });
+  }
+
+  /* ── NEW: term-filtered view of every assessment. 'all' means no
+     narrowing — every level below falls back to showing everything. ── */
+  const assessmentsInTerm = assessments.filter(a => a.term === termFilter);
+
+  const navClass  = navClassId  ? teacherClasses.find(c => c._id === navClassId) || null : null;
+  const navModules = navClassId ? modulesForClass(navClassId) : [];
+  const navCourse = navCourseId ? navModules.find(c => String(c._id || c.id) === navCourseId) || null : null;
+
+  /* ── Assessments scoped to whatever level of the drill-down we're
+     currently at (class only, class + module, or neither = everything).
+     This feeds the stat pills at every level and, once a module is
+     selected, the search/sort/status table below. ── */
+  const scopedAssessments = assessmentsInTerm.filter(a => {
+    if (navClassId && String(a.class_id?._id || a.class_id) !== String(navClassId)) return false;
+    if (navCourseId && String(a.course_id?._id || a.course_id) !== String(navCourseId)) return false;
+    return true;
+  });
+
+  /* ── NEW: assessments for the current class + module across every
+     term (ignores termFilter) — used only to tell "nothing has ever
+     been created here" apart from "nothing in this particular term". ── */
+  const moduleAssessmentsAllTerms = (navClassId && navCourseId)
+    ? assessments.filter(a =>
+        String(a.class_id?._id || a.class_id) === String(navClassId) &&
+        String(a.course_id?._id || a.course_id) === String(navCourseId)
+      )
+    : [];
+
   /* ── Duplicate checker: returns true if this type is already used ──
      Checks course_id + class_id + type + term + academic_year, excluding
      the current editingId. A module assigned to several classes can have
@@ -401,10 +501,20 @@ export default function TeacherAssessments() {
     );
   }
 
-  /* ── Open create modal ── */
+  /* ── Open create modal ──
+     Only rendered/callable once the teacher has drilled into a class +
+     module (the toolbar button doesn't exist otherwise), so both are
+     always resolvable here. Term comes straight from the header's term
+     selector — there is no per-assessment term choice anymore. */
   function openCreate() {
     setEditingId(null);
-    setForm({ selectedClassId: '', course_id: '', type: '', term: '', academic_year: currentYearName });
+    setForm({
+      selectedClassId: navClassId || '',
+      course_id: navCourseId || '',
+      type: '',
+      term: termFilter,
+      academic_year: currentYearName,
+    });
     setShowModal(true);
   }
 
@@ -416,7 +526,7 @@ export default function TeacherAssessments() {
       selectedClassId: String(classId),
       course_id: String(a.course_id?._id || a.course_id || ''),
       type: a.type || '',
-      term: a.term || '',
+      term: a.term || termFilter,
       // The academic year an assessment was created under never changes —
       // this is display-only here, not something the teacher can edit.
       academic_year: a.academic_year || currentYearName,
@@ -707,7 +817,7 @@ export default function TeacherAssessments() {
      status filter / column sort. This never touches the API — it only
      narrows or reorders what's already in `assessments`. ── */
   const visibleAssessments = useMemo(() => {
-    let rows = [...assessments];
+    let rows = [...scopedAssessments];
 
     if (searchQuery.trim()) {
       const q = searchQuery.trim().toLowerCase();
@@ -745,7 +855,7 @@ export default function TeacherAssessments() {
       });
     }
     return rows;
-  }, [assessments, searchQuery, classFilter, statusFilter, sortConfig]);
+  }, [assessments, courses, navClassId, navCourseId, termFilter, searchQuery, classFilter, statusFilter, sortConfig]);
 
   function toggleSort(key) {
     setSortConfig(prev => {
@@ -779,7 +889,98 @@ export default function TeacherAssessments() {
     );
   }
 
-  const hasActiveFilters = searchQuery.trim() || classFilter !== 'all' || statusFilter !== 'all';
+  /* ── NEW: Class tile — level 1 of the drill-down browser. Shows how
+     many modules the teacher has in this class and a quick breakdown of
+     assessment counts (term-aware via assessmentsInTerm), then opens
+     the modules level on click. ── */
+  function ClassTile({ cls, index }) {
+    const stats = assessmentsInTerm.filter(a => String(a.class_id?._id || a.class_id) === String(cls._id));
+    const moduleCount = modulesForClass(cls._id).length;
+    const total = stats.length;
+    const approved = stats.filter(a => a.submission_status === 'approved').length;
+    const pending = stats.filter(a => a.submission_status === 'draft' || a.submission_status === 'submitted').length;
+    const palette = TILE_PALETTE[index % TILE_PALETTE.length];
+    return (
+      <button
+        type="button"
+        className="ta-tile ta-card-enter"
+        onClick={() => { setNavClassId(cls._id); setNavCourseId(null); }}
+        style={{ animationDelay: `${index * 0.05}s`, position: 'relative', border: 'none', padding: 0, borderRadius: 18, background: 'transparent' }}
+      >
+        <div className="ta-tile-glow" style={{ background: `linear-gradient(135deg, ${palette.grad[0]}, ${palette.grad[1]})`, filter: 'blur(16px)' }} />
+        <div style={{ position: 'relative', border: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}`, borderRadius: 18, overflow: 'hidden', background: dark ? '#13161f' : '#fff' }}>
+          <div style={{ padding: '18px 18px 14px', background: `linear-gradient(135deg, ${palette.grad[0]}, ${palette.grad[1]})`, position: 'relative', overflow: 'hidden' }}>
+            <School size={68} color="rgba(255,255,255,0.13)" style={{ position: 'absolute', right: -12, bottom: -16, transform: 'rotate(-8deg)' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, position: 'relative' }}>
+              <div style={{ width: 38, height: 38, borderRadius: 11, flexShrink: 0, background: 'rgba(255,255,255,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <School size={18} color="#fff" />
+              </div>
+              <div style={{ minWidth: 0, textAlign: 'left' }}>
+                <p className="ta-display" style={{ margin: 0, fontSize: 15, fontWeight: 800, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cls.name}</p>
+                <p style={{ margin: '2px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>{moduleCount} module{moduleCount === 1 ? '' : 's'} assigned</p>
+              </div>
+            </div>
+          </div>
+          <div style={{ padding: '14px 18px 16px', textAlign: 'left' }}>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 9px', borderRadius: 7, background: palette.soft, color: palette.solid }}>{total} assessment{total === 1 ? '' : 's'}</span>
+              {approved > 0 && <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 9px', borderRadius: 7, background: `${T.green}16`, color: T.green }}>{approved} approved</span>}
+              {pending > 0 && <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 9px', borderRadius: 7, background: `${T.amber}16`, color: T.amber }}>{pending} pending</span>}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: palette.solid }}>View modules</span>
+              <ArrowRight size={14} className="ta-tile-arrow" color={palette.solid} />
+            </div>
+          </div>
+        </div>
+      </button>
+    );
+  }
+
+  /* ── NEW: Module tile — level 2 of the drill-down browser. Shows a
+     per-status breakdown of assessments in this module (term-aware),
+     then opens the assessments table for this class + module. ── */
+  function ModuleTile({ course, index }) {
+    const courseId = String(course._id || course.id);
+    const stats = assessmentsInTerm.filter(a =>
+      String(a.class_id?._id || a.class_id) === String(navClassId) &&
+      String(a.course_id?._id || a.course_id) === courseId
+    );
+    const total = stats.length;
+    const draft = stats.filter(a => a.submission_status === 'draft').length;
+    const submitted = stats.filter(a => a.submission_status === 'submitted').length;
+    const approved = stats.filter(a => a.submission_status === 'approved').length;
+    const rejected = stats.filter(a => a.submission_status === 'rejected').length;
+    const palette = TILE_PALETTE[(index + 1) % TILE_PALETTE.length];
+    return (
+      <button
+        type="button"
+        className="ta-tile ta-card-enter"
+        onClick={() => setNavCourseId(courseId)}
+        style={{ animationDelay: `${index * 0.05}s`, position: 'relative', textAlign: 'left', border: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}`, borderRadius: 16, padding: 16, background: dark ? '#13161f' : '#fff' }}
+      >
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+          <div style={{ width: 38, height: 38, borderRadius: 11, flexShrink: 0, background: `linear-gradient(135deg, ${palette.grad[0]}, ${palette.grad[1]})`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <BookOpen size={17} color="#fff" />
+          </div>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            {course.code && <div style={{ fontSize: 9.5, fontWeight: 800, color: palette.solid, letterSpacing: '0.06em', marginBottom: 2 }}>{course.code}</div>}
+            <p className="ta-display" style={{ margin: 0, fontSize: 14, fontWeight: 800, color: dark ? '#e8ecf4' : '#111827', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{course.name}</p>
+            <p style={{ margin: '2px 0 8px', fontSize: 11, color: dark ? '#7b839a' : '#9ca3af' }}>{course.category || 'Module'}</p>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 10.5, fontWeight: 700, padding: '3px 8px', borderRadius: 6, background: palette.soft, color: palette.solid }}>{total} total</span>
+              {draft > 0 && <span style={{ fontSize: 10.5, fontWeight: 700, padding: '3px 8px', borderRadius: 6, background: '#9ca3af18', color: '#9ca3af' }}>{draft} draft</span>}
+              {submitted > 0 && <span style={{ fontSize: 10.5, fontWeight: 700, padding: '3px 8px', borderRadius: 6, background: `${T.amber}16`, color: T.amber }}>{submitted} submitted</span>}
+              {approved > 0 && <span style={{ fontSize: 10.5, fontWeight: 700, padding: '3px 8px', borderRadius: 6, background: `${T.green}16`, color: T.green }}>{approved} approved</span>}
+              {rejected > 0 && <span style={{ fontSize: 10.5, fontWeight: 700, padding: '3px 8px', borderRadius: 6, background: `${T.red}16`, color: T.red }}>{rejected} rejected</span>}
+            </div>
+          </div>
+          <ArrowRight size={15} className="ta-tile-arrow" color={dark ? '#5b6377' : '#9ca3af'} style={{ marginTop: 10, flexShrink: 0 }} />
+        </div>
+      </button>
+    );
+  }
+
 
   /* ══════════════════════════════════════════════════════════════
      RENDER
@@ -789,7 +990,7 @@ export default function TeacherAssessments() {
       <style>{GLOBAL_KEYFRAMES}</style>
 
       {/* ── Header ── */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 22 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 18 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{
             width: 44, height: 44, borderRadius: 13,
@@ -809,38 +1010,143 @@ export default function TeacherAssessments() {
             </p>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        <div className="ta-toolbar" style={{
+          display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap',
+          padding: 5, borderRadius: 18,
+          background: dark ? 'linear-gradient(180deg, #151926, #10131c)' : 'linear-gradient(180deg, #fff, #f8fafc)',
+          border: `1px solid ${dark ? '#232a3d' : '#e5e7eb'}`,
+          boxShadow: dark ? 'inset 0 1px 0 rgba(255,255,255,0.03), 0 8px 24px rgba(0,0,0,0.25)' : '0 4px 14px rgba(15,23,42,0.05)',
+        }}>
+          {/* Academic year — fixed by the School Manager, shown for
+              context only. */}
           <div title="Set by your School Manager — you can't change this" style={{
-            display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 10,
-            border: `1px solid ${T.navy}33`, background: `${T.navy}0f`, color: T.navy, fontSize: 12, fontWeight: 700,
+            display: 'flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 13,
+            color: T.blueBright, fontSize: 12.5, fontWeight: 700, cursor: 'default',
           }}>
-            <Clock size={13} /> Academic Year: {currentYearName}
+            <span style={{ width: 22, height: 22, borderRadius: 7, background: `${T.blueBright}1c`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Clock size={12} />
+            </span>
+            Academic Year: {currentYearName}
           </div>
+
+          <div style={{ width: 1, alignSelf: 'stretch', margin: '6px 2px', background: dark ? '#232a3d' : '#e5e7eb' }} />
+
+          {/* Term selector — the single source of truth for which term
+              everything below (drill-down counts, table, new-assessment
+              creation) is scoped to. */}
+          <div className="ta-term-track" style={{ background: dark ? '#0d0f18' : '#f1f5f9', border: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}` }}>
+            {TERMS.map(t => {
+              const active = termFilter === t;
+              const closed = (activeYear?.disabled_terms || []).includes(t);
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  className="ta-term-pill"
+                  onClick={() => setTermFilter(t)}
+                  disabled={closed}
+                  title={closed ? `${t} is disabled by your School Manager` : undefined}
+                  style={{
+                    border: 'none', padding: '7px 14px', borderRadius: 10, fontSize: 12.5, fontWeight: 700,
+                    background: active ? `linear-gradient(135deg, ${T.navy}, ${T.blueBright})` : 'transparent',
+                    color: active ? '#fff' : closed ? (dark ? '#3d4256' : '#c7cbd4') : (dark ? '#8891a5' : '#6b7280'),
+                    boxShadow: active ? `0 4px 14px ${T.navy}66, inset 0 1px 0 rgba(255,255,255,0.15)` : 'none',
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    cursor: closed ? 'not-allowed' : 'pointer',
+                    opacity: closed ? 0.55 : 1,
+                    transform: active ? 'translateY(-0.5px)' : 'none',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  <CalendarDays size={12} />
+                  {t}
+                </button>
+              );
+            })}
+          </div>
+
+          <div style={{ width: 1, alignSelf: 'stretch', margin: '6px 2px', background: dark ? '#232a3d' : '#e5e7eb' }} />
+
+          {/* Refresh — icon-only, spins on click */}
           <button
             className="ta-btn ta-icon-btn"
             onClick={handleRefreshClick}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 10, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#7b839a' : '#6b7280', fontSize: 13, cursor: 'pointer' }}
+            title="Refresh"
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36,
+              borderRadius: 12, border: `1px solid ${dark ? '#232a3d' : '#e5e7eb'}`, background: dark ? '#161a26' : '#fff',
+              color: dark ? '#8891a5' : '#6b7280', cursor: 'pointer', flexShrink: 0,
+            }}
           >
-            <RefreshCw size={13} style={{ animation: refreshSpin ? 'spin 0.6s linear' : 'none' }} /> Refresh
+            <RefreshCw size={14} style={{ animation: refreshSpin ? 'spin 0.6s linear' : 'none' }} />
           </button>
-          <button
-            className="ta-btn"
-            onClick={openCreate}
-            style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 20px', borderRadius: 12, border: 'none', background: `linear-gradient(135deg, ${T.navy}, ${T.blueBright})`, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: `0 4px 16px ${T.navy}59` }}
-          >
-            <Plus size={14} /> New Assessment
-          </button>
+
+          {/* New Assessment — only exists once a module is actually
+              open; there's nothing sensible to create otherwise, so it
+              doesn't take up space until then. */}
+          {navClassId && navCourseId && (
+            <button
+              className="ta-btn"
+              onClick={openCreate}
+              style={{
+                position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 8,
+                padding: '9px 18px 9px 8px', borderRadius: 13, border: 'none', marginLeft: 2,
+                background: `linear-gradient(135deg, ${T.navy}, ${T.blueBright})`,
+                color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                boxShadow: `0 6px 18px ${T.navy}5c, inset 0 1px 0 rgba(255,255,255,0.18)`,
+              }}
+            >
+              <span style={{ width: 24, height: 24, borderRadius: 8, background: 'rgba(255,255,255,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Plus size={14} />
+              </span>
+              New Assessment
+            </button>
+          )}
         </div>
       </div>
 
-      {/* ── Stats pills ── */}
+      {/* ── NEW: Breadcrumb — All Classes → [Class] → [Module] ── */}
+      {navClassId && (
+        <div className="ta-step-enter" style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
+          <button
+            className="ta-btn ta-crumb"
+            onClick={() => { setNavClassId(null); setNavCourseId(null); }}
+            style={{ display: 'flex', alignItems: 'center', gap: 5, border: 'none', background: dark ? '#161a26' : '#f3f4f6', padding: '6px 12px', borderRadius: 9, fontSize: 12, fontWeight: 700, color: dark ? '#7b839a' : '#6b7280', cursor: 'pointer' }}
+          >
+            <Home size={12} /> All Classes
+          </button>
+          <ChevronRight size={13} color={dark ? '#3a4258' : '#d1d5db'} />
+          <button
+            className="ta-btn ta-crumb"
+            onClick={() => setNavCourseId(null)}
+            style={{
+              border: 'none', padding: '6px 12px', borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+              background: navCourseId ? (dark ? '#161a26' : '#f3f4f6') : `${T.navy}16`,
+              color: navCourseId ? (dark ? '#7b839a' : '#6b7280') : T.navy,
+            }}
+          >
+            {navClass?.name || 'Class'}
+          </button>
+          {navCourseId && (
+            <>
+              <ChevronRight size={13} color={dark ? '#3a4258' : '#d1d5db'} />
+              <span style={{ padding: '6px 12px', borderRadius: 9, fontSize: 12, fontWeight: 700, background: `${T.navy}16`, color: T.navy }}>
+                {navCourse?.name || 'Module'}
+              </span>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ── Stats pills — scoped to whatever level of the drill-down
+          you're currently at (and to the term filter above). ── */}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20 }}>
         {[
-          { label: 'Total',     val: assessments.length,                                              color: T.navy },
-          { label: 'Draft',     val: assessments.filter(a => a.submission_status === 'draft').length,     color: '#9ca3af' },
-          { label: 'Submitted', val: assessments.filter(a => a.submission_status === 'submitted').length, color: T.amber },
-          { label: 'Approved',  val: assessments.filter(a => a.submission_status === 'approved').length,  color: T.green },
-          { label: 'Rejected',  val: assessments.filter(a => a.submission_status === 'rejected').length,  color: T.red },
+          { label: 'Total',     val: scopedAssessments.length,                                                    color: T.navy },
+          { label: 'Draft',     val: scopedAssessments.filter(a => a.submission_status === 'draft').length,     color: '#9ca3af' },
+          { label: 'Submitted', val: scopedAssessments.filter(a => a.submission_status === 'submitted').length, color: T.amber },
+          { label: 'Approved',  val: scopedAssessments.filter(a => a.submission_status === 'approved').length,  color: T.green },
+          { label: 'Rejected',  val: scopedAssessments.filter(a => a.submission_status === 'rejected').length,  color: T.red },
         ].map((s, i) => (
           <div key={s.label} className="ta-card-enter ta-btn" style={{ animationDelay: `${i * 0.05}s`, padding: '9px 16px', borderRadius: 12, background: s.color + '13', border: `1px solid ${s.color}30`, display: 'flex', gap: 9, alignItems: 'center', cursor: 'default' }}>
             <span className="ta-mono" style={{ fontSize: 17, fontWeight: 700, color: s.color }}><AnimatedNumber value={s.val} /></span>
@@ -849,436 +1155,402 @@ export default function TeacherAssessments() {
         ))}
       </div>
 
-      {/* ── Search + filters ── */}
-      {!loading && assessments.length > 0 && (
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 16 }}>
-          <div style={{ position: 'relative', flex: '1 1 220px', minWidth: 200, maxWidth: 320 }}>
-            <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: dark ? '#5b6377' : '#9ca3af' }} />
-            <input
-              className="ta-input-focus"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search title, module, class, type…"
-              style={{ ...inp, paddingLeft: 32, paddingRight: searchQuery ? 30 : 12 }}
-            />
-            {searchQuery && (
-              <button onClick={() => setSearchQuery('')} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'transparent', cursor: 'pointer', color: dark ? '#7b839a' : '#9ca3af', display: 'flex' }}>
-                <XSmall size={14} />
-              </button>
-            )}
+      {/* ══════════════════════════════════════════════════════════
+          LEVEL 1 — Classes
+      ══════════════════════════════════════════════════════════ */}
+      {!navClassId ? (
+        loading ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: 16 }}>
+            {[0, 1, 2].map(i => (
+              <div key={i} style={{ borderRadius: 18, overflow: 'hidden', border: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}` }}>
+                <div className="ta-skel" style={{ height: 82, background: dark ? '#1c2233' : '#eef0f4' }} />
+                <div style={{ padding: 16 }}>
+                  <div className="ta-skel" style={{ height: 10, width: '60%', borderRadius: 6, marginBottom: 10, background: dark ? '#1c2233' : '#eef0f4' }} />
+                  <div className="ta-skel" style={{ height: 10, width: '40%', borderRadius: 6, background: dark ? '#1c2233' : '#eef0f4' }} />
+                </div>
+              </div>
+            ))}
           </div>
+        ) : teacherClasses.length === 0 ? (
+          <div className="ta-card-enter" style={{ ...card, textAlign: 'center', padding: 60 }}>
+            <div style={{ width: 64, height: 64, borderRadius: 20, background: `linear-gradient(135deg, ${T.navy}, ${T.blueBright})`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', animation: 'floatIcon 3.5s ease-in-out infinite' }}><School size={28} color="#fff" /></div>
+            <p className="ta-display" style={{ color: dark ? '#e8ecf4' : '#111827', fontWeight: 800, fontSize: 16, margin: '0 0 6px' }}>No Classes Assigned</p>
+            <p style={{ color: dark ? '#7b839a' : '#9ca3af', margin: 0 }}>Ask your admin to assign you modules and classes to get started.</p>
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: 16 }}>
+            {teacherClasses.map((cls, i) => <ClassTile key={cls._id} cls={cls} index={i} />)}
+          </div>
+        )
+      ) : !navCourseId ? (
+        /* ══════════════════════════════════════════════════════════
+            LEVEL 2 — Modules in the selected class
+        ══════════════════════════════════════════════════════════ */
+        navModules.length === 0 ? (
+          <div className="ta-card-enter" style={{ ...card, textAlign: 'center', padding: 60 }}>
+            <div style={{ width: 64, height: 64, borderRadius: 20, background: `linear-gradient(135deg, ${T.teal}, ${T.tealBright})`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}><BookOpen size={28} color="#fff" /></div>
+            <p className="ta-display" style={{ color: dark ? '#e8ecf4' : '#111827', fontWeight: 800, fontSize: 16, margin: '0 0 6px' }}>No Modules Here</p>
+            <p style={{ color: dark ? '#7b839a' : '#9ca3af', margin: 0 }}>You have no modules assigned for {navClass?.name || 'this class'}.</p>
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 14 }}>
+            {navModules.map((c, i) => <ModuleTile key={c._id || c.id} course={c} index={i} />)}
+          </div>
+        )
+      ) : (
+        /* ══════════════════════════════════════════════════════════
+            LEVEL 3 — Assessments in the selected class + module
+        ══════════════════════════════════════════════════════════ */
+        <>
+          {/* ── Search + status filter ── */}
+          {!loading && moduleAssessmentsAllTerms.length > 0 && (
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 16 }}>
+              <div style={{ position: 'relative', flex: '1 1 220px', minWidth: 200, maxWidth: 320 }}>
+                <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: dark ? '#5b6377' : '#9ca3af' }} />
+                <input
+                  className="ta-input-focus"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  placeholder="Search title, type…"
+                  style={{ ...inp, paddingLeft: 32, paddingRight: searchQuery ? 30 : 12 }}
+                />
+                {searchQuery && (
+                  <button onClick={() => setSearchQuery('')} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'transparent', cursor: 'pointer', color: dark ? '#7b839a' : '#9ca3af', display: 'flex' }}>
+                    <XSmall size={14} />
+                  </button>
+                )}
+              </div>
 
-          <select value={classFilter} onChange={e => setClassFilter(e.target.value)} style={{ ...inp, width: 'auto', minWidth: 140 }}>
-            <option value="all">All classes</option>
-            {teacherClasses.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
-          </select>
+              <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ ...inp, width: 'auto', minWidth: 140 }}>
+                <option value="all">All statuses</option>
+                <option value="draft">Draft</option>
+                <option value="submitted">Submitted</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+              </select>
 
-          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ ...inp, width: 'auto', minWidth: 140 }}>
-            <option value="all">All statuses</option>
-            <option value="draft">Draft</option>
-            <option value="submitted">Submitted</option>
-            <option value="approved">Approved</option>
-            <option value="rejected">Rejected</option>
-          </select>
+              {(searchQuery.trim() || statusFilter !== 'all') && (
+                <button
+                  onClick={() => { setSearchQuery(''); setStatusFilter('all'); }}
+                  className="ta-btn"
+                  style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '8px 12px', borderRadius: 9, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#7b839a' : '#6b7280', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                >
+                  <Filter size={12} /> Clear filters
+                </button>
+              )}
 
-          {hasActiveFilters && (
-            <button
-              onClick={() => { setSearchQuery(''); setClassFilter('all'); setStatusFilter('all'); }}
-              className="ta-btn"
-              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '8px 12px', borderRadius: 9, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#7b839a' : '#6b7280', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-            >
-              <Filter size={12} /> Clear filters
-            </button>
+              <span style={{ fontSize: 12, color: dark ? '#5b6377' : '#9ca3af', marginLeft: 'auto' }}>
+                {visibleAssessments.length} of {scopedAssessments.length}
+              </span>
+            </div>
           )}
 
-          <span style={{ fontSize: 12, color: dark ? '#5b6377' : '#9ca3af', marginLeft: 'auto' }}>
-            {visibleAssessments.length} of {assessments.length}
-          </span>
-        </div>
-      )}
-
-      {/* ── Assessment list ── */}
-      {loading ? (
-        <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  {['Assessment', 'Class', 'Module', 'Type', 'Term', 'Year', 'Progress', 'Status', 'Actions'].map(h => (
-                    <th key={h} style={{ padding: '11px 14px', background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#7b839a' : '#6b7280', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: 'left', borderBottom: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}` }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {[0, 1, 2, 3, 4].map(i => <SkeletonRow key={i} dark={dark} i={i} />)}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      ) : assessments.length === 0 ? (
-        <div className="ta-card-enter" style={{ ...card, textAlign: 'center', padding: 60 }}>
-          <div style={{ width: 64, height: 64, borderRadius: 20, background: `linear-gradient(135deg, ${T.navy}, ${T.blueBright})`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', animation: 'floatIcon 3.5s ease-in-out infinite' }}><FileText size={28} color="#fff" /></div>
-          <p className="ta-display" style={{ color: dark ? '#e8ecf4' : '#111827', fontWeight: 800, fontSize: 16, margin: '0 0 6px' }}>No Assessments Yet</p>
-          <p style={{ color: dark ? '#7b839a' : '#9ca3af', margin: '0 0 20px' }}>Create your first assessment to start recording marks.</p>
-          <button className="ta-btn" onClick={openCreate} style={{ padding: '9px 20px', borderRadius: 10, border: 'none', background: `linear-gradient(135deg, ${T.navy}, ${T.blueBright})`, color: '#fff', fontWeight: 700, cursor: 'pointer' }}>
-            <Plus size={13} style={{ verticalAlign: 'middle', marginRight: 6 }} />New Assessment
-          </button>
-        </div>
-      ) : visibleAssessments.length === 0 ? (
-        <div className="ta-card-enter" style={{ ...card, textAlign: 'center', padding: 50 }}>
-          <Search size={30} color={dark ? '#3a4258' : '#d1d5db'} style={{ marginBottom: 12 }} />
-          <p style={{ color: dark ? '#e8ecf4' : '#111827', fontWeight: 700, fontSize: 15, margin: '0 0 4px' }}>No matches</p>
-          <p style={{ color: dark ? '#7b839a' : '#9ca3af', margin: '0 0 16px', fontSize: 13 }}>Try a different search term or clear your filters.</p>
-          <button onClick={() => { setSearchQuery(''); setClassFilter('all'); setStatusFilter('all'); }} className="ta-btn" style={{ padding: '8px 16px', borderRadius: 9, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#e2e8f0' : '#374151', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-            Clear filters
-          </button>
-        </div>
-      ) : (
-        <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  <SortHeader label="Assessment" sortKey="title" />
-                  <SortHeader label="Class" sortKey="class" />
-                  <SortHeader label="Module" sortKey="module" />
-                  <SortHeader label="Type" sortKey="type" />
-                  <SortHeader label="Term" sortKey="term" />
-                  <SortHeader label="Year" sortKey="year" />
-                  <SortHeader label="Progress" sortKey="progress" />
-                  <SortHeader label="Status" sortKey="status" />
-                  <th style={{ padding: '11px 14px', background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#7b839a' : '#6b7280', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: 'left', borderBottom: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}` }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visibleAssessments.map((a, i) => {
-                  const isLocked = a.submission_status === 'submitted' || a.submission_status === 'approved';
-                  const progressPct = a.student_count > 0 ? Math.round((a.marked_count / a.student_count) * 100) : 0;
-                  return (
-                    <tr
-                      key={a._id || a.id}
-                      className="ta-row-enter ta-row"
-                      style={{ animationDelay: `${Math.min(i, 10) * 0.035}s`, background: i % 2 === 0 ? 'transparent' : (dark ? '#ffffff04' : '#fafafa'), borderBottom: `1px solid ${dark ? '#1e2130' : '#f1f5f9'}` }}
-                      onMouseEnter={e => { e.currentTarget.style.background = dark ? '#1a1f2e88' : '#f4f7ff'; }}
-                      onMouseLeave={e => { e.currentTarget.style.background = i % 2 === 0 ? 'transparent' : (dark ? '#ffffff04' : '#fafafa'); }}
-                    >
-                      <td style={{ padding: '11px 14px' }}>
-                        <div style={{ fontWeight: 700, fontSize: 13, color: dark ? '#e8ecf4' : '#111827' }}>{a.title}</div>
-                        {a.review_note && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4, padding: '3px 8px', borderRadius: 6, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
-                            <AlertCircle size={10} color={T.red} />
-                            <span style={{ fontSize: 11, color: T.red }}>{a.review_note}</span>
-                          </div>
-                        )}
-                      </td>
-                      <td style={{ padding: '11px 14px', fontSize: 12, color: dark ? '#c4c9d4' : '#374151' }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontWeight: 700, padding: '3px 9px', borderRadius: 7, background: `${T.navy}14`, border: `1px solid ${T.navy}33`, color: T.navy }}>
-                          <School size={10} />
-                          {a.class_id?.name || '—'}
-                        </span>
-                      </td>
-                      <td style={{ padding: '11px 14px', fontSize: 12, color: dark ? '#c4c9d4' : '#374151' }}>
-                        <div>{a.course_id?.name || '—'}</div>
-                      </td>
-                      <td style={{ padding: '11px 14px' }}><TypeBadge type={a.type} /></td>
-                      <td style={{ padding: '11px 14px', fontSize: 12, color: dark ? '#c4c9d4' : '#374151' }}>{a.term}</td>
-                      <td style={{ padding: '11px 14px', fontSize: 12, color: dark ? '#c4c9d4' : '#374151' }}>{a.academic_year}</td>
-                      <td style={{ padding: '11px 14px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-                          <ProgressRing pct={progressPct} size={30} stroke={3.5} dark={dark} />
-                          <span className="ta-mono" style={{ fontSize: 11, fontWeight: 600, color: dark ? '#7b839a' : '#6b7280', whiteSpace: 'nowrap' }}>{a.marked_count}/{a.student_count}</span>
-                          {progressPct === 100 && <Sparkles size={12} color={T.gold} className="ta-sparkle" />}
-                        </div>
-                      </td>
-                      <td style={{ padding: '11px 14px' }}><StatusBadge status={a.submission_status} /></td>
-                      <td style={{ padding: '11px 14px' }}>
-                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                          <button className="ta-btn ta-icon-btn" onClick={() => openMarks(a)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 8, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#e2e8f0' : '#374151', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
-                            <Users size={11} /> Marks
-                          </button>
-                          {a.is_shared && (
-                            <button className="ta-btn ta-icon-btn" onClick={() => setAttemptsModal(a)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 8, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#e2e8f0' : '#374151', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
-                              <BarChart3 size={11} /> Results
-                            </button>
-                          )}
-                          {!isLocked && (
-                            <>
-                              <button className="ta-btn ta-icon-btn" onClick={() => openEdit(a)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 8, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#e2e8f0' : '#374151', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
-                                <Edit2 size={11} /> Edit
-                              </button>
-                              <button className="ta-btn ta-icon-btn" onClick={() => confirmDelete(a)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 8, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.07)', color: T.red, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
-                                <Trash2 size={11} /> Delete
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </td>
+          {loading ? (
+            <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr>
+                      {['Assessment', 'Progress', 'Status', 'Actions'].map(h => (
+                        <th key={h} style={{ padding: '11px 14px', background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#7b839a' : '#6b7280', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: 'left', borderBottom: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}` }}>{h}</th>
+                      ))}
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                  </thead>
+                  <tbody>
+                    {[0, 1, 2].map(i => <SkeletonRow key={i} dark={dark} i={i} />)}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : moduleAssessmentsAllTerms.length === 0 ? (
+            <div className="ta-card-enter" style={{ ...card, textAlign: 'center', padding: 60 }}>
+              <div style={{ width: 64, height: 64, borderRadius: 20, background: `linear-gradient(135deg, ${T.navy}, ${T.blueBright})`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', animation: 'floatIcon 3.5s ease-in-out infinite' }}><FileText size={28} color="#fff" /></div>
+              <p className="ta-display" style={{ color: dark ? '#e8ecf4' : '#111827', fontWeight: 800, fontSize: 16, margin: '0 0 6px' }}>No Assessments Yet</p>
+              <p style={{ color: dark ? '#7b839a' : '#9ca3af', margin: '0 0 20px' }}>Create the first assessment for {navCourse?.name || 'this module'} in {navClass?.name || 'this class'}.</p>
+              <button className="ta-btn" onClick={openCreate} style={{ padding: '9px 20px', borderRadius: 10, border: 'none', background: `linear-gradient(135deg, ${T.navy}, ${T.blueBright})`, color: '#fff', fontWeight: 700, cursor: 'pointer' }}>
+                <Plus size={13} style={{ verticalAlign: 'middle', marginRight: 6 }} />New Assessment
+              </button>
+            </div>
+          ) : scopedAssessments.length === 0 ? (
+            /* ── NEW: nothing for this module in the selected term. ── */
+            <div className="ta-card-enter" style={{ ...card, textAlign: 'center', padding: '56px 40px' }}>
+              <div style={{ width: 64, height: 64, borderRadius: 20, background: dark ? '#1a1f2e' : '#f3f4f6', border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}><Inbox size={26} color={dark ? '#5b6377' : '#9ca3af'} /></div>
+              <p className="ta-display" style={{ color: dark ? '#e8ecf4' : '#111827', fontWeight: 800, fontSize: 16, margin: '0 0 6px' }}>No assessment created in this term</p>
+              <p style={{ color: dark ? '#7b839a' : '#9ca3af', margin: '0 0 24px' }}>Nothing exists yet for {navCourse?.name || 'this module'} in <strong style={{ color: dark ? '#c4c9d4' : '#374151' }}>{termFilter}</strong>.</p>
+              <button
+                className="ta-btn"
+                onClick={openCreate}
+                style={{
+                  position: 'relative', overflow: 'hidden', display: 'inline-flex', alignItems: 'center', gap: 9,
+                  padding: '13px 28px', borderRadius: 14, border: 'none',
+                  background: `linear-gradient(135deg, ${T.navy}, ${T.blueBright})`,
+                  color: '#fff', fontSize: 14, fontWeight: 800, cursor: 'pointer',
+                  boxShadow: `0 10px 28px ${T.navy}66`,
+                }}
+              >
+                <span style={{ width: 24, height: 24, borderRadius: 8, background: 'rgba(255,255,255,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Plus size={14} />
+                </span>
+                New Assessment
+              </button>
+            </div>
+          ) : visibleAssessments.length === 0 ? (
+            <div className="ta-card-enter" style={{ ...card, textAlign: 'center', padding: 50 }}>
+              <Search size={30} color={dark ? '#3a4258' : '#d1d5db'} style={{ marginBottom: 12 }} />
+              <p style={{ color: dark ? '#e8ecf4' : '#111827', fontWeight: 700, fontSize: 15, margin: '0 0 4px' }}>No matches</p>
+              <p style={{ color: dark ? '#7b839a' : '#9ca3af', margin: '0 0 16px', fontSize: 13 }}>Try a different search term or clear your filters.</p>
+              <button onClick={() => { setSearchQuery(''); setStatusFilter('all'); }} className="ta-btn" style={{ padding: '8px 16px', borderRadius: 9, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#e2e8f0' : '#374151', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                Clear filters
+              </button>
+            </div>
+          ) : (
+            <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr>
+                      <SortHeader label="Assessment" sortKey="title" />
+                      <SortHeader label="Progress" sortKey="progress" />
+                      <SortHeader label="Status" sortKey="status" />
+                      <th style={{ padding: '11px 14px', background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#7b839a' : '#6b7280', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: 'left', borderBottom: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}` }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visibleAssessments.map((a, i) => {
+                      const isLocked = a.submission_status === 'submitted' || a.submission_status === 'approved';
+                      const progressPct = a.student_count > 0 ? Math.round((a.marked_count / a.student_count) * 100) : 0;
+                      return (
+                        <tr
+                          key={a._id || a.id}
+                          className="ta-row-enter ta-row"
+                          style={{ animationDelay: `${Math.min(i, 10) * 0.035}s`, background: i % 2 === 0 ? 'transparent' : (dark ? '#ffffff04' : '#fafafa'), borderBottom: `1px solid ${dark ? '#1e2130' : '#f1f5f9'}` }}
+                          onMouseEnter={e => { e.currentTarget.style.background = dark ? '#1a1f2e88' : '#f4f7ff'; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = i % 2 === 0 ? 'transparent' : (dark ? '#ffffff04' : '#fafafa'); }}
+                        >
+                          <td style={{ padding: '11px 14px' }}>
+                            <div style={{ fontWeight: 700, fontSize: 13, color: dark ? '#e8ecf4' : '#111827' }}>{a.title}</div>
+                            {a.review_note && (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4, padding: '3px 8px', borderRadius: 6, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
+                                <AlertCircle size={10} color={T.red} />
+                                <span style={{ fontSize: 11, color: T.red }}>{a.review_note}</span>
+                              </div>
+                            )}
+                          </td>
+                          <td style={{ padding: '11px 14px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                              <ProgressRing pct={progressPct} size={30} stroke={3.5} dark={dark} />
+                              <span className="ta-mono" style={{ fontSize: 11, fontWeight: 600, color: dark ? '#7b839a' : '#6b7280', whiteSpace: 'nowrap' }}>{a.marked_count}/{a.student_count}</span>
+                              {progressPct === 100 && <Sparkles size={12} color={T.gold} className="ta-sparkle" />}
+                            </div>
+                          </td>
+                          <td style={{ padding: '11px 14px' }}><StatusBadge status={a.submission_status} /></td>
+                          <td style={{ padding: '11px 14px' }}>
+                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                              <button className="ta-btn ta-icon-btn" onClick={() => openMarks(a)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 8, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#e2e8f0' : '#374151', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                                <Users size={11} /> Marks
+                              </button>
+                              {a.is_shared && (
+                                <button className="ta-btn ta-icon-btn" onClick={() => setAttemptsModal(a)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 8, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#e2e8f0' : '#374151', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                                  <BarChart3 size={11} /> Results
+                                </button>
+                              )}
+                              {!isLocked && (
+                                <>
+                                  <button className="ta-btn ta-icon-btn" onClick={() => openEdit(a)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 8, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#e2e8f0' : '#374151', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                                    <Edit2 size={11} /> Edit
+                                  </button>
+                                  <button className="ta-btn ta-icon-btn" onClick={() => confirmDelete(a)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 8, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.07)', color: T.red, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                                    <Trash2 size={11} /> Delete
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* ══════════════════════════════════════════════════════════
           CREATE / EDIT ASSESSMENT MODAL — step wizard
-          Steps: (1) class → (2) module → (3) term/year → (4) type
+          Class + module are resolved *before* this modal opens (drill-down
+          browser, or the assessment being edited) — so by default the
+          wizard only asks what's actually still undecided: Term → Type.
+          The class/module picker is kept, just collapsed behind a
+          "Change" action, for the rare case neither was pre-selected.
       ══════════════════════════════════════════════════════════ */}
       {showModal && (
         <div
           onClick={e => { if (e.target === e.currentTarget) setShowModal(false); }}
-          style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(8,11,20,0.7)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, animation: 'fadeIn 0.18s ease' }}
+          style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(8,11,20,0.75)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, animation: 'fadeIn 0.18s ease' }}
         >
-          <div className="ta-card-enter" style={{ width: 560, borderRadius: 22, background: dark ? '#13161f' : '#fff', border: `1px solid ${dark ? '#1e2535' : '#e5e7eb'}`, padding: 30, boxShadow: '0 32px 80px rgba(0,0,0,0.4)', maxHeight: '90vh', overflowY: 'auto' }}>
+          <div className="ta-card-enter" style={{ width: 540, borderRadius: 24, background: dark ? '#13161f' : '#fff', border: `1px solid ${dark ? '#232a3d' : '#e5e7eb'}`, padding: 0, boxShadow: `0 40px 90px rgba(6,10,20,0.5), 0 0 0 1px ${T.navy}14`, maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
 
-            {/* Modal header */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-              <div style={{ width: 42, height: 42, borderRadius: 12, background: `linear-gradient(135deg, ${T.navy}, ${T.blueBright})`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <FileText size={18} color="#fff" />
-              </div>
-              <div style={{ flex: 1 }}>
-                <h2 className="ta-display" style={{ margin: 0, fontSize: 17, fontWeight: 800, color: dark ? '#f1f5f9' : '#111827' }}>
-                  {editingId ? 'Edit Assessment' : 'New Assessment'}
-                </h2>
-                <p style={{ margin: 0, fontSize: 12, color: dark ? '#7b839a' : '#9ca3af' }}>
-                  {editingId ? 'Update assessment details' : 'Select a class and module, then configure the assessment'}
-                </p>
-              </div>
-              <button className="ta-btn" onClick={() => setShowModal(false)} style={{ border: 'none', background: dark ? '#1e2130' : '#f3f4f6', borderRadius: 8, width: 32, height: 32, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <X size={16} color={dark ? '#94a3b8' : '#6b7280'} />
-              </button>
-            </div>
-
-            {/* Step rail */}
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 24, padding: '0 4px' }}>
-              {[
-                { n: 1, label: 'Class',    done: !!form.selectedClassId },
-                { n: 2, label: 'Module',   done: !!form.course_id },
-                { n: 3, label: 'Term',     done: !!form.term && !!form.academic_year },
-                { n: 4, label: 'Type',     done: !!form.type },
-              ].map((step, idx, arr) => (
-                <div key={step.n} style={{ display: 'flex', alignItems: 'center', flex: idx < arr.length - 1 ? 1 : 'none' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
-                    <div style={{
-                      width: 26, height: 26, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 11, fontWeight: 800, flexShrink: 0, transition: 'all 0.25s ease',
-                      background: step.done ? T.blueBright : (dark ? '#1e2130' : '#f1f5f9'),
-                      color: step.done ? '#fff' : (dark ? '#7b839a' : '#9ca3af'),
-                      border: step.done ? 'none' : `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`,
-                    }}>
-                      {step.done ? <CheckCircle size={14} className="ta-check-pop" /> : step.n}
-                    </div>
-                    <span style={{ fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: step.done ? T.blueBright : (dark ? '#5b6377' : '#9ca3af'), whiteSpace: 'nowrap' }}>{step.label}</span>
-                  </div>
-                  {idx < arr.length - 1 && (
-                    <div style={{ flex: 1, height: 2, margin: '0 6px 15px', borderRadius: 1, background: dark ? '#1e2130' : '#e5e7eb', overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: step.done ? '100%' : '0%', background: T.blueBright, transition: 'width 0.35s ease' }} />
-                    </div>
-                  )}
+            {/* Modal header — gradient banner */}
+            <div style={{
+              position: 'relative', padding: '26px 28px 20px', flexShrink: 0, overflow: 'hidden',
+              background: `linear-gradient(135deg, ${T.navyDeep}, ${T.navy} 55%, ${T.blueBright})`,
+            }}>
+              <div style={{ position: 'absolute', top: -30, right: -30, width: 140, height: 140, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,0.14), transparent 70%)' }} />
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 13 }}>
+                <div style={{ width: 44, height: 44, borderRadius: 13, background: 'rgba(255,255,255,0.14)', border: '1px solid rgba(255,255,255,0.22)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, backdropFilter: 'blur(6px)' }}>
+                  <FileText size={19} color="#fff" />
                 </div>
-              ))}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <h2 className="ta-display" style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#fff' }}>
+                    {editingId ? 'Edit Assessment' : 'New Assessment'}
+                  </h2>
+                  <p style={{ margin: '2px 0 0', fontSize: 12.5, color: 'rgba(255,255,255,0.72)' }}>
+                    {editingId ? 'Update the assessment type' : `Creating for ${form.term || 'the selected term'} — just pick a type`}
+                  </p>
+                </div>
+                <button className="ta-btn" onClick={() => setShowModal(false)} style={{ border: 'none', background: 'rgba(255,255,255,0.14)', borderRadius: 9, width: 32, height: 32, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <X size={16} color="#fff" />
+                </button>
+              </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ padding: '24px 28px 28px', overflowY: 'auto' }}>
 
-              {/* STEP 1: Class picker */}
-              <div>
+              {/* ── Context strip — class, module, and term are all
+                  already decided by this point (drill-down browser +
+                  the term selected up in the header), so they're shown
+                  as read-only context, never re-picked in here. ── */}
+              {(() => {
+                const selClass  = teacherClasses.find(c => c._id === form.selectedClassId);
+                const selModule = classModules.find(c => String(c._id || c.id) === form.course_id);
+                if (!selClass || !selModule) return null;
+                return (
+                  <div className="ta-step-enter" style={{
+                    display: 'flex', alignItems: 'stretch', marginBottom: 22, borderRadius: 14,
+                    border: `1px solid ${dark ? '#232a3d' : '#e5e7eb'}`, background: dark ? '#171b28' : '#f8fafc',
+                    overflow: 'hidden',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '13px 14px', flex: 1.1, minWidth: 0 }}>
+                      <div style={{ width: 30, height: 30, borderRadius: 9, background: `${T.blueBright}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <School size={14} color={T.blueBright} />
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 9.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: dark ? '#5b6377' : '#9ca3af' }}>Class</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: dark ? '#e2e8f0' : '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selClass.name}</div>
+                      </div>
+                    </div>
+                    <div style={{ width: 1, background: dark ? '#232a3d' : '#e5e7eb', flexShrink: 0 }} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '13px 14px', flex: 1.6, minWidth: 0 }}>
+                      <div style={{ width: 30, height: 30, borderRadius: 9, background: `${T.tealBright}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <BookOpen size={14} color={T.tealBright} />
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 9.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: dark ? '#5b6377' : '#9ca3af' }}>Module</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: dark ? '#e2e8f0' : '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {selModule.name} <span className="ta-mono" style={{ fontWeight: 500, color: dark ? '#7b839a' : '#9ca3af' }}>· {selModule.total_marks || 100} marks</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ width: 1, background: dark ? '#232a3d' : '#e5e7eb', flexShrink: 0 }} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '13px 14px', flex: 0.8, minWidth: 0 }}>
+                      <div style={{ width: 30, height: 30, borderRadius: 9, background: `${T.goldBright}1c`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <CalendarDays size={14} color={T.gold} />
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 9.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: dark ? '#5b6377' : '#9ca3af' }}>Term</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: dark ? '#e2e8f0' : '#111827', whiteSpace: 'nowrap' }}>{form.term}</div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* ── Assessment type — the one thing left to decide.
+                  Duplicate guard still checks against class + module +
+                  term + academic year under the hood, just nothing here
+                  is user-editable anymore. ── */}
+              <div className="ta-step-enter">
                 <label style={lbl}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <School size={11} /> Step 1 — Select Class *
+                    <FileText size={11} /> Assessment Type *
+                    <span style={{ fontSize: 10, fontStyle: 'italic', textTransform: 'none', letterSpacing: 0 }}>(sets title automatically)</span>
                   </span>
                 </label>
-                {teacherClasses.length === 0 ? (
-                  <div style={{ padding: '12px 14px', borderRadius: 10, background: dark ? '#1a1f2e' : '#fef3c7', border: `1px solid ${dark ? '#2a3042' : '#fcd34d'}`, fontSize: 13, color: dark ? '#f59e0b' : '#92400e' }}>
-                    No classes found. Ask your admin to assign modules to you.
-                  </div>
-                ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(160px,1fr))', gap: 8 }}>
-                    {teacherClasses.map(cls => {
-                      const selected = form.selectedClassId === cls._id;
-                      return (
-                        <button
-                          key={cls._id}
-                          type="button"
-                          className="ta-option-card"
-                          onClick={() => setForm(f => ({ ...f, selectedClassId: cls._id, course_id: '', type: '' }))}
-                          style={{
-                            padding: '10px 12px', borderRadius: 10, cursor: 'pointer', textAlign: 'left',
-                            border: `2px solid ${selected ? T.navy : (dark ? '#2a3042' : '#e5e7eb')}`,
-                            background: selected ? `${T.navy}18` : 'transparent',
-                          }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <School size={13} color={selected ? T.navy : (dark ? '#7b839a' : '#9ca3af')} />
-                            <span style={{ fontSize: 12, fontWeight: selected ? 800 : 500, color: selected ? T.navy : (dark ? '#e2e8f0' : '#374151') }}>{cls.name}</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {ASSESSMENT_TYPES.map(t => {
+                    const selected   = form.type === t.key;
+                    const alreadyUsed = isTypeUsed(t.key);
+                    return (
+                      <button
+                        key={t.key}
+                        type="button"
+                        className="ta-option-card"
+                        onClick={() => !alreadyUsed && setForm(f => ({ ...f, type: t.key }))}
+                        disabled={alreadyUsed}
+                        style={{
+                          padding: '12px 14px', borderRadius: 11,
+                          cursor: alreadyUsed ? 'not-allowed' : 'pointer',
+                          textAlign: 'left',
+                          border: `2px solid ${selected ? t.color : (dark ? '#2a3042' : '#e5e7eb')}`,
+                          background: selected ? t.color + '12' : alreadyUsed ? (dark ? '#0f1117' : '#f3f4f6') : 'transparent',
+                          display: 'flex', alignItems: 'center', gap: 12,
+                          opacity: alreadyUsed ? 0.55 : 1,
+                        }}
+                      >
+                        <span style={{ minWidth: 30, textAlign: 'center', fontSize: 10, fontWeight: 800, padding: '3px 7px', borderRadius: 6, background: t.color + '20', color: t.color, border: `1px solid ${t.color}40`, flexShrink: 0 }}>{t.key}</span>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 13, fontWeight: selected ? 800 : 500, color: selected ? t.color : (dark ? '#e2e8f0' : '#374151') }}>{t.label}</div>
+                          <div style={{ fontSize: 11, color: alreadyUsed ? T.red : (dark ? '#7b839a' : '#9ca3af'), marginTop: 1 }}>
+                            {alreadyUsed
+                              ? `⚠ Already created for this module · ${form.term} · ${form.academic_year}`
+                              : t.desc}
                           </div>
-                          {selected && <div className="ta-check-pop" style={{ marginTop: 4, fontSize: 10, color: T.navy, fontWeight: 700 }}>✓ Selected</div>}
-                        </button>
-                      );
-                    })}
+                        </div>
+                        {selected    && <CheckCircle size={16} color={t.color} className="ta-check-pop" style={{ flexShrink: 0 }} />}
+                        {alreadyUsed && <span style={{ fontSize: 10, fontWeight: 800, color: T.red, flexShrink: 0, whiteSpace: 'nowrap' }}>Used</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Auto-title preview */}
+                {form.type && (
+                  <div className="ta-step-enter" style={{ marginTop: 10, padding: '9px 12px', borderRadius: 10, background: dark ? '#1a1f2e' : '#f0f9ff', border: `1px solid ${dark ? '#2a3042' : '#bae6fd'}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <FileText size={12} color="#0369a1" />
+                    <span style={{ fontSize: 12, color: dark ? '#7b839a' : '#0369a1' }}>
+                      Title will be: <strong style={{ color: dark ? '#e2e8f0' : '#0c4a6e' }}>{ASSESSMENT_TYPES.find(t => t.key === form.type)?.label}</strong>
+                    </span>
                   </div>
                 )}
               </div>
 
-              {/* STEP 2: Module picker */}
-              {form.selectedClassId && (
-                <div className="ta-step-enter">
-                  <label style={lbl}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                      <BookOpen size={11} /> Step 2 — Select Module *
-                    </span>
-                  </label>
-                  {classModules.length === 0 ? (
-                    <div style={{ padding: '12px 14px', borderRadius: 10, background: dark ? '#1a1f2e' : '#f9fafb', border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, fontSize: 13, color: dark ? '#7b839a' : '#6b7280' }}>
-                      No modules found for this class.
-                    </div>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      {classModules.map(c => {
-                        const selected = form.course_id === String(c._id || c.id);
-                        return (
-                          <button
-                            key={c._id || c.id}
-                            type="button"
-                            className="ta-option-card"
-                            onClick={() => setForm(f => ({ ...f, course_id: String(c._id || c.id), type: '' }))}
-                            style={{
-                              padding: '10px 14px', borderRadius: 10, cursor: 'pointer', textAlign: 'left',
-                              border: `2px solid ${selected ? T.navy : (dark ? '#2a3042' : '#e5e7eb')}`,
-                              background: selected ? `${T.navy}14` : 'transparent',
-                              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                            }}
-                          >
-                            <div>
-                              {c.code && <div style={{ fontSize: 10, fontWeight: 800, color: selected ? T.navy : (dark ? '#7b839a' : '#9ca3af'), letterSpacing: '0.07em', marginBottom: 2 }}>{c.code}</div>}
-                              <div style={{ fontSize: 13, fontWeight: selected ? 700 : 500, color: selected ? T.navy : (dark ? '#e2e8f0' : '#374151') }}>{c.name}</div>
-                              <div style={{ fontSize: 11, color: dark ? '#7b839a' : '#9ca3af', marginTop: 2 }}>
-                                {c.category} · Max: {c.total_marks || 100} marks
-                              </div>
-                            </div>
-                            {selected && <CheckCircle size={16} color={T.navy} className="ta-check-pop" style={{ flexShrink: 0 }} />}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* STEP 3: Term + Year (needed before type so duplicate check works) */}
-              {form.course_id && (
-                <div className="ta-step-enter" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  <div>
-                    <label style={lbl}>Step 3 — Term *</label>
-                    <select className="ta-input-focus" value={form.term} onChange={e => setForm(f => ({ ...f, term: e.target.value, type: '' }))} style={inp}>
-                      <option value="">Select term…</option>
-                      {TERMS.map(t => {
-                        const closed = (activeYear?.disabled_terms || []).includes(t);
-                        return <option key={t} value={t} disabled={closed}>{t}{closed ? ' (Disabled)' : ''}</option>;
-                      })}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={lbl}>Academic Year</label>
-                    <div style={{
-                      ...inp, display: 'flex', alignItems: 'center', gap: 7,
-                      background: dark ? '#161a26' : '#f3f4f6', cursor: 'not-allowed',
-                      color: dark ? '#9aa2b5' : '#4b5563', fontWeight: 700,
-                    }}>
-                      {currentYearName}
-                      <span style={{ fontSize: 10, fontWeight: 500, fontStyle: 'italic', color: dark ? '#7b839a' : '#9ca3af' }}>
-                        (set by School Manager)
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* STEP 4: Assessment type — with duplicate guard */}
-              {form.course_id && form.term && (
-                <div className="ta-step-enter">
-                  <label style={lbl}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                      <FileText size={11} /> Step 4 — Assessment Type *
-                      <span style={{ fontSize: 10, fontStyle: 'italic', textTransform: 'none', letterSpacing: 0 }}>(sets title automatically)</span>
-                    </span>
-                  </label>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {ASSESSMENT_TYPES.map(t => {
-                      const selected   = form.type === t.key;
-                      const alreadyUsed = isTypeUsed(t.key);
-                      return (
-                        <button
-                          key={t.key}
-                          type="button"
-                          className="ta-option-card"
-                          onClick={() => !alreadyUsed && setForm(f => ({ ...f, type: t.key }))}
-                          disabled={alreadyUsed}
-                          style={{
-                            padding: '11px 14px', borderRadius: 10,
-                            cursor: alreadyUsed ? 'not-allowed' : 'pointer',
-                            textAlign: 'left',
-                            border: `2px solid ${selected ? t.color : (dark ? '#2a3042' : '#e5e7eb')}`,
-                            background: selected ? t.color + '12' : alreadyUsed ? (dark ? '#0f1117' : '#f3f4f6') : 'transparent',
-                            display: 'flex', alignItems: 'center', gap: 12,
-                            opacity: alreadyUsed ? 0.55 : 1,
-                          }}
-                        >
-                          <span style={{ minWidth: 30, textAlign: 'center', fontSize: 10, fontWeight: 800, padding: '3px 7px', borderRadius: 6, background: t.color + '20', color: t.color, border: `1px solid ${t.color}40`, flexShrink: 0 }}>{t.key}</span>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: 13, fontWeight: selected ? 800 : 500, color: selected ? t.color : (dark ? '#e2e8f0' : '#374151') }}>{t.label}</div>
-                            <div style={{ fontSize: 11, color: alreadyUsed ? T.red : (dark ? '#7b839a' : '#9ca3af'), marginTop: 1 }}>
-                              {alreadyUsed
-                                ? `⚠ Already created for this module · ${form.term} · ${form.academic_year}`
-                                : t.desc}
-                            </div>
-                          </div>
-                          {selected    && <CheckCircle size={16} color={t.color} className="ta-check-pop" style={{ flexShrink: 0 }} />}
-                          {alreadyUsed && <span style={{ fontSize: 10, fontWeight: 800, color: T.red, flexShrink: 0, whiteSpace: 'nowrap' }}>Used</span>}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {/* Auto-title preview */}
-                  {form.type && (
-                    <div className="ta-step-enter" style={{ marginTop: 8, padding: '8px 12px', borderRadius: 9, background: dark ? '#1a1f2e' : '#f0f9ff', border: `1px solid ${dark ? '#2a3042' : '#bae6fd'}`, display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <FileText size={12} color="#0369a1" />
-                      <span style={{ fontSize: 12, color: dark ? '#7b839a' : '#0369a1' }}>
-                        Title will be: <strong style={{ color: dark ? '#e2e8f0' : '#0c4a6e' }}>{ASSESSMENT_TYPES.find(t => t.key === form.type)?.label}</strong>
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Modal footer */}
-            <div style={{ display: 'flex', gap: 10, marginTop: 24 }}>
-              <button className="ta-btn" onClick={() => setShowModal(false)} style={{ flex: 1, padding: '11px', borderRadius: 10, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#94a3b8' : '#6b7280', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                Cancel
-              </button>
-              <button
-                className="ta-btn"
-                onClick={saveAssessment}
-                disabled={!form.course_id || !form.type || !form.term}
-                style={{
-                  flex: 2, padding: '11px', borderRadius: 10, border: 'none',
-                  background: (!form.course_id || !form.type || !form.term)
-                    ? (dark ? '#2a3042' : '#e5e7eb')
-                    : `linear-gradient(135deg, ${T.navy}, ${T.blueBright})`,
-                  color: (!form.course_id || !form.type || !form.term)
-                    ? (dark ? '#4a5568' : '#9ca3af')
-                    : '#fff',
-                  fontSize: 13, fontWeight: 700,
-                  cursor: (!form.course_id || !form.type || !form.term) ? 'not-allowed' : 'pointer',
-                  boxShadow: (!form.course_id || !form.type || !form.term) ? 'none' : `0 4px 14px ${T.navy}59`,
-                }}
-              >
-                {editingId ? 'Save Changes' : 'Create Assessment'}
-              </button>
+              {/* Modal footer */}
+              <div style={{ display: 'flex', gap: 10, marginTop: 24 }}>
+                <button className="ta-btn" onClick={() => setShowModal(false)} style={{ flex: 1, padding: '11px', borderRadius: 10, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#94a3b8' : '#6b7280', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                  Cancel
+                </button>
+                <button
+                  className="ta-btn"
+                  onClick={saveAssessment}
+                  disabled={!form.course_id || !form.type || !form.term}
+                  style={{
+                    flex: 2, padding: '11px', borderRadius: 10, border: 'none',
+                    background: (!form.course_id || !form.type || !form.term)
+                      ? (dark ? '#2a3042' : '#e5e7eb')
+                      : `linear-gradient(135deg, ${T.navy}, ${T.blueBright})`,
+                    color: (!form.course_id || !form.type || !form.term)
+                      ? (dark ? '#4a5568' : '#9ca3af')
+                      : '#fff',
+                    fontSize: 13, fontWeight: 700,
+                    cursor: (!form.course_id || !form.type || !form.term) ? 'not-allowed' : 'pointer',
+                    boxShadow: (!form.course_id || !form.type || !form.term) ? 'none' : `0 4px 14px ${T.navy}59`,
+                  }}
+                >
+                  {editingId ? 'Save Changes' : 'Create Assessment'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

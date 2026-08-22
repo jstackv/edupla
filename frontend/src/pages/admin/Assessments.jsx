@@ -788,6 +788,7 @@ export default function AdminAssessments() {
   const [academicYearsLoading, setAcademicYearsLoading] = useState(false);
   const [newYearName,          setNewYearName]           = useState('');
   const [academicYearBusy,     setAcademicYearBusy]      = useState(false);
+  const [showYearModal,        setShowYearModal]         = useState(false);
   const activeAcademicYear = academicYears.find(y => y.is_active) || null;
 
   /* ── Course tab filters + view mode ── */
@@ -873,7 +874,15 @@ export default function AdminAssessments() {
   useEffect(() => { fetchAll(); }, [fetchAll]);
   useEffect(() => { fetchReportConfig().then(setReportConfig); }, []);
 
-  /* ── Academic Year fetch + actions ── */
+  /* ── Academic Year fetch + actions ──
+     Activate / term-toggle / delete all update `academicYears` locally the
+     instant the admin acts (optimistic UI) so the tab never shows a full
+     "Loading…" flash for what's a small, targeted change — the network
+     call happens in the background and only the affected row rolls back
+     if it actually fails. `fetchAcademicYears` (loading-flagged) is only
+     used for the tab's first load; `syncAcademicYears` is the same fetch
+     without the loading flag, used to quietly reconcile server state
+     after a mutation. */
   const fetchAcademicYears = useCallback(async () => {
     setAcademicYearsLoading(true);
     try {
@@ -883,6 +892,13 @@ export default function AdminAssessments() {
     finally { setAcademicYearsLoading(false); }
   }, []);
   useEffect(() => { fetchAcademicYears(); }, [fetchAcademicYears]);
+
+  const syncAcademicYears = useCallback(async () => {
+    try {
+      const { data } = await api.get('/academic-years/admin');
+      setAcademicYears(data.academicYears || []);
+    } catch { /* silent — next real fetch or action will reconcile */ }
+  }, []);
 
   // Default the Reports tab's year filter to the active academic year once
   // it's known, so "Reports" opens scoped to the current year rather than
@@ -911,24 +927,45 @@ export default function AdminAssessments() {
     if (!/^\d{4}-\d{4}$/.test(name) || Number(name.split('-')[1]) !== Number(name.split('-')[0]) + 1) {
       toast.error('Format must be two consecutive years, e.g. 2027-2028'); return;
     }
+    if (academicYears.some(y => y.name === name)) {
+      toast.error(`${name} already exists`); return;
+    }
     setAcademicYearBusy(true);
     try {
       await api.post('/academic-years/admin', { name });
       toast.success(`Academic year ${name} created`);
       setNewYearName('');
-      fetchAcademicYears();
+      setShowYearModal(false);
+      syncAcademicYears();
     } catch (e) { toast.error(e.response?.data?.message || 'Failed to create academic year'); }
     finally { setAcademicYearBusy(false); }
   }
 
-  async function activateAcademicYear(id, name) {
-    setAcademicYearBusy(true);
-    try {
-      await api.post(`/academic-years/admin/${id}/activate`);
-      toast.success(`${name} is now the active academic year`);
-      fetchAcademicYears();
-    } catch (e) { toast.error(e.response?.data?.message || 'Failed to activate academic year'); }
-    finally { setAcademicYearBusy(false); }
+  function activateAcademicYear(id, name) {
+    openConfirm({
+      title: 'Set active academic year?',
+      message: `"${name}" will become the active academic year. From this moment, all new mark-recording activity by teachers automatically belongs to "${name}" — existing assessments and marks stay exactly where they are.`,
+      variant: 'approve',
+      confirmText: 'Set Active',
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, loading: true }));
+        // Optimistic: flip the active flag locally right away so the row
+        // visually updates the instant the admin confirms, instead of
+        // waiting on a round trip + full-list refetch.
+        const prevYears = academicYears;
+        setAcademicYears(ys => ys.map(y => ({ ...y, is_active: (y.id || y._id) === id })));
+        try {
+          await api.post(`/academic-years/admin/${id}/activate`);
+          toast.success(`${name} is now the active academic year`);
+          closeConfirm();
+          syncAcademicYears();
+        } catch (e) {
+          setAcademicYears(prevYears); // roll back
+          toast.error(e.response?.data?.message || 'Failed to activate academic year');
+          setConfirmModal(prev => ({ ...prev, loading: false }));
+        }
+      },
+    });
   }
 
   // Tracks which specific term is mid-toggle (rather than one busy flag for
@@ -938,11 +975,21 @@ export default function AdminAssessments() {
   async function setTermStatus(yearId, yearName, term, open) {
     const key = `${yearId}:${term}`;
     setTermToggleBusyKey(key);
+    const prevYears = academicYears;
+    // Optimistic: toggle the pill immediately — this is a small, reversible
+    // per-term flag, not worth a "Loading…" flash on the whole tab.
+    setAcademicYears(ys => ys.map(y => {
+      if ((y.id || y._id) !== yearId) return y;
+      const current = y.disabled_terms || [];
+      const disabled_terms = open ? current.filter(t => t !== term) : [...new Set([...current, term])];
+      return { ...y, disabled_terms };
+    }));
     try {
       await api.post(`/academic-years/admin/${yearId}/terms/${encodeURIComponent(term)}/status`, { open });
       toast.success(`${term} is now ${open ? 'open' : 'closed'} for ${yearName}`);
-      fetchAcademicYears();
+      syncAcademicYears();
     } catch (e) {
+      setAcademicYears(prevYears); // roll back
       toast.error(e.response?.data?.message || `Failed to update ${term}`);
     } finally {
       setTermToggleBusyKey('');
@@ -957,12 +1004,17 @@ export default function AdminAssessments() {
       confirmText: 'Delete',
       onConfirm: async () => {
         setConfirmModal(prev => ({ ...prev, loading: true }));
+        const prevYears = academicYears;
+        // Optimistic removal — reappears instantly via rollback if the
+        // server rejects it (e.g. it turned out to have marks recorded).
+        setAcademicYears(ys => ys.filter(y => (y.id || y._id) !== id));
         try {
           await api.delete(`/academic-years/admin/${id}`);
           toast.success('Academic year deleted');
           closeConfirm();
-          fetchAcademicYears();
+          syncAcademicYears();
         } catch (e) {
+          setAcademicYears(prevYears); // roll back
           toast.error(e.response?.data?.message || 'Failed to delete academic year');
           setConfirmModal(prev => ({ ...prev, loading: false }));
         }
@@ -1646,6 +1698,37 @@ export default function AdminAssessments() {
           filter: brightness(1.08);
         }
         .subm-action-icon--approve { border: 1.5px solid rgba(255,255,255,0.55); }
+
+        /* ── Academic Year tab ── */
+        .ay-year-card {
+          position: relative; overflow: hidden;
+          transition: transform 0.22s cubic-bezier(.22,1,.36,1), box-shadow 0.22s ease, border-color 0.22s ease;
+        }
+        .ay-year-card:hover { transform: translateY(-3px); box-shadow: 0 14px 30px rgba(0,0,0,0.22); }
+        .ay-year-card--active { box-shadow: 0 10px 28px rgba(99,102,241,0.16); }
+        .ay-icon-btn { transition: transform 0.16s cubic-bezier(.22,1,.36,1), box-shadow 0.16s ease, background 0.16s ease, color 0.16s ease; }
+        .ay-icon-btn:not(:disabled):hover { transform: translateY(-1px); }
+        .ay-icon-btn:not(:disabled):active { transform: translateY(0) scale(0.95); }
+        .ay-icon-btn:disabled { cursor: default; opacity: 0.5; }
+        .ay-term-pill { position: relative; transition: transform 0.16s cubic-bezier(.22,1,.36,1), box-shadow 0.16s ease, background 0.16s ease, border-color 0.16s ease, color 0.16s ease; }
+        .ay-term-pill:not(:disabled):hover { transform: translateY(-1px); }
+        .ay-term-pill:not(:disabled):active { transform: translateY(0) scale(0.96); }
+        .ay-term-pill:disabled { cursor: default; }
+        .ay-new-btn { position: relative; overflow: hidden; transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease; }
+        .ay-new-btn:hover  { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(99,102,241,0.45) !important; filter: brightness(1.06); }
+        .ay-new-btn:active { transform: translateY(0) scale(0.98); }
+        .ay-new-btn::after {
+          content: ''; position: absolute; top: 0; left: -60%; width: 40%; height: 100%;
+          background: linear-gradient(120deg, transparent, rgba(255,255,255,0.35), transparent);
+          transform: skewX(-20deg); pointer-events: none;
+        }
+        .ay-new-btn:hover::after { animation: rtShine 0.85s ease; }
+        @keyframes ayModalIn { from { opacity: 0; transform: translateY(14px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        @keyframes ayOverlayIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes ayPop { 0% { opacity: 0; transform: scale(0.5); } 60% { opacity: 1; transform: scale(1.15); } 100% { transform: scale(1); } }
+        .ay-format-ok { animation: ayPop 0.32s cubic-bezier(.34,1.56,.64,1); }
+        .ay-modal-input { transition: border-color 0.18s ease, box-shadow 0.18s ease; }
+        .ay-modal-input:focus { border-color: #6366f1 !important; box-shadow: 0 0 0 4px rgba(99,102,241,0.15); outline: none; }
       `}</style>
 
       {/* ── Page Header ── */}
@@ -1970,145 +2053,312 @@ export default function AdminAssessments() {
       )}
 
       {/* ══════════ ACADEMIC YEAR TAB ══════════ */}
+      {/* ══════════ ACADEMIC YEAR TAB ══════════ */}
       {tab === 'academicYear' && (
         <div className="no-print" style={{ animation: 'fadeUp 0.3s ease' }}>
-          <div style={{ ...card, marginBottom: 20, background: 'linear-gradient(135deg,#6366f110,#4338ca08)', borderColor: '#6366f125' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              <div style={{ width: 52, height: 52, borderRadius: 16, background: 'linear-gradient(135deg,#6366f1,#4338ca)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <Calendar size={24} color="#fff" />
-              </div>
-              <div>
-                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: dark ? '#f1f5f9' : '#111827' }}>Academic Year</h2>
-                <p style={{ margin: '4px 0 0', fontSize: 13, color: dark ? '#7b839a' : '#6b7280' }}>
-                  Set the current academic year. All new mark-recording activity by teachers automatically belongs to whichever year is active here — teachers can't change it themselves.
-                </p>
-              </div>
-            </div>
-          </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 340px', gap: 20, alignItems: 'start' }}>
-            {/* ── List of academic years ── */}
-            <div style={card}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: dark ? '#7b839a' : '#6b7280', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
-                All academic years
+          {/* ── Header banner: intro + live stats + New Academic Year CTA ── */}
+          <div style={{
+            position: 'relative', overflow: 'hidden', marginBottom: 22, borderRadius: 20, padding: 24,
+            background: dark ? 'linear-gradient(135deg,#1b1f33,#141726 60%,#181c30)' : 'linear-gradient(135deg,#eef0ff,#f7f8ff 60%,#eef2ff)',
+            border: `1px solid ${dark ? '#2a2f4a' : '#e0e4ff'}`,
+          }}>
+            <div style={{ position: 'absolute', top: -50, right: -40, width: 220, height: 220, borderRadius: '50%', background: 'radial-gradient(circle, rgba(99,102,241,0.18), transparent 70%)', pointerEvents: 'none' }} />
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 18, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div style={{ width: 54, height: 54, borderRadius: 16, background: 'linear-gradient(135deg,#6366f1,#4338ca)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 10px 24px rgba(99,102,241,0.4)' }}>
+                  <Calendar size={24} color="#fff" />
+                </div>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: 19, fontWeight: 800, color: dark ? '#f1f5f9' : '#111827' }}>Academic Year</h2>
+                  <p style={{ margin: '4px 0 0', fontSize: 13, color: dark ? '#9aa2c0' : '#6b7280', maxWidth: 480 }}>
+                    Set the current academic year. All new mark-recording activity by teachers automatically belongs to whichever year is active here — teachers can't change it themselves.
+                  </p>
+                </div>
               </div>
-              {academicYearsLoading ? (
-                <p style={{ fontSize: 13, color: dark ? '#7b839a' : '#6b7280' }}>Loading…</p>
-              ) : academicYears.length === 0 ? (
-                <p style={{ fontSize: 13, color: dark ? '#7b839a' : '#6b7280' }}>No academic years yet — create one to get started.</p>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {academicYears.map(y => {
-                    const disabledTerms = y.disabled_terms || [];
-                    return (
-                    <div key={y.id || y._id} style={{
-                      display: 'flex', flexDirection: 'column', gap: 10,
-                      padding: '12px 14px', borderRadius: 12,
-                      border: `1.5px solid ${y.is_active ? '#6366f1' : (dark ? '#2a3042' : '#e5e7eb')}`,
-                      background: y.is_active ? 'rgba(99,102,241,0.08)' : 'transparent',
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <Calendar size={16} color={y.is_active ? '#6366f1' : (dark ? '#7b839a' : '#9ca3af')} />
-                          <div>
-                            <div style={{ fontSize: 14, fontWeight: 700, color: dark ? '#e2e8f0' : '#111827' }}>{y.name}</div>
-                            {y.is_active && (
-                              <div style={{ fontSize: 10.5, fontWeight: 700, color: '#6366f1', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                Current / Active
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', gap: 6 }}>
-                          {!y.is_active && (
-                            <button
-                              disabled={academicYearBusy}
-                              onClick={() => activateAcademicYear(y.id || y._id, y.name)}
-                              style={{ padding: '6px 12px', borderRadius: 8, border: 'none', background: '#6366f1', color: '#fff', fontSize: 12, fontWeight: 700, cursor: academicYearBusy ? 'default' : 'pointer', opacity: academicYearBusy ? 0.6 : 1 }}
-                            >
-                              Set Active
-                            </button>
-                          )}
-                          {!y.is_active && (
-                            <button
-                              disabled={academicYearBusy}
-                              onClick={() => deleteAcademicYear(y.id || y._id, y.name)}
-                              title="Delete this academic year"
-                              style={{ padding: '6px 10px', borderRadius: 8, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: 'transparent', color: '#dc2626', fontSize: 12, cursor: academicYearBusy ? 'default' : 'pointer' }}
-                            >
-                              <Trash2 size={13} />
-                            </button>
-                          )}
-                        </div>
-                      </div>
 
-                      {/* ── Per-term open/closed toggles ──
-                          Closing a term blocks teachers from creating or
-                          recording marks for NEW assessments in it — it
-                          never touches assessments/marks already recorded
-                          there. Works for any year, not just the active
-                          one, so terms can be pre-closed ahead of time. */}
-                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', paddingTop: 8, borderTop: `1px dashed ${dark ? '#2a3042' : '#e5e7eb'}` }}>
-                        {TERMS.map(t => {
-                          const isOpen = !disabledTerms.includes(t);
-                          const busy = termToggleBusyKey === `${y.id || y._id}:${t}`;
-                          return (
-                            <button
-                              key={t}
-                              disabled={busy}
-                              onClick={() => setTermStatus(y.id || y._id, y.name, t, !isOpen)}
-                              title={isOpen ? `Click to close ${t} — teachers won't be able to create/record assessments in it` : `Click to reopen ${t}`}
-                              style={{
-                                display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 999,
-                                fontSize: 11, fontWeight: 700, cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.6 : 1,
-                                border: `1px solid ${isOpen ? (dark ? '#2a3042' : '#e5e7eb') : '#dc262655'}`,
-                                background: isOpen ? 'transparent' : 'rgba(220,38,38,0.1)',
-                                color: isOpen ? (dark ? '#9aa2b5' : '#4b5563') : '#dc2626',
-                              }}
-                            >
-                              {isOpen ? <Unlock size={11} /> : <Lock size={11} />} {t}
-                            </button>
-                          );
-                        })}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                {/* Live stats */}
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <div style={{ padding: '8px 14px', borderRadius: 12, background: dark ? 'rgba(99,102,241,0.12)' : '#fff', border: `1px solid ${dark ? '#2a2f4a' : '#e0e4ff'}`, textAlign: 'center', minWidth: 64 }}>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: '#6366f1', lineHeight: 1.1 }}>{academicYears.length}</div>
+                    <div style={{ fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: dark ? '#7b839a' : '#9ca3af' }}>Years</div>
+                  </div>
+                  <div style={{ padding: '8px 14px', borderRadius: 12, background: dark ? 'rgba(16,185,129,0.1)' : '#fff', border: `1px solid ${dark ? '#1f3a34' : '#d1fae5'}`, textAlign: 'center', minWidth: 90 }}>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: '#10b981', lineHeight: 1.3, whiteSpace: 'nowrap' }}>{activeAcademicYear?.name || '—'}</div>
+                    <div style={{ fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: dark ? '#7b839a' : '#9ca3af' }}>Active Year</div>
+                  </div>
+                  {activeAcademicYear && (
+                    <div style={{ padding: '8px 14px', borderRadius: 12, background: dark ? 'rgba(245,158,11,0.1)' : '#fff', border: `1px solid ${dark ? '#3a331f' : '#fde68a'}`, textAlign: 'center', minWidth: 74 }}>
+                      <div style={{ fontSize: 18, fontWeight: 800, color: '#f59e0b', lineHeight: 1.1 }}>
+                        {TERMS.length - (activeAcademicYear.disabled_terms || []).length}/{TERMS.length}
                       </div>
+                      <div style={{ fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: dark ? '#7b839a' : '#9ca3af' }}>Open Terms</div>
                     </div>
-                  )})}
+                  )}
                 </div>
-              )}
-            </div>
 
-            {/* ── Create new academic year ── */}
-            <div style={{ position: isMobile ? 'static' : 'sticky', top: 20 }}>
-              <div style={card}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: dark ? '#7b839a' : '#6b7280', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
-                  Create a new academic year
-                </div>
-                <label style={labelStyle}>Academic Year</label>
-                <input
-                  value={newYearName}
-                  onChange={e => setNewYearName(e.target.value)}
-                  placeholder="e.g. 2027-2028"
-                  style={inputStyle}
-                  onKeyDown={e => { if (e.key === 'Enter') createAcademicYear(); }}
-                />
-                <p style={{ margin: '6px 0 14px', fontSize: 11, color: dark ? '#7b839a' : '#9ca3af' }}>
-                  Format: two consecutive years, e.g. "2027-2028".
-                </p>
                 <button
-                  disabled={academicYearBusy}
-                  onClick={createAcademicYear}
-                  style={{ width: '100%', padding: '10px 16px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#6366f1,#4338ca)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: academicYearBusy ? 'default' : 'pointer', opacity: academicYearBusy ? 0.6 : 1 }}
+                  className="ay-new-btn"
+                  onClick={() => setShowYearModal(true)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8, padding: '12px 20px', borderRadius: 13, border: 'none',
+                    background: 'linear-gradient(135deg,#6366f1,#4338ca)', color: '#fff', fontSize: 13.5, fontWeight: 800,
+                    cursor: 'pointer', boxShadow: '0 8px 22px rgba(99,102,241,0.4)',
+                  }}
                 >
-                  + Create Academic Year
+                  <span style={{ width: 22, height: 22, borderRadius: 7, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Plus size={13} />
+                  </span>
+                  New Academic Year
                 </button>
               </div>
-              <div style={{ marginTop: 12, padding: '12px 16px', borderRadius: 12, background: dark ? '#1a1f2e' : '#f0f9ff', border: `1px solid ${dark ? '#2a3042' : '#bae6fd'}` }}>
-                <p style={{ margin: 0, fontSize: 11, color: dark ? '#7b839a' : '#0369a1', lineHeight: 1.6 }}>
-                  💡 <strong>Tip:</strong> Switching the active year doesn't touch existing assessments or marks — they stay tied to the year they were recorded in. Only new assessments teachers create from now on will use{activeAcademicYear ? ` "${activeAcademicYear.name}"` : ' the new active year'}.
-                </p>
-              </div>
             </div>
           </div>
+
+          {/* ── Years grid ── */}
+          {academicYearsLoading ? (
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill,minmax(360px,1fr))', gap: 16 }}>
+              {[0, 1].map(i => (
+                <div key={i} style={{ ...card, height: 148 }}>
+                  <div className="ta-skel" style={{ width: '55%', height: 16, borderRadius: 6, background: dark ? '#1c2233' : '#eef0f4', marginBottom: 10 }} />
+                  <div className="ta-skel" style={{ width: '35%', height: 11, borderRadius: 6, background: dark ? '#1c2233' : '#eef0f4', marginBottom: 24 }} />
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {[0, 1, 2].map(j => <div key={j} className="ta-skel" style={{ width: 78, height: 24, borderRadius: 999, background: dark ? '#1c2233' : '#eef0f4' }} />)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : academicYears.length === 0 ? (
+            <div style={{ ...card, textAlign: 'center', padding: 60 }}>
+              <div style={{ width: 64, height: 64, borderRadius: 20, background: 'linear-gradient(135deg,#6366f1,#4338ca)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                <Calendar size={28} color="#fff" />
+              </div>
+              <p style={{ color: dark ? '#e8ecf4' : '#111827', fontWeight: 800, fontSize: 16, margin: '0 0 6px' }}>No academic years yet</p>
+              <p style={{ color: dark ? '#7b839a' : '#9ca3af', margin: '0 0 20px' }}>Create your school's first academic year to get started.</p>
+              <button
+                className="ay-new-btn"
+                onClick={() => setShowYearModal(true)}
+                style={{ padding: '10px 22px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg,#6366f1,#4338ca)', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer', boxShadow: '0 8px 20px rgba(99,102,241,0.35)' }}
+              >
+                <Plus size={14} style={{ verticalAlign: 'middle', marginRight: 6 }} />New Academic Year
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill,minmax(360px,1fr))', gap: 16 }}>
+              {[...academicYears].sort((a, b) => (b.is_active - a.is_active) || b.name.localeCompare(a.name)).map(y => {
+                const disabledTerms = y.disabled_terms || [];
+                const openCount = TERMS.length - disabledTerms.length;
+                return (
+                  <div
+                    key={y.id || y._id}
+                    className={`ay-year-card${y.is_active ? ' ay-year-card--active' : ''}`}
+                    style={{
+                      padding: 18, borderRadius: 16,
+                      border: `1.5px solid ${y.is_active ? '#6366f1' : (dark ? '#2a3042' : '#e5e7eb')}`,
+                      background: y.is_active
+                        ? (dark ? 'linear-gradient(160deg,rgba(99,102,241,0.14),rgba(99,102,241,0.03))' : 'linear-gradient(160deg,#eef0ff,#fff)')
+                        : (dark ? '#13161f' : '#fff'),
+                    }}
+                  >
+                    {y.is_active && (
+                      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg,#6366f1,#818cf8,#6366f1)' }} />
+                    )}
+
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, marginBottom: 14 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+                        <div style={{
+                          width: 40, height: 40, borderRadius: 12, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          background: y.is_active ? 'linear-gradient(135deg,#6366f1,#4338ca)' : (dark ? '#1a1f2e' : '#f3f4f6'),
+                        }}>
+                          <Calendar size={17} color={y.is_active ? '#fff' : (dark ? '#7b839a' : '#9ca3af')} />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 16, fontWeight: 800, color: dark ? '#f1f5f9' : '#111827' }}>{y.name}</div>
+                          {y.is_active ? (
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 2, padding: '2px 8px', borderRadius: 999, background: 'rgba(99,102,241,0.15)' }}>
+                              <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#6366f1' }} />
+                              <span style={{ fontSize: 10, fontWeight: 800, color: '#6366f1', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Current / Active</span>
+                            </div>
+                          ) : (
+                            <div style={{ fontSize: 11, color: dark ? '#7b839a' : '#9ca3af', marginTop: 2 }}>
+                              {openCount === TERMS.length ? 'All terms open' : openCount === 0 ? 'Fully closed' : `${openCount}/${TERMS.length} terms open`}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                        {!y.is_active && (
+                          <button
+                            className="ay-icon-btn"
+                            onClick={() => activateAcademicYear(y.id || y._id, y.name)}
+                            title={`Set ${y.name} as the active academic year`}
+                            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 9, border: 'none', background: '#6366f1', color: '#fff', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', boxShadow: '0 3px 10px rgba(99,102,241,0.35)' }}
+                          >
+                            <CheckCircle2 size={13} /> Set Active
+                          </button>
+                        )}
+                        {!y.is_active && (
+                          <button
+                            className="ay-icon-btn"
+                            onClick={() => deleteAcademicYear(y.id || y._id, y.name)}
+                            title="Delete this academic year"
+                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 9, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: 'transparent', color: '#dc2626', cursor: 'pointer', flexShrink: 0 }}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* ── Per-term open/closed toggles ──
+                        Closing a term blocks teachers from creating or
+                        recording marks for NEW assessments in it — it
+                        never touches assessments/marks already recorded
+                        there. Works for any year, not just the active
+                        one, so terms can be pre-closed ahead of time.
+                        Optimistically flips on click — no page/tab reload,
+                        just this one pill updating (with its own tiny
+                        spinner) while the request settles. ── */}
+                    <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', paddingTop: 12, borderTop: `1px dashed ${dark ? '#2a3042' : '#e5e7eb'}` }}>
+                      {TERMS.map(t => {
+                        const isOpen = !disabledTerms.includes(t);
+                        const busy = termToggleBusyKey === `${y.id || y._id}:${t}`;
+                        return (
+                          <button
+                            key={t}
+                            className="ay-term-pill"
+                            disabled={busy}
+                            onClick={() => setTermStatus(y.id || y._id, y.name, t, !isOpen)}
+                            title={isOpen ? `Click to close ${t} — teachers won't be able to create/record assessments in it` : `Click to reopen ${t}`}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 999,
+                              fontSize: 11.5, fontWeight: 700, cursor: busy ? 'default' : 'pointer',
+                              border: `1px solid ${isOpen ? (dark ? '#2a3042' : '#e5e7eb') : '#dc262655'}`,
+                              background: isOpen ? (dark ? '#1a1f2e' : '#f9fafb') : 'rgba(220,38,38,0.1)',
+                              color: isOpen ? (dark ? '#9aa2b5' : '#4b5563') : '#dc2626',
+                            }}
+                          >
+                            {busy ? <RefreshCw size={11} style={{ animation: 'spin 0.6s linear infinite' }} /> : (isOpen ? <Unlock size={11} /> : <Lock size={11} />)}
+                            {t}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <div style={{ marginTop: 16, padding: '14px 18px', borderRadius: 14, background: dark ? '#1a1f2e' : '#f0f9ff', border: `1px solid ${dark ? '#2a3042' : '#bae6fd'}`, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+            <span style={{ fontSize: 15, lineHeight: 1 }}>💡</span>
+            <p style={{ margin: 0, fontSize: 12, color: dark ? '#9aa2c0' : '#0369a1', lineHeight: 1.6 }}>
+              <strong>Tip:</strong> Switching the active year doesn't touch existing assessments or marks — they stay tied to the year they were recorded in. Only new assessments teachers create from now on will use{activeAcademicYear ? ` "${activeAcademicYear.name}"` : ' the new active year'}.
+            </p>
+          </div>
+
+          {/* ── Create Academic Year — modal ── */}
+          {showYearModal && (() => {
+            const trimmed = newYearName.trim();
+            const formatOk = /^\d{4}-\d{4}$/.test(trimmed) && Number(trimmed.split('-')[1]) === Number(trimmed.split('-')[0]) + 1;
+            const duplicate = formatOk && academicYears.some(y => y.name === trimmed);
+            return (
+              <div
+                onClick={e => { if (e.target === e.currentTarget && !academicYearBusy) { setShowYearModal(false); setNewYearName(''); } }}
+                style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(8,11,20,0.72)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, animation: 'ayOverlayIn 0.18s ease' }}
+              >
+                <div style={{
+                  width: 460, borderRadius: 22, overflow: 'hidden',
+                  background: dark ? '#13161f' : '#fff', border: `1px solid ${dark ? '#232a3d' : '#e5e7eb'}`,
+                  boxShadow: '0 40px 90px rgba(6,10,20,0.5)', animation: 'ayModalIn 0.22s cubic-bezier(.22,1,.36,1)',
+                }}>
+                  {/* Gradient header */}
+                  <div style={{ position: 'relative', overflow: 'hidden', padding: '26px 28px 22px', background: 'linear-gradient(135deg,#4338ca,#6366f1 60%,#818cf8)' }}>
+                    <div style={{ position: 'absolute', top: -30, right: -30, width: 140, height: 140, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,0.16), transparent 70%)' }} />
+                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 13 }}>
+                      <div style={{ width: 44, height: 44, borderRadius: 13, background: 'rgba(255,255,255,0.16)', border: '1px solid rgba(255,255,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, backdropFilter: 'blur(6px)' }}>
+                        <Calendar size={19} color="#fff" />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#fff' }}>New Academic Year</h2>
+                        <p style={{ margin: '2px 0 0', fontSize: 12.5, color: 'rgba(255,255,255,0.78)' }}>Add another year to the school's calendar</p>
+                      </div>
+                      <button
+                        onClick={() => { setShowYearModal(false); setNewYearName(''); }}
+                        style={{ border: 'none', background: 'rgba(255,255,255,0.16)', borderRadius: 9, width: 32, height: 32, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                      >
+                        <X size={16} color="#fff" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div style={{ padding: '24px 28px 28px' }}>
+                    <label style={labelStyle}>Academic Year</label>
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        autoFocus
+                        value={newYearName}
+                        onChange={e => setNewYearName(e.target.value)}
+                        placeholder="e.g. 2027-2028"
+                        className="ay-modal-input"
+                        onKeyDown={e => { if (e.key === 'Enter' && formatOk && !duplicate) createAcademicYear(); }}
+                        style={{ ...inputStyle, padding: '12px 40px 12px 14px', fontSize: 15, fontWeight: 700, border: `1.5px solid ${trimmed ? (formatOk && !duplicate ? '#10b981' : '#dc2626') : (dark ? '#2a3042' : '#d1d5db')}` }}
+                      />
+                      {trimmed && (
+                        <span className="ay-format-ok" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)' }}>
+                          {formatOk && !duplicate
+                            ? <CheckCircle2 size={18} color="#10b981" />
+                            : <XCircle size={18} color="#dc2626" />}
+                        </span>
+                      )}
+                    </div>
+                    <p style={{ margin: '8px 0 0', fontSize: 11.5, color: trimmed && !formatOk ? '#dc2626' : trimmed && duplicate ? '#dc2626' : (dark ? '#7b839a' : '#9ca3af') }}>
+                      {trimmed && duplicate
+                        ? `"${trimmed}" already exists.`
+                        : trimmed && !formatOk
+                          ? 'Must be two consecutive years, e.g. "2027-2028".'
+                          : 'Format: two consecutive years, e.g. "2027-2028".'}
+                    </p>
+
+                    <div style={{ marginTop: 18, padding: '12px 14px', borderRadius: 12, background: dark ? '#1a1f2e' : '#f0f9ff', border: `1px solid ${dark ? '#2a3042' : '#bae6fd'}`, display: 'flex', gap: 9, alignItems: 'flex-start' }}>
+                      <Sparkles size={14} color="#6366f1" style={{ flexShrink: 0, marginTop: 1 }} />
+                      <p style={{ margin: 0, fontSize: 11.5, color: dark ? '#9aa2c0' : '#0369a1', lineHeight: 1.6 }}>
+                        New years start with every term open and inactive — nothing changes for teachers until you set it active.
+                      </p>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
+                      <button
+                        onClick={() => { setShowYearModal(false); setNewYearName(''); }}
+                        disabled={academicYearBusy}
+                        style={{ flex: 1, padding: '12px', borderRadius: 12, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#94a3b8' : '#6b7280', fontSize: 13, fontWeight: 700, cursor: academicYearBusy ? 'default' : 'pointer' }}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={createAcademicYear}
+                        disabled={!formatOk || duplicate || academicYearBusy}
+                        style={{
+                          flex: 2, padding: '12px', borderRadius: 12, border: 'none',
+                          background: (!formatOk || duplicate || academicYearBusy) ? (dark ? '#2a3042' : '#e5e7eb') : 'linear-gradient(135deg,#6366f1,#4338ca)',
+                          color: (!formatOk || duplicate || academicYearBusy) ? (dark ? '#4a5568' : '#9ca3af') : '#fff',
+                          fontSize: 13, fontWeight: 800,
+                          cursor: (!formatOk || duplicate || academicYearBusy) ? 'not-allowed' : 'pointer',
+                          boxShadow: (!formatOk || duplicate || academicYearBusy) ? 'none' : '0 8px 20px rgba(99,102,241,0.4)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                        }}
+                      >
+                        {academicYearBusy ? <RefreshCw size={14} style={{ animation: 'spin 0.6s linear infinite' }} /> : <Plus size={14} />}
+                        {academicYearBusy ? 'Creating…' : 'Create Academic Year'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -3677,7 +3927,6 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
             </div>
           </div>
         </div>
-
         <div style={{ marginTop: 5, textAlign: 'center', fontSize: fz(6.5), color: '#9ca3af' }}>
           Report generated by {config?.schoolName || 'EDUPLA'} - with EDUPLA academic Management System · {reportDate}
         </div>

@@ -2385,7 +2385,6 @@ function CollaborationClassRow({ cls, onToggle, toggling, index = 0 }) {
           <div className="oc-opened-at">Opened {timeAgo(cls.opened_at)}</div>
         )}
       </div>
-
       <button
         onClick={() => onToggle(cls)}
         disabled={toggling}
