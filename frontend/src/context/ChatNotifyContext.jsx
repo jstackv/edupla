@@ -166,7 +166,11 @@ export function ChatNotifyProvider({ children }) {
     if (!user || (user.role !== 'student' && user.role !== 'teacher')) return undefined;
 
     const tick = async () => {
-      if (busyRef.current) return;
+      // Skip polling while the tab is in the background — a minimized or
+      // backgrounded tab still fired this on the full interval before,
+      // burning bandwidth/battery and hammering the server for no one to
+      // actually see. Catches up immediately on visibilitychange below.
+      if (busyRef.current || document.hidden) return;
       busyRef.current = true;
       try {
         if (user.role === 'student') await pollStudent(user.id);
@@ -178,7 +182,9 @@ export function ChatNotifyProvider({ children }) {
 
     tick();
     const id = setInterval(tick, POLL_INTERVAL);
-    return () => clearInterval(id);
+    const onVisible = () => { if (!document.hidden) tick(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', onVisible); };
   }, [user, pollStudent, pollTeacher]);
 
   return (

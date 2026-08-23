@@ -32,8 +32,13 @@ export function BillingProvider({ children }) {
   useEffect(() => {
     mounted.current = true;
     refresh();
-    const id = setInterval(refresh, POLL_INTERVAL_MS);
-    return () => { mounted.current = false; clearInterval(id); };
+    // Skip ticks while the tab is backgrounded — billing status doesn't
+    // need a live-in-the-background heartbeat, and this halves the idle
+    // request volume for anyone who leaves the tab open all day.
+    const id = setInterval(() => { if (!document.hidden) refresh(); }, POLL_INTERVAL_MS);
+    const onVisible = () => { if (!document.hidden) refresh(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { mounted.current = false; clearInterval(id); document.removeEventListener('visibilitychange', onVisible); };
   }, [refresh]);
 
   return (

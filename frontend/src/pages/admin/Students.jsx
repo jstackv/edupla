@@ -5,12 +5,13 @@ import Modal from '../../components/common/Modal';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import Pagination from '../../components/common/Pagination';
 import ImpersonateButton from '../../components/common/ImpersonateButton';
+import ResetPasswordModal from '../../components/common/ResetPasswordModal';
 import {
   Plus, Search, Edit2, Trash2, LayoutGrid, List,
   BookOpen, GraduationCap, Filter, X,
   Award, Layers, CheckCircle2,
   Copy, Eye, EyeOff,
-  ToggleLeft, ToggleRight, Info,
+  ToggleLeft, ToggleRight, Info, KeyRound,
 } from 'lucide-react';
 
 /* ── Constants ── */
@@ -111,7 +112,7 @@ function StatStrip({ students, levels = [], trades = [] }) {
 }
 
 /* ── Student Card (grid) ── */
-function StudentCard({ student: s, levels = [], trades = [], onEdit, onDelete, onToggle, animDelay = 0 }) {
+function StudentCard({ student: s, levels = [], trades = [], onEdit, onDelete, onToggle, onResetPassword, animDelay = 0 }) {
   const [hovered, setHovered] = useState(false);
   const [from] = getAvatarColors(s.name);
 
@@ -138,6 +139,10 @@ function StudentCard({ student: s, levels = [], trades = [], onEdit, onDelete, o
           <Avatar name={s.name} size={44} />
           <div style={{ display: 'flex', gap: 3, opacity: hovered ? 1 : 0, transition: 'opacity 0.18s' }}>
             <ImpersonateButton userId={s.id} name={s.name} />
+            <button onClick={() => onResetPassword(s)} title="Reset password"
+              style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#eef2ff', display: 'flex', transition: 'background 0.15s' }}>
+              <KeyRound size={13} style={{ color: '#6366f1' }} />
+            </button>
             <button onClick={() => onEdit(s)}
               style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: 'var(--surface-100)', display: 'flex', transition: 'background 0.15s' }}>
               <Edit2 size={13} style={{ color: 'var(--text-secondary)' }} />
@@ -188,7 +193,7 @@ function StudentCard({ student: s, levels = [], trades = [], onEdit, onDelete, o
 }
 
 /* ── Student Row (table) ── */
-function StudentRow({ student: s, levels = [], trades = [], onEdit, onDelete, onToggle, animDelay = 0 }) {
+function StudentRow({ student: s, levels = [], trades = [], onEdit, onDelete, onToggle, onResetPassword, animDelay = 0 }) {
   const [hovered, setHovered] = useState(false);
   return (
     <tr
@@ -235,6 +240,10 @@ function StudentRow({ student: s, levels = [], trades = [], onEdit, onDelete, on
       <td style={{ padding: '10px 16px', textAlign: 'right' }}>
         <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end', opacity: hovered ? 1 : 0.3, transition: 'opacity 0.15s' }}>
           <ImpersonateButton userId={s.id} name={s.name} />
+          <button onClick={() => onResetPassword(s)} title="Reset password"
+            style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#eef2ff', display: 'flex' }}>
+            <KeyRound size={13} style={{ color: '#6366f1' }} />
+          </button>
           <button onClick={() => onEdit(s)}
             style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: 'var(--surface-100)', display: 'flex' }}>
             <Edit2 size={13} style={{ color: 'var(--text-secondary)' }} />
@@ -266,6 +275,7 @@ export default function AdminStudents() {
   const [editing, setEditing] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [toggleTarget, setToggleTarget] = useState(null);
+  const [resetTarget, setResetTarget] = useState(null);
   const [toggling, setToggling] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -566,7 +576,7 @@ export default function AdminStudents() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 }}>
           {students.map((s, i) => (
             <StudentCard key={s.id} student={s} animDelay={i * 45}
-              onEdit={openModal} onDelete={setDeleteTarget} onToggle={handleToggle} />
+              onEdit={openModal} onDelete={setDeleteTarget} onToggle={handleToggle} onResetPassword={setResetTarget} />
           ))}
         </div>
       ) : (
@@ -586,7 +596,7 @@ export default function AdminStudents() {
             <tbody>
               {students.map((s, i) => (
                 <StudentRow key={s.id} student={s} animDelay={i * 35}
-                  onEdit={openModal} onDelete={setDeleteTarget} onToggle={handleToggle} />
+                  onEdit={openModal} onDelete={setDeleteTarget} onToggle={handleToggle} onResetPassword={setResetTarget} />
               ))}
             </tbody>
           </table>
@@ -787,6 +797,9 @@ export default function AdminStudents() {
         confirmText={toggleTarget?.is_active !== false ? 'Deactivate' : 'Activate'}
         variant="danger"
       />
+      {resetTarget && (
+        <ResetPasswordModal target={resetTarget} role="student" onClose={() => setResetTarget(null)} />
+      )}
       <ConfirmDialog
         isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete} loading={deleting}

@@ -83,6 +83,8 @@ router.get('/student/assessments/:id/instructions',     isAuthenticated, isStude
 router.get('/student/assessments/:id/result',            isAuthenticated, isStudent, ctrl.studentGetAssessmentResult);
 router.post('/student/assessments/:id/start',           isAuthenticated, isStudent, ctrl.studentStartAttempt);
 router.get('/student/attempts/:attemptId',                isAuthenticated, isStudent, ctrl.studentGetAttempt);
+router.get('/student/attempts/:attemptId/response',       isAuthenticated, isStudent, ctrl.studentGetAttemptResponse);
+router.get('/student/attempts/:attemptId/response/pdf',   isAuthenticated, isStudent, ctrl.studentDownloadAttemptResponsePdf);
 router.post('/student/attempts/:attemptId/answer',        isAuthenticated, isStudent, ctrl.studentSaveAnswer);
 router.post('/student/attempts/:attemptId/submit',          isAuthenticated, isStudent, ctrl.studentSubmitAttempt);
 router.post('/student/attempts/:attemptId/auto-submit',     isAuthenticated, isStudent, ctrl.studentAutoSubmitAttempt);

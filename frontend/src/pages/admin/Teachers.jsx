@@ -4,12 +4,13 @@ import toast from 'react-hot-toast';
 import Modal from '../../components/common/Modal';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import ImpersonateButton from '../../components/common/ImpersonateButton';
+import ResetPasswordModal from '../../components/common/ResetPasswordModal';
 import Pagination from '../../components/common/Pagination';
 import {
   Plus, Search, Users, Edit2, Trash2, Mail, Phone, BookOpen,
   GraduationCap, LayoutGrid, List, Filter, X, CheckCircle2,
   Copy, Eye, EyeOff, Award, TrendingUp, ArrowUpRight, Shield,
-  ToggleLeft, ToggleRight,
+  ToggleLeft, ToggleRight, KeyRound,
 } from 'lucide-react';
 
 /* ── Constants ── */
@@ -80,7 +81,7 @@ function StatusBadge({ is_active }) {
 }
 
 /* ── Teacher Card (grid) ── */
-function TeacherCard({ teacher: t, onEdit, onDelete, onToggle, animDelay = 0 }) {
+function TeacherCard({ teacher: t, onEdit, onDelete, onToggle, onResetPassword, animDelay = 0 }) {
   const [hovered, setHovered] = useState(false);
   const [from, to] = getAvatarColors(t.name);
 
@@ -107,6 +108,10 @@ function TeacherCard({ teacher: t, onEdit, onDelete, onToggle, animDelay = 0 }) 
           <Avatar name={t.name} size={48} />
           <div style={{ display: 'flex', gap: 3, opacity: hovered ? 1 : 0, transition: 'opacity 0.18s' }}>
             <ImpersonateButton userId={t.id} name={t.name} />
+            <button onClick={() => onResetPassword(t)} title="Reset password"
+              style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#eef2ff', display: 'flex' }}>
+              <KeyRound size={13} style={{ color: '#6366f1' }} />
+            </button>
             <button onClick={() => onEdit(t)}
               style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: 'var(--surface-100)', display: 'flex' }}>
               <Edit2 size={13} style={{ color: 'var(--text-secondary)' }} />
@@ -177,7 +182,7 @@ function TeacherCard({ teacher: t, onEdit, onDelete, onToggle, animDelay = 0 }) 
 }
 
 /* ── Teacher Row (table) ── */
-function TeacherRow({ teacher: t, onEdit, onDelete, onToggle, animDelay = 0 }) {
+function TeacherRow({ teacher: t, onEdit, onDelete, onToggle, onResetPassword, animDelay = 0 }) {
   const [hovered, setHovered] = useState(false);
   const [from] = getAvatarColors(t.name);
 
@@ -237,6 +242,10 @@ function TeacherRow({ teacher: t, onEdit, onDelete, onToggle, animDelay = 0 }) {
       <td style={{ padding: '10px 16px', textAlign: 'right' }}>
         <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end', opacity: hovered ? 1 : 0.3, transition: 'opacity 0.15s' }}>
           <ImpersonateButton userId={t.id} name={t.name} />
+          <button onClick={() => onResetPassword(t)} title="Reset password"
+            style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#eef2ff', display: 'flex' }}>
+            <KeyRound size={13} style={{ color: '#6366f1' }} />
+          </button>
           <button onClick={() => onEdit(t)}
             style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: 'var(--surface-100)', display: 'flex' }}>
             <Edit2 size={13} style={{ color: 'var(--text-secondary)' }} />
@@ -267,6 +276,7 @@ export default function AdminTeachers() {
   const [editing, setEditing] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [toggleTarget, setToggleTarget] = useState(null);
+  const [resetTarget, setResetTarget] = useState(null);
   const [toggling, setToggling] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -496,7 +506,7 @@ export default function AdminTeachers() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 }}>
           {teachers.map((t, i) => (
             <TeacherCard key={t.id} teacher={t} animDelay={i * 45}
-              onEdit={openModal} onDelete={setDeleteTarget} onToggle={handleToggle} />
+              onEdit={openModal} onDelete={setDeleteTarget} onToggle={handleToggle} onResetPassword={setResetTarget} />
           ))}
         </div>
       ) : (
@@ -516,7 +526,7 @@ export default function AdminTeachers() {
             <tbody>
               {teachers.map((t, i) => (
                 <TeacherRow key={t.id} teacher={t} animDelay={i * 35}
-                  onEdit={openModal} onDelete={setDeleteTarget} onToggle={handleToggle} />
+                  onEdit={openModal} onDelete={setDeleteTarget} onToggle={handleToggle} onResetPassword={setResetTarget} />
               ))}
             </tbody>
           </table>
@@ -651,6 +661,10 @@ export default function AdminTeachers() {
         confirmText={toggleTarget?.is_active !== false ? 'Deactivate' : 'Activate'}
         variant="danger"
       />
+
+      {resetTarget && (
+        <ResetPasswordModal target={resetTarget} role="teacher" onClose={() => setResetTarget(null)} />
+      )}
 
       <style>{`
         @keyframes spin  { to { transform: rotate(360deg); } }

@@ -3168,6 +3168,12 @@ async function buildStudentSeriesResult(assessmentId, studentId) {
       title: a.title,
       teacher_name: a.teacher_id?.name || null,
       duration_minutes: a.duration_minutes,
+      expires_at: a.expires_at || null,
+      // Responses (the full question-by-question review) only unlock once
+      // the assessment window has closed — same "expired" rule used
+      // everywhere else in this file, so a student can't peek at questions
+      // or answers while classmates might still be attempting it.
+      expired: a.expires_at ? new Date() > new Date(a.expires_at) : false,
       max_marks: maxMarks,
       max_attempts: effectiveMaxAttempts(a, studentId),
       attempts_used: list.length,
@@ -3234,6 +3240,224 @@ exports.studentGetAssessmentResult = async (req, res) => {
     if (!result) return res.status(404).json({ message: 'Assessment not found or not available to you.' });
     res.json(result);
   } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+// Full question-by-question review for one of the student's own attempts —
+// their answer next to the reference/correct answer, per question. Gated
+// on the assessment being expired (see the `expired` flag computed in
+// buildStudentSeriesResult) so a student can't see question content, the
+// correct answers, or even their own submitted answers while the
+// assessment window is still open for their classmates.
+async function buildAttemptResponse(attemptId, studentId) {
+  const attempt = await AssessmentAttempt.findOne({ _id: attemptId, student_id: studentId, voided: { $ne: true } }).lean();
+  if (!attempt) return { error: 404, message: 'Attempt not found.' };
+
+  const assessment = await Assessment.findById(attempt.assessment_id)
+    .populate('course_id', 'name')
+    .populate('teacher_id', 'name')
+    .lean();
+  if (!assessment) return { error: 404, message: 'Assessment not found.' };
+
+  const expired = assessment.expires_at ? new Date() > new Date(assessment.expires_at) : false;
+  if (!expired) {
+    return { error: 403, message: 'Responses unlock once this assessment closes.' };
+  }
+  if (attempt.status === 'in_progress') {
+    return { error: 400, message: 'This attempt has not been submitted yet.' };
+  }
+
+  const questions = await AssessmentQuestion.find({ _id: { $in: attempt.question_order } }).lean();
+  const qMap = {};
+  questions.forEach(q => { qMap[q._id.toString()] = q; });
+
+  // Human-readable correct answer per question type — mirrors the same
+  // logic the teacher grading screen uses, so "reference answer" reads the
+  // same way in both places (e.g. mcq shows the option text, not just the
+  // key; matching shows "left → right" pairs).
+  const describeCorrectAnswer = (q) => {
+    if (!q) return null;
+    if (q.type === 'mcq') {
+      const keys = Array.isArray(q.correct_answer) ? q.correct_answer : [q.correct_answer].filter(Boolean);
+      return keys.map(k => {
+        const opt = (q.options || []).find(o => o.key === k);
+        return opt ? `${opt.key}. ${opt.text}` : k;
+      }).join(', ');
+    }
+    if (q.type === 'true_false') return q.correct_answer === 'true' || q.correct_answer === true ? 'True' : 'False';
+    if (q.type === 'fill_gap') {
+      const accepted = Array.isArray(q.correct_answer) ? q.correct_answer : [q.correct_answer].filter(Boolean);
+      return accepted.join(' / ');
+    }
+    if (q.type === 'matching') {
+      return (q.pairs || []).map(p => `${p.left} → ${p.right}`).join('; ');
+    }
+    return q.correct_answer || null; // open — teacher's model answer, if any
+  };
+
+  const describeStudentAnswer = (q, answer) => {
+    if (answer == null || answer === '') return null;
+    if (q?.type === 'mcq') {
+      const keys = Array.isArray(answer) ? answer : [answer];
+      return keys.map(k => {
+        const opt = (q.options || []).find(o => o.key === k);
+        return opt ? `${opt.key}. ${opt.text}` : k;
+      }).join(', ');
+    }
+    if (q?.type === 'true_false') return answer === 'true' || answer === true ? 'True' : 'False';
+    if (q?.type === 'matching' && answer && typeof answer === 'object') {
+      return Object.entries(answer).map(([left, right]) => `${left} → ${right}`).join('; ');
+    }
+    return String(answer);
+  };
+
+  const answers = attempt.question_order.map(qid => {
+    const q = qMap[qid.toString()];
+    const a = attempt.answers.find(x => x.question_id.toString() === qid.toString());
+    const scoreAwarded = a?.auto_score != null ? a.auto_score : (a?.manual_score != null ? a.manual_score : null);
+    return {
+      question_id: qid,
+      type: q?.type || null,
+      question_text: q?.question_text || '(question no longer available)',
+      options: q?.options || [],
+      marks: q?.marks ?? null,
+      score_awarded: scoreAwarded,
+      is_correct: a?.is_correct ?? null,
+      needs_manual_grading: q?.type === 'open' && a?.manual_score == null,
+      student_answer_raw: a?.answer ?? null,
+      student_answer: describeStudentAnswer(q, a?.answer),
+      correct_answer: describeCorrectAnswer(q),
+    };
+  });
+
+  return {
+    error: null,
+    attempt: {
+      id: attempt._id,
+      attempt_number: attempt.attempt_number,
+      status: attempt.status,
+      total_score: attempt.total_score ?? null,
+      submitted_at: attempt.submitted_at,
+      auto_submitted: attempt.auto_submitted,
+    },
+    assessment: {
+      id: assessment._id,
+      title: assessment.title,
+      course_name: assessment.course_id?.name || null,
+      teacher_name: assessment.teacher_id?.name || null,
+      term: assessment.term,
+      academic_year: assessment.academic_year,
+    },
+    max_marks: questions.reduce((s, q) => s + (q.marks || 0), 0),
+    answers,
+  };
+}
+
+exports.studentGetAttemptResponse = async (req, res) => {
+  try {
+    const result = await buildAttemptResponse(req.params.attemptId, req.user.id);
+    if (result.error) return res.status(result.error).json({ message: result.message });
+    const { error, ...payload } = result;
+    res.json(payload);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+// Same content as studentGetAttemptResponse, laid out as a downloadable
+// PDF the student can keep or print — one card per question, the
+// student's own answer next to the reference answer, colored green/red by
+// whether it was marked correct. Reuses the same banner/stat-chip/footer
+// helpers as every other export in this file for a consistent look.
+exports.studentDownloadAttemptResponsePdf = async (req, res) => {
+  try {
+    const result = await buildAttemptResponse(req.params.attemptId, req.user.id);
+    if (result.error) return res.status(result.error).json({ message: result.message });
+    const { attempt, assessment, max_marks: maxMarks, answers } = result;
+
+    const correctCount = answers.filter(a => a.is_correct === true).length;
+    const wrongCount = answers.filter(a => a.is_correct === false).length;
+    const pendingCount = answers.filter(a => a.needs_manual_grading).length;
+    const pct = maxMarks ? Math.round(((attempt.total_score || 0) / maxMarks) * 100) : null;
+
+    const filename = buildMarksFilename(assessment.course_name || assessment.title, `Attempt ${attempt.attempt_number} responses`, 'pdf');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Cache-Control', 'no-store');
+
+    const doc = new PDFDocument({ size: 'A4', margin: 40, bufferPages: true });
+    doc.pipe(res);
+
+    pdfDrawBanner(doc, {
+      title: `EDUPLA - ${assessment.title}`,
+      subtitle: `${assessment.course_name || ''}  •  Attempt ${attempt.attempt_number}  •  ${assessment.term || ''} ${assessment.academic_year || ''}`,
+    });
+
+    pdfDrawStatChips(doc, [
+      { label: 'Score', value: `${attempt.total_score ?? '—'}/${maxMarks}`, color: PDF_THEME.headerText },
+      { label: 'Percentage', value: pct != null ? `${pct}%` : '—', color: pct != null && pct >= 50 ? PDF_THEME.pass : PDF_THEME.fail },
+      { label: 'Correct', value: String(correctCount), color: PDF_THEME.pass },
+      { label: 'Incorrect', value: String(wrongCount), color: PDF_THEME.fail },
+      ...(pendingCount ? [{ label: 'Pending review', value: String(pendingCount), color: '#d97706' }] : []),
+    ]);
+
+    const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+    const startX = doc.page.margins.left;
+    const pageBottom = doc.page.height - doc.page.margins.bottom;
+
+    answers.forEach((a, i) => {
+      const verdictColor = a.needs_manual_grading ? '#d97706' : a.is_correct === true ? PDF_THEME.pass : a.is_correct === false ? PDF_THEME.fail : PDF_THEME.textMuted;
+      const verdictLabel = a.needs_manual_grading ? 'Pending review' : a.is_correct === true ? 'Correct' : a.is_correct === false ? 'Incorrect' : 'Not answered';
+
+      // Measure the card's height up front (question + student answer +
+      // correct answer, each word-wrapped) so we can page-break BEFORE
+      // drawing if it wouldn't fit, rather than splitting a card in half.
+      doc.font('Helvetica-Bold').fontSize(10.5);
+      const qHeight = doc.heightOfString(`${i + 1}. ${a.question_text}`, { width: pageWidth - 24 });
+      doc.font('Helvetica').fontSize(9.5);
+      const studentAnsText = a.student_answer || 'No answer submitted';
+      const correctAnsText = a.correct_answer || 'No reference answer set';
+      const saHeight = doc.heightOfString(studentAnsText, { width: pageWidth - 130 });
+      const caHeight = doc.heightOfString(correctAnsText, { width: pageWidth - 130 });
+      const cardHeight = 14 + qHeight + 10 + Math.max(saHeight, 14) + 8 + Math.max(caHeight, 14) + 16;
+
+      if (doc.y + cardHeight > pageBottom) doc.addPage();
+      const cardTop = doc.y;
+
+      // Card background + left accent bar in the verdict color
+      doc.roundedRect(startX, cardTop, pageWidth, cardHeight, 8).fill(PDF_THEME.zebra);
+      doc.rect(startX, cardTop, 4, cardHeight).fill(verdictColor);
+
+      let y = cardTop + 10;
+      doc.font('Helvetica-Bold').fontSize(10.5).fillColor(PDF_THEME.text)
+        .text(`${i + 1}. ${a.question_text}`, startX + 14, y, { width: pageWidth - 24 });
+      y += qHeight + 6;
+
+      // Marks + verdict pill, right-aligned on the question's first line
+      const pillText = `${verdictLabel} ${a.score_awarded != null ? `• ${a.score_awarded}/${a.marks}` : `• /${a.marks}`}`;
+      doc.font('Helvetica-Bold').fontSize(7.5);
+      const pillW = doc.widthOfString(pillText) + 14;
+      doc.fillOpacity(0.15).fillColor(verdictColor).roundedRect(startX + pageWidth - pillW - 14, cardTop + 10, pillW, 16, 8).fill();
+      doc.fillOpacity(1).fillColor(verdictColor).text(pillText, startX + pageWidth - pillW - 14, cardTop + 14, { width: pillW, align: 'center' });
+
+      y += 4;
+      doc.font('Helvetica-Bold').fontSize(7.5).fillColor(PDF_THEME.textMuted)
+        .text('YOUR ANSWER', startX + 14, y, { width: 100, characterSpacing: 0.4 });
+      doc.font('Helvetica').fontSize(9.5).fillColor(a.needs_manual_grading ? PDF_THEME.text : verdictColor)
+        .text(studentAnsText, startX + 130, y - 1, { width: pageWidth - 144 });
+      y += Math.max(saHeight, 14) + 8;
+
+      doc.font('Helvetica-Bold').fontSize(7.5).fillColor(PDF_THEME.textMuted)
+        .text('REFERENCE ANSWER', startX + 14, y, { width: 100, characterSpacing: 0.4 });
+      doc.font('Helvetica').fontSize(9.5).fillColor(PDF_THEME.text)
+        .text(correctAnsText, startX + 130, y - 1, { width: pageWidth - 144 });
+
+      doc.y = cardTop + cardHeight + 12;
+      doc.fillColor('#000000');
+    });
+
+    pdfDrawFooter(doc, { generatedAt: new Date().toLocaleString() });
+    doc.end();
+  } catch (err) {
+    if (!res.headersSent) res.status(500).json({ message: err.message });
+  }
 };
 
 exports.teacherGetOverallResults = async (req, res) => {

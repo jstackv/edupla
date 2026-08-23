@@ -7,10 +7,18 @@ console.log(
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
+const compression = require('compression');
 const path = require('path');
 const { connectDB } = require('./models/db');
 
 const app = express();
+
+// ── Response compression ────────────────────────────────────────────────
+// Gzips every JSON/HTML/text response before it goes over the wire. The
+// analytics/results endpoints in particular return large JSON payloads
+// (per-student breakdowns, trend series, etc.) that shrink dramatically
+// with gzip — this is a free win with no behavior change on the client.
+app.use(compression());
 
 // ── CORS ─────────────────────────────────────────────────────────────────
 const allowedOrigins = [

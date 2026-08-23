@@ -5,9 +5,13 @@ import {
   FileType2, Music, Download, Maximize2, AlertTriangle, X, ExternalLink,
   ZoomIn, ZoomOut, Play, Pause, Eye,
 } from 'lucide-react';
-import mammoth from 'mammoth';
-import * as XLSX from 'xlsx';
 import { downloadFile, getFileType, toInlineUrl } from './FileViewer';
+// mammoth (Word rendering) and xlsx (Excel rendering) are both sizeable
+// libraries that only a Word/Excel chat bubble ever needs — importing them
+// statically here used to pull both into every chat bubble's chunk, even
+// for a plain text or image message. They're dynamically imported instead,
+// right where they're used in WordStage/ExcelStage below, so the cost is
+// only paid the first time someone actually opens a Word or Excel file.
 
 /* ── Format bytes into a short human label ── */
 export function fmtFileSize(bytes) {
@@ -439,9 +443,11 @@ function WordStage({ url, color, Icon, onDownload, onOpenExternal, downloading }
   useEffect(() => {
     if (state !== 'ready' || !buffer) return;
     let cancelled = false;
-    mammoth.convertToHtml(
-      { arrayBuffer: buffer },
-      { convertImage: mammoth.images.imgElement((image) => image.read('base64').then((b64) => ({ src: `data:${image.contentType};base64,${b64}` }))) }
+    import('mammoth').then(({ default: mammoth }) =>
+      mammoth.convertToHtml(
+        { arrayBuffer: buffer },
+        { convertImage: mammoth.images.imgElement((image) => image.read('base64').then((b64) => ({ src: `data:${image.contentType};base64,${b64}` }))) }
+      )
     )
       .then((result) => { if (!cancelled) setHtml(result.value); })
       .catch(() => { if (!cancelled) setConvertError(true); });
@@ -510,7 +516,9 @@ function ExcelStage({ url, color, Icon, onDownload, onOpenExternal, downloading 
 
   useEffect(() => {
     if (state !== 'ready' || !buffer) return;
-    try {
+    let cancelled = false;
+    import('xlsx').then((XLSX) => {
+      if (cancelled) return;
       const wb = XLSX.read(buffer, { type: 'array' });
       const rowsByName = {};
       wb.SheetNames.forEach((n) => {
@@ -518,9 +526,8 @@ function ExcelStage({ url, color, Icon, onDownload, onOpenExternal, downloading 
       });
       setSheets({ names: wb.SheetNames, rowsByName });
       setActiveSheet(wb.SheetNames[0]);
-    } catch {
-      setParseError(true);
-    }
+    }).catch(() => { if (!cancelled) setParseError(true); });
+    return () => { cancelled = true; };
   }, [state, buffer]);
 
   if (state === 'loading') {

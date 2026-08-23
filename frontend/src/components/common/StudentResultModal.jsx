@@ -18,12 +18,13 @@
  */
 import { useState, useEffect, useMemo } from 'react';
 import Modal from './Modal';
+import AttemptResponseModal from './AttemptResponseModal';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import {
   Loader2, Layers, Trophy, Target, RotateCcw, Clock, CheckCircle2, XCircle,
   AlertTriangle, Inbox, Sparkles, TrendingUp, TrendingDown, Award, Hourglass,
-  Zap, BarChart3, ChevronRight, BookOpen, GraduationCap, Flag,
+  Zap, BarChart3, ChevronRight, BookOpen, GraduationCap, Flag, FileSearch, Lock,
 } from 'lucide-react';
 
 function scoreColor(pct) {
@@ -201,11 +202,12 @@ function MarginMeter({ percentage, passingLine, marginPercentage, marginMarks })
   );
 }
 
-function AttemptRow({ att, i, maxMarks }) {
+function AttemptRow({ att, i, maxMarks, expired, onViewResponse }) {
   const meta = ATTEMPT_STATUS_META[att.status] || ATTEMPT_STATUS_META.in_progress;
   const color = att.status === 'graded' ? scoreColor(att.percentage) : meta.color;
+  const canViewResponse = expired && att.status !== 'in_progress';
   return (
-    <div style={{ '--i': i, '--srm-a-color': color }} className="srm-attempt-card p-3 flex items-center gap-3 relative">
+    <div style={{ '--i': i, '--srm-a-color': color }} className="srm-attempt-card p-3 flex items-center gap-3 relative flex-wrap sm:flex-nowrap">
       {att.is_best && <span className="srm-attempt-best-glow" />}
       <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-bold text-sm" style={{ background: `${color}1f`, color }}>
         #{att.attempt_number}
@@ -238,11 +240,28 @@ function AttemptRow({ att, i, maxMarks }) {
           </span>
         )}
       </div>
+      <button
+        type="button"
+        onClick={() => canViewResponse && onViewResponse(att.id)}
+        disabled={!canViewResponse}
+        title={canViewResponse ? 'View your questions and answers' : 'Responses unlock once this assessment closes'}
+        className="text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg flex-shrink-0 w-full sm:w-auto justify-center"
+        style={{
+          background: canViewResponse ? 'rgba(99,102,241,0.12)' : 'var(--surface-100)',
+          color: canViewResponse ? '#6366f1' : 'var(--text-secondary)',
+          cursor: canViewResponse ? 'pointer' : 'not-allowed',
+          opacity: canViewResponse ? 1 : 0.65,
+          border: 'none',
+        }}
+      >
+        {canViewResponse ? <FileSearch className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+        View Response
+      </button>
     </div>
   );
 }
 
-function AssessmentPanel({ a, moduleName }) {
+function AssessmentPanel({ a, moduleName, onViewResponse }) {
   const st = STATUS_META[a.status] || STATUS_META.not_attempted;
   const color = scoreColor(a.percentage);
 
@@ -288,6 +307,16 @@ function AssessmentPanel({ a, moduleName }) {
         </div>
       )}
 
+      {!a.expired && a.attempts.length > 0 && (
+        <div className="sa-note p-3 rounded-xl text-sm flex items-start gap-2.5" style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)' }}>
+          <Lock className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#6366f1' }} />
+          <p style={{ color: 'var(--text-secondary)' }}>
+            Detailed question-by-question responses unlock once this assessment closes
+            {a.expires_at ? ` on ${fmtDateTime(a.expires_at)}` : ''}.
+          </p>
+        </div>
+      )}
+
       <div>
         <p className="text-xs font-bold uppercase tracking-wide mb-2 flex items-center gap-1.5" style={{ color: 'var(--text-secondary)' }}>
           <BarChart3 className="w-3.5 h-3.5" /> Attempt history
@@ -299,7 +328,9 @@ function AssessmentPanel({ a, moduleName }) {
           </div>
         ) : (
           <div className="space-y-2">
-            {a.attempts.map((att, i) => <AttemptRow key={att.id} att={att} i={i} maxMarks={a.max_marks} />)}
+            {a.attempts.map((att, i) => (
+              <AttemptRow key={att.id} att={att} i={i} maxMarks={a.max_marks} expired={a.expired} onViewResponse={onViewResponse} />
+            ))}
           </div>
         )}
       </div>
@@ -383,6 +414,7 @@ export default function StudentResultModal({ assessment, onClose }) {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [activeTab, setActiveTab] = useState(String(assessment.id));
+  const [viewingAttemptId, setViewingAttemptId] = useState(null);
 
   useEffect(() => {
     let alive = true;
@@ -447,9 +479,13 @@ export default function StudentResultModal({ assessment, onClose }) {
           {activeTab === 'overall'
             ? <OverallPanel data={data} />
             : activeAssessment
-              ? <AssessmentPanel a={activeAssessment} moduleName={data.course.name} />
+              ? <AssessmentPanel a={activeAssessment} moduleName={data.course.name} onViewResponse={setViewingAttemptId} />
               : null}
         </div>
+      )}
+
+      {viewingAttemptId && (
+        <AttemptResponseModal attemptId={viewingAttemptId} onClose={() => setViewingAttemptId(null)} />
       )}
     </Modal>
   );

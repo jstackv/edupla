@@ -6,6 +6,18 @@ const {
 } = require('../models/db');
 const { cloudinary, getResourceType } = require('../middleware/upload');
 
+// Generates a short, readable one-time password for a password reset — e.g.
+// "Kj7-mPx4Qr". Mixes upper/lower/digits, skips visually-ambiguous
+// characters (0/O, 1/l/I) so a teacher/student reading it off a screen or
+// a handwritten note doesn't mistype it, and inserts a hyphen for
+// readability without weakening the entropy (still ~10 meaningful chars).
+function generateResetPassword() {
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  let raw = '';
+  for (let i = 0; i < 10; i++) raw += chars[Math.floor(Math.random() * chars.length)];
+  return `${raw.slice(0, 4)}-${raw.slice(4)}`;
+}
+
 // Best-effort Cloudinary delete — never throws, so a missing/already-gone
 // asset never blocks the DB-side deletion the admin actually asked for.
 async function destroyFile(publicId, resourceType = 'raw') {
@@ -75,7 +87,7 @@ const resolveProgramConfig = async (programConfigId, adminId) => {
     program_rtqf_level: cfg.rtqfLevel,
   };
 };
-const { notifyAccountStatus, notifyWelcome } = require('../services/emailService');
+const { notifyAccountStatus, notifyWelcome, notifyPasswordReset } = require('../services/emailService');
 
 // ── Dashboard Stats ────────────────────────────────────────────────────
 const getDashboardStats = async (req, res) => {
@@ -142,12 +154,32 @@ const getTeachers = async (req, res) => {
       User.countDocuments(filter),
     ]);
 
-    const result = await Promise.all(teachers.map(async (t) => {
-      const classes = await Class.find({ $or: [{ teacher_id: t._id }, { extra_teachers: t._id }] }, 'students').lean();
-      const studentSet = new Set();
-      classes.forEach(c => c.students.forEach(s => studentSet.add(s.toString())));
-      return { ...t, id: t._id, class_count: classes.length, student_count: studentSet.size };
-    }));
+    // Single batched query for every teacher on this page instead of one
+    // Class.find() per row (was N+1 — 12 teachers meant 12 extra round
+    // trips to Mongo on every page load).
+    const teacherIds = teachers.map(t => t._id);
+    const classesByTeacher = teacherIds.length
+      ? await Class.find({ $or: [{ teacher_id: { $in: teacherIds } }, { extra_teachers: { $in: teacherIds } }] }, 'teacher_id extra_teachers students').lean()
+      : [];
+    const statsByTeacher = {};
+    teacherIds.forEach(id => { statsByTeacher[id.toString()] = { classCount: 0, studentSet: new Set() }; });
+    classesByTeacher.forEach(c => {
+      const owners = new Set([
+        c.teacher_id ? c.teacher_id.toString() : null,
+        ...(c.extra_teachers || []).map(t => t.toString()),
+      ].filter(Boolean));
+      owners.forEach(tid => {
+        const bucket = statsByTeacher[tid];
+        if (!bucket) return;
+        bucket.classCount += 1;
+        c.students.forEach(s => bucket.studentSet.add(s.toString()));
+      });
+    });
+
+    const result = teachers.map(t => {
+      const stats = statsByTeacher[t._id.toString()] || { classCount: 0, studentSet: new Set() };
+      return { ...t, id: t._id, class_count: stats.classCount, student_count: stats.studentSet.size };
+    });
 
     res.json({ teachers: result, total, page: parseInt(page), limit: parseInt(limit) });
   } catch (err) { res.status(500).json({ message: err.message }); }
@@ -707,6 +739,51 @@ const toggleStudentStatus = async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
+// ── Password reset ────────────────────────────────────────────────────
+// A teacher/student is given a default password when their account is
+// created; if they change it themselves and later forget it, they have no
+// self-service "forgot password" flow (there's no email-based reset link
+// system in this app), so the admin who created them is the only way back
+// in. Both reset endpoints generate a fresh random password server-side —
+// the admin never types (or even necessarily *sees*, since it's optionally
+// emailed directly) the new password, so there's no default/shared
+// password left over from the reset the way there was at account creation.
+const resetTeacherPassword = async (req, res) => {
+  try {
+    const teacher = await User.findOne({ _id: req.params.id, role: 'teacher' });
+    if (!teacher) return res.status(404).json({ message: 'Teacher not found' });
+
+    const newPassword = generateResetPassword();
+    teacher.password = await bcrypt.hash(newPassword, 10);
+    await teacher.save();
+
+    res.json({ message: 'Password reset successfully', newPassword, email: teacher.email, name: teacher.name });
+
+    try {
+      const admin = await User.findById(req.user.id, 'name').lean();
+      notifyPasswordReset({ to: teacher.email, name: teacher.name, role: 'teacher', newPassword, adminName: admin?.name }).catch(() => {});
+    } catch (_) {}
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+const resetStudentPassword = async (req, res) => {
+  try {
+    const student = await User.findOne({ _id: req.params.id, role: 'student' });
+    if (!student) return res.status(404).json({ message: 'Student not found' });
+
+    const newPassword = generateResetPassword();
+    student.password = await bcrypt.hash(newPassword, 10);
+    await student.save();
+
+    res.json({ message: 'Password reset successfully', newPassword, email: student.email, name: student.name });
+
+    try {
+      const admin = await User.findById(req.user.id, 'name').lean();
+      notifyPasswordReset({ to: student.email, name: student.name, role: 'student', newPassword, adminName: admin?.name }).catch(() => {});
+    } catch (_) {}
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
 const toggleClassStatus = async (req, res) => {
   try {
     const cls = await Class.findById(req.params.id);
@@ -890,4 +967,5 @@ module.exports = {
   getProgramConfigs, createProgramConfig, updateProgramConfig, deleteProgramConfig,
   getReportConfig, saveReportConfig, uploadReportLogo,
   toggleTeacherStatus, toggleStudentStatus, toggleClassStatus, toggleAdminStatus,
+  resetTeacherPassword, resetStudentPassword,
 };

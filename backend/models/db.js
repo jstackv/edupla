@@ -128,6 +128,13 @@ const classSchema = new mongoose.Schema(
   },
   { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } },
 );
+// `students` lookups (buildStudentNotificationFilter, "which classes is this
+// student in") and teacher-owned-classes lookups both run on nearly every
+// page load — index the fields they filter on instead of scanning every class.
+classSchema.index({ students: 1 });
+classSchema.index({ teacher_id: 1 });
+classSchema.index({ extra_teachers: 1 });
+classSchema.index({ created_by: 1 });
 
 const documentSchema = new mongoose.Schema(
   {
@@ -157,6 +164,10 @@ const documentSchema = new mongoose.Schema(
   },
   { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } },
 );
+// Powers the teacher "my documents" list and the student class-documents
+// feed — both filter/sort on these fields on every page load.
+documentSchema.index({ teacher_id: 1, created_at: -1 });
+documentSchema.index({ class_id: 1, created_at: -1 });
 
 const assignmentSchema = new mongoose.Schema(
   {
@@ -187,6 +198,10 @@ const assignmentSchema = new mongoose.Schema(
   },
   { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } },
 );
+// Powers the teacher "my assignments" list and the student class-assignments
+// feed — both filter/sort on these fields on every page load.
+assignmentSchema.index({ teacher_id: 1, created_at: -1 });
+assignmentSchema.index({ class_id: 1, deadline: 1 });
 
 const submissionSchema = new mongoose.Schema({
   assignment_id: {
@@ -227,6 +242,9 @@ const announcementSchema = new mongoose.Schema(
   },
   { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } },
 );
+// Powers the teacher "my announcements" list and the student class feed.
+announcementSchema.index({ teacher_id: 1, created_at: -1 });
+announcementSchema.index({ class_id: 1, created_at: -1 });
 
 const notificationSchema = new mongoose.Schema(
   {
@@ -296,6 +314,12 @@ const notificationSchema = new mongoose.Schema(
   },
   { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } },
 );
+// The notification panel polls every ~30s per active user, filtering by
+// exactly this combination (who it's for + how old it is) — without this,
+// every poll is a full collection scan that gets worse as the school grows.
+notificationSchema.index({ teacher_id: 1, audience: 1, created_at: -1 });
+notificationSchema.index({ recipient_id: 1, created_at: -1 });
+notificationSchema.index({ created_at: 1 }); // used by the hourly sweepOldNotifications cleanup
 
 // ── ProgramConfig — one document per program row (sector + trade + qualTitle + rtqfLevel) ──
 const programConfigSchema = new mongoose.Schema(
@@ -464,6 +488,9 @@ const courseSchema = new mongoose.Schema(
   },
   { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } },
 );
+courseSchema.index({ teacher_id: 1 });
+courseSchema.index({ created_by: 1 });
+courseSchema.index({ class_ids: 1 });
 
 // Assessment: created by teacher for a specific course, CLASS and term.
 //
@@ -556,6 +583,10 @@ assessmentSchema.index(
   { course_id: 1, class_id: 1, term: 1, academic_year: 1, mode: 1, title: 1 },
   { unique: true },
 );
+// The teacher's "my assessments" list and every dashboard/analytics query
+// above filter by teacher_id first — index it instead of scanning.
+assessmentSchema.index({ teacher_id: 1 });
+assessmentSchema.index({ class_id: 1 });
 
 // Mark: a student's mark in an assessment
 const markSchema = new mongoose.Schema(
@@ -583,6 +614,7 @@ const markSchema = new mongoose.Schema(
   { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } },
 );
 markSchema.index({ assessment_id: 1, student_id: 1 }, { unique: true });
+markSchema.index({ student_id: 1 });
 
 // Assessment submission workflow: tracks the review status of an assessment's marks as a whole
 const assessmentSubmissionSchema = new mongoose.Schema(
@@ -920,6 +952,10 @@ const discussionGroupSchema = new mongoose.Schema(
   },
   { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } },
 );
+// "My groups" lookups for both teacher and student sides of the chat feature.
+discussionGroupSchema.index({ class_id: 1 });
+discussionGroupSchema.index({ teacher_id: 1 });
+discussionGroupSchema.index({ members: 1 });
 
 // ── ClassCollaboration — open peer-to-peer messaging sessions ──────────
 // A teacher can enable independent student-to-student direct messaging for

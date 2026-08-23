@@ -141,6 +141,36 @@ async function notifyWelcome({ to, name, role, defaultPassword, adminName }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+//  2b. Password reset — admin reset a teacher's or student's password
+// ═══════════════════════════════════════════════════════════════════════════
+async function notifyPasswordReset({ to, name, role, newPassword, adminName }) {
+  if (!to) return;
+  const roleLabel = role === 'teacher' ? 'Teacher' : 'Student';
+
+  const body = `
+    <h2 style="margin:0 0 6px;font-size:22px;font-weight:800;color:#111827;">🔑 Your Password Was Reset</h2>
+    <p style="margin:0 0 24px;font-size:14px;color:#6b7280;">${adminName ? `${adminName} (your school admin)` : 'Your school admin'} reset your EDUPLA password. Here's your new login.</p>
+    <div style="background:#f8faff;border:1px solid #e0e7ff;border-radius:12px;padding:20px 24px;margin-bottom:24px;">
+      <p style="margin:0 0 4px;font-size:11px;font-weight:700;color:#6366f1;text-transform:uppercase;letter-spacing:0.08em;">Your New Credentials</p>
+      <table cellpadding="0" cellspacing="0" style="width:100%;margin-top:8px;">
+        ${infoRow('Email', to)}
+        ${infoRow('New Password', `<code style="background:#f1f5f9;padding:2px 8px;border-radius:6px;font-size:13px;">${newPassword}</code>`)}
+        ${infoRow('Role', roleLabel)}
+      </table>
+    </div>
+    <div style="margin-top:4px;padding:14px 18px;background:#fef3c7;border:1px solid #fde68a;border-radius:10px;font-size:13px;color:#92400e;">
+      🔒 Your old password no longer works. Please log in with the new password above, and consider changing it to something only you know.
+    </div>
+    ${ctaBtn('Log In to EDUPLA →', APP_URL())}`;
+
+  await sendMail({
+    to,
+    subject: `🔑 EDUPLA Password Reset — ${name}`,
+    html: wrapEmail({ title: 'Password Reset', preheader: `Your EDUPLA password was reset by an admin.`, body }),
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 //  3. New assignment posted (notify students)
 // ═══════════════════════════════════════════════════════════════════════════
 async function notifyAssignmentPosted({ studentEmails, teacherEmail, assignmentTitle, className, deadline, teacherName }) {
@@ -309,6 +339,7 @@ async function notifyAssessmentShared({ studentEmails, teacherEmail, assessmentT
 module.exports = {
   notifyAccountStatus,
   notifyWelcome,
+  notifyPasswordReset,
   notifyAssessmentShared,
   notifyAssignmentPosted,
   notifyAssignmentSubmitted,

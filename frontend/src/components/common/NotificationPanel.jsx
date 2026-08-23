@@ -188,11 +188,13 @@ export default function NotificationPanel({ dark }) {
     }
   }, [open, fetchPage]);
 
-  /* ── poll unread count every 30 s ── */
+  /* ── poll unread count every 30 s (paused while the tab is hidden) ── */
   useEffect(() => {
     fetchCount();
-    pollRef.current = setInterval(fetchCount, 30000);
-    return () => clearInterval(pollRef.current);
+    pollRef.current = setInterval(() => { if (!document.hidden) fetchCount(); }, 30000);
+    const onVisible = () => { if (!document.hidden) fetchCount(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { clearInterval(pollRef.current); document.removeEventListener('visibilitychange', onVisible); };
   }, [fetchCount]);
 
   /* ── close on outside click ── */
