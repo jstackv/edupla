@@ -602,7 +602,7 @@ function LogoUploader({ value, onUploaded, onRemove, dark }) {
   );
 }
 
-function ReportConfigPanel({ config, onChange, dark }) {
+function ReportConfigPanel({ config, onChange, dark, scopeYear = '' }) {
   const [draft, setDraft] = useState({ ...config });
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -668,7 +668,29 @@ function ReportConfigPanel({ config, onChange, dark }) {
           <div style={{ gridColumn: '1/-1' }}>{field('Republic / Country', 'republic', 'text', 'REPUBLIC OF RWANDA')}</div>
           <div style={{ gridColumn: '1/-1' }}>{field('Ministry', 'ministry', 'text', 'MINISTRY OF EDUCATION')}</div>
           {field('District', 'district', 'text', 'DISTRICT ...')}
-          {field('Academic Year', 'academicYear', 'text', '2025-2026')}
+          <div>
+            <label style={labelSt}>
+              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                Academic Year
+                {/* ── Quick-sync with the top header's Academic Year card —
+                    this letterhead field is a static print value (an admin
+                    might deliberately want it to lag behind for reprints of
+                    an older report), so it's a one-click opt-in rather than
+                    something that silently overwrites itself. ── */}
+                {scopeYear && draft.academicYear !== scopeYear && (
+                  <button
+                    type="button"
+                    onClick={() => setDraft(d => ({ ...d, academicYear: scopeYear }))}
+                    title={`Set to "${scopeYear}", the year currently selected at the top of the page`}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 3, border: 'none', background: 'none', color: '#6366f1', fontSize: 10, fontWeight: 700, textTransform: 'none', letterSpacing: 0, cursor: 'pointer', padding: 0 }}
+                  >
+                    <RefreshCw size={10} /> Use {scopeYear}
+                  </button>
+                )}
+              </span>
+            </label>
+            <input type="text" value={draft.academicYear || ''} onChange={e => setDraft(d => ({ ...d, academicYear: e.target.value }))} placeholder={scopeYear || '2025-2026'} style={inputSt} />
+          </div>
           <div style={{ gridColumn: '1/-1' }}>{field('School / Lycée Name', 'schoolName', 'text', 'Lycée de Ruhango Ikirezi ...')}</div>
           <div style={{ gridColumn: '1/-1' }}>{field('School Motto / Tagline', 'schoolMotto', 'text', 'Excellence Through Knowledge')}</div>
           <div style={{ gridColumn: '1/-1' }}>
@@ -814,9 +836,33 @@ export default function AdminAssessments() {
   const [submissionTermFilter,     setSubmissionTermFilter]     = useState(''); // Term scope ('' = all terms of the selected year), selected via the header card
   const [viewingSubmission,        setViewingSubmission]        = useState(null);
   const [viewingSubmissionLoading, setViewingSubmissionLoading] = useState(false);
+  // ── NEW: cache full submission payloads by assessment id, keyed for the
+  // lifetime of this page. Switching between the Formative/Comprehensive/…
+  // tabs inside the Module Assessment Modal re-points at a *different*
+  // assessment id each time, which previously always meant a fresh network
+  // round trip + full "Loading submission…" spinner even for a tab you'd
+  // already opened seconds ago. A cache hit now renders instantly (no
+  // spinner, no delay) while a lightweight revalidation fetch still runs
+  // in the background to keep it fresh — the visible content just doesn't
+  // wait on it. Approve/Reject explicitly invalidate their entry so a
+  // status change is never served stale from cache.
+  const submissionCacheRef = useRef({});
   const [rejectingId,              setRejectingId]              = useState(null);
   const [rejectNote,               setRejectNote]               = useState('');
   const [submissionActionLoading,  setSubmissionActionLoading]  = useState(false);
+  // ── NEW: sort state for the student marks table inside the submission
+  // preview — works the same whether the submission is pending review,
+  // already approved, or rejected, since it's purely a client-side sort
+  // over whatever `viewingSubmission.students` currently holds. Defaults
+  // to marks-descending (best performance first) so it's visibly sorted
+  // the moment a submission opens, not just after a click.
+  const [submissionSortKey, setSubmissionSortKey] = useState('marks'); // 'marks' | 'percentage' | 'name' | null
+  const [submissionSortDir, setSubmissionSortDir] = useState('desc'); // 'asc' | 'desc'
+  function toggleSubmissionSort(key) {
+    if (submissionSortKey !== key) { setSubmissionSortKey(key); setSubmissionSortDir('desc'); }
+    else if (submissionSortDir === 'desc') { setSubmissionSortDir('asc'); }
+    else { setSubmissionSortKey(null); } // third click clears back to original/roster order
+  }
 
   /* ── Course modal ── */
   const [showCourseModal, setShowCourseModal] = useState(false);
@@ -900,20 +946,23 @@ export default function AdminAssessments() {
     } catch { /* silent — next real fetch or action will reconcile */ }
   }, []);
 
-  // Default the Reports tab's year filter to the active academic year once
-  // it's known, so "Reports" opens scoped to the current year rather than
-  // "All Years" by default. Only runs once it becomes available and only if
-  // the admin hasn't already picked a year themselves.
+  // ── NEW: the header's Academic Year / Term scope cards are now the
+  // single source of truth for "which term, within which year" the whole
+  // page is looking at — Mark Submissions already followed them; Reports
+  // now does too, so switching the header instantly re-scopes whichever
+  // report is showing (no separate Term/Year pickers to keep in sync by
+  // hand inside the Reports tab anymore).
   useEffect(() => {
-    if (activeAcademicYear && !reportFilter.year) {
-      setReportFilter(f => (f.year ? f : { ...f, year: activeAcademicYear.name }));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeAcademicYear]);
+    setReportFilter(f => (
+      f.year === submissionYearFilter && f.term === submissionTermFilter
+        ? f
+        : { ...f, year: submissionYearFilter, term: submissionTermFilter }
+    ));
+  }, [submissionYearFilter, submissionTermFilter]);
 
-  // Same idea for the header's Academic Year card that scopes Mark
-  // Submissions: default it to the active year once known, but only if the
-  // admin hasn't already picked one themselves.
+  // Default the header's Academic Year card (and therefore Reports too,
+  // via the sync above) to the active academic year once it's known, but
+  // only if the admin hasn't already picked one themselves.
   useEffect(() => {
     if (activeAcademicYear && !submissionYearFilter) {
       setSubmissionYearFilter(activeAcademicYear.name);
@@ -1035,13 +1084,33 @@ export default function AdminAssessments() {
   useEffect(() => { if (tab === 'submissions') fetchSubmissions(); }, [tab, fetchSubmissions]);
 
   async function viewSubmission(assessmentId) {
-    setViewingSubmissionLoading(true);
-    setViewingSubmission(null);
+    const cached = submissionCacheRef.current[assessmentId];
+    if (cached) {
+      // Instant — already have it, no spinner, no waiting.
+      setViewingSubmission(cached);
+      setViewingSubmissionLoading(false);
+    } else {
+      setViewingSubmissionLoading(true);
+      setViewingSubmission(null);
+    }
     try {
       const res = await api.get('/assessment/admin/submissions/' + assessmentId);
+      submissionCacheRef.current[assessmentId] = res.data;
       setViewingSubmission(res.data);
-    } catch (e) { toast.error(e.response?.data?.message || 'Failed to load submission'); }
-    finally { setViewingSubmissionLoading(false); }
+    } catch (e) {
+      if (!cached) toast.error(e.response?.data?.message || 'Failed to load submission');
+    } finally {
+      setViewingSubmissionLoading(false);
+    }
+  }
+
+  // Silent, fire-and-forget — warms the cache for a tab the admin hasn't
+  // clicked into yet, without touching any loading/visible state.
+  function prefetchSubmission(assessmentId) {
+    if (!assessmentId || submissionCacheRef.current[assessmentId]) return;
+    api.get('/assessment/admin/submissions/' + assessmentId)
+      .then(res => { submissionCacheRef.current[assessmentId] = res.data; })
+      .catch(() => {});
   }
 
   async function approveSubmission(assessmentId) {
@@ -1050,16 +1119,17 @@ export default function AdminAssessments() {
       message: 'Approving this submission will update all reports. This action cannot be undone.',
       confirmText: 'Approve & Publish',
       onConfirm: async () => {
-        setConfirmModal(prev => ({ ...prev, loading: true }));
+        setConfirmModal(prev => ({ ...prev, loading: true, confirmText: 'Approving…' }));
         try {
           await api.post('/assessment/admin/submissions/' + assessmentId + '/approve');
+          delete submissionCacheRef.current[assessmentId]; // status changed — don't serve stale
           toast.success('Assessment approved');
           setViewingSubmission(null);
           fetchSubmissions();
           closeConfirm();
         } catch (e) {
           toast.error(e.response?.data?.message || 'Error approving');
-          setConfirmModal(prev => ({ ...prev, loading: false }));
+          setConfirmModal(prev => ({ ...prev, loading: false, confirmText: 'Approve & Publish' }));
         }
       },
     });
@@ -1067,14 +1137,19 @@ export default function AdminAssessments() {
 
   async function rejectSubmission(assessmentId) {
     setSubmissionActionLoading(true);
+    setConfirmModal(prev => ({ ...prev, loading: true, confirmText: 'Rejecting…' }));
     try {
       await api.post('/assessment/admin/submissions/' + assessmentId + '/reject', { note: rejectNote });
+      delete submissionCacheRef.current[assessmentId]; // status changed — don't serve stale
       toast.success('Assessment rejected — teacher can edit again');
       setRejectingId(null); setRejectNote('');
       setViewingSubmission(null);
       fetchSubmissions();
       closeConfirm();
-    } catch (e) { toast.error(e.response?.data?.message || 'Error rejecting'); }
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Error rejecting');
+      setConfirmModal(prev => ({ ...prev, loading: false, confirmText: 'Reject & Send Back' }));
+    }
     finally { setSubmissionActionLoading(false); }
   }
 
@@ -1484,10 +1559,18 @@ export default function AdminAssessments() {
   }
 
   /* Opens the Module Assessment Modal for a given course, defaulting to its
-   * first available tab (respecting the Term-based IA gating above). */
+   * first available tab (respecting the Term-based IA gating above), and
+   * warms the cache for the OTHER tabs in the background so switching to
+   * them is instant instead of showing another full loading spinner. */
   function openModuleModal(courseId) {
     setSubmissionCourseFilter(courseId);
-    setSubmissionTypeFilter(visibleAssessmentTypes[0]?.key || 'FA');
+    const firstType = visibleAssessmentTypes[0]?.key || 'FA';
+    setSubmissionTypeFilter(firstType);
+    visibleAssessmentTypes.forEach(t => {
+      if (t.key === firstType) return; // that one's about to fetch normally
+      const primary = primarySubmissionFor(courseId, submissionTeacherFilter, t.key);
+      if (primary) prefetchSubmission(primary._id || primary.id);
+    });
   }
   function closeModuleModal() {
     setSubmissionCourseFilter('');
@@ -1756,7 +1839,7 @@ export default function AdminAssessments() {
               displayValue={submissionYearFilter || 'All Years'}
               onChange={val => setSubmissionYearFilter(val)}
               label="Academic Year"
-              title="Scopes Mark Submissions to this academic year — click to change"
+              title="Scopes Mark Submissions and Reports to this academic year — click to change"
               dark={dark}
               options={(academicYears.length > 0 ? academicYears.map(y => y.name) : YEARS).map(y => ({ value: y, label: y }))}
             />
@@ -1768,7 +1851,7 @@ export default function AdminAssessments() {
               displayValue={submissionTermFilter || 'All Terms'}
               onChange={val => setSubmissionTermFilter(val)}
               label="Term"
-              title="Scopes Mark Submissions to this term — click to change"
+              title="Scopes Mark Submissions and Reports to this term — click to change"
               dark={dark}
               options={[{ value: '', label: 'All Terms' }, ...TERMS.map(t => ({ value: t, label: t }))]}
             />
@@ -2718,13 +2801,51 @@ export default function AdminAssessments() {
                             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                               <thead>
                                 <tr>
-                                  {['#', 'Student', 'Marks', `/ ${viewingSubmission.assessment?.max_marks}`, '%', 'Grade'].map(h => (
-                                    <th key={h} style={{ padding: '9px 14px', background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#7b839a' : '#6b7280', fontSize: 11, fontWeight: 700, textAlign: 'left' }}>{h}</th>
+                                  {[
+                                    { label: '#', key: null },
+                                    { label: 'Student', key: 'name' },
+                                    { label: 'Marks', key: 'marks' },
+                                    { label: `/ ${viewingSubmission.assessment?.max_marks}`, key: null },
+                                    { label: '%', key: 'percentage' },
+                                    { label: 'Grade', key: null },
+                                  ].map(({ label, key }) => (
+                                    <th
+                                      key={label}
+                                      onClick={key ? () => toggleSubmissionSort(key) : undefined}
+                                      title={key ? `Sort by ${key === 'name' ? 'student name' : 'performance'}` : undefined}
+                                      style={{
+                                        padding: '9px 14px', background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#7b839a' : '#6b7280',
+                                        fontSize: 11, fontWeight: 700, textAlign: 'left', userSelect: 'none',
+                                        cursor: key ? 'pointer' : 'default', whiteSpace: 'nowrap',
+                                      }}
+                                    >
+                                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                        {label}
+                                        {key && (
+                                          submissionSortKey === key
+                                            ? (submissionSortDir === 'desc' ? <ChevronDown size={12} color="#6366f1" /> : <ChevronRight size={12} color="#6366f1" style={{ transform: 'rotate(-90deg)' }} />)
+                                            : <ChevronDown size={12} style={{ opacity: 0.25 }} />
+                                        )}
+                                      </span>
+                                    </th>
                                   ))}
                                 </tr>
                               </thead>
                               <tbody>
-                                {(viewingSubmission.students || []).map((s, i) => (
+                                {[...(viewingSubmission.students || [])]
+                                  .sort((a, b) => {
+                                    if (!submissionSortKey) return 0;
+                                    const dir = submissionSortDir === 'asc' ? 1 : -1;
+                                    if (submissionSortKey === 'name') return (a.name || '').localeCompare(b.name || '') * dir;
+                                    // marks / percentage — unsubmitted-for-this-student values (null/undefined)
+                                    // always sink to the bottom regardless of sort direction.
+                                    const av = a[submissionSortKey], bv = b[submissionSortKey];
+                                    if (av == null && bv == null) return 0;
+                                    if (av == null) return 1;
+                                    if (bv == null) return -1;
+                                    return (av - bv) * dir;
+                                  })
+                                  .map((s, i) => (
                                   <tr key={s.student_id} style={{ background: i % 2 === 0 ? 'transparent' : (dark ? '#ffffff05' : '#f9fafb50') }}>
                                     <td style={{ padding: '9px 14px', fontSize: 12, color: dark ? '#7b839a' : '#9ca3af' }}>{i + 1}</td>
                                     <td style={{ padding: '9px 14px', fontSize: 13, fontWeight: 600, color: dark ? '#e2e8f0' : '#374151' }}>{s.name}</td>
@@ -2851,8 +2972,13 @@ export default function AdminAssessments() {
                     <label style={labelStyle}>Assessment</label>
                     <select value={reportFilter.assessmentId} onChange={e => setReportFilter(f => ({ ...f, assessmentId: e.target.value }))} className="filter-select" style={inputStyle}>
                       <option value="">Select assessment…</option>
-                      {assessments.map(a => <option key={a._id || a.id} value={a._id || a.id}>{a.title} — {a.course_id?.name}</option>)}
+                      {assessments
+                        .filter(a => (!submissionYearFilter || a.academic_year === submissionYearFilter) && (!submissionTermFilter || a.term === submissionTermFilter))
+                        .map(a => <option key={a._id || a.id} value={a._id || a.id}>{a.title} — {a.course_id?.name}</option>)}
                     </select>
+                    <p style={{ margin: '4px 0 0', fontSize: 10.5, color: dark ? '#7b839a' : '#9ca3af' }}>
+                      Only showing assessments from {submissionTermFilter || 'any term'} {submissionYearFilter ? `in ${submissionYearFilter}` : '(all years)'} — set at the top of the page.
+                    </p>
                   </div>
                 )}
                 {reportType === 'class' && (
@@ -2895,27 +3021,33 @@ export default function AdminAssessments() {
                   </>
                 )}
                 {(reportType === 'student' || reportType === 'class') && (
-                  <>
-                    <div>
-                      <label style={labelStyle}>Term</label>
-                      <select value={reportFilter.term} onChange={e => setReportFilter(f => ({ ...f, term: e.target.value }))} className="filter-select" style={inputStyle}>
-                        <option value="">Annual (1st, 2nd, 3rd + Overall)</option>
-                        {TERMS.map(t => <option key={t}>{t}</option>)}
-                      </select>
-                      <p style={{ margin: '4px 0 0', fontSize: 10.5, color: dark ? '#7b839a' : '#9ca3af' }}>
-                        {reportFilter.term
-                          ? `Only ${reportFilter.term} will be shown on the report.`
-                          : 'Annual report shows all three terms plus the overall annual average.'}
-                      </p>
+                  <div style={{ gridColumn: '1/-1' }}>
+                    {/* ── Term + Academic Year — now read straight from the
+                        header's scope cards instead of duplicate pickers
+                        in here, so there's exactly one place to change
+                        "which term, in which year" for the whole page. ── */}
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', borderRadius: 12,
+                      background: dark ? 'rgba(99,102,241,0.08)' : '#f5f6ff', border: `1px solid ${dark ? 'rgba(99,102,241,0.25)' : '#e0e4ff'}`,
+                    }}>
+                      <div style={{ width: 30, height: 30, borderRadius: 9, background: 'linear-gradient(135deg,#6366f1,#4338ca)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <Clock size={14} color="#fff" />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12.5, fontWeight: 700, color: dark ? '#e2e8f0' : '#111827' }}>
+                          {reportFilter.term ? `${reportFilter.term} report` : 'Annual report'}
+                          {reportFilter.year && <span style={{ fontWeight: 500, color: dark ? '#9aa2c0' : '#6b7280' }}> · {reportFilter.year}</span>}
+                          {!reportFilter.year && <span style={{ fontWeight: 500, color: dark ? '#9aa2c0' : '#6b7280' }}> · All Years</span>}
+                        </div>
+                        <div style={{ fontSize: 11, color: dark ? '#7b839a' : '#6b7280', marginTop: 1 }}>
+                          {reportFilter.term
+                            ? `Showing only ${reportFilter.term}.`
+                            : 'Showing all three terms plus the overall annual average.'}
+                          {' '}Change this using the <strong>Academic Year</strong> / <strong>Term</strong> selectors at the top of the page.
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <label style={labelStyle}>Academic Year</label>
-                      <select value={reportFilter.year} onChange={e => setReportFilter(f => ({ ...f, year: e.target.value }))} className="filter-select" style={inputStyle}>
-                        <option value="">All Years</option>
-                        {(academicYears.length > 0 ? academicYears.map(y => y.name) : YEARS).map(y => <option key={y}>{y}</option>)}
-                      </select>
-                    </div>
-                  </>
+                  </div>
                 )}
               </div>
             </div>
@@ -2973,7 +3105,7 @@ export default function AdminAssessments() {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 380px', gap: 20, alignItems: 'start' }}>
-            <ReportConfigPanel config={reportConfig} onChange={cfg => setReportConfig(cfg)} dark={dark} />
+            <ReportConfigPanel config={reportConfig} onChange={cfg => setReportConfig(cfg)} dark={dark} scopeYear={submissionYearFilter || activeAcademicYear?.name || ''} />
             <div style={{ position: isMobile ? 'static' : 'sticky', top: 20 }}>
               <div style={{ ...card, marginBottom: 12 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
@@ -3130,8 +3262,15 @@ export default function AdminAssessments() {
       >
         {confirmModal.variant === 'reject' && (
           <div>
-            <label style={{ fontSize: 11, fontWeight: 600, color: dark ? '#7b839a' : '#6b7280', marginBottom: 5, display: 'block', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Rejection Note (optional)</label>
-            <textarea value={rejectNote} onChange={e => setRejectNote(e.target.value)} rows={3} placeholder="Explain what needs to be corrected…" style={{ width: '100%', padding: '9px 12px', borderRadius: 10, boxSizing: 'border-box', border: `1px solid ${dark ? '#2a3042' : '#d1d5db'}`, background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#e2e8f0' : '#111827', fontSize: 13, outline: 'none', resize: 'vertical' }} />
+            <label style={{ fontSize: 11, fontWeight: 600, color: dark ? '#7b839a' : '#6b7280', marginBottom: 5, display: 'block', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Rejection Note</label>
+            <textarea
+              value={rejectNote}
+              onChange={e => setRejectNote(e.target.value)}
+              rows={3}
+              disabled={confirmModal.loading}
+              placeholder="Explain what needs to be corrected…"
+              style={{ width: '100%', padding: '9px 12px', borderRadius: 10, boxSizing: 'border-box', border: `1px solid ${dark ? '#2a3042' : '#d1d5db'}`, background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#e2e8f0' : '#111827', fontSize: 13, outline: 'none', resize: 'vertical', opacity: confirmModal.loading ? 0.6 : 1 }}
+            />
           </div>
         )}
       </ConfirmModal>

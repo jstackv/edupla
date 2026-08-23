@@ -493,7 +493,7 @@ function MembersPanel({ group, onClose }) {
               <div style={{ width: 42, height: 42, borderRadius: '50%', flexShrink: 0, background: isLeader ? `linear-gradient(135deg, ${a}, ${b})` : 'linear-gradient(135deg, #4b5563, #33383f)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 15 }}>{m.name[0].toUpperCase()}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</div>
-                {isLeader && <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}><Crown style={{ width: 11, height: 11, color: GOLD }} /><span style={{ fontSize: 11, fontWeight: 600, color: '#a16207' }}>Team Leader</span></div>}
+                {isLeader && <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}><Crown style={{ width: 11, height: 11, color: GOLD }} /><span style={{ fontSize: 11, fontWeight: 600, color: '#a16207' }}>Class Monitor</span></div>}
               </div>
             </div>
           );
@@ -1177,7 +1177,7 @@ function ThreadPane({ entry, myId, myName, onBack, onOpenTeacherDm, onEntryActiv
         </div>
       ) : entry.type === 'group' && thread.groupMeta?.team_leader ? (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '6px 14px', background: 'var(--surface-100)', borderBottom: '1px solid var(--card-border)', flexShrink: 0 }}>
-          <span style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 5, fontWeight: 600, color: 'var(--text-secondary)' }}><Crown style={{ width: 13, height: 13, color: GOLD }} /> Team leader: <strong style={{ color: 'var(--text-primary)' }}>{thread.groupMeta.team_leader.name}</strong></span>
+          <span style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 5, fontWeight: 600, color: 'var(--text-secondary)' }}><Crown style={{ width: 13, height: 13, color: GOLD }} /> Class Monitor: <strong style={{ color: 'var(--text-primary)' }}>{thread.groupMeta.team_leader.name}</strong></span>
           <button onClick={() => setClearConfirm(true)} className="wa-clear-mine-btn"><Trash2 style={{ width: 10, height: 10 }} /> Clear mine</button>
         </div>
       ) : (
@@ -1304,7 +1304,7 @@ function InboxRow({ entry, active, onClick, index }) {
         {entry.type === 'group' && (
           <div className="flex items-center gap-1.5 flex-wrap mt-1">
             <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ background: `${a}18`, color: a }}>{entry.className}</span>
-            {entry.isLeader && <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold flex items-center gap-1" style={{ background: 'rgba(234,179,8,0.14)', color: '#a16207' }}><Crown className="w-2.5 h-2.5" /> Leader</span>}
+            {entry.isLeader && <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold flex items-center gap-1" style={{ background: 'rgba(234,179,8,0.14)', color: '#a16207' }}><Crown className="w-2.5 h-2.5" /> Class Monitor</span>}
             {entry.mentionCount > 0 && <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold flex items-center gap-1" style={{ background: 'rgba(220,38,38,0.1)', color: '#dc2626' }}><AtSign className="w-2.5 h-2.5" /> {entry.mentionCount}</span>}
           </div>
         )}
