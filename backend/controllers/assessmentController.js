@@ -3401,56 +3401,86 @@ exports.studentDownloadAttemptResponsePdf = async (req, res) => {
     const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
     const startX = doc.page.margins.left;
     const pageBottom = doc.page.height - doc.page.margins.bottom;
+    const barW = 5;                    // left accent bar
+    const padX = 18;                   // card inner horizontal padding
+    const contentX = startX + barW + padX;
+    const contentW = pageWidth - barW - padX * 2;
+    const badgeSize = 22;              // question-number badge
+    const panelGap = 14;
+    const panelW = (contentW - panelGap) / 2;
+    const panelPadX = 12;
+    const panelPadY = 10;
 
     answers.forEach((a, i) => {
       const verdictColor = a.needs_manual_grading ? '#d97706' : a.is_correct === true ? PDF_THEME.pass : a.is_correct === false ? PDF_THEME.fail : PDF_THEME.textMuted;
       const verdictLabel = a.needs_manual_grading ? 'Pending review' : a.is_correct === true ? 'Correct' : a.is_correct === false ? 'Incorrect' : 'Not answered';
-
-      // Measure the card's height up front (question + student answer +
-      // correct answer, each word-wrapped) so we can page-break BEFORE
-      // drawing if it wouldn't fit, rather than splitting a card in half.
-      doc.font('Helvetica-Bold').fontSize(10.5);
-      const qHeight = doc.heightOfString(`${i + 1}. ${a.question_text}`, { width: pageWidth - 24 });
-      doc.font('Helvetica').fontSize(9.5);
       const studentAnsText = a.student_answer || 'No answer submitted';
       const correctAnsText = a.correct_answer || 'No reference answer set';
-      const saHeight = doc.heightOfString(studentAnsText, { width: pageWidth - 130 });
-      const caHeight = doc.heightOfString(correctAnsText, { width: pageWidth - 130 });
-      const cardHeight = 14 + qHeight + 10 + Math.max(saHeight, 14) + 8 + Math.max(caHeight, 14) + 16;
 
-      if (doc.y + cardHeight > pageBottom) doc.addPage();
+      // Measure everything up front (question header + both answer panels)
+      // so we can page-break BEFORE drawing if a card wouldn't fit, rather
+      // than splitting a card across two pages.
+      doc.font('Helvetica-Bold').fontSize(7.5);
+      const pillText = `${verdictLabel}${a.marks != null ? `  •  ${a.score_awarded ?? 0}/${a.marks}` : ''}`;
+      const pillW = doc.widthOfString(pillText) + 20;
+      const questionColW = contentW - badgeSize - 12 - pillW - 10;
+
+      doc.font('Helvetica-Bold').fontSize(11);
+      const qHeight = doc.heightOfString(a.question_text, { width: questionColW });
+      const headerH = Math.max(badgeSize, qHeight, 20) + 18;
+
+      doc.font('Helvetica').fontSize(9.5);
+      const saHeight = doc.heightOfString(studentAnsText, { width: panelW - panelPadX * 2 });
+      const caHeight = doc.heightOfString(correctAnsText, { width: panelW - panelPadX * 2 });
+      const panelH = Math.max(saHeight, caHeight, 14) + panelPadY * 2 + 16;
+
+      const cardHeight = 16 + headerH + panelH + 16;
+
+      if (doc.y + cardHeight + 18 > pageBottom) doc.addPage();
       const cardTop = doc.y;
 
-      // Card background + left accent bar in the verdict color
-      doc.roundedRect(startX, cardTop, pageWidth, cardHeight, 8).fill(PDF_THEME.zebra);
-      doc.rect(startX, cardTop, 4, cardHeight).fill(verdictColor);
+      // Card shell + left accent bar
+      doc.roundedRect(startX, cardTop, pageWidth, cardHeight, 10).fill(PDF_THEME.zebra);
+      doc.rect(startX, cardTop, barW, cardHeight).fill(verdictColor);
 
-      let y = cardTop + 10;
-      doc.font('Helvetica-Bold').fontSize(10.5).fillColor(PDF_THEME.text)
-        .text(`${i + 1}. ${a.question_text}`, startX + 14, y, { width: pageWidth - 24 });
-      y += qHeight + 6;
+      // ── Header: number badge · question text · verdict pill ──
+      const headTop = cardTop + 16;
+      doc.roundedRect(contentX, headTop, badgeSize, badgeSize, badgeSize / 2)
+        .fillOpacity(0.16).fill(verdictColor);
+      doc.fillOpacity(1).fillColor(verdictColor).font('Helvetica-Bold').fontSize(10)
+        .text(String(i + 1), contentX, headTop + 6, { width: badgeSize, align: 'center' });
 
-      // Marks + verdict pill, right-aligned on the question's first line
-      const pillText = `${verdictLabel} ${a.score_awarded != null ? `• ${a.score_awarded}/${a.marks}` : `• /${a.marks}`}`;
-      doc.font('Helvetica-Bold').fontSize(7.5);
-      const pillW = doc.widthOfString(pillText) + 14;
-      doc.fillOpacity(0.15).fillColor(verdictColor).roundedRect(startX + pageWidth - pillW - 14, cardTop + 10, pillW, 16, 8).fill();
-      doc.fillOpacity(1).fillColor(verdictColor).text(pillText, startX + pageWidth - pillW - 14, cardTop + 14, { width: pillW, align: 'center' });
+      doc.fillColor(PDF_THEME.text).font('Helvetica-Bold').fontSize(11)
+        .text(a.question_text, contentX + badgeSize + 12, headTop + 2, { width: questionColW });
 
-      y += 4;
-      doc.font('Helvetica-Bold').fontSize(7.5).fillColor(PDF_THEME.textMuted)
-        .text('YOUR ANSWER', startX + 14, y, { width: 100, characterSpacing: 0.4 });
-      doc.font('Helvetica').fontSize(9.5).fillColor(a.needs_manual_grading ? PDF_THEME.text : verdictColor)
-        .text(studentAnsText, startX + 130, y - 1, { width: pageWidth - 144 });
-      y += Math.max(saHeight, 14) + 8;
-
-      doc.font('Helvetica-Bold').fontSize(7.5).fillColor(PDF_THEME.textMuted)
-        .text('REFERENCE ANSWER', startX + 14, y, { width: 100, characterSpacing: 0.4 });
-      doc.font('Helvetica').fontSize(9.5).fillColor(PDF_THEME.text)
-        .text(correctAnsText, startX + 130, y - 1, { width: pageWidth - 144 });
-
-      doc.y = cardTop + cardHeight + 12;
+      const pillX = startX + pageWidth - padX - pillW;
+      doc.roundedRect(pillX, headTop, pillW, 20, 10).fillOpacity(0.16).fill(verdictColor);
+      doc.fillOpacity(1).fillColor(verdictColor).font('Helvetica-Bold').fontSize(8)
+        .text(pillText, pillX, headTop + 6, { width: pillW, align: 'center' });
       doc.fillColor('#000000');
+
+      // ── Two side-by-side answer panels ──
+      const panelsTop = headTop + headerH;
+      const rightPanelX = contentX + panelW + panelGap;
+
+      // "Your answer" panel — tinted in the verdict color so a glance at
+      // the page tells you correct vs incorrect without reading the text.
+      doc.roundedRect(contentX, panelsTop, panelW, panelH, 8).fillOpacity(0.1).fill(verdictColor);
+      doc.fillOpacity(1).fillColor(verdictColor).font('Helvetica-Bold').fontSize(7.5)
+        .text('YOUR ANSWER', contentX + panelPadX, panelsTop + panelPadY, { width: panelW - panelPadX * 2, characterSpacing: 0.5 });
+      doc.fillColor(a.needs_manual_grading ? PDF_THEME.text : verdictColor).font('Helvetica').fontSize(9.5)
+        .text(studentAnsText, contentX + panelPadX, panelsTop + panelPadY + 13, { width: panelW - panelPadX * 2 });
+
+      // "Reference answer" panel — always a calm green tint, since it's
+      // always correct by definition (the model/teacher answer).
+      doc.roundedRect(rightPanelX, panelsTop, panelW, panelH, 8).fillOpacity(0.08).fill(PDF_THEME.pass);
+      doc.fillOpacity(1).fillColor(PDF_THEME.pass).font('Helvetica-Bold').fontSize(7.5)
+        .text('REFERENCE ANSWER', rightPanelX + panelPadX, panelsTop + panelPadY, { width: panelW - panelPadX * 2, characterSpacing: 0.5 });
+      doc.fillColor('#047857').font('Helvetica-Bold').fontSize(9.5)
+        .text(correctAnsText, rightPanelX + panelPadX, panelsTop + panelPadY + 13, { width: panelW - panelPadX * 2 });
+
+      doc.fillColor('#000000');
+      doc.y = cardTop + cardHeight + 16;
     });
 
     pdfDrawFooter(doc, { generatedAt: new Date().toLocaleString() });

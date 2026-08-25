@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
+import { useAuth } from '../../context/AuthContext';
 import Modal from '../../components/common/Modal';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import ImpersonateButton from '../../components/common/ImpersonateButton';
@@ -81,7 +82,7 @@ function StatusBadge({ is_active }) {
 }
 
 /* ── Teacher Card (grid) ── */
-function TeacherCard({ teacher: t, onEdit, onDelete, onToggle, onResetPassword, animDelay = 0 }) {
+function TeacherCard({ teacher: t, onEdit, onDelete, onToggle, onResetPassword, isSuperAdmin, animDelay = 0 }) {
   const [hovered, setHovered] = useState(false);
   const [from, to] = getAvatarColors(t.name);
 
@@ -107,7 +108,7 @@ function TeacherCard({ teacher: t, onEdit, onDelete, onToggle, onResetPassword, 
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 }}>
           <Avatar name={t.name} size={48} />
           <div style={{ display: 'flex', gap: 3, opacity: hovered ? 1 : 0, transition: 'opacity 0.18s' }}>
-            <ImpersonateButton userId={t.id} name={t.name} />
+            {isSuperAdmin && <ImpersonateButton userId={t.id} name={t.name} />}
             <button onClick={() => onResetPassword(t)} title="Reset password"
               style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#eef2ff', display: 'flex' }}>
               <KeyRound size={13} style={{ color: '#6366f1' }} />
@@ -120,10 +121,12 @@ function TeacherCard({ teacher: t, onEdit, onDelete, onToggle, onResetPassword, 
               style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#fef2f2', display: 'flex' }}>
               <Trash2 size={13} style={{ color: '#ef4444' }} />
             </button>
-            <button onClick={() => onToggle(t)} title={t.is_active !== false ? 'Deactivate' : 'Activate'}
-              style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: t.is_active !== false ? '#fef3c7' : '#ecfdf5', display: 'flex' }}>
-              {t.is_active !== false ? <ToggleRight size={13} style={{ color: '#d97706' }} /> : <ToggleLeft size={13} style={{ color: '#10b981' }} />}
-            </button>
+            {isSuperAdmin && (
+              <button onClick={() => onToggle(t)} title={t.is_active !== false ? 'Deactivate' : 'Activate'}
+                style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: t.is_active !== false ? '#fef3c7' : '#ecfdf5', display: 'flex' }}>
+                {t.is_active !== false ? <ToggleRight size={13} style={{ color: '#d97706' }} /> : <ToggleLeft size={13} style={{ color: '#10b981' }} />}
+              </button>
+            )}
           </div>
         </div>
 
@@ -182,7 +185,7 @@ function TeacherCard({ teacher: t, onEdit, onDelete, onToggle, onResetPassword, 
 }
 
 /* ── Teacher Row (table) ── */
-function TeacherRow({ teacher: t, onEdit, onDelete, onToggle, onResetPassword, animDelay = 0 }) {
+function TeacherRow({ teacher: t, onEdit, onDelete, onToggle, onResetPassword, isSuperAdmin, animDelay = 0 }) {
   const [hovered, setHovered] = useState(false);
   const [from] = getAvatarColors(t.name);
 
@@ -241,7 +244,7 @@ function TeacherRow({ teacher: t, onEdit, onDelete, onToggle, onResetPassword, a
       </td>
       <td style={{ padding: '10px 16px', textAlign: 'right' }}>
         <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end', opacity: hovered ? 1 : 0.3, transition: 'opacity 0.15s' }}>
-          <ImpersonateButton userId={t.id} name={t.name} />
+          {isSuperAdmin && <ImpersonateButton userId={t.id} name={t.name} />}
           <button onClick={() => onResetPassword(t)} title="Reset password"
             style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#eef2ff', display: 'flex' }}>
             <KeyRound size={13} style={{ color: '#6366f1' }} />
@@ -254,10 +257,12 @@ function TeacherRow({ teacher: t, onEdit, onDelete, onToggle, onResetPassword, a
             style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#fef2f2', display: 'flex' }}>
             <Trash2 size={13} style={{ color: '#ef4444' }} />
           </button>
-          <button onClick={() => onToggle(t)} title={t.is_active !== false ? 'Deactivate' : 'Activate'}
-            style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: t.is_active !== false ? '#fef3c7' : '#ecfdf5', display: 'flex' }}>
-            {t.is_active !== false ? <ToggleRight size={13} style={{ color: '#d97706' }} /> : <ToggleLeft size={13} style={{ color: '#10b981' }} />}
-          </button>
+          {isSuperAdmin && (
+            <button onClick={() => onToggle(t)} title={t.is_active !== false ? 'Deactivate' : 'Activate'}
+              style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: t.is_active !== false ? '#fef3c7' : '#ecfdf5', display: 'flex' }}>
+              {t.is_active !== false ? <ToggleRight size={13} style={{ color: '#d97706' }} /> : <ToggleLeft size={13} style={{ color: '#10b981' }} />}
+            </button>
+          )}
         </div>
       </td>
     </tr>
@@ -266,6 +271,8 @@ function TeacherRow({ teacher: t, onEdit, onDelete, onToggle, onResetPassword, a
 
 /* ══ MAIN ══ */
 export default function AdminTeachers() {
+  const { user } = useAuth();
+  const isSuperAdmin = !!user?.is_super_admin;
   const [teachers, setTeachers] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -506,7 +513,7 @@ export default function AdminTeachers() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 }}>
           {teachers.map((t, i) => (
             <TeacherCard key={t.id} teacher={t} animDelay={i * 45}
-              onEdit={openModal} onDelete={setDeleteTarget} onToggle={handleToggle} onResetPassword={setResetTarget} />
+              onEdit={openModal} onDelete={setDeleteTarget} onToggle={handleToggle} onResetPassword={setResetTarget} isSuperAdmin={isSuperAdmin} />
           ))}
         </div>
       ) : (
@@ -526,7 +533,7 @@ export default function AdminTeachers() {
             <tbody>
               {teachers.map((t, i) => (
                 <TeacherRow key={t.id} teacher={t} animDelay={i * 35}
-                  onEdit={openModal} onDelete={setDeleteTarget} onToggle={handleToggle} onResetPassword={setResetTarget} />
+                  onEdit={openModal} onDelete={setDeleteTarget} onToggle={handleToggle} onResetPassword={setResetTarget} isSuperAdmin={isSuperAdmin} />
               ))}
             </tbody>
           </table>

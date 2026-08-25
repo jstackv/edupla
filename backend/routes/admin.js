@@ -216,7 +216,7 @@ router.get('/stats', getDashboardStats);
 router.get('/teachers', getTeachers);
 router.post('/teachers', createTeacher);
 router.put('/teachers/:id', updateTeacher);
-router.patch('/teachers/:id/toggle-status', toggleTeacherStatus);
+router.patch('/teachers/:id/toggle-status', isSuperAdmin, toggleTeacherStatus);
 router.post('/teachers/:id/reset-password', resetTeacherPassword);
 router.delete('/teachers/:id', deleteTeacher);
 
@@ -275,7 +275,7 @@ router.get('/students', getAllStudents);
 router.post('/students', adminCreateStudent);
 router.get('/students/:id', adminGetStudentDetail);
 router.put('/students/:id', adminUpdateStudent);
-router.patch('/students/:id/toggle-status', toggleStudentStatus);
+router.patch('/students/:id/toggle-status', isSuperAdmin, toggleStudentStatus);
 router.post('/students/:id/reset-password', resetStudentPassword);
 router.delete('/students/:id', adminDeleteStudent);
 router.post('/students/:id/assign', adminAssignStudentToClass);

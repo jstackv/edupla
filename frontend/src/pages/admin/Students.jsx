@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
+import { useAuth } from '../../context/AuthContext';
 import Modal from '../../components/common/Modal';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import Pagination from '../../components/common/Pagination';
@@ -112,7 +113,7 @@ function StatStrip({ students, levels = [], trades = [] }) {
 }
 
 /* ── Student Card (grid) ── */
-function StudentCard({ student: s, levels = [], trades = [], onEdit, onDelete, onToggle, onResetPassword, animDelay = 0 }) {
+function StudentCard({ student: s, levels = [], trades = [], onEdit, onDelete, onToggle, onResetPassword, isSuperAdmin, animDelay = 0 }) {
   const [hovered, setHovered] = useState(false);
   const [from] = getAvatarColors(s.name);
 
@@ -138,7 +139,7 @@ function StudentCard({ student: s, levels = [], trades = [], onEdit, onDelete, o
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
           <Avatar name={s.name} size={44} />
           <div style={{ display: 'flex', gap: 3, opacity: hovered ? 1 : 0, transition: 'opacity 0.18s' }}>
-            <ImpersonateButton userId={s.id} name={s.name} />
+            {isSuperAdmin && <ImpersonateButton userId={s.id} name={s.name} />}
             <button onClick={() => onResetPassword(s)} title="Reset password"
               style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#eef2ff', display: 'flex', transition: 'background 0.15s' }}>
               <KeyRound size={13} style={{ color: '#6366f1' }} />
@@ -151,10 +152,12 @@ function StudentCard({ student: s, levels = [], trades = [], onEdit, onDelete, o
               style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#fef2f2', display: 'flex', transition: 'background 0.15s' }}>
               <Trash2 size={13} style={{ color: '#ef4444' }} />
             </button>
-            <button onClick={() => onToggle(s)} title={s.is_active !== false ? 'Deactivate' : 'Activate'}
-              style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: s.is_active !== false ? '#fef3c7' : '#ecfdf5', display: 'flex', transition: 'background 0.15s' }}>
-              {s.is_active !== false ? <ToggleRight size={13} style={{ color: '#d97706' }} /> : <ToggleLeft size={13} style={{ color: '#10b981' }} />}
-            </button>
+            {isSuperAdmin && (
+              <button onClick={() => onToggle(s)} title={s.is_active !== false ? 'Deactivate' : 'Activate'}
+                style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: s.is_active !== false ? '#fef3c7' : '#ecfdf5', display: 'flex', transition: 'background 0.15s' }}>
+                {s.is_active !== false ? <ToggleRight size={13} style={{ color: '#d97706' }} /> : <ToggleLeft size={13} style={{ color: '#10b981' }} />}
+              </button>
+            )}
           </div>
         </div>
 
@@ -193,7 +196,7 @@ function StudentCard({ student: s, levels = [], trades = [], onEdit, onDelete, o
 }
 
 /* ── Student Row (table) ── */
-function StudentRow({ student: s, levels = [], trades = [], onEdit, onDelete, onToggle, onResetPassword, animDelay = 0 }) {
+function StudentRow({ student: s, levels = [], trades = [], onEdit, onDelete, onToggle, onResetPassword, isSuperAdmin, animDelay = 0 }) {
   const [hovered, setHovered] = useState(false);
   return (
     <tr
@@ -239,7 +242,7 @@ function StudentRow({ student: s, levels = [], trades = [], onEdit, onDelete, on
       </td>
       <td style={{ padding: '10px 16px', textAlign: 'right' }}>
         <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end', opacity: hovered ? 1 : 0.3, transition: 'opacity 0.15s' }}>
-          <ImpersonateButton userId={s.id} name={s.name} />
+          {isSuperAdmin && <ImpersonateButton userId={s.id} name={s.name} />}
           <button onClick={() => onResetPassword(s)} title="Reset password"
             style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#eef2ff', display: 'flex' }}>
             <KeyRound size={13} style={{ color: '#6366f1' }} />
@@ -252,10 +255,12 @@ function StudentRow({ student: s, levels = [], trades = [], onEdit, onDelete, on
             style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#fef2f2', display: 'flex' }}>
             <Trash2 size={13} style={{ color: '#ef4444' }} />
           </button>
-          <button onClick={() => onToggle(s)} title={s.is_active !== false ? 'Deactivate' : 'Activate'}
-            style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: s.is_active !== false ? '#fef3c7' : '#ecfdf5', display: 'flex' }}>
-            {s.is_active !== false ? <ToggleRight size={13} style={{ color: '#d97706' }} /> : <ToggleLeft size={13} style={{ color: '#10b981' }} />}
-          </button>
+          {isSuperAdmin && (
+            <button onClick={() => onToggle(s)} title={s.is_active !== false ? 'Deactivate' : 'Activate'}
+              style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: s.is_active !== false ? '#fef3c7' : '#ecfdf5', display: 'flex' }}>
+              {s.is_active !== false ? <ToggleRight size={13} style={{ color: '#d97706' }} /> : <ToggleLeft size={13} style={{ color: '#10b981' }} />}
+            </button>
+          )}
         </div>
       </td>
     </tr>
@@ -264,6 +269,8 @@ function StudentRow({ student: s, levels = [], trades = [], onEdit, onDelete, on
 
 /* ══ MAIN ══ */
 export default function AdminStudents() {
+  const { user } = useAuth();
+  const isSuperAdmin = !!user?.is_super_admin;
   const [students, setStudents] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -576,7 +583,7 @@ export default function AdminStudents() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 }}>
           {students.map((s, i) => (
             <StudentCard key={s.id} student={s} animDelay={i * 45}
-              onEdit={openModal} onDelete={setDeleteTarget} onToggle={handleToggle} onResetPassword={setResetTarget} />
+              onEdit={openModal} onDelete={setDeleteTarget} onToggle={handleToggle} onResetPassword={setResetTarget} isSuperAdmin={isSuperAdmin} />
           ))}
         </div>
       ) : (
@@ -596,7 +603,7 @@ export default function AdminStudents() {
             <tbody>
               {students.map((s, i) => (
                 <StudentRow key={s.id} student={s} animDelay={i * 35}
-                  onEdit={openModal} onDelete={setDeleteTarget} onToggle={handleToggle} onResetPassword={setResetTarget} />
+                  onEdit={openModal} onDelete={setDeleteTarget} onToggle={handleToggle} onResetPassword={setResetTarget} isSuperAdmin={isSuperAdmin} />
               ))}
             </tbody>
           </table>

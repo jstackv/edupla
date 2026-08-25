@@ -450,43 +450,51 @@ export default function StudentResultModal({ assessment, onClose }) {
   const activeAssessment = data?.assessments.find(a => String(a.assessment_id) === activeTab);
 
   return (
-    <Modal isOpen={true} onClose={onClose} title={loading ? assessment.title : `Your Result — ${data.type_label}`} size="xl">
-      {loading || !data ? (
-        <div className="flex items-center justify-center py-16">
-          <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--text-secondary)' }} />
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {tabs.length > 1 && (
-            <div className="srm-tabs">
-              {tabs.map(t => (
-                <button
-                  key={t.key}
-                  onClick={() => setActiveTab(t.key)}
-                  className={`srm-tab ${activeTab === t.key ? 'srm-tab-active' : ''}`}
-                  title={t.title}
-                >
-                  {t.key === 'overall'
-                    ? <Layers className="w-3.5 h-3.5" />
-                    : <span className="srm-tab-dot" style={{ color: activeTab === t.key ? '#fff' : t.color }} />}
-                  {t.label}
-                  {activeTab !== t.key && <ChevronRight className="w-3 h-3 opacity-40" />}
-                </button>
-              ))}
-            </div>
-          )}
+    <>
+      <Modal isOpen={true} onClose={onClose} title={loading ? assessment.title : `Your Result — ${data.type_label}`} size="xl" hidden={!!viewingAttemptId}>
+        {loading || !data ? (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--text-secondary)' }} />
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {tabs.length > 1 && (
+              <div className="srm-tabs">
+                {tabs.map(t => (
+                  <button
+                    key={t.key}
+                    onClick={() => setActiveTab(t.key)}
+                    className={`srm-tab ${activeTab === t.key ? 'srm-tab-active' : ''}`}
+                    title={t.title}
+                  >
+                    {t.key === 'overall'
+                      ? <Layers className="w-3.5 h-3.5" />
+                      : <span className="srm-tab-dot" style={{ color: activeTab === t.key ? '#fff' : t.color }} />}
+                    {t.label}
+                    {activeTab !== t.key && <ChevronRight className="w-3 h-3 opacity-40" />}
+                  </button>
+                ))}
+              </div>
+            )}
 
-          {activeTab === 'overall'
-            ? <OverallPanel data={data} />
-            : activeAssessment
-              ? <AssessmentPanel a={activeAssessment} moduleName={data.course.name} onViewResponse={setViewingAttemptId} />
-              : null}
-        </div>
-      )}
+            {activeTab === 'overall'
+              ? <OverallPanel data={data} />
+              : activeAssessment
+                ? <AssessmentPanel a={activeAssessment} moduleName={data.course.name} onViewResponse={setViewingAttemptId} />
+                : null}
+          </div>
+        )}
+      </Modal>
 
+      {/* Rendered as a SIBLING of the results Modal, not a child — nesting
+          it inside would mean the `hidden` (display:none) trick on the
+          results modal also hides this one, since display:none propagates
+          to descendants. As a sibling, this modal renders its own
+          independent backdrop on top while the results modal underneath
+          is invisibly parked, ready the moment this one closes. */}
       {viewingAttemptId && (
         <AttemptResponseModal attemptId={viewingAttemptId} onClose={() => setViewingAttemptId(null)} />
       )}
-    </Modal>
+    </>
   );
 }

@@ -388,7 +388,7 @@ function CountdownShowcase({ target, locked, windowStart, windowEnd }) {
       <div className="flex items-center gap-2 mb-3 relative">
         {locked ? <CalendarClock className="w-4 h-4" style={{ color }} /> : <Hourglass className={`w-4 h-4 ${urgent ? 'assessment-timer-urgent' : ''}`} style={{ color }} />}
         <p className="text-xs font-bold uppercase tracking-wide" style={{ color }}>
-          {doneNow ? (locked ? 'Opening now…' : "Time's up") : locked ? 'Opens for starting in' : 'Time left to start / attempt'}
+          {doneNow ? (locked ? 'Opening now…' : "Time's up") : locked ? 'Opens for starting in' : 'Assessment will expire in...'}
         </p>
       </div>
 
@@ -487,13 +487,6 @@ function InstructionsModal({ assessment, onClose, onStart, starting }) {
               {data.instructions}
             </div>
           )}
-
-          <div className="sa-note sa-note-amber p-3.5 rounded-xl text-sm flex items-start gap-2.5">
-            <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5 assessment-timer-urgent" />
-            <p style={{ color: 'var(--text-secondary)' }}>
-              This opens in full screen. Leaving the exam screen or switching to another window/tab submits it automatically, and it also submits automatically when the timer runs out. Make sure you're ready before you start.
-            </p>
-          </div>
 
           <div className="flex justify-end gap-2">
             <button onClick={onClose} className="btn-secondary">Cancel</button>

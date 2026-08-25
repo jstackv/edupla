@@ -13,13 +13,23 @@ import { X } from 'lucide-react';
  *               ring, the background orbs, and any `--qm-accent`-based
  *               styling inside the modal body (defaults to indigo).
  *   accent2   — second gradient stop (defaults to `accent`).
+ *   hidden    — keeps the modal mounted (state, scroll position, and any
+ *               in-flight data fetch all survive) but visually invisible
+ *               and non-interactive. Use this instead of unmounting when
+ *               a second modal needs to open "on top of" this one — e.g.
+ *               opening a details modal from a list modal. Two mounted
+ *               Modals would otherwise each render their own full-screen
+ *               backdrop/blur/glow, which visibly doubles up and looks
+ *               broken; `hidden` keeps exactly one backdrop on screen at
+ *               a time while preserving the state underneath so it's
+ *               instantly back to where it was when the top modal closes.
  *
  * Every consumer that passes the same accent/accent2 pair gets a
  * visually identical treatment — keep colors uniform across modals by
  * reusing the same two hex values everywhere rather than inventing a
  * new palette per modal.
  */
-export default function Modal({ isOpen, onClose, title, children, size = 'md', icon: Icon, accent, accent2 }) {
+export default function Modal({ isOpen, onClose, title, children, size = 'md', icon: Icon, accent, accent2, hidden = false }) {
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -38,7 +48,11 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md', i
   return (
     <div
       className="qm-backdrop fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.62)', backdropFilter: 'blur(6px)', '--qm-accent': accentColor, '--qm-accent-2': accentColor2 }}
+      style={{
+        background: 'rgba(0,0,0,0.62)', backdropFilter: 'blur(6px)',
+        '--qm-accent': accentColor, '--qm-accent-2': accentColor2,
+        ...(hidden ? { display: 'none' } : {}),
+      }}
       onClick={e => { if (e.target === e.currentTarget) onClose?.(); }}
     >
       <div className="qm2-orb-field" aria-hidden="true">
