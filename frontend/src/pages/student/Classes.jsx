@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
-import { BookMarked, Users, ClipboardCheck, GraduationCap, Award, Mail, Copy, Check } from 'lucide-react';
+import { BookMarked, Users, ClipboardCheck, GraduationCap, Award, Mail, Phone, Copy, Check } from 'lucide-react';
 
 /* Each class gets a stable two-tone identity + accent, hashed from its id so
    the same class always renders the same way, and multiple classes read as
@@ -189,17 +189,21 @@ export default function StudentClasses() {
 
                   <div className="clsx-stat-row">
                     <div className="clsx-stat-tile" style={{ animationDelay: '80ms' }}>
-                      <div className="clsx-stat-icon"><Users className="w-4 h-4" /></div>
-                      <div>
-                        <div className="clsx-stat-num">{cls.student_count ?? 0}</div>
-                        <div className="clsx-stat-label">Classmates</div>
+                      <div className="clsx-stat-icon"><Mail className="w-4 h-4" /></div>
+                      <div className="min-w-0">
+                        <div className="clsx-stat-num truncate" style={{ fontSize: '0.85rem' }}>
+                          {cls.teacher_email || '—'}
+                        </div>
+                        <div className="clsx-stat-label">Email</div>
                       </div>
                     </div>
                     <div className="clsx-stat-tile" style={{ animationDelay: '140ms' }}>
-                      <div className="clsx-stat-icon"><ClipboardCheck className="w-4 h-4" /></div>
-                      <div>
-                        <div className="clsx-stat-num">{cls.assessment_count ?? 0}</div>
-                        <div className="clsx-stat-label">Assessments</div>
+                      <div className="clsx-stat-icon"><Phone className="w-4 h-4" /></div>
+                      <div className="min-w-0">
+                        <div className="clsx-stat-num truncate" style={{ fontSize: '0.85rem' }}>
+                          {cls.teacher_phone || '—'}
+                        </div>
+                        <div className="clsx-stat-label">Phone</div>
                       </div>
                     </div>
                   </div>

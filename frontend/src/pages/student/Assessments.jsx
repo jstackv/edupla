@@ -206,6 +206,9 @@ function AssessmentCard({ a, i, onOpen, onViewResult, layout = 'grid' }) {
           </div>
           <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--text-secondary)' }}>
             {a.module_name} · By {a.teacher_name} · {a.duration_minutes} min · {a.attempts_left}/{a.max_attempts} left
+            {(a.not_yet_available ? a.available_from : a.expires_at) && (
+              <> · {a.not_yet_available && !a.expired ? 'Opens' : a.expired ? 'Closed' : 'Due'} {fmtDate(a.not_yet_available ? a.available_from : a.expires_at)}</>
+            )}
           </p>
         </div>
         {a.not_yet_available && !a.expired
@@ -264,6 +267,19 @@ function AssessmentCard({ a, i, onOpen, onViewResult, layout = 'grid' }) {
           ? <StartsChip availableFrom={a.available_from} />
           : <ExpiryChip expiresAt={a.expires_at} expired={a.expired} />}
       </div>
+
+      {/* Absolute date + day this assessment opens or closes — the chips
+          above only say "1d left" (relative), which stops being useful
+          once you've lost track of what day "today" even is; this always
+          reads the same regardless of when you look at the card. */}
+      {(a.not_yet_available ? a.available_from : a.expires_at) && (
+        <p className="flex items-center gap-1.5 text-[11px] -mt-1.5" style={{ color: 'var(--text-secondary)' }}>
+          <CalendarClock className="w-3 h-3 flex-shrink-0" />
+          {a.not_yet_available && !a.expired
+            ? <>Opens {fmtDate(a.available_from)}</>
+            : <>{a.expired ? 'Closed' : 'Due'} {fmtDate(a.expires_at)}</>}
+        </p>
+      )}
 
       <div className="flex items-center gap-2 mt-1">
         {a.best_score != null && (
@@ -388,7 +404,7 @@ function CountdownShowcase({ target, locked, windowStart, windowEnd }) {
       <div className="flex items-center gap-2 mb-3 relative">
         {locked ? <CalendarClock className="w-4 h-4" style={{ color }} /> : <Hourglass className={`w-4 h-4 ${urgent ? 'assessment-timer-urgent' : ''}`} style={{ color }} />}
         <p className="text-xs font-bold uppercase tracking-wide" style={{ color }}>
-          {doneNow ? (locked ? 'Opening now…' : "Time's up") : locked ? 'Opens for starting in' : 'Assessment will expire in...'}
+          {doneNow ? (locked ? 'Opening now…' : "Time's up") : locked ? 'Opens for starting in' : 'Time left to start / attempt'}
         </p>
       </div>
 
@@ -487,6 +503,13 @@ function InstructionsModal({ assessment, onClose, onStart, starting }) {
               {data.instructions}
             </div>
           )}
+
+          <div className="sa-note sa-note-amber p-3.5 rounded-xl text-sm flex items-start gap-2.5">
+            <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5 assessment-timer-urgent" />
+            <p style={{ color: 'var(--text-secondary)' }}>
+              This opens in full screen. Leaving the exam screen or switching to another window/tab submits it automatically, and it also submits automatically when the timer runs out. Make sure you're ready before you start.
+            </p>
+          </div>
 
           <div className="flex justify-end gap-2">
             <button onClick={onClose} className="btn-secondary">Cancel</button>

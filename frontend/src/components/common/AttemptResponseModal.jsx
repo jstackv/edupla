@@ -35,7 +35,7 @@ import {
 
 function verdictMeta(a) {
   if (a.needs_manual_grading) return { label: 'Pending review', color: '#d97706', bg: 'rgba(217,119,6,0.14)', ring: 'rgba(217,119,6,0.35)', Icon: Clock3 };
-  if (a.is_correct === true) return { label: 'Correct', color: '#10b981', bg: 'rgba(16,185,129,0.14)', ring: 'rgba(16,185,129,0.35)', Icon: CheckCircle2 };
+  if (a.is_correct === true) return { label: 'Correct', color: '#8b5cf6', bg: 'rgba(139,92,246,0.14)', ring: 'rgba(139,92,246,0.35)', Icon: CheckCircle2 };
   if (a.is_correct === false) return { label: 'Incorrect', color: '#ef4444', bg: 'rgba(239,68,68,0.14)', ring: 'rgba(239,68,68,0.35)', Icon: XCircle };
   return { label: 'Not answered', color: '#9ca3af', bg: 'rgba(156,163,175,0.16)', ring: 'rgba(156,163,175,0.3)', Icon: AlertCircle };
 }
@@ -70,11 +70,14 @@ function QuestionCard({ a, index }) {
   return (
     <div className="arm-qcard" style={{ '--arm-accent': v.color, '--arm-ring': v.ring, animationDelay: `${Math.min(index, 10) * 45}ms` }}>
       <div className="arm-qcard-bar" />
+      {/* Faint corner fold + ruled-paper texture live in the ::before/::after
+          of arm-qcard-body (see <style> below) — a document cue without
+          literally trying to look like a Word page. */}
       <div className="arm-qcard-body">
-        {/* Header row: number badge + question text + verdict pill */}
+        {/* Header row: "Q" stamp + question text + verdict pill */}
         <div className="arm-qhead">
           <span className="arm-qnum" style={{ background: v.bg, color: v.color, boxShadow: `0 0 0 3px ${v.bg}` }}>
-            {index + 1}
+            Q{index + 1}
           </span>
           <p className="arm-qtext">{a.question_text}</p>
           <span className="arm-pill" style={{ background: v.bg, color: v.color, border: `1px solid ${v.ring}` }}>
@@ -88,17 +91,21 @@ function QuestionCard({ a, index }) {
           <div className="arm-options">
             {displayOptions.map(opt => (
               <div key={opt.key} className="arm-option" style={{
-                background: opt.isCorrect ? 'rgba(16,185,129,0.1)' : opt.isPicked ? 'rgba(239,68,68,0.08)' : 'var(--surface-50)',
-                borderColor: opt.isCorrect ? 'rgba(16,185,129,0.4)' : opt.isPicked ? 'rgba(239,68,68,0.35)' : 'var(--card-border)',
+                background: opt.isCorrect ? 'rgba(139,92,246,0.1)' : opt.isPicked ? 'rgba(239,68,68,0.08)' : 'var(--surface-50)',
+                borderColor: opt.isCorrect ? 'rgba(139,92,246,0.4)' : opt.isPicked ? 'rgba(239,68,68,0.35)' : 'var(--card-border)',
               }}>
-                <span className="arm-option-key" style={{ color: opt.isCorrect ? '#10b981' : opt.isPicked ? '#ef4444' : 'var(--text-secondary)' }}>{opt.key}</span>
+                <span className="arm-option-key" style={{ color: opt.isCorrect ? '#8b5cf6' : opt.isPicked ? '#ef4444' : 'var(--text-secondary)' }}>{opt.key}</span>
                 <span className="arm-option-text">{opt.text}</span>
-                {opt.isCorrect && <CheckCircle2 className="w-4 h-4 flex-shrink-0" style={{ color: '#10b981' }} />}
+                {opt.isCorrect && <CheckCircle2 className="w-4 h-4 flex-shrink-0" style={{ color: '#8b5cf6' }} />}
                 {opt.isPicked && !opt.isCorrect && <XCircle className="w-4 h-4 flex-shrink-0" style={{ color: '#ef4444' }} />}
               </div>
             ))}
           </div>
         )}
+
+        {/* A thin ruled divider — the "line under the question stem" you'd
+            see on a printed worksheet, separating it from the answer key. */}
+        <div className="arm-ruled-divider" />
 
         {/* Answer comparison — each side its own tinted panel, not just plain text */}
         <div className="arm-answer-grid">
@@ -110,11 +117,11 @@ function QuestionCard({ a, index }) {
               {a.student_answer || 'No answer submitted'}
             </p>
           </div>
-          <div className="arm-answer-panel" style={{ background: 'rgba(16,185,129,0.08)', borderColor: 'rgba(16,185,129,0.28)' }}>
-            <p className="arm-answer-label" style={{ color: '#10b981' }}>
+          <div className="arm-answer-panel" style={{ background: 'rgba(139,92,246,0.08)', borderColor: 'rgba(139,92,246,0.28)' }}>
+            <p className="arm-answer-label" style={{ color: '#8b5cf6' }}>
               <GraduationCap className="w-3.5 h-3.5" /> Reference answer
             </p>
-            <p className="arm-answer-text" style={{ color: '#059669', fontWeight: 700 }}>
+            <p className="arm-answer-text" style={{ color: '#7c3aed', fontWeight: 700 }}>
               {a.correct_answer || '—'}
             </p>
           </div>
@@ -168,7 +175,7 @@ export default function AttemptResponseModal({ attemptId, onClose }) {
   const wrongCount = data?.answers.filter(a => a.is_correct === false).length ?? 0;
   const pendingCount = data?.answers.filter(a => a.needs_manual_grading).length ?? 0;
   const pct = data && data.max_marks ? Math.round(((data.attempt.total_score || 0) / data.max_marks) * 100) : null;
-  const pctColor = pct == null ? '#6366f1' : pct >= 70 ? '#10b981' : pct >= 50 ? '#f59e0b' : '#ef4444';
+  const pctColor = pct == null ? '#6366f1' : pct >= 70 ? '#8b5cf6' : pct >= 50 ? '#f59e0b' : '#ef4444';
 
   return (
     <Modal
@@ -217,20 +224,41 @@ export default function AttemptResponseModal({ attemptId, onClose }) {
         }
         .arm-qcard:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.08); transform: translateY(-1px); }
         .arm-qcard-bar { width: 6px; flex-shrink: 0; background: linear-gradient(180deg, var(--arm-accent), var(--arm-accent)); }
-        .arm-qcard-body { padding: 20px 22px 22px; flex: 1; min-width: 0; }
+        .arm-qcard-body {
+          padding: 20px 22px 22px; flex: 1; min-width: 0; position: relative;
+          /* Very faint ruled-notebook lines behind the content — a nod to a
+             printed worksheet without committing to an actual paper color,
+             so it reads correctly in both light and dark themes. */
+          background-image: repeating-linear-gradient(
+            to bottom, transparent, transparent 27px,
+            color-mix(in srgb, var(--text-primary) 4%, transparent) 28px
+          );
+        }
+        /* A small folded-corner cue, top-right of every card — just enough
+           of a "page" hint without the card trying to look like an actual
+           document. */
+        .arm-qcard-body::after {
+          content: ''; position: absolute; top: 0; right: 0; width: 16px; height: 16px;
+          background: linear-gradient(135deg, transparent 50%, var(--surface-100) 50%);
+          border-bottom-left-radius: 4px; opacity: 0.7;
+        }
 
-        .arm-qhead { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; }
+        .arm-qhead { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; position: relative; }
         .arm-qnum {
-          width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; font-size: 13px; font-weight: 800;
+          width: 32px; height: 32px; border-radius: 9px; flex-shrink: 0; font-size: 12.5px; font-weight: 800;
+          font-family: Georgia, 'Times New Roman', serif;
           display: flex; align-items: center; justify-content: center; margin-top: 1px;
         }
-        .arm-qtext { flex: 1; min-width: 0; font-size: 15px; font-weight: 650; line-height: 1.5; color: var(--text-primary); padding-top: 3px; }
+        .arm-qtext {
+          flex: 1; min-width: 0; font-size: 15px; font-weight: 600; line-height: 1.55; color: var(--text-primary); padding-top: 4px;
+          font-family: Georgia, 'Times New Roman', serif;
+        }
         .arm-pill {
           flex-shrink: 0; display: flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700;
           padding: 6px 12px; border-radius: 999px; white-space: nowrap; margin-top: 2px;
         }
 
-        .arm-options { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+        .arm-options { display: flex; flex-direction: column; gap: 8px; margin-bottom: 4px; position: relative; }
         .arm-option {
           display: flex; align-items: center; gap: 10px; font-size: 13.5px; padding: 12px 14px;
           border-radius: 12px; border: 1px solid; color: var(--text-primary);
@@ -242,13 +270,22 @@ export default function AttemptResponseModal({ attemptId, onClose }) {
         }
         .arm-option-text { flex: 1; min-width: 0; }
 
-        .arm-answer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        /* The "line under the question stem" of a printed worksheet,
+           separating it from the answer key section below. */
+        .arm-ruled-divider {
+          height: 1px; margin: 18px 0 16px;
+          background: repeating-linear-gradient(
+            to right, var(--card-border) 0, var(--card-border) 6px, transparent 6px, transparent 11px
+          );
+        }
+
+        .arm-answer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; position: relative; }
         .arm-answer-panel { border-radius: 14px; border: 1px solid; padding: 14px 16px; }
         .arm-answer-label {
           display: flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 800;
           text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px;
         }
-        .arm-answer-text { font-size: 14px; line-height: 1.5; }
+        .arm-answer-text { font-size: 14px; line-height: 1.55; font-family: Georgia, 'Times New Roman', serif; }
 
         @media (max-width: 640px) {
           .arm-hero { flex-direction: column; align-items: stretch; text-align: center; }
@@ -284,7 +321,7 @@ export default function AttemptResponseModal({ attemptId, onClose }) {
                 <b>{data.attempt.total_score ?? '—'}/{data.max_marks}</b>
                 <span>Score</span>
               </div>
-              <div className="arm-hero-chip" style={{ background: 'rgba(16,185,129,0.12)', color: '#10b981' }}>
+              <div className="arm-hero-chip" style={{ background: 'rgba(139,92,246,0.12)', color: '#8b5cf6' }}>
                 <b>{correctCount}</b>
                 <span>Correct</span>
               </div>
