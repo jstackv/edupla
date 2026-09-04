@@ -36,6 +36,7 @@ const Assignments = lazy(() => import('./pages/teacher/Assignments'));
 const TeacherAnnouncements = lazy(() => import('./pages/teacher/Announcements'));
 const TeacherAssessmentPage = lazy(() => import('./pages/teacher/AssessmentsTeacher'));
 const TeacherAssessmentsOnline = lazy(() => import('./pages/teacher/AssessmentsOnline'));
+const TeacherDisciplineMarks = lazy(() => import('./pages/teacher/DisciplineMarks'));
 const TeacherGroups = lazy(() => import('./pages/teacher/Groups'));
 
 const StudentDashboard = lazy(() => import('./pages/student/Dashboard'));
@@ -54,6 +55,7 @@ const AdminTeachers = lazy(() => import('./pages/admin/Teachers'));
 const AdminClasses = lazy(() => import('./pages/admin/Classes'));
 const AdminStudents = lazy(() => import('./pages/admin/Students'));
 const AdminAssessments = lazy(() => import('./pages/admin/Assessments'));
+const AdminOnlinePerformance = lazy(() => import('./pages/admin/OnlinePerformance'));
 const AdminSettingsPage = lazy(() => import('./pages/admin/AdminSettings'));
 const ManageAdmins = lazy(() => import('./pages/admin/ManageAdmins'));
 const SystemMaintenance = lazy(() => import('./pages/admin/SystemMaintenance'));
@@ -138,7 +140,7 @@ const LoadingScreen = () => {
         }
         .edupla-loader-ring.indigo {
           inset: -20px;
-          background: conic-gradient(from 200deg, transparent 0deg, rgba(99,102,241,0.75) 45deg, transparent 110deg, transparent 360deg);
+          background: conic-gradient(from 200deg, transparent 0deg, rgba(249,115,22,0.75) 45deg, transparent 110deg, transparent 360deg);
           animation: edupla-loader-ringspin-rev 4.6s linear infinite;
         }
         .edupla-loader-ring.slate {
@@ -157,7 +159,7 @@ const LoadingScreen = () => {
 
         .edupla-loader-badge-glow {
           position: absolute; inset: -34px; border-radius: 9999px; z-index: -1;
-          background: radial-gradient(circle, rgba(99,102,241,0.22), rgba(249,115,22,0.10) 55%, transparent 75%);
+          background: radial-gradient(circle, rgba(249,115,22,0.22), rgba(249,115,22,0.10) 55%, transparent 75%);
           filter: blur(6px);
           animation: edupla-loader-glowpulse 3.2s ease-in-out infinite;
         }
@@ -165,13 +167,13 @@ const LoadingScreen = () => {
         .edupla-loader-content { animation: edupla-loader-fadeup 0.5s ease both; }
 
         .edupla-loader-label {
-          background: linear-gradient(90deg, var(--text-muted, #64748b) 0%, #4338CA 22%, #6366F1 40%, #F97316 60%, #FDBA74 78%, var(--text-muted, #64748b) 100%);
+          background: linear-gradient(90deg, var(--text-muted, #64748b) 0%, #C2410C 22%, #F97316 40%, #F97316 60%, #FDBA74 78%, var(--text-muted, #64748b) 100%);
           background-size: 220% auto;
           -webkit-background-clip: text; background-clip: text; color: transparent;
           animation: edupla-loader-shimmer 3s linear infinite;
         }
         .edupla-loader-dot { animation: edupla-loader-dot 1.4s ease-in-out infinite; color: #F97316; }
-        .edupla-loader-dot:nth-child(2) { animation-delay: 0.2s; color: #6366F1; }
+        .edupla-loader-dot:nth-child(2) { animation-delay: 0.2s; color: #F97316; }
         .edupla-loader-dot:nth-child(3) { animation-delay: 0.4s; color: #F97316; }
 
         .edupla-loader-track {
@@ -180,7 +182,7 @@ const LoadingScreen = () => {
         }
         .edupla-loader-bar {
           position: absolute; top: 0; bottom: 0; left: -45%; width: 45%; border-radius: 999px;
-          background: linear-gradient(90deg, transparent, #4338CA, #6366F1, #F97316, transparent);
+          background: linear-gradient(90deg, transparent, #C2410C, #F97316, #F97316, transparent);
           animation: edupla-loader-slide 1.7s ease-in-out infinite;
         }
 
@@ -195,7 +197,7 @@ const LoadingScreen = () => {
       <div
         aria-hidden="true"
         className="edupla-loader-blob"
-        style={{ position: 'absolute', width: 480, height: 480, borderRadius: '50%', top: '-10%', left: '-8%', background: 'radial-gradient(circle,rgba(67,56,202,0.22),transparent)', filter: 'blur(90px)' }}
+        style={{ position: 'absolute', width: 480, height: 480, borderRadius: '50%', top: '-10%', left: '-8%', background: 'radial-gradient(circle,rgba(194,65,12,0.22),transparent)', filter: 'blur(90px)' }}
       />
       <div
         aria-hidden="true"
@@ -325,6 +327,7 @@ function AppRoutes() {
       <Route path="/teacher/announcements" element={<TeacherRoute><TeacherAnnouncements /></TeacherRoute>} />
       <Route path="/teacher/assessments-grade" element={<TeacherRoute><TeacherAssessmentPage /></TeacherRoute>} />
       <Route path="/teacher/assessments"       element={<TeacherRoute><TeacherAssessmentsOnline /></TeacherRoute>} />
+      <Route path="/teacher/discipline"        element={<TeacherRoute><TeacherDisciplineMarks /></TeacherRoute>} />
       <Route path="/teacher/groups"            element={<TeacherRoute><TeacherGroups /></TeacherRoute>} />
 
       {/* Student routes */}
@@ -344,6 +347,7 @@ function AppRoutes() {
       <Route path="/admin/classes"     element={<RegularAdminRoute><AdminClasses /></RegularAdminRoute>} />
       <Route path="/admin/students"    element={<RegularAdminRoute><AdminStudents /></RegularAdminRoute>} />
       <Route path="/admin/assessments" element={<RegularAdminRoute><AdminAssessments /></RegularAdminRoute>} />
+      <Route path="/admin/online-performance" element={<RegularAdminRoute><AdminOnlinePerformance /></RegularAdminRoute>} />
       <Route path="/admin/settings"    element={<RegularAdminRoute><AdminSettingsPage /></RegularAdminRoute>} />
       <Route path="/admin/admins"      element={<SuperAdminRoute><ManageAdmins /></SuperAdminRoute>} />
       <Route path="/admin/maintenance" element={<SuperAdminRoute><SystemMaintenance /></SuperAdminRoute>} />

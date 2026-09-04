@@ -19,9 +19,9 @@ const GLOBAL_CSS = `
   }
   @keyframes mp-spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
   @keyframes mp-pulse-ring {
-    0%   { box-shadow: 0 0 0 0 rgba(99,102,241,0.45); }
-    70%  { box-shadow: 0 0 0 14px rgba(99,102,241,0); }
-    100% { box-shadow: 0 0 0 0 rgba(99,102,241,0); }
+    0%   { box-shadow: 0 0 0 0 rgba(249,115,22,0.45); }
+    70%  { box-shadow: 0 0 0 14px rgba(249,115,22,0); }
+    100% { box-shadow: 0 0 0 0 rgba(249,115,22,0); }
   }
   @keyframes mp-fade-up { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:translateY(0); } }
   @keyframes mp-panel-in { from { opacity:0; transform:translateY(-6px) scale(0.98); } to { opacity:1; transform:translateY(0) scale(1); } }
@@ -40,7 +40,7 @@ const GLOBAL_CSS = `
   .mp-admin-toggle:hover { transform: translateY(-1px); }
 
   .mp-input { transition: border-color .2s, box-shadow .2s, background .2s; }
-  .mp-input:focus { border-color: #6366f1 !important; box-shadow: 0 0 0 3px rgba(99,102,241,0.15); }
+  .mp-input:focus { border-color: #f97316 !important; box-shadow: 0 0 0 3px rgba(249,115,22,0.15); }
 
   .mp-eye-btn { transition: transform .15s, opacity .15s; }
   .mp-eye-btn:hover { opacity: 1 !important; transform: scale(1.1); }
@@ -49,7 +49,7 @@ const GLOBAL_CSS = `
   .mp-close-btn:hover { transform: rotate(90deg); }
 
   .mp-submit-btn { transition: transform .2s, box-shadow .2s, filter .2s; }
-  .mp-submit-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 10px 24px rgba(79,70,229,0.35); filter: brightness(1.05); }
+  .mp-submit-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 10px 24px rgba(234,88,12,0.35); filter: brightness(1.05); }
   .mp-submit-btn:active:not(:disabled) { transform: translateY(0); }
 `;
 
@@ -132,19 +132,19 @@ export default function Maintenance() {
         minHeight: '100vh', position: 'relative', overflow: 'hidden',
         display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
         background: dark
-          ? 'radial-gradient(circle at 20% 20%, #161b30 0%, #0b0f1a 55%, #060810 100%)'
+          ? 'radial-gradient(circle at 20% 20%, #161b30 0%, #0a0a0a 55%, #060810 100%)'
           : 'radial-gradient(circle at 20% 20%, #eef0ff 0%, #f4f6ff 55%, #ffffff 100%)',
         fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
       }}>
         {/* Drifting orbs */}
         <div style={{
           position: 'absolute', top: '-8%', right: '-6%', width: 320, height: 320, borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(99,102,241,0.18) 0%, transparent 70%)',
+          background: 'radial-gradient(circle, rgba(249,115,22,0.18) 0%, transparent 70%)',
           animation: 'mp-orb 9s ease-in-out infinite', pointerEvents: 'none',
         }} />
         <div style={{
           position: 'absolute', bottom: '-10%', left: '-8%', width: 280, height: 280, borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(139,92,246,0.14) 0%, transparent 70%)',
+          background: 'radial-gradient(circle, rgba(249,115,22,0.14) 0%, transparent 70%)',
           animation: 'mp-orb 12s ease-in-out infinite reverse', pointerEvents: 'none',
         }} />
 
@@ -161,9 +161,9 @@ export default function Maintenance() {
         <div className="mp-fade" style={{
           position: 'relative', zIndex: 1, width: '100%', maxWidth: 480,
           background: dark ? 'rgba(17,24,39,0.85)' : 'rgba(255,255,255,0.92)',
-          border: `1px solid ${dark ? 'rgba(255,255,255,0.08)' : 'rgba(79,70,229,0.12)'}`,
+          border: `1px solid ${dark ? 'rgba(255,255,255,0.08)' : 'rgba(234,88,12,0.12)'}`,
           borderRadius: 28, padding: '2.5rem 2.25rem',
-          boxShadow: dark ? '0 30px 80px rgba(0,0,0,0.55)' : '0 30px 70px rgba(79,70,229,0.16)',
+          boxShadow: dark ? '0 30px 80px rgba(0,0,0,0.55)' : '0 30px 70px rgba(234,88,12,0.16)',
           backdropFilter: 'blur(10px)',
           textAlign: 'center',
         }}>
@@ -171,12 +171,12 @@ export default function Maintenance() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 28 }}>
             <div style={{
               width: 30, height: 30, borderRadius: 9, flexShrink: 0,
-              background: 'linear-gradient(135deg,#6366f1,#4338ca)',
+              background: 'linear-gradient(135deg,#f97316,#c2410c)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
               <GraduationCap size={16} color="#fff" />
             </div>
-            <span style={{ fontFamily: "'Sora',sans-serif", fontWeight: 800, fontSize: 15, letterSpacing: '-0.01em', color: dark ? '#f1f5f9' : '#1e1b4b' }}>
+            <span style={{ fontFamily: "'Sora',sans-serif", fontWeight: 800, fontSize: 15, letterSpacing: '-0.01em', color: dark ? '#f1f5f9' : '#431407' }}>
               EDUPLA
             </span>
           </div>
@@ -184,17 +184,17 @@ export default function Maintenance() {
           {/* Animated icon */}
           <div style={{
             width: 76, height: 76, borderRadius: '50%', margin: '0 auto 22px',
-            background: dark ? 'rgba(99,102,241,0.12)' : 'rgba(99,102,241,0.10)',
-            border: '1px solid rgba(99,102,241,0.3)',
+            background: dark ? 'rgba(249,115,22,0.12)' : 'rgba(249,115,22,0.10)',
+            border: '1px solid rgba(249,115,22,0.3)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             animation: 'mp-pulse-ring 2.6s infinite',
           }}>
-            <Settings size={32} color="#6366f1" style={{ animation: 'mp-spin-slow 7s linear infinite' }} />
+            <Settings size={32} color="#f97316" style={{ animation: 'mp-spin-slow 7s linear infinite' }} />
           </div>
 
           <h1 style={{
             fontFamily: "'Sora',sans-serif", fontWeight: 800, fontSize: 24,
-            color: dark ? '#f1f5f9' : '#1e1b4b', marginBottom: 10, letterSpacing: '-0.01em',
+            color: dark ? '#f1f5f9' : '#431407', marginBottom: 10, letterSpacing: '-0.01em',
           }}>
             We'll be right back
           </h1>
@@ -209,10 +209,10 @@ export default function Maintenance() {
           {eta && (
             <div style={{
               display: 'inline-flex', alignItems: 'center', gap: 7,
-              background: dark ? 'rgba(99,102,241,0.12)' : 'rgba(99,102,241,0.08)',
-              border: '1px solid rgba(99,102,241,0.25)', borderRadius: 12,
+              background: dark ? 'rgba(249,115,22,0.12)' : 'rgba(249,115,22,0.08)',
+              border: '1px solid rgba(249,115,22,0.25)', borderRadius: 12,
               padding: '8px 16px', marginBottom: 24, fontSize: 12.5, fontWeight: 700,
-              color: '#6366f1',
+              color: '#f97316',
             }}>
               <Clock size={13} /> Estimated back online: {eta}
             </div>
@@ -250,8 +250,8 @@ export default function Maintenance() {
           {/* Anonymous: subtle admin sign-in affordance */}
           {!user && !showAdminLogin && (
             <button onClick={() => setShowAdminLogin(true)} className="mp-admin-toggle" style={{
-              background: dark ? 'rgba(255,255,255,0.04)' : 'rgba(99,102,241,0.05)',
-              border: `1px solid ${dark ? 'rgba(255,255,255,0.08)' : 'rgba(99,102,241,0.15)'}`,
+              background: dark ? 'rgba(255,255,255,0.04)' : 'rgba(249,115,22,0.05)',
+              border: `1px solid ${dark ? 'rgba(255,255,255,0.08)' : 'rgba(249,115,22,0.15)'}`,
               borderRadius: 999, cursor: 'pointer',
               fontSize: 12, fontWeight: 600,
               color: dark ? '#9aa3c4' : '#6b7299',
@@ -272,16 +272,16 @@ export default function Maintenance() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <div style={{
                     width: 32, height: 32, borderRadius: 9, flexShrink: 0,
-                    background: dark ? 'rgba(99,102,241,0.14)' : 'rgba(99,102,241,0.1)',
-                    border: '1px solid rgba(99,102,241,0.25)',
+                    background: dark ? 'rgba(249,115,22,0.14)' : 'rgba(249,115,22,0.1)',
+                    border: '1px solid rgba(249,115,22,0.25)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}>
-                    <ShieldCheck size={15} color="#6366f1" />
+                    <ShieldCheck size={15} color="#f97316" />
                   </div>
                   <div>
                     <p style={{
                       fontFamily: "'Sora',sans-serif", fontWeight: 700, fontSize: 14,
-                      color: dark ? '#f1f5f9' : '#1e1b4b', margin: 0, lineHeight: 1.3,
+                      color: dark ? '#f1f5f9' : '#431407', margin: 0, lineHeight: 1.3,
                     }}>
                       Administrator sign in
                     </p>
@@ -371,7 +371,7 @@ export default function Maintenance() {
                 <button type="submit" disabled={submitting} className="mp-submit-btn" style={{
                   width: '100%',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-                  background: 'linear-gradient(135deg,#6366f1,#4338ca)', color: '#fff',
+                  background: 'linear-gradient(135deg,#f97316,#c2410c)', color: '#fff',
                   border: 'none', borderRadius: 12, padding: '11px 14px', cursor: 'pointer',
                   fontSize: 13.5, fontWeight: 700,
                   opacity: submitting ? 0.75 : 1,

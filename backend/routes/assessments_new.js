@@ -32,6 +32,12 @@ router.get('/admin/assessments', isAuthenticated, isAdmin, async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
+// Admin — online (quiz) assessment performance viewer
+router.get('/admin/online/classes',                     isAuthenticated, isAdmin, ctrl.adminOnlineClasses);
+router.get('/admin/online/classes/:classId/teachers',    isAuthenticated, isAdmin, ctrl.adminOnlineClassTeachers);
+router.get('/admin/online/classes/:classId',             isAuthenticated, isAdmin, ctrl.adminOnlineClassAssessments);
+router.get('/admin/online/assessments/:assessmentId',    isAuthenticated, isAdmin, ctrl.adminOnlineAssessmentResults);
+
 // Admin — assessment submission review workflow
 router.get('/admin/submissions',                          isAuthenticated, isAdmin, ctrl.adminListSubmissions);
 router.get('/admin/submissions/:assessmentId',             isAuthenticated, isAdmin, ctrl.adminViewSubmission);

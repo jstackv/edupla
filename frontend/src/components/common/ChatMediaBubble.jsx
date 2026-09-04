@@ -30,7 +30,7 @@ const FILE_STYLE = {
   excel:      { Icon: FileSpreadsheet, color: '#059669', label: 'SHEET' },
   powerpoint: { Icon: FileType2,      color: '#ea580c', label: 'SLIDES' },
   text:       { Icon: FileText,       color: '#0d9488', label: 'TEXT' },
-  video:      { Icon: FileType2,      color: '#c026d3', label: 'VIDEO' },
+  video:      { Icon: FileType2,      color: '#ea580c', label: 'VIDEO' },
   audio:      { Icon: Music,          color: '#0891b2', label: 'AUDIO' },
   image:      { Icon: ImageIcon,      color: '#db2777', label: 'PHOTO' },
   other:      { Icon: FileIcon,       color: '#475569', label: 'FILE' },

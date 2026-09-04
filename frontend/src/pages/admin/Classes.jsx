@@ -33,7 +33,7 @@ const getTradeMeta = (trades, value) => {
 };
 
 /* ── Mini sparkline ── */
-function Sparkline({ count = 0, max = 1, color = '#6366f1' }) {
+function Sparkline({ count = 0, max = 1, color = '#f97316' }) {
   const bars = 5;
   const heights = Array.from({ length: bars }, (_, i) =>
     Math.max(0.15, (i === bars - 1 ? count : Math.random() * count) / Math.max(max, 1))
@@ -63,7 +63,7 @@ function StatStrip({ classes, levels = [], trades = [] }) {
       display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10,
     }}>
       {[
-        { icon: BookOpen, label: 'Total Classes', value: classes.length, color: '#6366f1', bg: '#eef2ff' },
+        { icon: BookOpen, label: 'Total Classes', value: classes.length, color: '#f97316', bg: '#fff7ed' },
         { icon: GraduationCap, label: 'Total Students', value: totalStudents, color: '#10b981', bg: '#ecfdf5' },
         { icon: Layers, label: 'Trades Active', value: Object.values(byTrade).filter(Boolean).length, color: '#0ea5e9', bg: '#f0f9ff' },
         { icon: Star, label: 'Top Trade', value: maxTrade?.[0] || '—', color: '#f59e0b', bg: '#fffbeb', isText: true },
@@ -86,9 +86,17 @@ function StatStrip({ classes, levels = [], trades = [] }) {
 }
 
 /* ── Class Card (grid view) ── */
+// Fixed brand accent for every class card's icon badge + top strip — not
+// name-hash-derived like Avatar, since with class names like "L3/L4/L5..."
+// virtually all of them share a first letter and would otherwise collide on
+// the exact same hashed color anyway. One deliberate teal reads as "this
+// is a class" consistently, the same way Online Assessment Performance
+// settled on one indigo instead of a per-card rainbow.
+const CLASS_CARD_ACCENT = '#0f766e';
+
 function ClassCard({ cls, onEdit, onDelete, onToggle, onViewStudents, onEnroll, onManage, animDelay = 0, levels = [], trades = [] }) {
   const [hovered, setHovered] = useState(false);
-  const [from] = getAvatarColors(cls.name);
+  const from = CLASS_CARD_ACCENT;
   const maxStudents = 30;
 
   return (
@@ -123,6 +131,15 @@ function ClassCard({ cls, onEdit, onDelete, onToggle, onViewStudents, onEnroll, 
           }}>
             <BookOpen size={20} style={{ color: from }} />
           </div>
+          <span style={{
+            display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 800,
+            padding: '3px 8px', borderRadius: 999, textTransform: 'uppercase', letterSpacing: '0.03em',
+            background: cls.is_active ? 'rgba(16,185,129,0.12)' : 'rgba(156,163,175,0.14)',
+            color: cls.is_active ? '#059669' : '#6b7280',
+          }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: cls.is_active ? '#059669' : '#9ca3af' }} />
+            {cls.is_active ? 'Active' : 'Inactive'}
+          </span>
         </div>
 
         {/* Name */}
@@ -147,7 +164,7 @@ function ClassCard({ cls, onEdit, onDelete, onToggle, onViewStudents, onEnroll, 
           {cls.program_config_id && (
             <span title={cls.program_qualification_title || ''} style={{
               fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6,
-              background: '#ede9fe', color: '#7c3aed', display: 'inline-flex', alignItems: 'center', gap: 4,
+              background: '#ffedd5', color: '#ea580c', display: 'inline-flex', alignItems: 'center', gap: 4,
               maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}>
               <Award size={10} /> {cls.program_rtqf_level || cls.level || 'Linked'}
@@ -190,6 +207,24 @@ function ClassCard({ cls, onEdit, onDelete, onToggle, onViewStudents, onEnroll, 
           </div>
         </div>
 
+        {/* Why inactive — a class only ever turns on once it has BOTH a
+            class teacher and at least one student; spell out whichever is
+            still missing so it isn't a mystery. */}
+        {!cls.is_active && (
+          <div style={{
+            display: 'flex', alignItems: 'flex-start', gap: 6, padding: '7px 10px', borderRadius: 9,
+            background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', marginBottom: 12,
+          }}>
+            <AlertTriangle size={12} style={{ color: '#b45309', flexShrink: 0, marginTop: 2 }} />
+            <p style={{ fontSize: 11, color: '#b45309', margin: 0, lineHeight: 1.4 }}>
+              {!cls.teacher_name && !cls.student_count && 'Needs a class teacher and at least one student to become active.'}
+              {!cls.teacher_name && cls.student_count > 0 && 'Needs a class teacher assigned to become active.'}
+              {cls.teacher_name && !cls.student_count && 'Needs at least one enrolled student to become active.'}
+              {cls.teacher_name && cls.student_count > 0 && 'Manually deactivated by an admin.'}
+            </p>
+          </div>
+        )}
+
         {/* Footer */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -205,13 +240,13 @@ function ClassCard({ cls, onEdit, onDelete, onToggle, onViewStudents, onEnroll, 
             </span>
           </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <button onClick={() => onViewStudents(cls)} style={{
+            <button onClick={() => onEdit(cls)} style={{
               display: 'flex', alignItems: 'center', gap: 4,
               fontSize: 11, fontWeight: 600, color: from,
               background: `${from}14`, border: 'none', cursor: 'pointer',
               padding: '5px 10px', borderRadius: 8, transition: 'background 0.15s',
             }}>
-              View <ArrowUpRight size={12} />
+              Edit Class Info <ArrowUpRight size={12} />
             </button>
             <button onClick={() => onManage(cls)} style={{
               display: 'flex', alignItems: 'center', gap: 5,
@@ -237,7 +272,7 @@ function ClassCard({ cls, onEdit, onDelete, onToggle, onViewStudents, onEnroll, 
 /* ── Class Row (list view) ── */
 function ClassRow({ cls, onEdit, onDelete, onToggle, onViewStudents, onEnroll, onManage, animDelay = 0, levels = [], trades = [] }) {
   const [hovered, setHovered] = useState(false);
-  const [from] = getAvatarColors(cls.name);
+  const from = CLASS_CARD_ACCENT;
 
   return (
     <div
@@ -263,7 +298,18 @@ function ClassRow({ cls, onEdit, onDelete, onToggle, onViewStudents, onEnroll, o
       </div>
 
       <div style={{ flex: 1.8, minWidth: 0 }}>
-        <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 2 }}>{cls.name}</p>
+        <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 2, display: 'flex', alignItems: 'center', gap: 7 }}>
+          {cls.name}
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 9, fontWeight: 800,
+            padding: '2px 7px', borderRadius: 999, textTransform: 'uppercase', letterSpacing: '0.03em',
+            background: cls.is_active ? 'rgba(16,185,129,0.12)' : 'rgba(156,163,175,0.14)',
+            color: cls.is_active ? '#059669' : '#6b7280',
+          }}>
+            <span style={{ width: 5, height: 5, borderRadius: '50%', background: cls.is_active ? '#059669' : '#9ca3af' }} />
+            {cls.is_active ? 'Active' : 'Inactive'}
+          </span>
+        </p>
         {cls.description && (
           <p style={{ fontSize: 11, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 260 }}>
             {cls.description}
@@ -277,7 +323,7 @@ function ClassRow({ cls, onEdit, onDelete, onToggle, onViewStudents, onEnroll, o
         {cls.program_config_id && (
           <span title={cls.program_qualification_title || ''} style={{
             fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6,
-            background: '#ede9fe', color: '#7c3aed', display: 'inline-flex', alignItems: 'center', gap: 4,
+            background: '#ffedd5', color: '#ea580c', display: 'inline-flex', alignItems: 'center', gap: 4,
           }}>
             <Award size={10} /> {cls.program_rtqf_level || cls.level || 'Linked'}
           </span>
@@ -398,6 +444,16 @@ export default function AdminClasses() {
     finally { setLoading(false); }
   }, [search, page, filterLevel, filterTrade]);
 
+  // Keep the open Manage Class modal's data fresh: a teacher assignment,
+  // co-teacher change, or student enrollment made from inside that modal
+  // triggers fetchClasses(), but manageTarget itself is a snapshot taken
+  // when the modal opened and won't reflect that refresh on its own.
+  useEffect(() => {
+    if (!manageTarget) return;
+    const fresh = classes.find(c => c.id === manageTarget.id);
+    if (fresh && fresh !== manageTarget) setManageTarget(fresh);
+  }, [classes]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => { fetchClasses(); }, [fetchClasses]);
   useEffect(() => {
     api.get('/admin/teachers?limit=200').then(r => setTeachers(r.data.teachers || [])).catch(() => {});
@@ -407,27 +463,21 @@ export default function AdminClasses() {
     api.get('/admin/program-configs').then(r => setProgramConfigs(r.data.programConfigs || [])).catch(() => {});
   }, []);
 
-  const openModal = async (cls = null) => {
+  const openModal = (cls = null) => {
     setEditing(cls);
     if (cls) {
-      let extraIds = [];
-      try {
-        const r = await api.get(`/admin/classes/${cls.id}/teachers`);
-        const classTeacherId = String(cls.teacher_id?._id || cls.teacher_id || '');
-        extraIds = (r.data.teachers || [])
-          .map(t => String(t._id || t.id || ''))
-          .filter(id => id && id !== classTeacherId);
-      } catch {}
       setForm({
         name: cls.name, description: cls.description || '',
         level: cls.level || '', trade: cls.trade || '',
         teacher_id: String(cls.teacher_id?._id || cls.teacher_id || ''),
-        extra_teacher_ids: extraIds,
         programConfigId: String(cls.program_config_id?._id || cls.program_config_id || ''),
       });
     } else {
-      setForm({ name: '', description: '', level: '', trade: '', teacher_id: '', extra_teacher_ids: [], programConfigId: '' });
+      setForm({ name: '', description: '', level: '', trade: '', teacher_id: '', programConfigId: '' });
     }
+    // No network round-trip before opening — the class teacher and
+    // co-teachers are edited from their own dedicated Manage Class buttons,
+    // not this form, so there's nothing left here worth waiting on.
     setModal(true);
   };
 
@@ -459,7 +509,7 @@ export default function AdminClasses() {
     e.preventDefault();
     setSaving(true);
     try {
-      const payload = { ...form, extra_teacher_ids: form.extra_teacher_ids.filter(Boolean) };
+      const payload = { ...form };
       if (editing) {
         await api.put(`/admin/classes/${editing.id}`, payload);
         toast.success('Class updated');
@@ -517,15 +567,6 @@ export default function AdminClasses() {
     finally { setEnrolling(false); }
   };
 
-  const toggleExtraTeacher = (tid) => {
-    const tidStr = String(tid);
-    const ids = form.extra_teacher_ids.map(String);
-    setForm(f => ({
-      ...f,
-      extra_teacher_ids: ids.includes(tidStr) ? ids.filter(x => x !== tidStr) : [...ids, tidStr],
-    }));
-  };
-
   const enrolledIds = new Set(classStudents.map(s => s.id));
   const activeFilters = [filterLevel, filterTrade].filter(Boolean).length;
 
@@ -540,7 +581,7 @@ export default function AdminClasses() {
       }}>
         {/* Decorative circles */}
         <div style={{ position: 'absolute', top: -50, right: -30, width: 180, height: 180, borderRadius: '50%', background: 'rgba(14,165,233,0.08)', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', bottom: -20, right: 200, width: 90, height: 90, borderRadius: '50%', background: 'rgba(99,102,241,0.12)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', bottom: -20, right: 200, width: 90, height: 90, borderRadius: '50%', background: 'rgba(249,115,22,0.12)', pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', top: 20, right: 80, width: 60, height: 60, borderRadius: '50%', background: 'rgba(16,185,129,0.1)', pointerEvents: 'none' }} />
 
         <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
@@ -632,8 +673,8 @@ export default function AdminClasses() {
           style={{
             display: 'flex', alignItems: 'center', gap: 6,
             padding: '8px 14px', borderRadius: 10, border: '1px solid var(--card-border)',
-            background: showFilters || activeFilters ? '#eef2ff' : 'var(--card-bg)',
-            color: showFilters || activeFilters ? '#6366f1' : 'var(--text-secondary)',
+            background: showFilters || activeFilters ? '#fff7ed' : 'var(--card-bg)',
+            color: showFilters || activeFilters ? '#f97316' : 'var(--text-secondary)',
             fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s',
           }}
         >
@@ -641,7 +682,7 @@ export default function AdminClasses() {
           Filters
           {activeFilters > 0 && (
             <span style={{
-              width: 16, height: 16, borderRadius: '50%', background: '#6366f1',
+              width: 16, height: 16, borderRadius: '50%', background: '#f97316',
               color: '#fff', fontSize: 9, fontWeight: 800,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>{activeFilters}</span>
@@ -657,7 +698,7 @@ export default function AdminClasses() {
               style={{
                 padding: '6px 9px', borderRadius: 8, border: 'none', cursor: 'pointer',
                 background: viewMode === mode ? 'var(--card-bg)' : 'transparent',
-                color: viewMode === mode ? '#6366f1' : 'var(--text-secondary)',
+                color: viewMode === mode ? '#f97316' : 'var(--text-secondary)',
                 boxShadow: viewMode === mode ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
                 display: 'flex', transition: 'all 0.15s',
               }}
@@ -890,48 +931,11 @@ export default function AdminClasses() {
             </p>
           </div>
 
-          <div>
-            <label className="label">Class Teacher *</label>
-            <select value={form.teacher_id} onChange={e => setForm(f => ({ ...f, teacher_id: e.target.value }))}
-              className="input-field" required>
-              <option value="">Select class teacher…</option>
-              {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-            </select>
-          </div>
-
-          <div>
-            <label className="label">
-              Additional Teachers{' '}
-              <span style={{ fontWeight: 400, color: 'var(--text-secondary)' }}>(co-teachers)</span>
-            </label>
-            <div style={{
-              borderRadius: 12, border: '1px solid var(--card-border)',
-              maxHeight: 140, overflowY: 'auto', padding: 8,
-              background: 'var(--surface-50)',
-            }}>
-              {teachers.filter(t => String(t.id) !== form.teacher_id).length === 0 ? (
-                <p style={{ fontSize: 12, color: 'var(--text-secondary)', padding: 4 }}>No other teachers available</p>
-              ) : teachers.filter(t => String(t.id) !== form.teacher_id).map(t => (
-                <label key={t.id} style={{
-                  display: 'flex', alignItems: 'center', gap: 10, padding: '6px 8px',
-                  borderRadius: 8, cursor: 'pointer', transition: 'background 0.12s',
-                }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-100)'}
-                  onMouseLeave={e => e.currentTarget.style.background = ''}
-                >
-                  <input type="checkbox" checked={form.extra_teacher_ids.includes(String(t.id))}
-                    onChange={() => toggleExtraTeacher(String(t.id))} style={{ borderRadius: 4 }} />
-                  <Avatar name={t.name} size={22} />
-                  <span style={{ fontSize: 13, color: 'var(--text-primary)', flex: 1 }}>{t.name}</span>
-                  <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{t.email}</span>
-                </label>
-              ))}
-            </div>
-            {form.extra_teacher_ids.length > 0 && (
-              <p style={{ fontSize: 11, color: '#6366f1', marginTop: 5 }}>
-                {form.extra_teacher_ids.length} additional teacher{form.extra_teacher_ids.length !== 1 ? 's' : ''} selected
-              </p>
-            )}
+          <div style={{
+            padding: '10px 14px', borderRadius: 12, background: 'var(--surface-50)',
+            border: '1px solid var(--card-border)', fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5,
+          }}>
+            The class teacher and any co-teachers are assigned afterwards, from <strong>Manage Class</strong> on this class's card — a class only becomes active once it has a class teacher and at least one enrolled student.
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, paddingTop: 4 }}>
@@ -948,7 +952,7 @@ export default function AdminClasses() {
       <Modal isOpen={studentsModal} onClose={() => setStudentsModal(false)} title={`Students — ${studentsTarget?.name}`}>
         {loadingStudents ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}>
-            <div style={{ width: 32, height: 32, border: '3px solid var(--surface-100)', borderTopColor: '#6366f1', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+            <div style={{ width: 32, height: 32, border: '3px solid var(--surface-100)', borderTopColor: '#f97316', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
           </div>
         ) : classStudents.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '32px 0' }}>
@@ -1121,6 +1125,7 @@ export default function AdminClasses() {
         trades={trades}
         onEdit={(cls) => { setManageModal(false); openModal(cls); }}
         onViewStudents={(cls) => { setManageModal(false); openStudentsModal(cls); }}
+        onEnroll={(cls) => { setManageModal(false); openEnrollModal(cls); }}
         onToggle={(cls) => { setManageModal(false); handleToggle(cls); }}
         onDelete={(cls) => { setManageModal(false); setDeleteTarget(cls); }}
         onChanged={fetchClasses}

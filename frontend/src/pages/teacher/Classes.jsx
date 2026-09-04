@@ -12,7 +12,7 @@ import {
 const TAB_PALETTE = [
   { tab: '#2D6A4F', soft: 'bg-emerald-50 dark:bg-emerald-900/20', text: 'text-emerald-700 dark:text-emerald-300', ring: 'ring-emerald-500/20' },
   { tab: '#1D4ED8', soft: 'bg-blue-50 dark:bg-blue-900/20',       text: 'text-blue-700 dark:text-blue-300',       ring: 'ring-blue-500/20' },
-  { tab: '#7C3AED', soft: 'bg-violet-50 dark:bg-violet-900/20',   text: 'text-violet-700 dark:text-violet-300',   ring: 'ring-violet-500/20' },
+  { tab: '#EA580C', soft: 'bg-orange-50 dark:bg-orange-900/20',   text: 'text-orange-700 dark:text-orange-300',   ring: 'ring-orange-500/20' },
   { tab: '#B45309', soft: 'bg-amber-50 dark:bg-amber-900/20',     text: 'text-amber-700 dark:text-amber-300',     ring: 'ring-amber-500/20' },
   { tab: '#BE123C', soft: 'bg-rose-50 dark:bg-rose-900/20',       text: 'text-rose-700 dark:text-rose-300',       ring: 'ring-rose-500/20' },
   { tab: '#0E7490', soft: 'bg-cyan-50 dark:bg-cyan-900/20',       text: 'text-cyan-700 dark:text-cyan-300',       ring: 'ring-cyan-500/20' },
@@ -27,13 +27,13 @@ function paletteFor(name) { return TAB_PALETTE[hashStr(name) % TAB_PALETTE.lengt
 const LEVEL_CLASSES = [
   'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
   'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300',
-  'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300',
+  'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300',
   'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
   'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300',
   'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300',
 ];
 const getLevelClass = (val) => LEVEL_CLASSES[hashStr(val) % LEVEL_CLASSES.length];
-const AVATAR_BG = ['bg-violet-500', 'bg-blue-500', 'bg-emerald-500', 'bg-rose-500', 'bg-amber-500', 'bg-indigo-500'];
+const AVATAR_BG = ['bg-orange-500', 'bg-blue-500', 'bg-emerald-500', 'bg-rose-500', 'bg-amber-500', 'bg-orange-500'];
 function getColor(name) { return AVATAR_BG[hashStr(name) % AVATAR_BG.length]; }
 
 const SORT_OPTIONS = [

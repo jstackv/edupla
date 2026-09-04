@@ -44,7 +44,7 @@ export default function SystemMaintenance() {
     return () => clearTimeout(t);
   }, [impQuery]);
 
-  const ROLE_COLOR = { admin: '#7c3aed', teacher: '#6366f1', student: '#10b981' };
+  const ROLE_COLOR = { admin: '#ea580c', teacher: '#f97316', student: '#10b981' };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -83,7 +83,7 @@ export default function SystemMaintenance() {
   if (loading) {
     return (
       <div className="flex items-center justify-center" style={{ minHeight: 300 }}>
-        <Loader2 className="w-6 h-6 animate-spin" style={{ color: '#6366f1' }} />
+        <Loader2 className="w-6 h-6 animate-spin" style={{ color: '#f97316' }} />
       </div>
     );
   }
@@ -138,7 +138,7 @@ export default function SystemMaintenance() {
           maintenance is active, without disabling it for everyone else. */}
       <div className="card" style={{ marginBottom: 20 }}>
         <div className="flex items-center gap-2 mb-1">
-          <UserCog size={16} style={{ color: '#7c3aed' }} />
+          <UserCog size={16} style={{ color: '#ea580c' }} />
           <h2 className="font-display font-bold text-sm" style={{ color: 'var(--text-primary)' }}>
             Log in as a user
           </h2>
@@ -166,7 +166,7 @@ export default function SystemMaintenance() {
 
         {impSearching && (
           <div className="flex items-center gap-2" style={{ padding: '8px 2px' }}>
-            <Loader2 size={13} className="animate-spin" style={{ color: '#7c3aed' }} />
+            <Loader2 size={13} className="animate-spin" style={{ color: '#ea580c' }} />
             <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Searching…</span>
           </div>
         )}
@@ -184,9 +184,9 @@ export default function SystemMaintenance() {
               }}>
                 <div style={{
                   width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
-                  background: `${ROLE_COLOR[u.role] || '#6366f1'}1a`,
+                  background: `${ROLE_COLOR[u.role] || '#f97316'}1a`,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 12, fontWeight: 700, color: ROLE_COLOR[u.role] || '#6366f1',
+                  fontSize: 12, fontWeight: 700, color: ROLE_COLOR[u.role] || '#f97316',
                 }}>
                   {u.name?.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?'}
                 </div>
@@ -198,7 +198,7 @@ export default function SystemMaintenance() {
                 </div>
                 <span style={{
                   fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 99, textTransform: 'capitalize',
-                  background: `${ROLE_COLOR[u.role] || '#6366f1'}1a`, color: ROLE_COLOR[u.role] || '#6366f1',
+                  background: `${ROLE_COLOR[u.role] || '#f97316'}1a`, color: ROLE_COLOR[u.role] || '#f97316',
                 }}>
                   {u.role}
                 </span>
@@ -208,7 +208,7 @@ export default function SystemMaintenance() {
                   </span>
                 )}
                 {u.is_active !== false ? (
-                  <ImpersonateButton userId={u.id} name={u.name} size={14} style={{ background: `${ROLE_COLOR[u.role] || '#6366f1'}1a`, padding: '7px 9px' }} />
+                  <ImpersonateButton userId={u.id} name={u.name} size={14} style={{ background: `${ROLE_COLOR[u.role] || '#f97316'}1a`, padding: '7px 9px' }} />
                 ) : (
                   <span title="Can't impersonate a deactivated account" style={{ padding: '7px 9px', opacity: 0.3, display: 'flex' }}>
                     <UserCog size={14} />
@@ -223,7 +223,7 @@ export default function SystemMaintenance() {
       {/* Configuration card */}
       <div className="card">
         <div className="flex items-center gap-2 mb-1">
-          <Settings size={16} style={{ color: '#6366f1' }} />
+          <Settings size={16} style={{ color: '#f97316' }} />
           <h2 className="font-display font-bold text-sm" style={{ color: 'var(--text-primary)' }}>
             Maintenance Screen
           </h2>
@@ -273,7 +273,7 @@ export default function SystemMaintenance() {
       {/* What this does */}
       <div className="card mt-5" style={{ background: 'var(--surface-100)' }}>
         <div className="flex items-center gap-2 mb-2">
-          <ShieldAlert size={15} style={{ color: '#6366f1' }} />
+          <ShieldAlert size={15} style={{ color: '#f97316' }} />
           <h3 className="font-display font-bold text-sm" style={{ color: 'var(--text-primary)' }}>
             What happens when this is on
           </h3>

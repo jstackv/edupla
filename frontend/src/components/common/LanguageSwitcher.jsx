@@ -32,7 +32,7 @@ export function LanguageSwitcher({ dark }) {
         style={{
           width: 32, height: 32, borderRadius: 9, cursor: 'pointer',
           background: (hovered || open) ? (dark ? '#1d2235' : '#f3f4f6') : (dark ? '#181c27' : '#f9fafb'),
-          border: `1px solid ${(hovered || open) ? '#6366f1' : (dark ? '#1e2130' : '#e5e7eb')}`,
+          border: `1px solid ${(hovered || open) ? '#f97316' : (dark ? '#262626' : '#e5e7eb')}`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           position: 'relative', transition: 'background 0.15s, border-color 0.15s',
         }}
@@ -58,8 +58,8 @@ export function LanguageSwitcher({ dark }) {
                 style={{
                   width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   gap: 8, padding: '8px 10px', borderRadius: 9, border: 'none',
-                  background: active ? (dark ? 'rgba(99,102,241,0.15)' : 'rgba(99,102,241,0.08)') : 'transparent',
-                  color: active ? '#6366f1' : (dark ? '#e2e8f0' : '#111827'),
+                  background: active ? (dark ? 'rgba(249,115,22,0.15)' : 'rgba(249,115,22,0.08)') : 'transparent',
+                  color: active ? '#f97316' : (dark ? '#e2e8f0' : '#131313'),
                   fontSize: 13, fontWeight: active ? 700 : 500, cursor: 'pointer', textAlign: 'left',
                   transition: 'background 0.12s',
                 }}

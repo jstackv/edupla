@@ -71,11 +71,11 @@ export default function ConfirmModal({
     },
     info: {
       icon: Info,
-      iconBg: 'rgba(99,102,241,0.12)',
-      iconColor: '#6366f1',
-      btnBg: 'linear-gradient(135deg,#6366f1,#4f46e5)',
-      btnShadow: '0 4px 16px rgba(99,102,241,0.35)',
-      accentBorder: '#6366f140',
+      iconBg: 'rgba(249,115,22,0.12)',
+      iconColor: '#f97316',
+      btnBg: 'linear-gradient(135deg,#f97316,#ea580c)',
+      btnShadow: '0 4px 16px rgba(249,115,22,0.35)',
+      accentBorder: '#f9731640',
     },
     reject: {
       icon: XCircle,
@@ -100,19 +100,19 @@ export default function ConfirmModal({
     // wants the traditional meaning.
     approve: {
       icon: CheckCircle,
-      iconBg: 'rgba(99,102,241,0.12)',
-      iconColor: '#6366f1',
-      btnBg: 'linear-gradient(135deg,#6366f1,#4338ca)',
-      btnShadow: '0 4px 16px rgba(99,102,241,0.35)',
-      accentBorder: '#6366f140',
+      iconBg: 'rgba(249,115,22,0.12)',
+      iconColor: '#f97316',
+      btnBg: 'linear-gradient(135deg,#f97316,#c2410c)',
+      btnShadow: '0 4px 16px rgba(249,115,22,0.35)',
+      accentBorder: '#f9731640',
     },
     save: {
       icon: Save,
-      iconBg: 'rgba(99,102,241,0.12)',
-      iconColor: '#6366f1',
-      btnBg: 'linear-gradient(135deg,#6366f1,#4f46e5)',
-      btnShadow: '0 4px 16px rgba(99,102,241,0.35)',
-      accentBorder: '#6366f140',
+      iconBg: 'rgba(249,115,22,0.12)',
+      iconColor: '#f97316',
+      btnBg: 'linear-gradient(135deg,#f97316,#ea580c)',
+      btnShadow: '0 4px 16px rgba(249,115,22,0.35)',
+      accentBorder: '#f9731640',
     },
   };
 
@@ -143,7 +143,7 @@ export default function ConfirmModal({
       <div style={{
         width: 440, maxWidth: '100%',
         borderRadius: 22,
-        background: dark ? '#13161f' : '#ffffff',
+        background: dark ? '#171717' : '#ffffff',
         border: `1px solid ${dark ? '#1e2535' : '#e5e7eb'}`,
         boxShadow: dark
           ? '0 32px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04)'
@@ -173,7 +173,7 @@ export default function ConfirmModal({
               <div>
                 <h3 style={{
                   margin: 0, fontSize: 16, fontWeight: 800,
-                  color: dark ? '#f1f5f9' : '#111827',
+                  color: dark ? '#f1f5f9' : '#131313',
                   fontFamily: "'Sora', sans-serif",
                   letterSpacing: '-0.01em',
                 }}>{title}</h3>
@@ -183,7 +183,7 @@ export default function ConfirmModal({
               onClick={onClose}
               style={{
                 border: 'none',
-                background: dark ? '#1e2130' : '#f3f4f6',
+                background: dark ? '#262626' : '#f3f4f6',
                 borderRadius: 9, width: 32, height: 32,
                 cursor: 'pointer', display: 'flex',
                 alignItems: 'center', justifyContent: 'center',
@@ -213,7 +213,7 @@ export default function ConfirmModal({
           )}
 
           {/* Divider */}
-          <div style={{ height: 1, background: dark ? '#1e2130' : '#f1f5f9', margin: '4px 0 18px' }} />
+          <div style={{ height: 1, background: dark ? '#262626' : '#f1f5f9', margin: '4px 0 18px' }} />
 
           {/* Buttons */}
           <div style={{ display: 'flex', gap: 10 }}>
@@ -224,8 +224,8 @@ export default function ConfirmModal({
               style={{
                 flex: 1, padding: '11px 16px',
                 borderRadius: 11,
-                border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`,
-                background: dark ? '#1a1f2e' : '#f9fafb',
+                border: `1px solid ${dark ? '#333333' : '#e5e7eb'}`,
+                background: dark ? '#1f1f1f' : '#f9fafb',
                 color: dark ? '#94a3b8' : '#6b7280',
                 fontSize: 13, fontWeight: 600,
                 cursor: loading ? 'not-allowed' : 'pointer',

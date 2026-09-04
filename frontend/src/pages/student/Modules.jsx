@@ -12,7 +12,7 @@ import {
    the --modx-accent CSS variable, so the grid reads as color-coded at a
    glance instead of a flat list of identical tiles. */
 const CATEGORY_META = {
-  'Specific modules':        { accent: '#8b5cf6', icon: Target,  short: 'Specific' },
+  'Specific modules':        { accent: '#f97316', icon: Target,  short: 'Specific' },
   'General modules':         { accent: '#0ea5e9', icon: Globe2,  short: 'General' },
   'Complementary modules':   { accent: '#10b981', icon: Puzzle,  short: 'Complementary' },
   'Elective Non Examinable': { accent: '#f59e0b', icon: Compass, short: 'Elective' },

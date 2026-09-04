@@ -1,4 +1,4 @@
-const { Course, Assessment, Mark, Class, User, AssessmentSubmission, AssessmentQuestion, AssessmentAttempt } = require('../models/db');
+const { Course, Assessment, Mark, Class, User, AssessmentSubmission, AssessmentQuestion, AssessmentAttempt, DisciplineRecord, DisciplineMark } = require('../models/db');
 const mongoose = require('mongoose');
 const XLSX = require('xlsx');
 const ExcelJS = require('exceljs');
@@ -803,6 +803,34 @@ exports.adminClassReport = async (req, res) => {
       markIndex[key] = m;
     });
 
+    /* ── Discipline (behavior) marks — class-teacher-recorded, admin-approved.
+       Only APPROVED records ever surface here (same rule as academic marks
+       above, which only ever read `approved_marks`); a submission still
+       pending review shows no value yet, exactly like an unapproved
+       assessment. Keyed per term so a single-term report shows one entry
+       and a full-year report shows one per term recorded. ── */
+    const disciplineFilter = { class_id: req.params.classId };
+    if (term) disciplineFilter.term = term;
+    if (year) disciplineFilter.academic_year = year;
+    const disciplineRecords = await DisciplineRecord.find(disciplineFilter).lean();
+    const disciplineRecordIds = disciplineRecords.map(r => r._id);
+    const disciplineMarksAll = await DisciplineMark.find({ discipline_record_id: { $in: disciplineRecordIds } }).lean();
+    const disciplineRecordById = {};
+    disciplineRecords.forEach(r => { disciplineRecordById[r._id.toString()] = r; });
+    const disciplineIndex = {};
+    disciplineMarksAll.forEach(m => {
+      const rec = disciplineRecordById[m.discipline_record_id.toString()];
+      if (!rec) return;
+      const sid = m.student_id.toString();
+      disciplineIndex[sid] = disciplineIndex[sid] || {};
+      disciplineIndex[sid][rec.term] = {
+        marks: rec.status === 'approved' ? m.approved_marks : null,
+        max_marks: rec.max_marks,
+        status: rec.status,
+        remarks: m.remarks || null,
+      };
+    });
+
     /* ── Per-term ranking across ALL class students ── */
     const TERMS_ALL = ['Term 1', 'Term 2', 'Term 3'];
     const termRankMap = {};
@@ -868,6 +896,9 @@ exports.adminClassReport = async (req, res) => {
         marks: studentMarks, total_obtained: totalObtained, total_max: totalMax, percentage,
         grade: totalMax > 0 ? getGrade(totalObtained, totalMax) : 'N/A',
         term_ranks: termRankMap[s._id.toString()] || {},
+        // Reported separately from the academic percentage/rank above —
+        // behavior is not blended into subject totals or competency grading.
+        discipline: disciplineIndex[s._id.toString()] || {},
       };
     });
 
@@ -918,6 +949,259 @@ exports.adminClassReport = async (req, res) => {
         },
       },
       assessments, courses, students,
+    });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+/* ═══════════════════════════════════════════════════
+   ADMIN — ONLINE (QUIZ) ASSESSMENT PERFORMANCE
+   Lets a school manager pick one of their classes and see how students
+   have performed in every online quiz assessment shared to that class —
+   across all teachers/modules — without touching the manual-marks
+   Mark Submissions workflow above (which quiz-mode assessments never
+   go through).
+═══════════════════════════════════════════════════ */
+
+// Step 1: classes the admin can pick from, with a quick online-quiz count.
+exports.adminOnlineClasses = async (req, res) => {
+  try {
+    const classes = await Class.find({ created_by: req.user.id })
+      .select('name level trade students')
+      .sort({ name: 1 })
+      .lean();
+
+    const courses = await Course.find({ created_by: req.user.id }, '_id').lean();
+    const courseIds = courses.map(c => c._id);
+
+    const result = await Promise.all(classes.map(async (c) => {
+      const quiz_assessment_count = await Assessment.countDocuments({
+        class_id: c._id, course_id: { $in: courseIds }, mode: 'quiz', is_shared: true,
+      });
+      return {
+        id: c._id, name: c.name, level: c.level, trade: c.trade,
+        student_count: c.students?.length || 0,
+        quiz_assessment_count,
+      };
+    }));
+
+    res.json({ classes: result });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+// Shared helper: engagement snapshot (attempted/passed/avg%) for one quiz
+// assessment, used by both the teacher-picker counts and the assessment list.
+async function computeOnlineAssessmentSnapshot(assessment, category) {
+  const totalAgg = await AssessmentQuestion.aggregate([
+    { $match: { assessment_id: assessment._id } },
+    { $group: { _id: null, total: { $sum: '$marks' } } },
+  ]);
+  const maxMarks = totalAgg[0]?.total || 0;
+
+  const attempts = await AssessmentAttempt.find({ assessment_id: assessment._id, voided: { $ne: true } }).lean();
+  const byStudent = {};
+  attempts.forEach(at => {
+    const key = at.student_id.toString();
+    (byStudent[key] = byStudent[key] || []).push(at);
+  });
+  let attemptedCount = 0, passedCount = 0, pctSum = 0, pctCount = 0;
+  Object.values(byStudent).forEach(list => {
+    attemptedCount += 1;
+    const graded = list.filter(x => x.status === 'graded');
+    const best = [...graded].sort((x, y) => y.total_score - x.total_score)[0];
+    if (best) {
+      const rawPct = rawPercentage(best.total_score, maxMarks);
+      if (rawPct != null) {
+        pctSum += rawPct; pctCount += 1;
+        if (computeDecision(rawPct, category) === 'C') passedCount += 1;
+      }
+    }
+  });
+
+  return {
+    maxMarks, attemptedCount, passedCount,
+    averagePercentage: pctCount ? Math.round(pctSum / pctCount) : null,
+  };
+}
+
+// Step 2a: teachers who have shared at least one online quiz to this class,
+// so the admin narrows by teacher before picking a specific assessment.
+exports.adminOnlineClassTeachers = async (req, res) => {
+  try {
+    const cls = await Class.findOne({ _id: req.params.classId, created_by: req.user.id })
+      .select('name level trade students')
+      .lean();
+    if (!cls) return res.status(404).json({ message: 'Class not found' });
+
+    const courses = await Course.find({ created_by: req.user.id }, '_id name total_marks category').lean();
+    const courseIds = courses.map(c => c._id);
+    const courseById = {};
+    courses.forEach(c => { courseById[c._id.toString()] = c; });
+
+    const { term, academic_year } = req.query;
+    const filter = { class_id: cls._id, course_id: { $in: courseIds }, mode: 'quiz', is_shared: true };
+    if (term) filter.term = term;
+    if (academic_year) filter.academic_year = academic_year;
+
+    const assessments = await Assessment.find(filter)
+      .populate('teacher_id', 'name email')
+      .lean();
+
+    const byTeacher = {};
+    assessments.forEach(a => {
+      const tid = a.teacher_id?._id ? a.teacher_id._id.toString() : 'unassigned';
+      if (!byTeacher[tid]) {
+        byTeacher[tid] = {
+          id: tid === 'unassigned' ? null : tid,
+          name: a.teacher_id?.name || 'Unassigned',
+          email: a.teacher_id?.email || null,
+          assessments: [],
+        };
+      }
+      byTeacher[tid].assessments.push(a);
+    });
+
+    const teachers = await Promise.all(Object.values(byTeacher).map(async (t) => {
+      let pctSum = 0, pctCount = 0, attemptedTotal = 0;
+      for (const a of t.assessments) {
+        const category = courseById[a.course_id?.toString()]?.category || 'Complementary modules';
+        const snap = await computeOnlineAssessmentSnapshot(a, category);
+        attemptedTotal += snap.attemptedCount;
+        if (snap.averagePercentage != null) { pctSum += snap.averagePercentage; pctCount += 1; }
+      }
+      return {
+        id: t.id,
+        name: t.name,
+        email: t.email,
+        assessment_count: t.assessments.length,
+        attempted_total: attemptedTotal,
+        average_percentage: pctCount ? Math.round(pctSum / pctCount) : null,
+      };
+    }));
+
+    teachers.sort((a, b) => a.name.localeCompare(b.name));
+    res.json({ class: { id: cls._id, name: cls.name, level: cls.level, trade: cls.trade }, teachers });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+// Step 2b: every online assessment shared to one class (optionally narrowed
+// to one teacher), with a snapshot of how many students attempted/passed it
+// (no need to open each one to scan the class for engagement).
+exports.adminOnlineClassAssessments = async (req, res) => {
+  try {
+    const cls = await Class.findOne({ _id: req.params.classId, created_by: req.user.id })
+      .select('name level trade students')
+      .lean();
+    if (!cls) return res.status(404).json({ message: 'Class not found' });
+
+    const courses = await Course.find({ created_by: req.user.id }, '_id name total_marks category').lean();
+    const courseIds = courses.map(c => c._id);
+    const courseById = {};
+    courses.forEach(c => { courseById[c._id.toString()] = c; });
+
+    const { term, academic_year, teacher_id } = req.query;
+    const filter = { class_id: cls._id, course_id: { $in: courseIds }, mode: 'quiz', is_shared: true };
+    if (term) filter.term = term;
+    if (academic_year) filter.academic_year = academic_year;
+    if (teacher_id) filter.teacher_id = teacher_id === 'unassigned' ? null : teacher_id;
+
+    const assessments = await Assessment.find(filter)
+      .populate('teacher_id', 'name')
+      .sort({ shared_at: -1, created_at: -1 })
+      .lean();
+
+    const totalStudents = cls.students?.length || 0;
+
+    const enriched = await Promise.all(assessments.map(async (a) => {
+      const category = courseById[a.course_id?.toString()]?.category || 'Complementary modules';
+      const snap = await computeOnlineAssessmentSnapshot(a, category);
+
+      return {
+        id: a._id,
+        title: a.title,
+        type: a.type,
+        term: a.term,
+        academic_year: a.academic_year,
+        module_name: courseById[a.course_id?.toString()]?.name || null,
+        teacher_name: a.teacher_id?.name || null,
+        max_marks: snap.maxMarks,
+        total_students: totalStudents,
+        attempted_count: snap.attemptedCount,
+        not_attempted_count: Math.max(totalStudents - snap.attemptedCount, 0),
+        passed_count: snap.passedCount,
+        average_percentage: snap.averagePercentage,
+      };
+    }));
+
+    res.json({ class: { id: cls._id, name: cls.name, level: cls.level, trade: cls.trade }, assessments: enriched });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+// Step 3: full per-student breakdown for one online assessment (same shape
+// the teacher's own "Attempts" table uses, but reachable by the admin for
+// any of their teachers' assessments).
+exports.adminOnlineAssessmentResults = async (req, res) => {
+  try {
+    const assessment = await Assessment.findOne({ _id: req.params.assessmentId, mode: 'quiz', is_shared: true })
+      .populate('class_id', 'name students created_by')
+      .populate('course_id', 'name total_marks category created_by')
+      .populate('teacher_id', 'name email')
+      .lean();
+    if (!assessment) return res.status(404).json({ message: 'Assessment not found' });
+
+    const ownsClass  = assessment.class_id?.created_by?.toString()  === req.user.id.toString();
+    const ownsCourse = assessment.course_id?.created_by?.toString() === req.user.id.toString();
+    if (!ownsClass && !ownsCourse) return res.status(403).json({ message: 'Not authorized to view this assessment.' });
+
+    const students = await User.find({ _id: { $in: assessment.class_id?.students || [] } }, 'name email')
+      .sort({ name: 1 }).lean();
+    const attempts = await AssessmentAttempt.find({ assessment_id: assessment._id, voided: { $ne: true } })
+      .sort({ attempt_number: 1 }).lean();
+
+    const byStudent = {};
+    attempts.forEach(a => {
+      const key = a.student_id.toString();
+      (byStudent[key] = byStudent[key] || []).push(a);
+    });
+
+    const totalAgg = await AssessmentQuestion.aggregate([
+      { $match: { assessment_id: assessment._id } },
+      { $group: { _id: null, total: { $sum: '$marks' } } },
+    ]);
+    const maxMarks = totalAgg[0]?.total || 0;
+    const moduleWeight = assessment.course_id?.total_marks || 100;
+    const category = assessment.course_id?.category || 'Complementary modules';
+
+    const rows = students.map(s => {
+      const list = byStudent[s._id.toString()] || [];
+      const graded = list.filter(a => a.status === 'graded');
+      const best = [...graded].sort((a, b) => b.total_score - a.total_score)[0];
+      const pendingGrading = list.some(a => a.needs_manual_grading && a.status === 'submitted');
+      const bestScore = best ? best.total_score : null;
+      const rawPct = rawPercentage(bestScore, maxMarks);
+      const percentage = rawPct != null ? Math.round(rawPct) : null;
+      return {
+        student_id: s._id,
+        student_name: s.name,
+        student_email: s.email,
+        attempts_used: list.length,
+        best_score: bestScore,
+        max_marks: maxMarks,
+        module_weight: moduleWeight,
+        marks_on_mw: scaleScore(bestScore, maxMarks, moduleWeight),
+        percentage,
+        decision: computeDecision(rawPct, category),
+        status: pendingGrading ? 'needs_grading' : (best ? 'graded' : (list.length ? 'submitted' : 'not_attempted')),
+      };
+    });
+
+    res.json({
+      assessment: {
+        id: assessment._id, title: assessment.title, type: assessment.type,
+        term: assessment.term, academic_year: assessment.academic_year,
+        module_name: assessment.course_id?.name, teacher_name: assessment.teacher_id?.name,
+        class_name: assessment.class_id?.name, max_marks_computed: maxMarks, module_weight: moduleWeight,
+      },
+      rows,
     });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };

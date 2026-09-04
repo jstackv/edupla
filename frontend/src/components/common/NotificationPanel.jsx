@@ -16,7 +16,7 @@ function timeAgo(dateStr) {
 }
 
 const TYPE_META = {
-  info:    { icon: Info,          color: '#6366f1', bg: 'rgba(99,102,241,0.1)'  },
+  info:    { icon: Info,          color: '#f97316', bg: 'rgba(249,115,22,0.1)'  },
   success: { icon: CheckCircle,   color: '#10b981', bg: 'rgba(16,185,129,0.1)'  },
   warning: { icon: AlertTriangle, color: '#f59e0b', bg: 'rgba(245,158,11,0.1)'  },
   error:   { icon: XCircle,       color: '#ef4444', bg: 'rgba(239,68,68,0.1)'   },
@@ -82,14 +82,14 @@ function NotifRow({ n, dark, onMarkRead, onOpen }) {
       style={{
         display: 'flex', gap: 12, padding: '12px 16px',
         background: unread
-          ? (dark ? 'rgba(99,102,241,0.06)' : 'rgba(99,102,241,0.04)')
+          ? (dark ? 'rgba(249,115,22,0.06)' : 'rgba(249,115,22,0.04)')
           : 'transparent',
         borderBottom: `1px solid ${dark ? '#1e2535' : '#f1f5f9'}`,
         cursor: (unread || hasTarget) ? 'pointer' : 'default',
         transition: 'background 0.15s',
       }}
-      onMouseEnter={e => { if (unread || hasTarget) e.currentTarget.style.background = dark ? 'rgba(99,102,241,0.1)' : 'rgba(99,102,241,0.07)'; }}
-      onMouseLeave={e => { if (unread || hasTarget) e.currentTarget.style.background = unread ? (dark ? 'rgba(99,102,241,0.06)' : 'rgba(99,102,241,0.04)') : 'transparent'; }}
+      onMouseEnter={e => { if (unread || hasTarget) e.currentTarget.style.background = dark ? 'rgba(249,115,22,0.1)' : 'rgba(249,115,22,0.07)'; }}
+      onMouseLeave={e => { if (unread || hasTarget) e.currentTarget.style.background = unread ? (dark ? 'rgba(249,115,22,0.06)' : 'rgba(249,115,22,0.04)') : 'transparent'; }}
     >
       {/* icon */}
       <div style={{
@@ -105,7 +105,7 @@ function NotifRow({ n, dark, onMarkRead, onOpen }) {
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 6 }}>
           <p style={{
             margin: 0, fontSize: 12.5, fontWeight: unread ? 700 : 500,
-            color: dark ? '#e2e8f0' : '#111827',
+            color: dark ? '#e2e8f0' : '#131313',
             lineHeight: 1.4,
           }}>
             {n.title}
@@ -113,8 +113,8 @@ function NotifRow({ n, dark, onMarkRead, onOpen }) {
           {unread && (
             <div style={{
               width: 7, height: 7, borderRadius: '50%',
-              background: '#6366f1', flexShrink: 0, marginTop: 4,
-              boxShadow: '0 0 6px rgba(99,102,241,0.6)',
+              background: '#f97316', flexShrink: 0, marginTop: 4,
+              boxShadow: '0 0 6px rgba(249,115,22,0.6)',
             }} />
           )}
         </div>
@@ -261,20 +261,20 @@ export default function NotificationPanel({ dark }) {
         style={{
           width: 32, height: 32, borderRadius: 9, cursor: 'pointer',
           background: open ? (dark ? '#1d2235' : '#f3f4f6') : (dark ? '#181c27' : '#f9fafb'),
-          border: `1px solid ${open ? '#6366f1' : (dark ? '#1e2130' : '#e5e7eb')}`,
+          border: `1px solid ${open ? '#f97316' : (dark ? '#262626' : '#e5e7eb')}`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           position: 'relative', transition: 'background 0.15s, border-color 0.15s',
         }}
         onMouseEnter={e => {
           if (!open) {
             e.currentTarget.style.background = dark ? '#1d2235' : '#f3f4f6';
-            e.currentTarget.style.borderColor = '#6366f1';
+            e.currentTarget.style.borderColor = '#f97316';
           }
         }}
         onMouseLeave={e => {
           if (!open) {
             e.currentTarget.style.background = dark ? '#181c27' : '#f9fafb';
-            e.currentTarget.style.borderColor = dark ? '#1e2130' : '#e5e7eb';
+            e.currentTarget.style.borderColor = dark ? '#262626' : '#e5e7eb';
           }
         }}
       >
@@ -283,8 +283,8 @@ export default function NotificationPanel({ dark }) {
           <div style={{
             position: 'absolute', top: 4, right: 4,
             minWidth: 14, height: 14, borderRadius: 7,
-            background: '#6366f1',
-            border: `1.5px solid ${dark ? '#13161f' : '#ffffff'}`,
+            background: '#f97316',
+            border: `1.5px solid ${dark ? '#171717' : '#ffffff'}`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             animation: 'edupla-pulse 2s infinite',
             fontSize: 8, fontWeight: 800, color: '#fff',
@@ -313,7 +313,7 @@ export default function NotificationPanel({ dark }) {
             @keyframes dropdownIn { from { opacity:0; transform:translateY(-6px) scale(0.98) } to { opacity:1; transform:translateY(0) scale(1) } }
             .notif-scroll::-webkit-scrollbar { width: 4px; }
             .notif-scroll::-webkit-scrollbar-track { background: transparent; }
-            .notif-scroll::-webkit-scrollbar-thumb { background: ${dark ? '#2a3042' : '#e5e7eb'}; border-radius: 4px; }
+            .notif-scroll::-webkit-scrollbar-thumb { background: ${dark ? '#333333' : '#e5e7eb'}; border-radius: 4px; }
           `}</style>
 
           {/* Header */}
@@ -324,10 +324,10 @@ export default function NotificationPanel({ dark }) {
             flexShrink: 0,
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Bell size={15} color={dark ? '#818cf8' : '#6366f1'} />
+              <Bell size={15} color={dark ? '#fb923c' : '#f97316'} />
               <span style={{
                 fontSize: 13.5, fontWeight: 700,
-                color: dark ? '#e2e8f0' : '#111827',
+                color: dark ? '#e2e8f0' : '#131313',
                 fontFamily: "'Sora', sans-serif",
               }}>
                 Notifications
@@ -336,8 +336,8 @@ export default function NotificationPanel({ dark }) {
                 <span style={{
                   fontSize: 10, fontWeight: 700,
                   padding: '1px 7px', borderRadius: 10,
-                  background: 'rgba(99,102,241,0.15)',
-                  color: '#6366f1',
+                  background: 'rgba(249,115,22,0.15)',
+                  color: '#f97316',
                 }}>
                   {unreadCount} new
                 </span>
@@ -356,7 +356,7 @@ export default function NotificationPanel({ dark }) {
                     fontSize: 11, fontWeight: 600, cursor: 'pointer',
                     transition: 'background 0.15s',
                   }}
-                  onMouseEnter={e => e.currentTarget.style.background = dark ? '#2a3042' : '#e5e7eb'}
+                  onMouseEnter={e => e.currentTarget.style.background = dark ? '#333333' : '#e5e7eb'}
                   onMouseLeave={e => e.currentTarget.style.background = dark ? '#1e2535' : '#f1f5f9'}
                 >
                   <CheckCheck size={12} />
@@ -377,7 +377,7 @@ export default function NotificationPanel({ dark }) {
                     opacity: clearing ? 0.6 : 1,
                     transition: 'background 0.15s',
                   }}
-                  onMouseEnter={e => { if (!clearing) e.currentTarget.style.background = dark ? '#2a3042' : '#e5e7eb'; }}
+                  onMouseEnter={e => { if (!clearing) e.currentTarget.style.background = dark ? '#333333' : '#e5e7eb'; }}
                   onMouseLeave={e => { if (!clearing) e.currentTarget.style.background = dark ? '#1e2535' : '#f1f5f9'; }}
                 >
                   <Trash2 size={12} />
@@ -392,7 +392,7 @@ export default function NotificationPanel({ dark }) {
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   cursor: 'pointer', transition: 'background 0.15s',
                 }}
-                onMouseEnter={e => e.currentTarget.style.background = dark ? '#2a3042' : '#e5e7eb'}
+                onMouseEnter={e => e.currentTarget.style.background = dark ? '#333333' : '#e5e7eb'}
                 onMouseLeave={e => e.currentTarget.style.background = dark ? '#1e2535' : '#f1f5f9'}
               >
                 <X size={13} color={dark ? '#94a3b8' : '#6b7280'} />
@@ -409,8 +409,8 @@ export default function NotificationPanel({ dark }) {
               <div style={{ padding: '32px 16px', textAlign: 'center' }}>
                 <div style={{
                   width: 28, height: 28, margin: '0 auto 10px',
-                  border: `2px solid ${dark ? '#2a3042' : '#e5e7eb'}`,
-                  borderTopColor: '#6366f1', borderRadius: '50%',
+                  border: `2px solid ${dark ? '#333333' : '#e5e7eb'}`,
+                  borderTopColor: '#f97316', borderRadius: '50%',
                   animation: 'spin 0.8s linear infinite',
                 }} />
                 <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
@@ -425,7 +425,7 @@ export default function NotificationPanel({ dark }) {
                 }}>
                   <Bell size={22} color={dark ? '#334155' : '#d1d5db'} />
                 </div>
-                <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 600, color: dark ? '#e2e8f0' : '#111827' }}>All caught up!</p>
+                <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 600, color: dark ? '#e2e8f0' : '#131313' }}>All caught up!</p>
                 <p style={{ margin: 0, fontSize: 12, color: dark ? '#475569' : '#9ca3af' }}>No notifications yet.</p>
               </div>
             ) : (
@@ -447,12 +447,12 @@ export default function NotificationPanel({ dark }) {
                       style={{
                         padding: '7px 18px', borderRadius: 8, border: 'none',
                         background: dark ? '#1e2535' : '#f1f5f9',
-                        color: dark ? '#818cf8' : '#6366f1',
+                        color: dark ? '#fb923c' : '#f97316',
                         fontSize: 12, fontWeight: 600, cursor: 'pointer',
                         transition: 'background 0.15s',
                         opacity: loading ? 0.6 : 1,
                       }}
-                      onMouseEnter={e => e.currentTarget.style.background = dark ? '#2a3042' : '#e5e7eb'}
+                      onMouseEnter={e => e.currentTarget.style.background = dark ? '#333333' : '#e5e7eb'}
                       onMouseLeave={e => e.currentTarget.style.background = dark ? '#1e2535' : '#f1f5f9'}
                     >
                       {loading ? 'Loading…' : 'Load more'}

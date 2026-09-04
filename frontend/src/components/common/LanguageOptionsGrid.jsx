@@ -7,7 +7,7 @@ import { SUPPORTED_LANGUAGES, setAppLanguage } from '../../i18n';
  * Settings.jsx card variants (admin/teacher/student). Pass the card's own
  * accent color so it matches the surrounding section.
  */
-export default function LanguageOptionsGrid({ dark, accentColor = '#6366f1' }) {
+export default function LanguageOptionsGrid({ dark, accentColor = '#f97316' }) {
   const { i18n } = useTranslation();
   const current = i18n.language;
 
@@ -22,7 +22,7 @@ export default function LanguageOptionsGrid({ dark, accentColor = '#6366f1' }) {
             style={{
               padding: '14px 10px', borderRadius: 14, cursor: 'pointer', textAlign: 'center',
               border: `2px solid ${active ? accentColor : (dark ? '#1e2535' : '#e5e7eb')}`,
-              background: active ? `${accentColor}10` : (dark ? '#0f1117' : '#f9fafb'),
+              background: active ? `${accentColor}10` : (dark ? '#0f0f0f' : '#f9fafb'),
               transition: 'all 0.15s', position: 'relative',
             }}
           >

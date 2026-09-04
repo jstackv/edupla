@@ -45,7 +45,7 @@ const TERMS = ['Term 1', 'Term 2', 'Term 3'];
 const ASSESSMENT_TYPES = [
   { key: 'FA', label: 'Formative Assessment',     color: '#2563eb', desc: 'Ongoing evaluation during the learning process' },
   { key: 'IA', label: 'Integrated Assessment',    color: '#0d9488', desc: 'Holistic evaluation across multiple competencies' },
-  { key: 'CA', label: 'Comprehensive Assessment', color: '#7c3aed', desc: 'End-of-term summative evaluation' },
+  { key: 'CA', label: 'Comprehensive Assessment', color: '#ea580c', desc: 'End-of-term summative evaluation' },
 ];
 
 /* ─────────── Design tokens ("gradebook" system) ───────────
@@ -60,8 +60,8 @@ const T = {
   blueBright:'#2563eb',
   teal:      '#0d9488',
   tealBright:'#14b8a6',
-  violet:    '#7c3aed',
-  violetBright:'#a855f7',
+  violet:    '#ea580c',
+  violetBright:'#f97316',
   gold:      '#c9910a',
   goldBright:'#f0b429',
   green:     '#10b981',
@@ -160,7 +160,7 @@ const GLOBAL_KEYFRAMES = `
 
 /* ─────────── Tiny helpers ─────────── */
 function pctColor(pct) {
-  if (pct == null) return '#374151';
+  if (pct == null) return '#404040';
   if (pct >= 70) return T.green;
   if (pct >= 50) return T.amber;
   return T.red;
@@ -224,7 +224,7 @@ function ProgressRing({ pct = 0, size = 34, stroke = 4, color, dark, showLabel =
       {showLabel && (
         <div className="ta-mono" style={{
           position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: size > 60 ? 16 : 9.5, fontWeight: 700, color: dark ? '#e2e8f0' : '#1f2937',
+          fontSize: size > 60 ? 16 : 9.5, fontWeight: 700, color: dark ? '#e2e8f0' : '#2e2e2e',
         }}>
           {clamped}%
         </div>
@@ -272,7 +272,7 @@ function SkeletonRow({ dark, i }) {
     <div className="ta-skel" style={{ width: w, height: h, borderRadius: 6, background: dark ? '#1c2233' : '#eef0f4' }} />
   );
   return (
-    <tr style={{ borderBottom: `1px solid ${dark ? '#1e2130' : '#f1f5f9'}`, opacity: 1 - i * 0.08 }}>
+    <tr style={{ borderBottom: `1px solid ${dark ? '#262626' : '#f1f5f9'}`, opacity: 1 - i * 0.08 }}>
       <td style={cellStyle}>{bar(160)}</td>
       <td style={cellStyle}>{bar(70)}</td>
       <td style={cellStyle}>{bar(70)}</td>
@@ -388,15 +388,15 @@ export default function TeacherAssessments() {
 
   /* ── Styles ── */
   const card = {
-    background: dark ? '#13161f' : '#fff',
-    border: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}`,
+    background: dark ? '#171717' : '#fff',
+    border: `1px solid ${dark ? '#262626' : '#e5e7eb'}`,
     borderRadius: 16, padding: 20,
   };
   const inp = {
     width: '100%', padding: '9px 12px', borderRadius: 10, boxSizing: 'border-box',
-    border: `1px solid ${dark ? '#2a3042' : '#d1d5db'}`,
-    background: dark ? '#1a1f2e' : '#f9fafb',
-    color: dark ? '#e2e8f0' : '#111827', fontSize: 13, outline: 'none',
+    border: `1px solid ${dark ? '#333333' : '#d1d5db'}`,
+    background: dark ? '#1f1f1f' : '#f9fafb',
+    color: dark ? '#e2e8f0' : '#131313', fontSize: 13, outline: 'none',
     transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
   };
   const lbl = {
@@ -894,10 +894,10 @@ export default function TeacherAssessments() {
         role="button"
         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') toggleSort(sortKey); }}
         style={{
-          padding: '11px 14px', background: dark ? '#1a1f2e' : '#f9fafb',
+          padding: '11px 14px', background: dark ? '#1f1f1f' : '#f9fafb',
           color: active ? T.blueBright : (dark ? '#7b839a' : '#6b7280'),
           fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em',
-          textAlign: align, borderBottom: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}`,
+          textAlign: align, borderBottom: `1px solid ${dark ? '#262626' : '#e5e7eb'}`,
           cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
         }}
       >
@@ -927,7 +927,7 @@ export default function TeacherAssessments() {
         style={{ animationDelay: `${index * 0.05}s`, position: 'relative', border: 'none', padding: 0, borderRadius: 18, background: 'transparent' }}
       >
         <div className="ta-tile-glow" style={{ background: `linear-gradient(135deg, ${palette.grad[0]}, ${palette.grad[1]})`, filter: 'blur(16px)' }} />
-        <div style={{ position: 'relative', border: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}`, borderRadius: 18, overflow: 'hidden', background: dark ? '#13161f' : '#fff' }}>
+        <div style={{ position: 'relative', border: `1px solid ${dark ? '#262626' : '#e5e7eb'}`, borderRadius: 18, overflow: 'hidden', background: dark ? '#171717' : '#fff' }}>
           <div style={{ padding: '18px 18px 14px', background: `linear-gradient(135deg, ${palette.grad[0]}, ${palette.grad[1]})`, position: 'relative', overflow: 'hidden' }}>
             <School size={68} color="rgba(255,255,255,0.13)" style={{ position: 'absolute', right: -12, bottom: -16, transform: 'rotate(-8deg)' }} />
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, position: 'relative' }}>
@@ -976,7 +976,7 @@ export default function TeacherAssessments() {
         type="button"
         className="ta-tile ta-card-enter"
         onClick={() => setNavCourseId(courseId)}
-        style={{ animationDelay: `${index * 0.05}s`, position: 'relative', textAlign: 'left', border: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}`, borderRadius: 16, padding: 16, background: dark ? '#13161f' : '#fff' }}
+        style={{ animationDelay: `${index * 0.05}s`, position: 'relative', textAlign: 'left', border: `1px solid ${dark ? '#262626' : '#e5e7eb'}`, borderRadius: 16, padding: 16, background: dark ? '#171717' : '#fff' }}
       >
         <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
           <div style={{ width: 38, height: 38, borderRadius: 11, flexShrink: 0, background: `linear-gradient(135deg, ${palette.grad[0]}, ${palette.grad[1]})`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -984,7 +984,7 @@ export default function TeacherAssessments() {
           </div>
           <div style={{ minWidth: 0, flex: 1 }}>
             {course.code && <div style={{ fontSize: 9.5, fontWeight: 800, color: palette.solid, letterSpacing: '0.06em', marginBottom: 2 }}>{course.code}</div>}
-            <p className="ta-display" style={{ margin: 0, fontSize: 14, fontWeight: 800, color: dark ? '#e8ecf4' : '#111827', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{course.name}</p>
+            <p className="ta-display" style={{ margin: 0, fontSize: 14, fontWeight: 800, color: dark ? '#e8ecf4' : '#131313', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{course.name}</p>
             <p style={{ margin: '2px 0 8px', fontSize: 11, color: dark ? '#7b839a' : '#9ca3af' }}>{course.category || 'Module'}</p>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               <span style={{ fontSize: 10.5, fontWeight: 700, padding: '3px 8px', borderRadius: 6, background: palette.soft, color: palette.solid }}>{total} total</span>
@@ -1021,7 +1021,7 @@ export default function TeacherAssessments() {
             <FileText size={21} color="#fff" />
           </div>
           <div>
-            <h1 className="ta-display" style={{ margin: 0, fontSize: 21, fontWeight: 800, letterSpacing: '-0.01em', color: dark ? '#f1f5f9' : '#111827' }}>
+            <h1 className="ta-display" style={{ margin: 0, fontSize: 21, fontWeight: 800, letterSpacing: '-0.01em', color: dark ? '#f1f5f9' : '#131313' }}>
               My Assessments
             </h1>
             <p style={{ margin: '2px 0 0', fontSize: 13, color: dark ? '#7b839a' : '#6b7280' }}>
@@ -1053,7 +1053,7 @@ export default function TeacherAssessments() {
           {/* Term selector — the single source of truth for which term
               everything below (drill-down counts, table, new-assessment
               creation) is scoped to. */}
-          <div className="ta-term-track" style={{ background: dark ? '#0d0f18' : '#f1f5f9', border: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}` }}>
+          <div className="ta-term-track" style={{ background: dark ? '#0d0f18' : '#f1f5f9', border: `1px solid ${dark ? '#262626' : '#e5e7eb'}` }}>
             {TERMS.map(t => {
               const active = termFilter === t;
               const closed = (activeYear?.disabled_terms || []).includes(t);
@@ -1092,7 +1092,7 @@ export default function TeacherAssessments() {
             title="Refresh"
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36,
-              borderRadius: 12, border: `1px solid ${dark ? '#232a3d' : '#e5e7eb'}`, background: dark ? '#161a26' : '#fff',
+              borderRadius: 12, border: `1px solid ${dark ? '#232a3d' : '#e5e7eb'}`, background: dark ? '#1a1a1a' : '#fff',
               color: dark ? '#8891a5' : '#6b7280', cursor: 'pointer', flexShrink: 0,
             }}
           >
@@ -1125,7 +1125,7 @@ export default function TeacherAssessments() {
 
       {/* ── Breadcrumb — All Classes → [Class] → [Module] ── */}
       {navClassId && (
-        <div className="ta-step-enter" style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 18, flexWrap: 'wrap', padding: 4, borderRadius: 13, background: dark ? '#12151f' : '#f8fafc', border: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}`, width: 'fit-content' }}>
+        <div className="ta-step-enter" style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 18, flexWrap: 'wrap', padding: 4, borderRadius: 13, background: dark ? '#12151f' : '#f8fafc', border: `1px solid ${dark ? '#262626' : '#e5e7eb'}`, width: 'fit-content' }}>
           <button
             className="ta-btn ta-crumb"
             onClick={() => { setNavClassId(null); setNavCourseId(null); }}
@@ -1179,8 +1179,8 @@ export default function TeacherAssessments() {
               style={{
                 animationDelay: `${i * 0.05}s`, position: 'relative', overflow: 'hidden', textAlign: 'left',
                 padding: '13px 18px 13px 16px', borderRadius: 14, minWidth: 118,
-                background: active ? s.color + '14' : (dark ? '#13161f' : '#fff'),
-                border: `1.5px solid ${active ? s.color + '80' : (dark ? '#1e2130' : '#e5e7eb')}`,
+                background: active ? s.color + '14' : (dark ? '#171717' : '#fff'),
+                border: `1.5px solid ${active ? s.color + '80' : (dark ? '#262626' : '#e5e7eb')}`,
                 cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 8,
               }}
             >
@@ -1204,7 +1204,7 @@ export default function TeacherAssessments() {
         loading ? (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: 16 }}>
             {[0, 1, 2].map(i => (
-              <div key={i} style={{ borderRadius: 18, overflow: 'hidden', border: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}` }}>
+              <div key={i} style={{ borderRadius: 18, overflow: 'hidden', border: `1px solid ${dark ? '#262626' : '#e5e7eb'}` }}>
                 <div className="ta-skel" style={{ height: 82, background: dark ? '#1c2233' : '#eef0f4' }} />
                 <div style={{ padding: 16 }}>
                   <div className="ta-skel" style={{ height: 10, width: '60%', borderRadius: 6, marginBottom: 10, background: dark ? '#1c2233' : '#eef0f4' }} />
@@ -1216,7 +1216,7 @@ export default function TeacherAssessments() {
         ) : teacherClasses.length === 0 ? (
           <div className="ta-card-enter" style={{ ...card, textAlign: 'center', padding: 60 }}>
             <div style={{ width: 64, height: 64, borderRadius: 20, background: `linear-gradient(135deg, ${T.navy}, ${T.blueBright})`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', animation: 'floatIcon 3.5s ease-in-out infinite' }}><School size={28} color="#fff" /></div>
-            <p className="ta-display" style={{ color: dark ? '#e8ecf4' : '#111827', fontWeight: 800, fontSize: 16, margin: '0 0 6px' }}>No Classes Assigned</p>
+            <p className="ta-display" style={{ color: dark ? '#e8ecf4' : '#131313', fontWeight: 800, fontSize: 16, margin: '0 0 6px' }}>No Classes Assigned</p>
             <p style={{ color: dark ? '#7b839a' : '#9ca3af', margin: 0 }}>Ask your admin to assign you modules and classes to get started.</p>
           </div>
         ) : (
@@ -1231,7 +1231,7 @@ export default function TeacherAssessments() {
         navModules.length === 0 ? (
           <div className="ta-card-enter" style={{ ...card, textAlign: 'center', padding: 60 }}>
             <div style={{ width: 64, height: 64, borderRadius: 20, background: `linear-gradient(135deg, ${T.teal}, ${T.tealBright})`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}><BookOpen size={28} color="#fff" /></div>
-            <p className="ta-display" style={{ color: dark ? '#e8ecf4' : '#111827', fontWeight: 800, fontSize: 16, margin: '0 0 6px' }}>No Modules Here</p>
+            <p className="ta-display" style={{ color: dark ? '#e8ecf4' : '#131313', fontWeight: 800, fontSize: 16, margin: '0 0 6px' }}>No Modules Here</p>
             <p style={{ color: dark ? '#7b839a' : '#9ca3af', margin: 0 }}>You have no modules assigned for {navClass?.name || 'this class'}.</p>
           </div>
         ) : (
@@ -1248,7 +1248,7 @@ export default function TeacherAssessments() {
           {!loading && moduleAssessmentsAllTerms.length > 0 && (
             <div style={{
               display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 16,
-              padding: 8, borderRadius: 15, background: dark ? '#12151f' : '#f8fafc', border: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}`,
+              padding: 8, borderRadius: 15, background: dark ? '#12151f' : '#f8fafc', border: `1px solid ${dark ? '#262626' : '#e5e7eb'}`,
             }}>
               <div style={{ position: 'relative', flex: '1 1 220px', minWidth: 200, maxWidth: 320 }}>
                 <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: dark ? '#5b6377' : '#9ca3af' }} />
@@ -1257,7 +1257,7 @@ export default function TeacherAssessments() {
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   placeholder="Search title, type…"
-                  style={{ ...inp, background: dark ? '#0d0f18' : '#fff', border: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}`, paddingLeft: 34, paddingRight: searchQuery ? 30 : 12 }}
+                  style={{ ...inp, background: dark ? '#0d0f18' : '#fff', border: `1px solid ${dark ? '#262626' : '#e5e7eb'}`, paddingLeft: 34, paddingRight: searchQuery ? 30 : 12 }}
                 />
                 {searchQuery && (
                   <button onClick={() => setSearchQuery('')} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'transparent', cursor: 'pointer', color: dark ? '#7b839a' : '#9ca3af', display: 'flex' }}>
@@ -1266,7 +1266,7 @@ export default function TeacherAssessments() {
                 )}
               </div>
 
-              <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ ...inp, width: 'auto', minWidth: 140, background: dark ? '#0d0f18' : '#fff', border: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}` }}>
+              <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ ...inp, width: 'auto', minWidth: 140, background: dark ? '#0d0f18' : '#fff', border: `1px solid ${dark ? '#262626' : '#e5e7eb'}` }}>
                 <option value="all">All statuses</option>
                 <option value="draft">Draft</option>
                 <option value="submitted">Submitted</option>
@@ -1278,7 +1278,7 @@ export default function TeacherAssessments() {
                 <button
                   onClick={() => { setSearchQuery(''); setStatusFilter('all'); }}
                   className="ta-btn"
-                  style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '9px 13px', borderRadius: 10, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: dark ? '#0d0f18' : '#fff', color: dark ? '#7b839a' : '#6b7280', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '9px 13px', borderRadius: 10, border: `1px solid ${dark ? '#333333' : '#e5e7eb'}`, background: dark ? '#0d0f18' : '#fff', color: dark ? '#7b839a' : '#6b7280', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
                 >
                   <Filter size={12} /> Clear filters
                 </button>
@@ -1297,7 +1297,7 @@ export default function TeacherAssessments() {
                   <thead>
                     <tr>
                       {['Assessment', 'Progress', 'Status', 'Actions'].map(h => (
-                        <th key={h} style={{ padding: '11px 14px', background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#7b839a' : '#6b7280', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: 'left', borderBottom: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}` }}>{h}</th>
+                        <th key={h} style={{ padding: '11px 14px', background: dark ? '#1f1f1f' : '#f9fafb', color: dark ? '#7b839a' : '#6b7280', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: 'left', borderBottom: `1px solid ${dark ? '#262626' : '#e5e7eb'}` }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -1310,7 +1310,7 @@ export default function TeacherAssessments() {
           ) : moduleAssessmentsAllTerms.length === 0 ? (
             <div className="ta-card-enter" style={{ ...card, textAlign: 'center', padding: 60 }}>
               <div style={{ width: 64, height: 64, borderRadius: 20, background: `linear-gradient(135deg, ${T.navy}, ${T.blueBright})`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', animation: 'floatIcon 3.5s ease-in-out infinite' }}><FileText size={28} color="#fff" /></div>
-              <p className="ta-display" style={{ color: dark ? '#e8ecf4' : '#111827', fontWeight: 800, fontSize: 16, margin: '0 0 6px' }}>No Assessments Yet</p>
+              <p className="ta-display" style={{ color: dark ? '#e8ecf4' : '#131313', fontWeight: 800, fontSize: 16, margin: '0 0 6px' }}>No Assessments Yet</p>
               <p style={{ color: dark ? '#7b839a' : '#9ca3af', margin: '0 0 20px' }}>Create the first assessment for {navCourse?.name || 'this module'} in {navClass?.name || 'this class'}.</p>
               <button className="ta-btn" onClick={openCreate} style={{ padding: '9px 20px', borderRadius: 10, border: 'none', background: `linear-gradient(135deg, ${T.navy}, ${T.blueBright})`, color: '#fff', fontWeight: 700, cursor: 'pointer' }}>
                 <Plus size={13} style={{ verticalAlign: 'middle', marginRight: 6 }} />New Assessment
@@ -1319,9 +1319,9 @@ export default function TeacherAssessments() {
           ) : scopedAssessments.length === 0 ? (
             /* ── Nothing for this module in the selected term. ── */
             <div className="ta-card-enter" style={{ ...card, textAlign: 'center', padding: '56px 40px' }}>
-              <div style={{ width: 64, height: 64, borderRadius: 20, background: dark ? '#1a1f2e' : '#f3f4f6', border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}><Inbox size={26} color={dark ? '#5b6377' : '#9ca3af'} /></div>
-              <p className="ta-display" style={{ color: dark ? '#e8ecf4' : '#111827', fontWeight: 800, fontSize: 16, margin: '0 0 6px' }}>No assessment created in this term</p>
-              <p style={{ color: dark ? '#7b839a' : '#9ca3af', margin: '0 0 24px' }}>Nothing exists yet for {navCourse?.name || 'this module'} in <strong style={{ color: dark ? '#c4c9d4' : '#374151' }}>{termFilter}</strong>.</p>
+              <div style={{ width: 64, height: 64, borderRadius: 20, background: dark ? '#1f1f1f' : '#f3f4f6', border: `1px solid ${dark ? '#333333' : '#e5e7eb'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}><Inbox size={26} color={dark ? '#5b6377' : '#9ca3af'} /></div>
+              <p className="ta-display" style={{ color: dark ? '#e8ecf4' : '#131313', fontWeight: 800, fontSize: 16, margin: '0 0 6px' }}>No assessment created in this term</p>
+              <p style={{ color: dark ? '#7b839a' : '#9ca3af', margin: '0 0 24px' }}>Nothing exists yet for {navCourse?.name || 'this module'} in <strong style={{ color: dark ? '#c4c9d4' : '#404040' }}>{termFilter}</strong>.</p>
               <button
                 className="ta-btn"
                 onClick={openCreate}
@@ -1342,9 +1342,9 @@ export default function TeacherAssessments() {
           ) : visibleAssessments.length === 0 ? (
             <div className="ta-card-enter" style={{ ...card, textAlign: 'center', padding: 50 }}>
               <Search size={30} color={dark ? '#3a4258' : '#d1d5db'} style={{ marginBottom: 12 }} />
-              <p style={{ color: dark ? '#e8ecf4' : '#111827', fontWeight: 700, fontSize: 15, margin: '0 0 4px' }}>No matches</p>
+              <p style={{ color: dark ? '#e8ecf4' : '#131313', fontWeight: 700, fontSize: 15, margin: '0 0 4px' }}>No matches</p>
               <p style={{ color: dark ? '#7b839a' : '#9ca3af', margin: '0 0 16px', fontSize: 13 }}>Try a different search term or clear your filters.</p>
-              <button onClick={() => { setSearchQuery(''); setStatusFilter('all'); }} className="ta-btn" style={{ padding: '8px 16px', borderRadius: 9, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#e2e8f0' : '#374151', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+              <button onClick={() => { setSearchQuery(''); setStatusFilter('all'); }} className="ta-btn" style={{ padding: '8px 16px', borderRadius: 9, border: `1px solid ${dark ? '#333333' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#e2e8f0' : '#404040', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
                 Clear filters
               </button>
             </div>
@@ -1357,7 +1357,7 @@ export default function TeacherAssessments() {
                       <SortHeader label="Assessment" sortKey="title" />
                       <SortHeader label="Progress" sortKey="progress" />
                       <SortHeader label="Status" sortKey="status" />
-                      <th style={{ padding: '11px 14px', background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#7b839a' : '#6b7280', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: 'left', borderBottom: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}` }}>Actions</th>
+                      <th style={{ padding: '11px 14px', background: dark ? '#1f1f1f' : '#f9fafb', color: dark ? '#7b839a' : '#6b7280', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: 'left', borderBottom: `1px solid ${dark ? '#262626' : '#e5e7eb'}` }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1370,8 +1370,8 @@ export default function TeacherAssessments() {
                         <tr
                           key={a._id || a.id}
                           className="ta-row-enter ta-row"
-                          style={{ animationDelay: `${Math.min(i, 10) * 0.035}s`, position: 'relative', background: i % 2 === 0 ? 'transparent' : (dark ? '#ffffff04' : '#fafafa'), borderBottom: `1px solid ${dark ? '#1e2130' : '#f1f5f9'}` }}
-                          onMouseEnter={e => { e.currentTarget.style.background = dark ? '#1a1f2e88' : '#f4f7ff'; }}
+                          style={{ animationDelay: `${Math.min(i, 10) * 0.035}s`, position: 'relative', background: i % 2 === 0 ? 'transparent' : (dark ? '#ffffff04' : '#fafafa'), borderBottom: `1px solid ${dark ? '#262626' : '#f1f5f9'}` }}
+                          onMouseEnter={e => { e.currentTarget.style.background = dark ? '#1f1f1f88' : '#f4f7ff'; }}
                           onMouseLeave={e => { e.currentTarget.style.background = i % 2 === 0 ? 'transparent' : (dark ? '#ffffff04' : '#fafafa'); }}
                         >
                           <td style={{ padding: '12px 14px 12px 18px', position: 'relative' }}>
@@ -1383,7 +1383,7 @@ export default function TeacherAssessments() {
                                 </span>
                               )}
                               <div style={{ minWidth: 0 }}>
-                                <div style={{ fontWeight: 700, fontSize: 13, color: dark ? '#e8ecf4' : '#111827' }}>{a.title}</div>
+                                <div style={{ fontWeight: 700, fontSize: 13, color: dark ? '#e8ecf4' : '#131313' }}>{a.title}</div>
                                 {a.review_note && (
                                   <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4, padding: '3px 8px', borderRadius: 6, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
                                     <AlertCircle size={10} color={T.red} />
@@ -1403,17 +1403,17 @@ export default function TeacherAssessments() {
                           <td style={{ padding: '11px 14px' }}><StatusBadge status={a.submission_status} /></td>
                           <td style={{ padding: '11px 14px' }}>
                             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                              <button className="ta-btn ta-icon-btn" onClick={() => openMarks(a)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 8, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#e2e8f0' : '#374151', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                              <button className="ta-btn ta-icon-btn" onClick={() => openMarks(a)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 8, border: `1px solid ${dark ? '#333333' : '#e5e7eb'}`, background: dark ? '#1f1f1f' : '#f9fafb', color: dark ? '#e2e8f0' : '#404040', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
                                 <Users size={11} /> Marks
                               </button>
                               {a.is_shared && (
-                                <button className="ta-btn ta-icon-btn" onClick={() => setAttemptsModal(a)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 8, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#e2e8f0' : '#374151', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                                <button className="ta-btn ta-icon-btn" onClick={() => setAttemptsModal(a)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 8, border: `1px solid ${dark ? '#333333' : '#e5e7eb'}`, background: dark ? '#1f1f1f' : '#f9fafb', color: dark ? '#e2e8f0' : '#404040', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
                                   <BarChart3 size={11} /> Results
                                 </button>
                               )}
                               {!isLocked && (
                                 <>
-                                  <button className="ta-btn ta-icon-btn" onClick={() => openEdit(a)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 8, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#e2e8f0' : '#374151', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                                  <button className="ta-btn ta-icon-btn" onClick={() => openEdit(a)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 8, border: `1px solid ${dark ? '#333333' : '#e5e7eb'}`, background: dark ? '#1f1f1f' : '#f9fafb', color: dark ? '#e2e8f0' : '#404040', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
                                     <Edit2 size={11} /> Edit
                                   </button>
                                   {hasRecordedMarks(a) ? (
@@ -1421,7 +1421,7 @@ export default function TeacherAssessments() {
                                       disabled
                                       title="Can't delete — marks have already been recorded for this assessment"
                                       className="ta-icon-btn"
-                                      style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 8, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: dark ? '#161a26' : '#f3f4f6', color: dark ? '#4a5568' : '#9ca3af', fontSize: 11, fontWeight: 600, cursor: 'not-allowed' }}
+                                      style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 8, border: `1px solid ${dark ? '#333333' : '#e5e7eb'}`, background: dark ? '#1a1a1a' : '#f3f4f6', color: dark ? '#4a5568' : '#9ca3af', fontSize: 11, fontWeight: 600, cursor: 'not-allowed' }}
                                     >
                                       <Lock size={11} /> Delete
                                     </button>
@@ -1458,7 +1458,7 @@ export default function TeacherAssessments() {
           onClick={e => { if (e.target === e.currentTarget) setShowModal(false); }}
           style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(8,11,20,0.75)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, animation: 'fadeIn 0.18s ease' }}
         >
-          <div className="ta-card-enter" style={{ width: 540, borderRadius: 24, background: dark ? '#13161f' : '#fff', border: `1px solid ${dark ? '#232a3d' : '#e5e7eb'}`, padding: 0, boxShadow: `0 40px 90px rgba(6,10,20,0.5), 0 0 0 1px ${T.navy}14`, maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <div className="ta-card-enter" style={{ width: 540, borderRadius: 24, background: dark ? '#171717' : '#fff', border: `1px solid ${dark ? '#232a3d' : '#e5e7eb'}`, padding: 0, boxShadow: `0 40px 90px rgba(6,10,20,0.5), 0 0 0 1px ${T.navy}14`, maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
 
             {/* Modal header — gradient banner */}
             <div style={{
@@ -1515,7 +1515,7 @@ export default function TeacherAssessments() {
                       </div>
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontSize: 9.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: dark ? '#5b6377' : '#9ca3af' }}>Class</div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: dark ? '#e2e8f0' : '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selClass.name}</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: dark ? '#e2e8f0' : '#131313', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selClass.name}</div>
                       </div>
                     </div>
                     <div style={{ width: 1, background: dark ? '#232a3d' : '#e5e7eb', flexShrink: 0 }} />
@@ -1525,7 +1525,7 @@ export default function TeacherAssessments() {
                       </div>
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontSize: 9.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: dark ? '#5b6377' : '#9ca3af' }}>Module</div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: dark ? '#e2e8f0' : '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: dark ? '#e2e8f0' : '#131313', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {selModule.name} <span className="ta-mono" style={{ fontWeight: 500, color: dark ? '#7b839a' : '#9ca3af' }}>· {selModule.total_marks || 100} marks</span>
                         </div>
                       </div>
@@ -1537,7 +1537,7 @@ export default function TeacherAssessments() {
                       </div>
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontSize: 9.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: dark ? '#5b6377' : '#9ca3af' }}>Term</div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: dark ? '#e2e8f0' : '#111827', whiteSpace: 'nowrap' }}>{form.term}</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: dark ? '#e2e8f0' : '#131313', whiteSpace: 'nowrap' }}>{form.term}</div>
                       </div>
                     </div>
                   </div>
@@ -1570,15 +1570,15 @@ export default function TeacherAssessments() {
                           padding: '12px 14px', borderRadius: 11,
                           cursor: alreadyUsed ? 'not-allowed' : 'pointer',
                           textAlign: 'left',
-                          border: `2px solid ${selected ? t.color : (dark ? '#2a3042' : '#e5e7eb')}`,
-                          background: selected ? t.color + '12' : alreadyUsed ? (dark ? '#0f1117' : '#f3f4f6') : 'transparent',
+                          border: `2px solid ${selected ? t.color : (dark ? '#333333' : '#e5e7eb')}`,
+                          background: selected ? t.color + '12' : alreadyUsed ? (dark ? '#0f0f0f' : '#f3f4f6') : 'transparent',
                           display: 'flex', alignItems: 'center', gap: 12,
                           opacity: alreadyUsed ? 0.55 : 1,
                         }}
                       >
                         <span style={{ minWidth: 30, textAlign: 'center', fontSize: 10, fontWeight: 800, padding: '3px 7px', borderRadius: 6, background: t.color + '20', color: t.color, border: `1px solid ${t.color}40`, flexShrink: 0 }}>{t.key}</span>
                         <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: 13, fontWeight: selected ? 800 : 500, color: selected ? t.color : (dark ? '#e2e8f0' : '#374151') }}>{t.label}</div>
+                          <div style={{ fontSize: 13, fontWeight: selected ? 800 : 500, color: selected ? t.color : (dark ? '#e2e8f0' : '#404040') }}>{t.label}</div>
                           <div style={{ fontSize: 11, color: alreadyUsed ? T.red : (dark ? '#7b839a' : '#9ca3af'), marginTop: 1 }}>
                             {alreadyUsed
                               ? `⚠ Already created for this module · ${form.term} · ${form.academic_year}`
@@ -1594,7 +1594,7 @@ export default function TeacherAssessments() {
 
                 {/* Auto-title preview */}
                 {form.type && (
-                  <div className="ta-step-enter" style={{ marginTop: 10, padding: '9px 12px', borderRadius: 10, background: dark ? '#1a1f2e' : '#f0f9ff', border: `1px solid ${dark ? '#2a3042' : '#bae6fd'}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div className="ta-step-enter" style={{ marginTop: 10, padding: '9px 12px', borderRadius: 10, background: dark ? '#1f1f1f' : '#f0f9ff', border: `1px solid ${dark ? '#333333' : '#bae6fd'}`, display: 'flex', alignItems: 'center', gap: 8 }}>
                     <FileText size={12} color="#0369a1" />
                     <span style={{ fontSize: 12, color: dark ? '#7b839a' : '#0369a1' }}>
                       Title will be: <strong style={{ color: dark ? '#e2e8f0' : '#0c4a6e' }}>{ASSESSMENT_TYPES.find(t => t.key === form.type)?.label}</strong>
@@ -1605,7 +1605,7 @@ export default function TeacherAssessments() {
 
               {/* Modal footer */}
               <div style={{ display: 'flex', gap: 10, marginTop: 24 }}>
-                <button className="ta-btn" onClick={() => setShowModal(false)} disabled={savingAssessment} style={{ flex: 1, padding: '11px', borderRadius: 10, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#94a3b8' : '#6b7280', fontSize: 13, fontWeight: 600, cursor: savingAssessment ? 'default' : 'pointer', opacity: savingAssessment ? 0.6 : 1 }}>
+                <button className="ta-btn" onClick={() => setShowModal(false)} disabled={savingAssessment} style={{ flex: 1, padding: '11px', borderRadius: 10, border: `1px solid ${dark ? '#333333' : '#e5e7eb'}`, background: dark ? '#1f1f1f' : '#f9fafb', color: dark ? '#94a3b8' : '#6b7280', fontSize: 13, fontWeight: 600, cursor: savingAssessment ? 'default' : 'pointer', opacity: savingAssessment ? 0.6 : 1 }}>
                   Cancel
                 </button>
                 <button
@@ -1616,7 +1616,7 @@ export default function TeacherAssessments() {
                     flex: 2, padding: '11px', borderRadius: 10, border: 'none',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                     background: (!form.course_id || !form.type || !form.term || savingAssessment)
-                      ? (dark ? '#2a3042' : '#e5e7eb')
+                      ? (dark ? '#333333' : '#e5e7eb')
                       : `linear-gradient(135deg, ${T.navy}, ${T.blueBright})`,
                     color: (!form.course_id || !form.type || !form.term)
                       ? (dark ? '#4a5568' : '#9ca3af')
@@ -1645,7 +1645,7 @@ export default function TeacherAssessments() {
           onClick={e => { if (e.target === e.currentTarget) setMarksModal(null); }}
           style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(8,11,20,0.7)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, animation: 'fadeIn 0.18s ease' }}
         >
-          <div className="ta-card-enter" style={{ width: 720, maxWidth: '100%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', borderRadius: 20, background: dark ? '#13161f' : '#fff', border: `1px solid ${dark ? '#1e2535' : '#e5e7eb'}`, boxShadow: '0 32px 80px rgba(0,0,0,0.4)', overflow: 'hidden' }}>
+          <div className="ta-card-enter" style={{ width: 720, maxWidth: '100%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', borderRadius: 20, background: dark ? '#171717' : '#fff', border: `1px solid ${dark ? '#1e2535' : '#e5e7eb'}`, boxShadow: '0 32px 80px rgba(0,0,0,0.4)', overflow: 'hidden' }}>
             {marksLoading ? (
               <div style={{ textAlign: 'center', padding: 60 }}>
                 <div style={{ width: 36, height: 36, border: `3px solid ${T.navy}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
@@ -1656,18 +1656,18 @@ export default function TeacherAssessments() {
                 {/* ── Fixed top section: title/ring, bulk-entry, marking
                     progress. Stays in place while the roster below scrolls,
                     so you never lose track of who's still missing a mark. ── */}
-                <div style={{ flexShrink: 0, padding: '28px 28px 16px', borderBottom: `1px solid ${dark ? '#1e2130' : '#eef0f4'}`, boxShadow: dark ? '0 4px 14px rgba(0,0,0,0.25)' : '0 4px 14px rgba(15,23,42,0.04)', position: 'relative', zIndex: 2 }}>
+                <div style={{ flexShrink: 0, padding: '28px 28px 16px', borderBottom: `1px solid ${dark ? '#262626' : '#eef0f4'}`, boxShadow: dark ? '0 4px 14px rgba(0,0,0,0.25)' : '0 4px 14px rgba(15,23,42,0.04)', position: 'relative', zIndex: 2 }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16, gap: 14 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 14, flex: 1, minWidth: 0 }}>
                     {!marksLocked && (
                       <ProgressRing pct={markingProgress.pct} size={56} stroke={5} dark={dark} showLabel />
                     )}
                     <div style={{ minWidth: 0 }}>
-                      <h3 className="ta-display" style={{ margin: 0, fontSize: 17, fontWeight: 800, color: dark ? '#f1f5f9' : '#111827' }}>{marksModal.assessment?.title}</h3>
+                      <h3 className="ta-display" style={{ margin: 0, fontSize: 17, fontWeight: 800, color: dark ? '#f1f5f9' : '#131313' }}>{marksModal.assessment?.title}</h3>
                       <div style={{ display: 'flex', gap: 12, marginTop: 6, flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: 12, color: dark ? '#7b839a' : '#9ca3af' }}>Module: <strong style={{ color: dark ? '#e2e8f0' : '#374151' }}>{marksModal.assessment?.course_id?.name}</strong></span>
+                        <span style={{ fontSize: 12, color: dark ? '#7b839a' : '#9ca3af' }}>Module: <strong style={{ color: dark ? '#e2e8f0' : '#404040' }}>{marksModal.assessment?.course_id?.name}</strong></span>
                         <span style={{ fontSize: 12, color: dark ? '#7b839a' : '#9ca3af' }}>{marksModal.assessment?.term} · {marksModal.assessment?.academic_year}</span>
-                        <span style={{ fontSize: 12, color: dark ? '#7b839a' : '#9ca3af' }}>Max: <strong style={{ color: dark ? '#e2e8f0' : '#374151' }}>{marksModal.assessment?.max_marks}</strong></span>
+                        <span style={{ fontSize: 12, color: dark ? '#7b839a' : '#9ca3af' }}>Max: <strong style={{ color: dark ? '#e2e8f0' : '#404040' }}>{marksModal.assessment?.max_marks}</strong></span>
                         <StatusBadge status={marksModal.submission?.status} />
                       </div>
                       {marksModal.submission?.review_note && (
@@ -1678,7 +1678,7 @@ export default function TeacherAssessments() {
                       )}
                     </div>
                   </div>
-                  <button className="ta-btn" onClick={() => setMarksModal(null)} style={{ border: 'none', background: dark ? '#1e2130' : '#f3f4f6', borderRadius: 8, width: 32, height: 32, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <button className="ta-btn" onClick={() => setMarksModal(null)} style={{ border: 'none', background: dark ? '#262626' : '#f3f4f6', borderRadius: 8, width: 32, height: 32, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <X size={16} color={dark ? '#94a3b8' : '#6b7280'} />
                   </button>
                 </div>
@@ -1691,7 +1691,7 @@ export default function TeacherAssessments() {
                     background: dark
                       ? `linear-gradient(135deg, ${T.teal}1a, ${T.violet}1a)`
                       : `linear-gradient(135deg, ${T.teal}0f, ${T.violet}0f)`,
-                    border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`,
+                    border: `1px solid ${dark ? '#333333' : '#e5e7eb'}`,
                   }}>
                     <span style={{ fontSize: 11, fontWeight: 700, color: dark ? '#7b839a' : '#6b7280', whiteSpace: 'nowrap' }}>
                       Bulk entry:
@@ -1704,7 +1704,7 @@ export default function TeacherAssessments() {
                         display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 10,
                         border: 'none',
                         background: templateDownloading
-                          ? (dark ? '#2a3042' : '#e5e7eb')
+                          ? (dark ? '#333333' : '#e5e7eb')
                           : `linear-gradient(135deg, ${T.teal}, ${T.tealBright})`,
                         color: templateDownloading ? (dark ? '#7b839a' : '#9ca3af') : '#fff',
                         fontSize: 12.5, fontWeight: 700,
@@ -1722,7 +1722,7 @@ export default function TeacherAssessments() {
                         display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 10,
                         border: 'none',
                         background: marksUploading
-                          ? (dark ? '#2a3042' : '#e5e7eb')
+                          ? (dark ? '#333333' : '#e5e7eb')
                           : `linear-gradient(135deg, ${T.violet}, ${T.violetBright})`,
                         color: marksUploading ? (dark ? '#7b839a' : '#9ca3af') : '#fff',
                         fontSize: 12.5, fontWeight: 700,
@@ -1760,11 +1760,11 @@ export default function TeacherAssessments() {
                 {!marksLocked && (
                   <div className={markingProgress.complete ? 'ta-mastery-badge' : ''} style={{
                     marginBottom: 0, padding: '12px 14px', borderRadius: 12,
-                    background: markingProgress.complete ? `${T.gold}12` : (dark ? '#1a1f2e' : '#f9fafb'),
-                    border: `1px solid ${markingProgress.complete ? `${T.gold}55` : (dark ? '#2a3042' : '#e5e7eb')}`,
+                    background: markingProgress.complete ? `${T.gold}12` : (dark ? '#1f1f1f' : '#f9fafb'),
+                    border: `1px solid ${markingProgress.complete ? `${T.gold}55` : (dark ? '#333333' : '#e5e7eb')}`,
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: markingProgress.complete ? 0 : 8 }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: markingProgress.complete ? T.gold : (dark ? '#e2e8f0' : '#374151') }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: markingProgress.complete ? T.gold : (dark ? '#e2e8f0' : '#404040') }}>
                         {markingProgress.complete ? <Sparkles size={13} className="ta-sparkle" /> : <Users size={13} />}
                         {markingProgress.complete ? 'All students marked — ready to submit' : 'Marking Progress'}
                       </span>
@@ -1791,7 +1791,7 @@ export default function TeacherAssessments() {
                     </div>
                     {!markingProgress.complete && (
                       <>
-                        <div style={{ height: 8, borderRadius: 4, background: dark ? '#2a3042' : '#e5e7eb', overflow: 'hidden' }}>
+                        <div style={{ height: 8, borderRadius: 4, background: dark ? '#333333' : '#e5e7eb', overflow: 'hidden' }}>
                           <div style={{
                             height: '100%', width: markingProgress.pct + '%',
                             background: `linear-gradient(90deg, ${T.navy}, ${T.blueBright})`,
@@ -1820,12 +1820,12 @@ export default function TeacherAssessments() {
                     Everything above (title, ring, bulk entry, progress)
                     and everything below (Save/Submit) stays fixed in view. ── */}
                 <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '16px 28px' }}>
-                <div style={{ overflowX: 'auto', borderRadius: 12, border: `1px solid ${dark ? '#1e2130' : '#eef0f4'}` }}>
+                <div style={{ overflowX: 'auto', borderRadius: 12, border: `1px solid ${dark ? '#262626' : '#eef0f4'}` }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                       <tr>
                         {['#', 'Student', 'Marks', `Out of ${marksModal.assessment?.max_marks}`, '%'].map(h => (
-                          <th key={h} style={{ padding: '9px 12px', background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#7b839a' : '#6b7280', fontSize: 11, fontWeight: 700, textAlign: 'left', borderBottom: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}`, position: 'sticky', top: 0 }}>{h}</th>
+                          <th key={h} style={{ padding: '9px 12px', background: dark ? '#1f1f1f' : '#f9fafb', color: dark ? '#7b839a' : '#6b7280', fontSize: 11, fontWeight: 700, textAlign: 'left', borderBottom: `1px solid ${dark ? '#262626' : '#e5e7eb'}`, position: 'sticky', top: 0 }}>{h}</th>
                         ))}
                       </tr>
                     </thead>
@@ -1840,12 +1840,12 @@ export default function TeacherAssessments() {
                           <tr
                             key={s.student_id}
                             className="ta-row"
-                            style={{ background: i % 2 === 0 ? 'transparent' : (dark ? '#ffffff04' : '#fafafa'), borderBottom: `1px solid ${dark ? '#1e2130' : '#f1f5f9'}` }}
-                            onMouseEnter={e => { e.currentTarget.style.background = dark ? '#1a1f2e88' : '#f4f7ff'; }}
+                            style={{ background: i % 2 === 0 ? 'transparent' : (dark ? '#ffffff04' : '#fafafa'), borderBottom: `1px solid ${dark ? '#262626' : '#f1f5f9'}` }}
+                            onMouseEnter={e => { e.currentTarget.style.background = dark ? '#1f1f1f88' : '#f4f7ff'; }}
                             onMouseLeave={e => { e.currentTarget.style.background = i % 2 === 0 ? 'transparent' : (dark ? '#ffffff04' : '#fafafa'); }}
                           >
                             <td style={{ padding: '9px 12px', fontSize: 12, color: dark ? '#7b839a' : '#9ca3af' }}>{i + 1}</td>
-                            <td style={{ padding: '9px 12px', fontSize: 13, fontWeight: 600, color: dark ? '#e2e8f0' : '#374151' }}>
+                            <td style={{ padding: '9px 12px', fontSize: 13, fontWeight: 600, color: dark ? '#e2e8f0' : '#404040' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                                 {s.name}
                                 {!marksLocked && missing && (
@@ -1864,9 +1864,9 @@ export default function TeacherAssessments() {
                                 onChange={e => setMarksData(prev => ({ ...prev, [s.student_id]: e.target.value }))}
                                 style={{
                                   width: 80, padding: '6px 10px', borderRadius: 8,
-                                  border: `1px solid ${num != null && num > max ? T.red : (missing && !marksLocked ? T.amber : (dark ? '#2a3042' : '#d1d5db'))}`,
-                                  background: marksLocked ? (dark ? '#0f1117' : '#f3f4f6') : (dark ? '#1a1f2e' : '#fff'),
-                                  color: dark ? '#e2e8f0' : '#111827', fontSize: 13, outline: 'none',
+                                  border: `1px solid ${num != null && num > max ? T.red : (missing && !marksLocked ? T.amber : (dark ? '#333333' : '#d1d5db'))}`,
+                                  background: marksLocked ? (dark ? '#0f0f0f' : '#f3f4f6') : (dark ? '#1f1f1f' : '#fff'),
+                                  color: dark ? '#e2e8f0' : '#131313', fontSize: 13, outline: 'none',
                                   opacity: marksLocked ? 0.6 : 1,
                                   transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
                                 }}
@@ -1885,8 +1885,8 @@ export default function TeacherAssessments() {
                 {/* ── Fixed bottom section: Save/Submit always reachable,
                     never pushed off-screen by a long roster. ── */}
                 {!marksLocked && (
-                  <div style={{ flexShrink: 0, display: 'flex', gap: 10, padding: '16px 28px 28px', borderTop: `1px solid ${dark ? '#1e2130' : '#eef0f4'}` }}>
-                    <button className="ta-btn" onClick={saveDraft} disabled={marksSaving} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '11px', borderRadius: 10, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#e2e8f0' : '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                  <div style={{ flexShrink: 0, display: 'flex', gap: 10, padding: '16px 28px 28px', borderTop: `1px solid ${dark ? '#262626' : '#eef0f4'}` }}>
+                    <button className="ta-btn" onClick={saveDraft} disabled={marksSaving} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '11px', borderRadius: 10, border: `1px solid ${dark ? '#333333' : '#e5e7eb'}`, background: dark ? '#1f1f1f' : '#f9fafb', color: dark ? '#e2e8f0' : '#404040', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
                       <Save size={14} /> {marksSaving ? 'Saving…' : 'Save Draft'}
                     </button>
                     <button className="ta-btn" onClick={submitMarks} disabled={marksSaving} style={{ flex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '11px', borderRadius: 10, border: 'none', background: `linear-gradient(135deg, ${T.navy}, ${T.blueBright})`, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: `0 4px 14px ${T.navy}59` }}>

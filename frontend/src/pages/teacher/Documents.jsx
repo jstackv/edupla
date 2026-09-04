@@ -31,7 +31,7 @@ const FILE_TYPE_CONFIG = {
   jpeg: { bg: 'bg-pink-100 dark:bg-pink-900/30',   text: 'text-pink-600',   label: 'IMG' },
   zip:  { bg: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-600',  label: 'ZIP' },
   txt:  { bg: 'bg-slate-100 dark:bg-slate-900/30', text: 'text-slate-600',  label: 'TXT' },
-  mp4:  { bg: 'bg-violet-100 dark:bg-violet-900/30', text: 'text-violet-600', label: 'VID' },
+  mp4:  { bg: 'bg-orange-100 dark:bg-orange-900/30', text: 'text-orange-600', label: 'VID' },
   mp3:  { bg: 'bg-cyan-100 dark:bg-cyan-900/30',   text: 'text-cyan-600',   label: 'AUD' },
 };
 
@@ -51,12 +51,12 @@ function FileIcon({ name }) {
 const MODULE_COLORS = [
   { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-700 dark:text-blue-300', dot: '#3b82f6' },
   { bg: 'bg-emerald-100 dark:bg-emerald-900/30', text: 'text-emerald-700 dark:text-emerald-300', dot: '#10b981' },
-  { bg: 'bg-violet-100 dark:bg-violet-900/30', text: 'text-violet-700 dark:text-violet-300', dot: '#8b5cf6' },
+  { bg: 'bg-orange-100 dark:bg-orange-900/30', text: 'text-orange-700 dark:text-orange-300', dot: '#f97316' },
   { bg: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-700 dark:text-amber-300', dot: '#f59e0b' },
   { bg: 'bg-rose-100 dark:bg-rose-900/30', text: 'text-rose-700 dark:text-rose-300', dot: '#f43f5e' },
   { bg: 'bg-cyan-100 dark:bg-cyan-900/30', text: 'text-cyan-700 dark:text-cyan-300', dot: '#06b6d4' },
   { bg: 'bg-orange-100 dark:bg-orange-900/30', text: 'text-orange-700 dark:text-orange-300', dot: '#f97316' },
-  { bg: 'bg-indigo-100 dark:bg-indigo-900/30', text: 'text-indigo-700 dark:text-indigo-300', dot: '#6366f1' },
+  { bg: 'bg-orange-100 dark:bg-orange-900/30', text: 'text-orange-700 dark:text-orange-300', dot: '#f97316' },
 ];
 function moduleColor(idx) { return MODULE_COLORS[idx % MODULE_COLORS.length]; }
 
@@ -571,7 +571,7 @@ export default function Documents() {
               className="flex items-center gap-4 px-4 py-3.5 rounded-xl transition-colors hover:bg-primary-50/40 dark:hover:bg-primary-900/10"
               style={{
                 background: 'var(--surface-50, var(--card-bg))', border: '1px solid var(--card-border)',
-                boxShadow: flashId === doc.id ? '0 0 0 2px #6366f1, 0 8px 24px rgba(99,102,241,0.25)' : undefined,
+                boxShadow: flashId === doc.id ? '0 0 0 2px #f97316, 0 8px 24px rgba(249,115,22,0.25)' : undefined,
                 transition: 'box-shadow 0.4s ease',
               }}>
               <FileIcon name={doc.original_name} />
@@ -588,7 +588,7 @@ export default function Documents() {
                 </button>
                 <button onClick={() => downloadFile(doc)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium"
-                  style={{ background: '#6366f1', color: '#fff', border: 'none' }}>
+                  style={{ background: '#f97316', color: '#fff', border: 'none' }}>
                   <Download className="w-3.5 h-3.5" /> Download
                 </button>
                 <div className="flex items-center gap-1 ml-1 pl-2" style={{ borderLeft: '1px solid var(--card-border)' }}>

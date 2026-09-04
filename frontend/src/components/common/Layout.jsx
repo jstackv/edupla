@@ -14,7 +14,7 @@ import {
   GraduationCap, BookMarked, Notebook, Shield, UserCheck,
   UserCircle, Settings, Bell, Search, Home,
   Layers, UserPlus, AlertTriangle, X, Crown, ClipboardCheck,
-  LibraryBig, Building2, Wallet, MessageCircle, Activity,
+  LibraryBig, Building2, Wallet, MessageCircle, Activity, Laptop2, ShieldCheck,
 } from 'lucide-react';
 import NotificationPanel from './NotificationPanel';
 import LanguageSwitcher from './LanguageSwitcher';
@@ -36,6 +36,7 @@ const TeacherLinks = [
   { to: '/teacher/assessments',      icon: ClipboardCheck,  labelKey: 'nav.examsQuizzes',    section: 'manage' },
   { to: '/teacher/announcements',    icon: Megaphone,       labelKey: 'nav.broadcasts',      section: 'manage' },
   { to: '/teacher/groups',           icon: MessageCircle,   labelKey: 'nav.discussion',      section: 'manage' },
+  { to: '/teacher/discipline',       icon: ShieldCheck,     labelKey: 'nav.disciplineMarks', section: 'manage' },
 ];
 const StudentLinks = [
   { to: '/student/dashboard',     icon: LayoutDashboard, labelKey: 'nav.myDashboard',      section: 'main' },
@@ -53,6 +54,7 @@ const AdminLinks = [
   { to: '/admin/classes',     icon: BookOpen,        labelKey: 'nav.classrooms',          section: 'main' },
   { to: '/admin/students',    icon: GraduationCap,   labelKey: 'nav.studentBody',         section: 'main' },
   { to: '/admin/assessments', icon: BookMarked,      labelKey: 'nav.curriculum',          section: 'manage' },
+  { to: '/admin/online-performance', icon: Laptop2,  labelKey: 'nav.onlinePerformance',   section: 'manage' },
   { to: '/admin/settings',    icon: Building2,       labelKey: 'nav.institutionSettings', section: 'manage' },
   { to: '/admin/subscription',icon: Wallet,          labelKey: 'nav.subscriptionPlan',    section: 'manage' },
 ];
@@ -66,15 +68,15 @@ const SuperAdminLinks = [
 
 /* ─── HELPERS ───────────────────────────────────────────────────── */
 const AVATAR_GRADIENTS = [
-  ['#6366f1','#4338ca'], ['#0ea5e9','#0284c7'], ['#10b981','#059669'],
-  ['#f59e0b','#d97706'], ['#ec4899','#db2777'], ['#8b5cf6','#7c3aed'],
+  ['#f97316','#c2410c'], ['#0ea5e9','#0284c7'], ['#10b981','#059669'],
+  ['#f59e0b','#d97706'], ['#ec4899','#db2777'], ['#f97316','#ea580c'],
 ];
 function getAvatarGradient(name) {
   if (!name) return AVATAR_GRADIENTS[0];
   return AVATAR_GRADIENTS[name.charCodeAt(0) % AVATAR_GRADIENTS.length];
 }
 const ROLE_LABEL_KEY = { teacher: 'roles.teacherPortal', student: 'roles.studentPortal', admin: 'roles.adminPortal' };
-const ROLE_BADGE_COLOR = { teacher: '#6366f1', student: '#10b981', admin: '#8b5cf6' };
+const ROLE_BADGE_COLOR = { teacher: '#f97316', student: '#10b981', admin: '#f97316' };
 
 /* ══════════════════════════════════════════════════════════════════
    LOGOUT CONFIRMATION MODAL
@@ -162,8 +164,8 @@ function LogoutModal({ open, onConfirm, onCancel, dark, userName }) {
               onClick={onCancel}
               style={{
                 flex: 1, height: 44, borderRadius: 12,
-                border: `1.5px solid ${dark ? '#2a3042' : '#e5e7eb'}`,
-                background: dark ? '#1a1f2e' : '#f9fafb',
+                border: `1.5px solid ${dark ? '#333333' : '#e5e7eb'}`,
+                background: dark ? '#1f1f1f' : '#f9fafb',
                 color: dark ? '#94a3b8' : '#6b7280',
                 fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
                 transition: 'all 0.15s',
@@ -171,10 +173,10 @@ function LogoutModal({ open, onConfirm, onCancel, dark, userName }) {
               }}
               onMouseEnter={e => {
                 e.currentTarget.style.background = dark ? '#222840' : '#f3f4f6';
-                e.currentTarget.style.color = dark ? '#e2e8f0' : '#374151';
+                e.currentTarget.style.color = dark ? '#e2e8f0' : '#404040';
               }}
               onMouseLeave={e => {
-                e.currentTarget.style.background = dark ? '#1a1f2e' : '#f9fafb';
+                e.currentTarget.style.background = dark ? '#1f1f1f' : '#f9fafb';
                 e.currentTarget.style.color = dark ? '#94a3b8' : '#6b7280';
               }}
             >
@@ -230,7 +232,7 @@ function UserDropdown({ user, dark, from, to, initials, onLogoutClick }) {
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
-  const roleColor = ROLE_BADGE_COLOR[user?.role] || '#6366f1';
+  const roleColor = ROLE_BADGE_COLOR[user?.role] || '#f97316';
 
   const menuItems = [
     { icon: UserCircle, label: t('layout.viewProfile'), sub: t('layout.viewProfileSub'), action: () => { navigate('/profile');  setOpen(false); } },
@@ -245,26 +247,26 @@ function UserDropdown({ user, dark, from, to, initials, onLogoutClick }) {
           display: 'flex', alignItems: 'center', gap: 8,
           padding: '4px 10px 4px 5px',
           borderRadius: 12,
-          border: `1.5px solid ${open ? '#6366f1' : (dark ? '#1e2130' : '#e5e7eb')}`,
+          border: `1.5px solid ${open ? '#f97316' : (dark ? '#262626' : '#e5e7eb')}`,
           background: open ? (dark ? '#1d2235' : '#f3f4f6') : (dark ? '#181c27' : '#f9fafb'),
           cursor: 'pointer', transition: 'all 0.15s',
         }}
         onMouseEnter={e => {
           if (!open) {
-            e.currentTarget.style.borderColor = '#6366f1';
+            e.currentTarget.style.borderColor = '#f97316';
             e.currentTarget.style.background = dark ? '#1d2235' : '#f3f4f6';
           }
         }}
         onMouseLeave={e => {
           if (!open) {
-            e.currentTarget.style.borderColor = dark ? '#1e2130' : '#e5e7eb';
+            e.currentTarget.style.borderColor = dark ? '#262626' : '#e5e7eb';
             e.currentTarget.style.background = dark ? '#181c27' : '#f9fafb';
           }
         }}
       >
         {/* Avatar */}
         {user?.role === 'admin' ? (
-          <div style={{ width: 28, height: 28, borderRadius: 8, background: '#6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <div style={{ width: 28, height: 28, borderRadius: 8, background: '#f97316', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <Shield size={13} color="#fff" />
           </div>
         ) : (
@@ -281,7 +283,7 @@ function UserDropdown({ user, dark, from, to, initials, onLogoutClick }) {
 
         {/* Name + role */}
         <div style={{ textAlign: 'left', display: 'none' }} className="topbar-user-text">
-          <p style={{ fontSize: 12, fontWeight: 600, color: dark ? '#e8ecf4' : '#111827', lineHeight: 1.1, margin: 0 }}>{user?.name?.split(' ')[0]}</p>
+          <p style={{ fontSize: 12, fontWeight: 600, color: dark ? '#e8ecf4' : '#131313', lineHeight: 1.1, margin: 0 }}>{user?.name?.split(' ')[0]}</p>
           <p style={{ fontSize: 10, color: roleColor, fontWeight: 600, textTransform: 'capitalize', margin: 0 }}>{user?.role}</p>
         </div>
 
@@ -307,11 +309,11 @@ function UserDropdown({ user, dark, from, to, initials, onLogoutClick }) {
           <div style={{
             padding: '16px 16px 12px',
             borderBottom: `1px solid ${dark ? '#1e2535' : '#f1f5f9'}`,
-            background: dark ? 'rgba(99,102,241,0.05)' : 'rgba(99,102,241,0.03)',
+            background: dark ? 'rgba(249,115,22,0.05)' : 'rgba(249,115,22,0.03)',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               {user?.role === 'admin' ? (
-                <div style={{ width: 38, height: 38, borderRadius: 11, background: 'linear-gradient(135deg,#6366f1,#4f46e5)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(99,102,241,0.4)' }}>
+                <div style={{ width: 38, height: 38, borderRadius: 11, background: 'linear-gradient(135deg,#f97316,#ea580c)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(249,115,22,0.4)' }}>
                   <Shield size={17} color="#fff" />
                 </div>
               ) : (
@@ -326,7 +328,7 @@ function UserDropdown({ user, dark, from, to, initials, onLogoutClick }) {
                 </div>
               )}
               <div>
-                <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: dark ? '#e8ecf4' : '#111827', fontFamily: "'Sora',sans-serif" }}>{user?.name}</p>
+                <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: dark ? '#e8ecf4' : '#131313', fontFamily: "'Sora',sans-serif" }}>{user?.name}</p>
                 <p style={{ margin: 0, fontSize: 11, color: dark ? '#4a5168' : '#9ca3af', marginTop: 1 }}>{user?.email}</p>
               </div>
             </div>
@@ -356,13 +358,13 @@ function UserDropdown({ user, dark, from, to, initials, onLogoutClick }) {
               >
                 <div style={{
                   width: 32, height: 32, borderRadius: 9, flexShrink: 0,
-                  background: dark ? '#1a1f2e' : '#f1f5f9',
+                  background: dark ? '#1f1f1f' : '#f1f5f9',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
                   <Icon size={15} color={dark ? '#7b839a' : '#6b7280'} />
                 </div>
                 <div>
-                  <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: dark ? '#e2e8f0' : '#111827' }}>{label}</p>
+                  <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: dark ? '#e2e8f0' : '#131313' }}>{label}</p>
                   <p style={{ margin: 0, fontSize: 11, color: dark ? '#4a5168' : '#9ca3af' }}>{sub}</p>
                 </div>
               </button>
@@ -480,7 +482,7 @@ export default function Layout({ children }) {
       <div style={{
         position: 'absolute', bottom: 120, right: -30, width: 120, height: 120,
         borderRadius: '50%', pointerEvents: 'none',
-        background: `radial-gradient(circle, rgba(139,92,246,${dark ? 0.08 : 0.06}) 0%, transparent 70%)`,
+        background: `radial-gradient(circle, rgba(249,115,22,${dark ? 0.08 : 0.06}) 0%, transparent 70%)`,
         animation: 'sa-glow 6s ease-in-out infinite reverse',
       }} />
 
@@ -595,7 +597,7 @@ export default function Layout({ children }) {
 
   /* Sidebar shared content */
   const SidebarContent = ({ onNav }) => (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: dark ? '#13161f' : '#ffffff', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: dark ? '#171717' : '#ffffff', overflow: 'hidden' }}>
 
       {/* Logo — the real Edupla brand mark, replacing the generic
           graduation-cap glyph, so this is the single source of the
@@ -604,7 +606,7 @@ export default function Layout({ children }) {
       <div style={{
         display: 'flex', alignItems: 'center', gap: 10,
         padding: '0 14px', height: 52, flexShrink: 0,
-        borderBottom: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}`,
+        borderBottom: `1px solid ${dark ? '#262626' : '#e5e7eb'}`,
       }}>
         <BrandMark size={34} />
         <div style={{
@@ -614,7 +616,7 @@ export default function Layout({ children }) {
           width: collapsed ? 0 : 160,
           pointerEvents: collapsed ? 'none' : 'auto',
         }}>
-          <p style={{ fontFamily: "'Sora',sans-serif", fontSize: 13, fontWeight: 800, color: dark ? '#e8ecf4' : '#111827', letterSpacing: '0.06em' }}>EDUPLA</p>
+          <p style={{ fontFamily: "'Sora',sans-serif", fontSize: 13, fontWeight: 800, color: dark ? '#e8ecf4' : '#131313', letterSpacing: '0.06em' }}>EDUPLA</p>
           <span style={{ fontSize: 10, color: dark ? '#4a5168' : '#9ca3af', fontWeight: 500 }}>{user?.role ? t(ROLE_LABEL_KEY[user.role]) : t('common.portal')}</span>
         </div>
       </div>
@@ -623,7 +625,7 @@ export default function Layout({ children }) {
       <Link to="/profile" onClick={onNav} style={{
         margin: '10px 10px 0', padding: '9px 10px',
         background: dark ? '#181c27' : '#f9fafb',
-        border: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}`,
+        border: `1px solid ${dark ? '#262626' : '#e5e7eb'}`,
         borderRadius: 12, display: 'flex', alignItems: 'center', gap: 9,
         textDecoration: 'none', overflow: 'hidden', transition: 'background 0.15s',
       }}
@@ -631,7 +633,7 @@ export default function Layout({ children }) {
         onMouseLeave={e => e.currentTarget.style.background = dark ? '#181c27' : '#f9fafb'}
       >
         {user?.role === 'admin' ? (
-          <div style={{ width: 32, height: 32, flexShrink: 0, borderRadius: 9, background: '#6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: 32, height: 32, flexShrink: 0, borderRadius: 9, background: '#f97316', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Shield size={14} color="#fff" />
           </div>
         ) : (
@@ -650,11 +652,11 @@ export default function Layout({ children }) {
           opacity: collapsed ? 0 : 1, width: collapsed ? 0 : 999,
           pointerEvents: collapsed ? 'none' : 'auto',
         }}>
-          <p style={{ fontSize: 12, fontWeight: 600, color: dark ? '#e8ecf4' : '#111827' }}>{user?.name}</p>
+          <p style={{ fontSize: 12, fontWeight: 600, color: dark ? '#e8ecf4' : '#131313' }}>{user?.name}</p>
           <span style={{ fontSize: 10, color: dark ? '#4a5168' : '#9ca3af', fontWeight: 500 }}>{user?.email}</span>
         </div>
         {!collapsed && (
-          <div style={{ width: 7, height: 7, borderRadius: '50%', background: ROLE_BADGE_COLOR[user?.role] || '#6366f1', flexShrink: 0, boxShadow: `0 0 5px ${ROLE_BADGE_COLOR[user?.role] || '#6366f1'}` }} />
+          <div style={{ width: 7, height: 7, borderRadius: '50%', background: ROLE_BADGE_COLOR[user?.role] || '#f97316', flexShrink: 0, boxShadow: `0 0 5px ${ROLE_BADGE_COLOR[user?.role] || '#f97316'}` }} />
         )}
       </Link>
 
@@ -675,7 +677,7 @@ export default function Layout({ children }) {
       </nav>
 
       {/* Bottom */}
-      <div style={{ padding: 8, borderTop: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}`, flexShrink: 0 }}>
+      <div style={{ padding: 8, borderTop: `1px solid ${dark ? '#262626' : '#e5e7eb'}`, flexShrink: 0 }}>
         <NavItem link={{ to: '/profile', icon: UserCircle, labelKey: 'common.profile' }} location={location} collapsed={collapsed} dark={dark} onNav={onNav} />
         <NavItem link={{ to: '/settings', icon: Settings, labelKey: 'common.settings' }} location={location} collapsed={collapsed} dark={dark} onNav={onNav} />
         <button
@@ -697,7 +699,7 @@ export default function Layout({ children }) {
           {collapsed && (
             <span className="nav-tooltip" style={{
               position: 'absolute', left: 'calc(100% - 6px)', top: '50%', transform: 'translateY(-50%)',
-              background: dark ? '#1d2235' : '#ffffff', border: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}`,
+              background: dark ? '#1d2235' : '#ffffff', border: `1px solid ${dark ? '#262626' : '#e5e7eb'}`,
               color: '#f87171', fontSize: 12, fontWeight: 500, padding: '5px 10px',
               borderRadius: 8, whiteSpace: 'nowrap', opacity: 0, pointerEvents: 'none',
               boxShadow: '0 4px 20px rgba(0,0,0,0.4)', zIndex: 100, transition: 'opacity 0.15s',
@@ -715,10 +717,10 @@ export default function Layout({ children }) {
         @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=DM+Sans:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
         body { font-family: 'DM Sans', sans-serif; }
-        .edupla-layout { display: flex; height: 100vh; overflow: hidden; background: ${dark ? '#0f1117' : '#f4f5f7'}; }
+        .edupla-layout { display: flex; height: 100vh; overflow: hidden; background: ${dark ? '#0f0f0f' : '#f4f5f7'}; }
         .edupla-sidebar {
           flex-shrink: 0; height: 100%;
-          border-right: 1px solid ${isSuperAdmin ? (dark ? 'rgba(245,158,11,0.15)' : 'rgba(217,119,6,0.2)') : (dark ? '#1e2130' : '#e5e7eb')};
+          border-right: 1px solid ${isSuperAdmin ? (dark ? 'rgba(245,158,11,0.15)' : 'rgba(217,119,6,0.2)') : (dark ? '#262626' : '#e5e7eb')};
           position: relative; z-index: 10;
           transition: width 0.26s cubic-bezier(.4,0,.2,1);
           overflow: visible;
@@ -728,12 +730,12 @@ export default function Layout({ children }) {
           position: absolute; top: 14px; right: -12px;
           width: 24px; height: 24px;
           background: ${dark ? '#1d2235' : '#ffffff'};
-          border: 1px solid ${dark ? '#1e2130' : '#e5e7eb'};
+          border: 1px solid ${dark ? '#262626' : '#e5e7eb'};
           border-radius: 50%; display: flex; align-items: center; justify-content: center;
           cursor: pointer; z-index: 20; transition: background 0.15s, border-color 0.15s;
           box-shadow: 0 2px 8px rgba(0,0,0,0.15);
         }
-        .collapse-btn:hover { background: #6366f1 !important; border-color: #6366f1 !important; }
+        .collapse-btn:hover { background: #f97316 !important; border-color: #f97316 !important; }
         .collapse-btn:hover svg { color: #fff !important; }
         .nav-tooltip { display: none !important; }
         ${collapsed ? `.nav-item-wrap:hover .nav-tooltip { display: flex !important; opacity: 1 !important; pointer-events: none !important; }` : ''}
@@ -795,15 +797,15 @@ export default function Layout({ children }) {
           {/* TOPBAR */}
           <header className="edupla-topbar" style={{
             height: 52, flexShrink: 0,
-            background: dark ? '#13161f' : '#ffffff',
-            borderBottom: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}`,
+            background: dark ? '#171717' : '#ffffff',
+            borderBottom: `1px solid ${dark ? '#262626' : '#e5e7eb'}`,
             display: 'flex', alignItems: 'center', gap: 12, padding: '0 18px',
           }}>
             {/* Mobile hamburger */}
             <button onClick={() => setMobileOpen(o => !o)} style={{
               display: 'none', width: 32, height: 32, borderRadius: 9,
               background: dark ? '#181c27' : '#f9fafb',
-              border: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}`,
+              border: `1px solid ${dark ? '#262626' : '#e5e7eb'}`,
               alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
             }} className="mobile-hamburger">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={dark ? '#7b839a' : '#6b7280'} strokeWidth="2" strokeLinecap="round">
@@ -819,7 +821,7 @@ export default function Layout({ children }) {
                 {isSuperAdmin ? t('roles.superAdmin') : (user?.role ? t(ROLE_LABEL_KEY[user.role]) : t('common.portal'))}
               </span>
               <ChevronRight size={10} color={dark ? '#4a5168' : '#9ca3af'} />
-              <span style={{ fontFamily: "'Sora',sans-serif", fontSize: 13, fontWeight: 700, color: dark ? '#e8ecf4' : '#111827' }}>{pageTitle}</span>
+              <span style={{ fontFamily: "'Sora',sans-serif", fontSize: 13, fontWeight: 700, color: dark ? '#e8ecf4' : '#131313' }}>{pageTitle}</span>
             </div>
 
             {/* Right controls */}
@@ -828,16 +830,16 @@ export default function Layout({ children }) {
               <div style={{
                 display: 'flex', alignItems: 'center', gap: 7,
                 background: dark ? '#181c27' : '#f9fafb',
-                border: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}`,
+                border: `1px solid ${dark ? '#262626' : '#e5e7eb'}`,
                 borderRadius: 10, padding: '6px 12px', cursor: 'pointer',
                 transition: 'border-color 0.15s',
               }}
-                onMouseEnter={e => e.currentTarget.style.borderColor = '#6366f1'}
-                onMouseLeave={e => e.currentTarget.style.borderColor = dark ? '#1e2130' : '#e5e7eb'}
+                onMouseEnter={e => e.currentTarget.style.borderColor = '#f97316'}
+                onMouseLeave={e => e.currentTarget.style.borderColor = dark ? '#262626' : '#e5e7eb'}
               >
                 <Search size={13} color={dark ? '#4a5168' : '#9ca3af'} />
                 <span style={{ fontSize: 12, color: dark ? '#4a5168' : '#9ca3af' }}>{t('common.search')}</span>
-                <kbd style={{ fontSize: 9.5, color: dark ? '#4a5168' : '#9ca3af', background: dark ? '#1d2235' : '#f3f4f6', border: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}`, borderRadius: 4, padding: '1px 4px' }}>⌘K</kbd>
+                <kbd style={{ fontSize: 9.5, color: dark ? '#4a5168' : '#9ca3af', background: dark ? '#1d2235' : '#f3f4f6', border: `1px solid ${dark ? '#262626' : '#e5e7eb'}`, borderRadius: 4, padding: '1px 4px' }}>⌘K</kbd>
               </div>
 
               {/* Notifications */}
@@ -851,7 +853,7 @@ export default function Layout({ children }) {
                 {dark ? <Sun size={14} color={dark ? '#7b839a' : '#6b7280'} /> : <Moon size={14} color={dark ? '#7b839a' : '#6b7280'} />}
               </TopbarIconBtn>
 
-              <div style={{ width: 1, height: 20, background: dark ? '#1e2130' : '#e5e7eb' }} />
+              <div style={{ width: 1, height: 20, background: dark ? '#262626' : '#e5e7eb' }} />
 
               {/* User Dropdown */}
               <UserDropdown
@@ -871,10 +873,10 @@ export default function Layout({ children }) {
           {isImpersonating && (
             <div style={{
               padding: '8px 18px', flexShrink: 0,
-              background: 'rgba(124,58,237,0.12)',
-              borderBottom: '1px solid rgba(124,58,237,0.3)',
+              background: 'rgba(234,88,12,0.12)',
+              borderBottom: '1px solid rgba(234,88,12,0.3)',
               display: 'flex', alignItems: 'center', gap: 8,
-              fontSize: 12, fontWeight: 600, color: '#7c3aed',
+              fontSize: 12, fontWeight: 600, color: '#ea580c',
             }}>
             <UserCheck size={14} />
             {t('layout.viewingAs', { name: user?.name, role: user?.role })}
@@ -882,8 +884,8 @@ export default function Layout({ children }) {
               onClick={endImpersonation}
               style={{
                 marginLeft: 'auto', padding: '3px 10px', borderRadius: 7,
-                border: '1px solid rgba(124,58,237,0.4)', background: 'transparent',
-                color: '#7c3aed', fontWeight: 700, fontSize: 11.5, cursor: 'pointer',
+                border: '1px solid rgba(234,88,12,0.4)', background: 'transparent',
+                color: '#ea580c', fontWeight: 700, fontSize: 11.5, cursor: 'pointer',
               }}
             >
               {t('layout.endSession')}
@@ -909,7 +911,7 @@ export default function Layout({ children }) {
           )}
 
           {/* PAGE CONTENT */}
-          <main className="edupla-main" style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', background: dark ? '#0f1117' : '#f4f5f7' }}>
+          <main className="edupla-main" style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', background: dark ? '#0f0f0f' : '#f4f5f7' }}>
             {children}
           </main>
         </div>
@@ -946,8 +948,8 @@ function NavItem({ link, location, collapsed, dark, onNav }) {
   const label = t(link.labelKey);
   const active = location.pathname === link.to;
   const [hovered, setHovered] = useState(false);
-  const bg = active ? 'rgba(99,102,241,0.12)' : hovered ? (dark ? '#181c27' : '#f3f4f6') : 'transparent';
-  const color = active ? '#818cf8' : hovered ? (dark ? '#e8ecf4' : '#111827') : (dark ? '#7b839a' : '#6b7280');
+  const bg = active ? 'rgba(249,115,22,0.12)' : hovered ? (dark ? '#181c27' : '#f3f4f6') : 'transparent';
+  const color = active ? '#fb923c' : hovered ? (dark ? '#e8ecf4' : '#131313') : (dark ? '#7b839a' : '#6b7280');
   return (
     <div className="nav-item-wrap" style={{ position: 'relative' }}>
       <Link to={link.to} onClick={onNav} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
@@ -958,21 +960,21 @@ function NavItem({ link, location, collapsed, dark, onNav }) {
           background: bg, color, fontSize: 12.5, fontWeight: 500,
           marginBottom: 1, transition: 'background 0.15s, color 0.15s',
         }}>
-        {active && (<div style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', width: 3, height: 16, borderRadius: '0 3px 3px 0', background: '#6366f1' }} />)}
+        {active && (<div style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', width: 3, height: 16, borderRadius: '0 3px 3px 0', background: '#f97316' }} />)}
         <Icon size={16} style={{ flexShrink: 0 }} />
         <span style={{ flex: 1, transition: 'opacity 0.26s ease, width 0.26s ease', opacity: collapsed ? 0 : 1, width: collapsed ? 0 : 'auto', overflow: 'hidden', pointerEvents: 'none' }}>
           {label}
         </span>
         {link.badge != null && !collapsed && (
-          <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 5, background: 'rgba(99,102,241,0.2)', color: '#818cf8', flexShrink: 0 }}>{link.badge}</span>
+          <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 5, background: 'rgba(249,115,22,0.2)', color: '#fb923c', flexShrink: 0 }}>{link.badge}</span>
         )}
         {active && !collapsed && (<ChevronRight size={12} style={{ flexShrink: 0, opacity: 0.6 }} />)}
       </Link>
       {collapsed && (
         <span className="nav-tooltip" style={{
           position: 'absolute', left: 58, top: '50%', transform: 'translateY(-50%)',
-          background: dark ? '#1d2235' : '#ffffff', border: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}`,
-          color: dark ? '#e8ecf4' : '#111827', fontSize: 12, fontWeight: 500, padding: '5px 10px', borderRadius: 8,
+          background: dark ? '#1d2235' : '#ffffff', border: `1px solid ${dark ? '#262626' : '#e5e7eb'}`,
+          color: dark ? '#e8ecf4' : '#131313', fontSize: 12, fontWeight: 500, padding: '5px 10px', borderRadius: 8,
           whiteSpace: 'nowrap', pointerEvents: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.3)', zIndex: 100,
         }}>
           {label}
@@ -1069,7 +1071,7 @@ function TopbarIconBtn({ dark, title, onClick, showDot, children }) {
       style={{
         width: 32, height: 32, borderRadius: 9, cursor: 'pointer',
         background: hovered ? (dark ? '#1d2235' : '#f3f4f6') : (dark ? '#181c27' : '#f9fafb'),
-        border: `1px solid ${hovered ? '#6366f1' : (dark ? '#1e2130' : '#e5e7eb')}`,
+        border: `1px solid ${hovered ? '#f97316' : (dark ? '#262626' : '#e5e7eb')}`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         position: 'relative', transition: 'background 0.15s, border-color 0.15s',
       }}>
@@ -1077,7 +1079,7 @@ function TopbarIconBtn({ dark, title, onClick, showDot, children }) {
       {showDot && (
         <div style={{
           position: 'absolute', top: 5, right: 5, width: 6, height: 6, borderRadius: '50%',
-          background: '#6366f1', border: `1.5px solid ${dark ? '#13161f' : '#ffffff'}`,
+          background: '#f97316', border: `1.5px solid ${dark ? '#171717' : '#ffffff'}`,
           animation: 'edupla-pulse 2s infinite',
         }} />
       )}

@@ -81,9 +81,9 @@ const GLOBAL_CSS = `
   .bp2-orb { position: absolute; border-radius: 50%; pointer-events: none; filter: blur(2px); animation: bp-orb 8s ease-in-out infinite; }
 
   .bp2-progress-track { display:flex; align-items:center; gap:6px; }
-  .bp2-progress-dot { height: 5px; border-radius: 3px; flex: 1; background: rgba(99,102,241,0.16); transition: background .3s; position: relative; overflow: hidden; }
-  .bp2-progress-dot.active { background: linear-gradient(90deg,#6366f1,#f97316); }
-  .bp2-progress-dot.done { background: #6366f1; }
+  .bp2-progress-dot { height: 5px; border-radius: 3px; flex: 1; background: rgba(249,115,22,0.16); transition: background .3s; position: relative; overflow: hidden; }
+  .bp2-progress-dot.active { background: linear-gradient(90deg,#f97316,#f97316); }
+  .bp2-progress-dot.done { background: #f97316; }
 
   .bp2-plan-card { position: relative; cursor: pointer; text-align: left; border-radius: 18px; transition: transform .18s cubic-bezier(0.16,1,0.3,1); animation: bp2-pop-in .4s cubic-bezier(0.16,1,0.3,1) both; }
   .bp2-plan-card:hover { transform: translateY(-3px); }
@@ -101,7 +101,7 @@ const GLOBAL_CSS = `
   .bp2-shimmer-btn::after { content: ''; position: absolute; top: 0; bottom: 0; width: 40%; background: linear-gradient(115deg, transparent, rgba(255,255,255,0.35), transparent); animation: bp2-shimmer 2.6s ease-in-out infinite; }
 
   .bp2-copy-field { transition: transform .15s, border-color .15s, box-shadow .15s; }
-  .bp2-copy-field:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(99,102,241,0.14); }
+  .bp2-copy-field:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(249,115,22,0.14); }
 
   .bp2-badge-glow { animation: bp2-glow-pulse 2.4s ease-in-out infinite; }
 
@@ -150,10 +150,10 @@ const GLOBAL_CSS = `
 
 // Alternating duotone accents per plan card — indigo / orange / violet-mix
 const PLAN_THEMES = [
-  { icon: Zap, grad: 'linear-gradient(135deg,#6366f1,#4338ca)', glow: 'linear-gradient(135deg,#6366f1,#818cf8,#4338ca)', accent: '#6366f1' },
+  { icon: Zap, grad: 'linear-gradient(135deg,#f97316,#c2410c)', glow: 'linear-gradient(135deg,#f97316,#fb923c,#c2410c)', accent: '#f97316' },
   { icon: Star, grad: 'linear-gradient(135deg,#f97316,#ea580c)', glow: 'linear-gradient(135deg,#f97316,#fb923c,#ea580c)', accent: '#f97316' },
-  { icon: Crown, grad: 'linear-gradient(135deg,#8b5cf6,#6366f1)', glow: 'linear-gradient(135deg,#8b5cf6,#a78bfa,#6366f1)', accent: '#8b5cf6' },
-  { icon: Sparkles, grad: 'linear-gradient(135deg,#f97316,#6366f1)', glow: 'linear-gradient(135deg,#f97316,#fb923c,#6366f1)', accent: '#f97316' },
+  { icon: Crown, grad: 'linear-gradient(135deg,#f97316,#f97316)', glow: 'linear-gradient(135deg,#f97316,#fb923c,#f97316)', accent: '#f97316' },
+  { icon: Sparkles, grad: 'linear-gradient(135deg,#f97316,#f97316)', glow: 'linear-gradient(135deg,#f97316,#fb923c,#f97316)', accent: '#f97316' },
 ];
 
 function formatDate(d) {
@@ -175,7 +175,7 @@ function formatMoney(amount, currency) {
 }
 
 // ── Copy-to-clipboard chip, used inside the payee instructions step ──────
-function CopyField({ icon: Icon, label, value, dark, accent = '#6366f1' }) {
+function CopyField({ icon: Icon, label, value, dark, accent = '#f97316' }) {
   const [copied, setCopied] = useState(false);
   const doCopy = async () => {
     try {
@@ -204,7 +204,7 @@ function CopyField({ icon: Icon, label, value, dark, accent = '#6366f1' }) {
         <p style={{ fontSize: 10, fontWeight: 700, color: dark ? '#64748b' : '#a1745a', margin: 0, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
           {label}
         </p>
-        <p style={{ fontSize: 13.5, fontWeight: 800, color: dark ? '#f1f5f9' : '#1e1b4b', margin: '2px 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <p style={{ fontSize: 13.5, fontWeight: 800, color: dark ? '#f1f5f9' : '#431407', margin: '2px 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {value}
         </p>
       </div>
@@ -277,8 +277,8 @@ function PaymentModal({ dark, onClose, onSubmitted }) {
     }}>
       <div className="bp-modal bp2-shell" style={{
         width: '100%', maxWidth: 430, maxHeight: '88vh', overflowY: 'auto',
-        background: dark ? '#111827' : '#fff',
-        border: `1px solid ${dark ? 'rgba(255,255,255,0.08)' : 'rgba(99,102,241,0.14)'}`,
+        background: dark ? '#131313' : '#fff',
+        border: `1px solid ${dark ? 'rgba(255,255,255,0.08)' : 'rgba(249,115,22,0.14)'}`,
         boxShadow: '0 30px 90px rgba(0,0,0,0.4)',
       }}>
         {/* header */}
@@ -286,13 +286,13 @@ function PaymentModal({ dark, onClose, onSubmitted }) {
           position: 'relative', overflow: 'hidden',
           padding: '1.5rem 1.75rem 1.1rem',
           background: dark
-            ? 'linear-gradient(135deg, rgba(99,102,241,0.14), rgba(249,115,22,0.08))'
-            : 'linear-gradient(135deg, rgba(99,102,241,0.08), rgba(249,115,22,0.05))',
-          borderBottom: `1px solid ${dark ? 'rgba(255,255,255,0.06)' : 'rgba(99,102,241,0.12)'}`,
+            ? 'linear-gradient(135deg, rgba(249,115,22,0.14), rgba(249,115,22,0.08))'
+            : 'linear-gradient(135deg, rgba(249,115,22,0.08), rgba(249,115,22,0.05))',
+          borderBottom: `1px solid ${dark ? 'rgba(255,255,255,0.06)' : 'rgba(249,115,22,0.12)'}`,
         }}>
           <div className="bp2-orb" style={{
             width: 130, height: 130, top: -50, right: -40,
-            background: 'radial-gradient(circle, rgba(99,102,241,0.28) 0%, transparent 70%)',
+            background: 'radial-gradient(circle, rgba(249,115,22,0.28) 0%, transparent 70%)',
           }} />
           <div style={{ position: 'relative', zIndex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
@@ -307,10 +307,10 @@ function PaymentModal({ dark, onClose, onSubmitted }) {
                   </button>
                 )}
                 <div>
-                  <p style={{ fontSize: 10, fontWeight: 700, color: '#6366f1', margin: 0, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  <p style={{ fontSize: 10, fontWeight: 700, color: '#f97316', margin: 0, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                     {step === 'plans' ? 'Step 1 of 2' : 'Step 2 of 2'}
                   </p>
-                  <h2 style={{ fontFamily: "'Sora',sans-serif", fontWeight: 800, fontSize: 17, color: dark ? '#f1f5f9' : '#1e1b4b', margin: '2px 0 0' }}>
+                  <h2 style={{ fontFamily: "'Sora',sans-serif", fontWeight: 800, fontSize: 17, color: dark ? '#f1f5f9' : '#431407', margin: '2px 0 0' }}>
                     {step === 'plans' ? 'Choose your plan' : 'Send your payment'}
                   </h2>
                 </div>
@@ -333,7 +333,7 @@ function PaymentModal({ dark, onClose, onSubmitted }) {
         <div style={{ padding: '1.5rem 1.75rem 1.75rem' }}>
           {loading ? (
             <div style={{ padding: '34px 0', textAlign: 'center' }}>
-              <Loader2 size={22} className="bp-spin" color="#6366f1" style={{ margin: '0 auto 10px' }} />
+              <Loader2 size={22} className="bp-spin" color="#f97316" style={{ margin: '0 auto 10px' }} />
               <p style={{ fontSize: 12.5, color: dark ? '#94a3b8' : '#64748b', margin: 0 }}>Loading plans…</p>
             </div>
           ) : step === 'plans' ? (
@@ -369,11 +369,11 @@ function PaymentModal({ dark, onClose, onSubmitted }) {
                         </div>
                         <div style={{ minWidth: 0 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <p style={{ fontSize: 14.5, fontWeight: 800, color: dark ? '#f1f5f9' : '#1e1b4b', margin: 0 }}>{plan.name}</p>
+                            <p style={{ fontSize: 14.5, fontWeight: 800, color: dark ? '#f1f5f9' : '#431407', margin: 0 }}>{plan.name}</p>
                             {isPopular && (
                               <span className="bp2-badge-glow" style={{
-                                fontSize: 9, fontWeight: 800, color: '#6366f1',
-                                background: 'rgba(99,102,241,0.12)', padding: '2px 6px', borderRadius: 999,
+                                fontSize: 9, fontWeight: 800, color: '#f97316',
+                                background: 'rgba(249,115,22,0.12)', padding: '2px 6px', borderRadius: 999,
                                 textTransform: 'uppercase', letterSpacing: '0.03em', flexShrink: 0,
                               }}>
                                 Popular
@@ -398,8 +398,8 @@ function PaymentModal({ dark, onClose, onSubmitted }) {
             <div>
               <div style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                background: 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(249,115,22,0.06))',
-                border: '1px solid rgba(99,102,241,0.22)', borderRadius: 14, padding: '13px 16px', marginBottom: 20,
+                background: 'linear-gradient(135deg, rgba(249,115,22,0.1), rgba(249,115,22,0.06))',
+                border: '1px solid rgba(249,115,22,0.22)', borderRadius: 14, padding: '13px 16px', marginBottom: 20,
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <div style={{
@@ -409,7 +409,7 @@ function PaymentModal({ dark, onClose, onSubmitted }) {
                   }}>
                     <Wallet size={14} color="#fff" />
                   </div>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: dark ? '#f1f5f9' : '#1e1b4b' }}>{selectedPlan.name}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: dark ? '#f1f5f9' : '#431407' }}>{selectedPlan.name}</span>
                 </div>
                 <span style={{ fontFamily: "'Sora',sans-serif", fontWeight: 800, fontSize: 16, color: selectedTheme.accent }}>
                   {formatMoney(selectedPlan.amount, selectedPlan.currency)}
@@ -418,15 +418,15 @@ function PaymentModal({ dark, onClose, onSubmitted }) {
 
               <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
-                  <div className="bp2-step-num" style={{ background: '#6366f1', color: '#fff' }}>1</div>
+                  <div className="bp2-step-num" style={{ background: '#f97316', color: '#fff' }}>1</div>
                   <div style={{ width: 1.5, flex: 1, background: dark ? 'rgba(255,255,255,0.1)' : '#e9e3fb', margin: '4px 0' }} />
                 </div>
                 <div style={{ paddingBottom: 14 }}>
-                  <p style={{ fontSize: 12.5, fontWeight: 700, color: dark ? '#f1f5f9' : '#1e1b4b', margin: '0 0 10px' }}>
+                  <p style={{ fontSize: 12.5, fontWeight: 700, color: dark ? '#f1f5f9' : '#431407', margin: '0 0 10px' }}>
                     Send the exact amount via MTN Mobile Money
                   </p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <CopyField icon={User} label="Recipient name" value={payee.name} dark={dark} accent="#6366f1" />
+                    <CopyField icon={User} label="Recipient name" value={payee.name} dark={dark} accent="#f97316" />
                     <CopyField icon={PhoneCall} label="MoMo number" value={payee.phone} dark={dark} accent="#f97316" />
                   </div>
                 </div>
@@ -440,7 +440,7 @@ function PaymentModal({ dark, onClose, onSubmitted }) {
                   }}>2</div>
                 </div>
                 <div style={{ flex: 1 }}>
-                  <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: dark ? '#f1f5f9' : '#1e1b4b', marginBottom: 8 }}>
+                  <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: dark ? '#f1f5f9' : '#431407', marginBottom: 8 }}>
                     Confirm your MoMo number <span style={{ fontWeight: 500, color: dark ? '#5b6485' : '#a1745a' }}>(optional, speeds up review)</span>
                   </label>
                   <div style={{ position: 'relative' }}>
@@ -475,7 +475,7 @@ function PaymentModal({ dark, onClose, onSubmitted }) {
 
               <button onClick={submitClaim} disabled={submitting} className="bp-pay-btn bp2-shimmer-btn" style={{
                 width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-                background: 'linear-gradient(135deg,#6366f1,#f97316)', color: '#fff',
+                background: 'linear-gradient(135deg,#f97316,#f97316)', color: '#fff',
                 border: 'none', borderRadius: 13, padding: '13px 14px', cursor: 'pointer',
                 fontSize: 13.5, fontWeight: 700, opacity: submitting ? 0.75 : 1,
               }}>
@@ -522,7 +522,7 @@ export default function Billing() {
         minHeight: '100vh', position: 'relative', overflow: 'hidden',
         display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
         background: dark
-          ? 'radial-gradient(circle at 20% 20%, #1f150f 0%, #0b0f1a 55%, #060810 100%)'
+          ? 'radial-gradient(circle at 20% 20%, #1f150f 0%, #0a0a0a 55%, #060810 100%)'
           : 'radial-gradient(circle at 20% 20%, #fff1e6 0%, #fff8f2 55%, #ffffff 100%)',
         fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
       }}>
@@ -533,7 +533,7 @@ export default function Billing() {
         }} />
         <div style={{
           position: 'absolute', bottom: '-10%', left: '-8%', width: 280, height: 280, borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(99,102,241,0.14) 0%, transparent 70%)',
+          background: 'radial-gradient(circle, rgba(249,115,22,0.14) 0%, transparent 70%)',
           animation: 'bp-orb 12s ease-in-out infinite reverse', pointerEvents: 'none',
         }} />
 
@@ -558,13 +558,13 @@ export default function Billing() {
           <div className="bp3-stagger-1" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 26 }}>
             <div style={{
               width: 30, height: 30, borderRadius: 9, flexShrink: 0,
-              background: 'linear-gradient(135deg,#6366f1,#4338ca)',
+              background: 'linear-gradient(135deg,#f97316,#c2410c)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 6px 16px rgba(99,102,241,0.35)',
+              boxShadow: '0 6px 16px rgba(249,115,22,0.35)',
             }}>
               <GraduationCap size={16} color="#fff" />
             </div>
-            <span style={{ fontFamily: "'Sora',sans-serif", fontWeight: 800, fontSize: 15, letterSpacing: '-0.01em', color: dark ? '#f1f5f9' : '#1e1b4b' }}>
+            <span style={{ fontFamily: "'Sora',sans-serif", fontWeight: 800, fontSize: 15, letterSpacing: '-0.01em', color: dark ? '#f1f5f9' : '#431407' }}>
               EDUPLA
             </span>
           </div>
@@ -593,11 +593,11 @@ export default function Billing() {
                 </div>
               </div>
 
-              <h1 className="bp3-stagger-2" style={{ fontFamily: "'Sora',sans-serif", fontWeight: 800, fontSize: 20, color: dark ? '#f1f5f9' : '#1e1b4b', margin: '0 0 10px' }}>
+              <h1 className="bp3-stagger-2" style={{ fontFamily: "'Sora',sans-serif", fontWeight: 800, fontSize: 20, color: dark ? '#f1f5f9' : '#431407', margin: '0 0 10px' }}>
                 Payment awaiting confirmation
               </h1>
               <p className="bp3-stagger-3" style={{ fontSize: 13.5, color: dark ? '#94a3b8' : '#64748b', margin: '0 0 20px', lineHeight: 1.65, maxWidth: 340, marginLeft: 'auto', marginRight: 'auto' }}>
-                We've recorded your <strong style={{ color: dark ? '#f1f5f9' : '#1e1b4b' }}>{pendingManual.plan_name}</strong> payment claim of{' '}
+                We've recorded your <strong style={{ color: dark ? '#f1f5f9' : '#431407' }}>{pendingManual.plan_name}</strong> payment claim of{' '}
                 <strong style={{ color: '#f97316' }}>{formatMoney(pendingManual.amount, pendingManual.currency)}</strong>. Access resumes automatically the moment an Edupla administrator confirms receipt.
               </p>
 
@@ -617,7 +617,7 @@ export default function Billing() {
 
               <button onClick={handleCheckStatus} disabled={checking} className="bp-pay-btn bp3-ghost-btn" style={{
                 display: 'inline-flex', alignItems: 'center', gap: 8,
-                background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)', color: dark ? '#f1f5f9' : '#1e1b4b',
+                background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)', color: dark ? '#f1f5f9' : '#431407',
                 border: `1px solid ${dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}`, borderRadius: 12, padding: '11px 20px', cursor: 'pointer',
                 fontSize: 12.5, fontWeight: 700, opacity: checking ? 0.7 : 1,
               }}>
@@ -659,7 +659,7 @@ export default function Billing() {
                 </div>
               </div>
 
-              <h1 className="bp3-stagger-2" style={{ fontFamily: "'Sora',sans-serif", fontWeight: 800, fontSize: 20, color: dark ? '#f1f5f9' : '#1e1b4b', margin: '0 0 10px' }}>
+              <h1 className="bp3-stagger-2" style={{ fontFamily: "'Sora',sans-serif", fontWeight: 800, fontSize: 20, color: dark ? '#f1f5f9' : '#431407', margin: '0 0 10px' }}>
                 {isLocked ? (isPayableLock ? 'Payment required to unlock' : 'Access locked') : isPayer ? 'Subscription payment needed' : 'Access paused'}
               </h1>
               <p className="bp3-stagger-3" style={{ fontSize: 13.5, color: dark ? '#94a3b8' : '#64748b', margin: '0 0 26px', lineHeight: 1.65, maxWidth: 340, marginLeft: 'auto', marginRight: 'auto' }}>

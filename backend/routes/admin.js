@@ -3,8 +3,8 @@ const router = express.Router();
 const { isAuthenticated, isAdmin, isSuperAdmin } = require('../middleware/auth');
 const { logoUpload } = require('../middleware/upload');
 const {
-  getDashboardStats, getTeachers, createTeacher, updateTeacher, deleteTeacher,
-  getAllClasses, adminCreateClass, adminUpdateClass, adminDeleteClass, adminAssignClassToTeacher,
+  getDashboardStats, getTeachers, getClassTeachersOverview, createTeacher, updateTeacher, deleteTeacher,
+  getAllClasses, adminCreateClass, adminUpdateClass, adminDeleteClass, adminAssignClassToTeacher, adminSetExtraTeachers,
   adminGetClassTeachers, adminGetClassStudents, adminMoveClassStudents, adminEraseClassStudents,
   getAllStudents, adminCreateStudent, adminUpdateStudent, adminDeleteStudent,
   adminAssignStudentToClass, adminGetStudentDetail,
@@ -214,6 +214,7 @@ router.get('/stats', getDashboardStats);
 
 // Teachers
 router.get('/teachers', getTeachers);
+router.get('/teachers/class-teachers-overview', getClassTeachersOverview);
 router.post('/teachers', createTeacher);
 router.put('/teachers/:id', updateTeacher);
 router.patch('/teachers/:id/toggle-status', isSuperAdmin, toggleTeacherStatus);
@@ -227,6 +228,7 @@ router.put('/classes/:id', adminUpdateClass);
 router.patch('/classes/:id/toggle-status', toggleClassStatus);
 router.delete('/classes/:id', adminDeleteClass);
 router.put('/classes/:id/assign-teacher', adminAssignClassToTeacher);
+router.put('/classes/:id/extra-teachers', adminSetExtraTeachers);
 router.get('/classes/:id/teachers', adminGetClassTeachers);
 router.get('/classes/:id/students', adminGetClassStudents);
 router.post('/classes/:id/move-students', adminMoveClassStudents);
@@ -235,9 +237,16 @@ router.post('/classes/:id/enroll-student', async (req, res) => {
   try {
     const { Class } = require('../models/db');
     const mongoose = require('mongoose');
+    const { recomputeClassActive } = require('../utils/classActivation');
     const cls = await Class.findById(req.params.id);
     if (!cls) return res.status(404).json({ message: 'Class not found' });
-    if (!cls.is_active) return res.status(400).json({ message: 'Cannot enroll students in an inactive class' });
+    // A class with no teacher assigned yet can't take students — but an
+    // otherwise-inactive class (staffed, just empty) is exactly what
+    // enrolling its first student is supposed to bring online, so that
+    // case is allowed through and recomputed below instead of blocked.
+    if (!cls.teacher_id) {
+      return res.status(400).json({ message: 'Assign a class teacher before enrolling students in this class.' });
+    }
     const { student_id } = req.body;
     // Guard: reject if student already enrolled
     const alreadyEnrolled = cls.students.map(s => s.toString()).includes(String(student_id));
@@ -246,6 +255,7 @@ router.post('/classes/:id/enroll-student', async (req, res) => {
     // from any other class before adding them to this one.
     await Class.updateMany({}, { $pull: { students: new mongoose.Types.ObjectId(student_id) } });
     await Class.updateOne({ _id: req.params.id }, { $addToSet: { students: student_id } });
+    await recomputeClassActive(req.params.id);
     res.json({ message: 'Student enrolled' });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });

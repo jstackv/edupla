@@ -77,8 +77,8 @@ function fmtShort(v) {
 }
 
 const AVATAR_PALETTE = [
-  ['#6366f1', '#8b5cf6'], ['#ec4899', '#f43f5e'], ['#f59e0b', '#f97316'],
-  ['#10b981', '#0ea5e9'], ['#8b5cf6', '#ec4899'], ['#0ea5e9', '#6366f1'],
+  ['#f97316', '#f97316'], ['#ec4899', '#f43f5e'], ['#f59e0b', '#f97316'],
+  ['#10b981', '#0ea5e9'], ['#f97316', '#ec4899'], ['#0ea5e9', '#f97316'],
 ];
 function avatarGradient(name) {
   const s = name || '?';
@@ -120,8 +120,8 @@ function TimingPreview({ availableFrom, expiresAt }) {
         )}
       </div>
       <div className="flex justify-between text-[11px] mt-1.5 font-medium" style={{ color: 'var(--text-secondary)' }}>
-        <span className="flex items-center gap-1"><Sun className="w-3 h-3" style={{ color: '#8b5cf6' }} /> {availableFrom ? fmtShort(availableFrom) : 'Opens immediately'}</span>
-        <span className="flex items-center gap-1">{expiresAt ? fmtShort(expiresAt) : 'No expiry'} <Moon className="w-3 h-3" style={{ color: '#6366f1' }} /></span>
+        <span className="flex items-center gap-1"><Sun className="w-3 h-3" style={{ color: '#f97316' }} /> {availableFrom ? fmtShort(availableFrom) : 'Opens immediately'}</span>
+        <span className="flex items-center gap-1">{expiresAt ? fmtShort(expiresAt) : 'No expiry'} <Moon className="w-3 h-3" style={{ color: '#f97316' }} /></span>
       </div>
     </div>
   );
@@ -229,13 +229,13 @@ export default function AddAttemptModal({ assessment, onClose, onAdded }) {
             <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Current attempts</p>
           </div>
           <div className="flex flex-col items-center gap-1 px-2 relative z-10">
-            <span key={additional} className="aam-arrow-icon flex items-center justify-center w-8 h-8 rounded-full" style={{ background: 'rgba(99,102,241,0.14)' }}>
-              <ArrowRight className="w-4 h-4" style={{ color: '#6366f1' }} />
+            <span key={additional} className="aam-arrow-icon flex items-center justify-center w-8 h-8 rounded-full" style={{ background: 'rgba(249,115,22,0.14)' }}>
+              <ArrowRight className="w-4 h-4" style={{ color: '#f97316' }} />
             </span>
-            <span className="text-xs font-bold" style={{ color: '#6366f1' }}>+{additional || 0}</span>
+            <span className="text-xs font-bold" style={{ color: '#f97316' }}>+{additional || 0}</span>
           </div>
           <div className="text-center flex-1 relative z-10">
-            <p className="text-2xl font-bold aam-summary-num" style={{ color: '#6366f1' }}>{newMax}</p>
+            <p className="text-2xl font-bold aam-summary-num" style={{ color: '#f97316' }}>{newMax}</p>
             <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{target === 'selected' ? 'New total (selected)' : 'New total'}</p>
           </div>
         </div>
@@ -335,7 +335,7 @@ export default function AddAttemptModal({ assessment, onClose, onAdded }) {
                         <label
                           key={s.student_id}
                           className="aam-student-row flex items-center justify-between gap-2 px-2 py-1.5 cursor-pointer select-none"
-                          style={{ background: checked ? 'rgba(99,102,241,0.08)' : 'transparent' }}
+                          style={{ background: checked ? 'rgba(249,115,22,0.08)' : 'transparent' }}
                         >
                           <span className="flex items-center gap-2 min-w-0">
                             <span className={`aam-check ${checked ? 'aam-check-active' : ''}`}>
@@ -369,7 +369,7 @@ export default function AddAttemptModal({ assessment, onClose, onAdded }) {
         {/* ── Timing switch ── */}
         <label className="flex items-center justify-between gap-2 text-sm cursor-pointer select-none" style={{ color: 'var(--text-primary)' }}>
           <span className="flex items-center gap-1.5 font-semibold">
-            <Sparkles className="w-4 h-4" style={{ color: '#6366f1' }} /> Also set the timing for this attempt
+            <Sparkles className="w-4 h-4" style={{ color: '#f97316' }} /> Also set the timing for this attempt
           </span>
           <span className={`aam-switch ${setTiming ? 'aam-switch-on' : ''}`} onClick={() => setSetTiming(v => !v)}>
             <span className="aam-switch-knob" />
@@ -377,7 +377,7 @@ export default function AddAttemptModal({ assessment, onClose, onAdded }) {
         </label>
 
         {setTiming && (
-          <div className="aam-timing-panel space-y-3 pl-3 border-l-2" style={{ borderColor: 'rgba(99,102,241,0.25)' }}>
+          <div className="aam-timing-panel space-y-3 pl-3 border-l-2" style={{ borderColor: 'rgba(249,115,22,0.25)' }}>
             <div>
               <label className="text-xs font-semibold flex items-center gap-1.5 mb-1" style={{ color: 'var(--text-secondary)' }}>
                 <Clock className="w-3.5 h-3.5" /> Duration (minutes)

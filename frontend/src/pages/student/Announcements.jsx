@@ -60,9 +60,9 @@ export default function StudentAnnouncements() {
           to   { background-position: 400px 0; }
         }
         @keyframes pulseRing {
-          0%   { box-shadow: 0 0 0 2px #8b5cf6, 0 8px 24px rgba(139,92,246,0.35); }
-          50%  { box-shadow: 0 0 0 5px rgba(139,92,246,0.15), 0 8px 30px rgba(139,92,246,0.45); }
-          100% { box-shadow: 0 0 0 2px #8b5cf6, 0 8px 24px rgba(139,92,246,0.35); }
+          0%   { box-shadow: 0 0 0 2px #f97316, 0 8px 24px rgba(249,115,22,0.35); }
+          50%  { box-shadow: 0 0 0 5px rgba(249,115,22,0.15), 0 8px 30px rgba(249,115,22,0.45); }
+          100% { box-shadow: 0 0 0 2px #f97316, 0 8px 24px rgba(249,115,22,0.35); }
         }
         @keyframes floatIcon {
           0%, 100% { transform: translateY(0) rotate(0deg); }
@@ -95,7 +95,7 @@ export default function StudentAnnouncements() {
       `}</style>
 
       <div className="flex items-center gap-3">
-        <div className="ann-header-icon w-11 h-11 rounded-2xl bg-gradient-to-br from-violet-500 to-primary-500 flex items-center justify-center flex-shrink-0 shadow-soft">
+        <div className="ann-header-icon w-11 h-11 rounded-2xl bg-gradient-to-br from-orange-500 to-primary-500 flex items-center justify-center flex-shrink-0 shadow-soft">
           <Megaphone className="w-5 h-5 text-white" />
         </div>
         <div>
@@ -148,13 +148,13 @@ export default function StudentAnnouncements() {
               className={`ann-card ann-fade-in card hover:shadow-soft ${flashId === a.id ? 'ann-flash' : ''}`}
               style={{ animationDelay: `${Math.min(i, 8) * 55}ms` }}>
               <div className="flex items-start gap-4">
-                <div className="ann-icon-wrap w-10 h-10 rounded-xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center flex-shrink-0">
-                  <Megaphone className="w-5 h-5 text-violet-600" />
+                <div className="ann-icon-wrap w-10 h-10 rounded-xl bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center flex-shrink-0">
+                  <Megaphone className="w-5 h-5 text-orange-600" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <h3 className="font-display font-bold text-sm" style={{ color: 'var(--text-primary)' }}>{a.title}</h3>
-                    {flashId === a.id && <Sparkles className="w-3.5 h-3.5 text-violet-500 flex-shrink-0" />}
+                    {flashId === a.id && <Sparkles className="w-3.5 h-3.5 text-orange-500 flex-shrink-0" />}
                   </div>
                   <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{a.content}</p>
                   <div className="flex items-center gap-3 mt-3 flex-wrap">

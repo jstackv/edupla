@@ -4,13 +4,14 @@ import { useAuth } from '../../context/AuthContext';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import ConfirmModal from '../../components/common/ConfirmModal';
+import AdminDisciplinePanel from '../../components/admin/AdminDisciplinePanel';
 import {
   BookOpen, Plus, Edit2, Trash2, UserCheck, BarChart2, X, Search,
   GraduationCap, FileText, Users, Printer, ChevronRight, ChevronDown, Award,
   TrendingUp, Hash, School, User2, Calendar, Target, Settings,
   Save, Image, AlignLeft, Phone, Mail, Globe, MapPin, Building2,
   CheckCircle2, Sparkles, Download, Eye, RefreshCw, ClipboardCheck,
-  CheckCircle, XCircle, Clock, Filter, UploadCloud, Lock, Unlock,
+  CheckCircle, XCircle, Clock, Filter, UploadCloud, Lock, Unlock, ShieldCheck,
 } from 'lucide-react';
 
 /* ─────────── Constants ─────────── */
@@ -28,19 +29,12 @@ const ALL_MODULE_CATEGORIES = ['Complementary modules', 'General modules', 'Spec
 const ASSESSMENT_TYPES = [
   { key: 'FA', label: 'Formative Assessment',     short: 'FA', color: '#3b82f6' },
   { key: 'IA', label: 'Integrated Assessment',    short: 'IA', color: '#10b981' },
-  { key: 'CA', label: 'Comprehensive Assessment', short: 'CA', color: '#8b5cf6' },
+  { key: 'CA', label: 'Comprehensive Assessment', short: 'CA', color: '#f97316' },
 ];
 
 // Synthetic bucket id for courses with no teacher_id assigned yet (Course.teacher_id
 // can be null) — see teachersForClassId/modulesForClassTeacher below.
 const UNASSIGNED_TEACHER_ID = '__unassigned__';
-
-/* ─────────── Mark Submissions drill-down: class card gradients ─────────── */
-const CLASS_CARD_GRADIENTS = [
-  ['#6366f1', '#4338ca'], ['#0ea5e9', '#0369a1'], ['#10b981', '#047857'],
-  ['#f59e0b', '#b45309'], ['#ec4899', '#be185d'], ['#8b5cf6', '#6d28d9'],
-  ['#14b8a6', '#0f766e'], ['#f43f5e', '#be123c'],
-];
 
 function initials(name = '') {
   const parts = String(name).trim().split(/\s+/).filter(Boolean);
@@ -60,8 +54,8 @@ const DEFAULT_REPORT_CONFIG = {
   managerName: 'School Manager',
   managerTitle: 'School Principal',
   footerNote: "Module Weight = Module's learning hours = Credit × 10. Passing Line: 70% for Specific modules; 50% for General and Complementary modules. Module Annual Average: (Average of Integrated A + Average of Comprehensive A) / number of assessed terms.",
-  primaryColor: '#6366f1',
-  accentColor:  '#4338ca',
+  primaryColor: '#f97316',
+  accentColor:  '#c2410c',
   termLabel:    '2nd TERM',
   academicYear: `${CURRENT_YEAR}-${CURRENT_YEAR + 1}`,
   republic:  'REPUBLIC OF RWANDA',
@@ -71,7 +65,7 @@ const DEFAULT_REPORT_CONFIG = {
 
 /* ─────────── Helpers ─────────── */
 function pctColor(pct) {
-  if (pct == null) return '#374151';
+  if (pct == null) return '#404040';
   if (pct >= 70)   return '#059669';
   if (pct >= 50)   return '#b45309';
   return '#dc2626';
@@ -166,12 +160,10 @@ function TypeBadge({ type }) {
 function StatPill({ color, label, value, icon: Icon }) {
   if (!value) return null;
   return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 800,
-      padding: '3px 9px', borderRadius: 7, background: color + '18', color, border: `1px solid ${color}38`,
-      whiteSpace: 'nowrap',
-    }}>
-      {Icon && <Icon size={10} />}{value} {label}
+    <span className="msub-stat-pill" style={{ '--pill-color': color }}>
+      <span className="msub-stat-pill-dot" />
+      {Icon && <Icon size={10} />}
+      <span style={{ fontWeight: 800 }}>{value}</span> {label}
     </span>
   );
 }
@@ -237,7 +229,7 @@ function ScopeSelectorCard({ icon: Icon, colorFrom, colorTo, value, displayValue
           className="assess-scope-menu"
           style={{
             position: 'absolute', top: 'calc(100% + 8px)', left: 0, minWidth: 180, zIndex: 50,
-            background: dark ? '#161a26' : '#ffffff',
+            background: dark ? '#1a1a1a' : '#ffffff',
             border: `1px solid ${dark ? '#2f3650' : '#e5e7eb'}`,
             borderRadius: 12, boxShadow: '0 16px 34px rgba(0,0,0,0.4)', overflow: 'hidden',
             padding: 5,
@@ -258,7 +250,7 @@ function ScopeSelectorCard({ icon: Icon, colorFrom, colorTo, value, displayValue
                   width: '100%', padding: '9px 12px', borderRadius: 8, marginBottom: 2,
                   fontSize: 13, fontWeight: selected ? 800 : 600, textAlign: 'left', whiteSpace: 'nowrap',
                   background: selected ? `linear-gradient(135deg, ${colorFrom}, ${colorTo})` : 'transparent',
-                  color: selected ? '#fff' : (dark ? '#dbe1ee' : '#1f2937'),
+                  color: selected ? '#fff' : (dark ? '#dbe1ee' : '#2e2e2e'),
                   border: 'none', cursor: 'pointer',
                 }}
               >
@@ -293,7 +285,7 @@ async function persistReportConfig(cfg) {
 /* ─────────── Category helpers ─────────── */
 function catBadge(cat) {
   const colors = {
-    'Complementary modules':   { bg: '#6366f118', border: '#6366f130', text: '#6366f1', dot: '#6366f1' },
+    'Complementary modules':   { bg: '#f9731618', border: '#f9731630', text: '#f97316', dot: '#f97316' },
     'General modules':         { bg: '#06563018', border: '#06563030', text: '#065f46', dot: '#065f46' },
     'Specific modules':        { bg: '#7c2d1218', border: '#7c2d1230', text: '#7c2d12', dot: '#7c2d12' },
     'Elective Non Examinable': { bg: '#4a044e18', border: '#4a044e30', text: '#4a044e', dot: '#4a044e' },
@@ -306,8 +298,8 @@ function catBadge(cat) {
 ══════════════════════════════════════════════════════════════════════ */
 function MultiClassPicker({ classes, selectedIds, onChange, dark }) {
   const inputSt = {
-    width: '100%', padding: '9px 12px', borderRadius: 10, border: `1px solid ${dark ? '#2a3042' : '#d1d5db'}`,
-    background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#e2e8f0' : '#111827', fontSize: 13, outline: 'none', boxSizing: 'border-box',
+    width: '100%', padding: '9px 12px', borderRadius: 10, border: `1px solid ${dark ? '#333333' : '#d1d5db'}`,
+    background: dark ? '#1f1f1f' : '#f9fafb', color: dark ? '#e2e8f0' : '#131313', fontSize: 13, outline: 'none', boxSizing: 'border-box',
   };
 
   const available = classes.filter(c => !selectedIds.includes(c._id || c.id));
@@ -331,15 +323,15 @@ function MultiClassPicker({ classes, selectedIds, onChange, dark }) {
               <span key={id} style={{
                 display: 'inline-flex', alignItems: 'center', gap: 5,
                 padding: '4px 10px', borderRadius: 20,
-                background: 'rgba(99,102,241,0.10)', border: '1px solid rgba(99,102,241,0.30)',
-                fontSize: 12, fontWeight: 700, color: '#6366f1',
+                background: 'rgba(249,115,22,0.10)', border: '1px solid rgba(249,115,22,0.30)',
+                fontSize: 12, fontWeight: 700, color: '#f97316',
               }}>
                 <School size={11} />
                 {cls.name}
                 <button
                   type="button"
                   onClick={() => remove(id)}
-                  style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '0 0 0 2px', color: '#6366f1', display: 'flex', alignItems: 'center', lineHeight: 1 }}
+                  style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '0 0 0 2px', color: '#f97316', display: 'flex', alignItems: 'center', lineHeight: 1 }}
                   title={`Remove ${cls.name}`}
                 >
                   <X size={11} />
@@ -427,11 +419,11 @@ function StudentSearchBox({
     <div ref={wrapRef} style={{ position: 'relative' }}>
       <div style={{
         display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', borderRadius: 10,
-        border: `1.5px solid ${open ? '#6366f1' : (dark ? '#2a3042' : '#d1d5db')}`,
-        background: disabled ? (dark ? '#161a24' : '#f1f5f9') : (dark ? '#1a1f2e' : '#f9fafb'),
-        boxShadow: open ? '0 0 0 3px rgba(99,102,241,0.12)' : 'none', transition: 'all 0.15s',
+        border: `1.5px solid ${open ? '#f97316' : (dark ? '#333333' : '#d1d5db')}`,
+        background: disabled ? (dark ? '#161a24' : '#f1f5f9') : (dark ? '#1f1f1f' : '#f9fafb'),
+        boxShadow: open ? '0 0 0 3px rgba(249,115,22,0.12)' : 'none', transition: 'all 0.15s',
       }}>
-        <Search size={13} color={open ? '#6366f1' : (dark ? '#7b839a' : '#9ca3af')} style={{ flexShrink: 0 }} />
+        <Search size={13} color={open ? '#f97316' : (dark ? '#7b839a' : '#9ca3af')} style={{ flexShrink: 0 }} />
         <input
           ref={inputRef}
           disabled={disabled}
@@ -442,7 +434,7 @@ function StudentSearchBox({
           style={{
             flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent',
             fontSize: 13, fontWeight: selected ? 700 : 500,
-            color: disabled ? (dark ? '#4a5168' : '#9ca3af') : (dark ? '#e2e8f0' : '#111827'),
+            color: disabled ? (dark ? '#4a5168' : '#9ca3af') : (dark ? '#e2e8f0' : '#131313'),
             cursor: disabled ? 'not-allowed' : 'text',
           }}
         />
@@ -456,7 +448,7 @@ function StudentSearchBox({
       {open && !disabled && (
         <div style={{
           position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, zIndex: 60,
-          background: dark ? '#161a24' : '#fff', border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`,
+          background: dark ? '#161a24' : '#fff', border: `1px solid ${dark ? '#333333' : '#e5e7eb'}`,
           borderRadius: 12, boxShadow: '0 16px 40px rgba(0,0,0,0.2)', overflow: 'hidden',
           animation: 'fadeUp 0.12s ease',
         }}>
@@ -464,7 +456,7 @@ function StudentSearchBox({
             {showAllOption && (
               <div
                 onClick={() => { onSelectAll?.(); setOpen(false); setQuery(''); }}
-                style={{ padding: '8px 10px', cursor: 'pointer', fontSize: 12.5, fontWeight: 700, color: '#6366f1', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 7 }}
+                style={{ padding: '8px 10px', cursor: 'pointer', fontSize: 12.5, fontWeight: 700, color: '#f97316', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 7 }}
                 onMouseEnter={e => e.currentTarget.style.background = dark ? '#1d2233' : '#f0f4f8'}
                 onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
               >
@@ -483,19 +475,19 @@ function StudentSearchBox({
                   key={id}
                   onClick={() => pick(id)}
                   onMouseEnter={e => { e.currentTarget.style.background = dark ? '#1d2233' : '#f0f4f8'; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = isSel ? 'rgba(99,102,241,0.08)' : 'transparent'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = isSel ? 'rgba(249,115,22,0.08)' : 'transparent'; }}
                   style={{
                     padding: '8px 10px', cursor: 'pointer', fontSize: 13, borderRadius: 8,
-                    fontWeight: isSel ? 800 : 500, color: isSel ? '#6366f1' : (dark ? '#e2e8f0' : '#374151'),
-                    background: isSel ? 'rgba(99,102,241,0.08)' : 'transparent',
+                    fontWeight: isSel ? 800 : 500, color: isSel ? '#f97316' : (dark ? '#e2e8f0' : '#404040'),
+                    background: isSel ? 'rgba(249,115,22,0.08)' : 'transparent',
                     display: 'flex', alignItems: 'center', gap: 8,
                   }}
                 >
-                  <div style={{ width: 20, height: 20, borderRadius: '50%', background: isSel ? '#6366f1' : (dark ? '#2a3042' : '#e5e7eb'), display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <div style={{ width: 20, height: 20, borderRadius: '50%', background: isSel ? '#f97316' : (dark ? '#333333' : '#e5e7eb'), display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <User2 size={11} color={isSel ? '#fff' : (dark ? '#7b839a' : '#9ca3af')} />
                   </div>
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</span>
-                  {isSel && <CheckCircle2 size={13} color="#6366f1" style={{ marginLeft: 'auto', flexShrink: 0 }} />}
+                  {isSel && <CheckCircle2 size={13} color="#f97316" style={{ marginLeft: 'auto', flexShrink: 0 }} />}
                 </div>
               );
             })}
@@ -559,8 +551,8 @@ function LogoUploader({ value, onUploaded, onRemove, dark }) {
       style={{
         display: 'flex', alignItems: 'center', gap: 14, padding: 14, borderRadius: 12,
         cursor: uploading ? 'wait' : 'pointer',
-        border: `2px dashed ${dragOver ? '#6366f1' : (dark ? '#2a3042' : '#d1d5db')}`,
-        background: dragOver ? (dark ? 'rgba(99,102,241,0.15)' : 'rgba(99,102,241,0.05)') : (dark ? '#1a1f2e' : '#f9fafb'),
+        border: `2px dashed ${dragOver ? '#f97316' : (dark ? '#333333' : '#d1d5db')}`,
+        background: dragOver ? (dark ? 'rgba(249,115,22,0.15)' : 'rgba(249,115,22,0.05)') : (dark ? '#1f1f1f' : '#f9fafb'),
         transition: 'border-color 0.15s, background 0.15s',
       }}
     >
@@ -573,7 +565,7 @@ function LogoUploader({ value, onUploaded, onRemove, dark }) {
       />
       <div style={{
         width: 56, height: 56, borderRadius: 12, flexShrink: 0, overflow: 'hidden',
-        background: dark ? '#0f1117' : '#fff', border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`,
+        background: dark ? '#0f0f0f' : '#fff', border: `1px solid ${dark ? '#333333' : '#e5e7eb'}`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
         {value
@@ -581,7 +573,7 @@ function LogoUploader({ value, onUploaded, onRemove, dark }) {
           : <UploadCloud size={20} color={dark ? '#4a5168' : '#9ca3af'} />}
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: dark ? '#e2e8f0' : '#111827' }}>
+        <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: dark ? '#e2e8f0' : '#131313' }}>
           {uploading ? 'Uploading…' : value ? 'Click or drop to replace logo' : 'Click or drag & drop to upload logo'}
         </p>
         <p style={{ margin: '2px 0 0', fontSize: 11, color: dark ? '#7b839a' : '#9ca3af' }}>
@@ -616,13 +608,13 @@ function ReportConfigPanel({ config, onChange, dark, scopeYear = '' }) {
   };
   const inputSt = {
     width: '100%', padding: '9px 12px', borderRadius: 10, boxSizing: 'border-box',
-    border: `1px solid ${dark ? '#2a3042' : '#d1d5db'}`,
-    background: dark ? '#1a1f2e' : '#f9fafb',
-    color: dark ? '#e2e8f0' : '#111827', fontSize: 13, outline: 'none',
+    border: `1px solid ${dark ? '#333333' : '#d1d5db'}`,
+    background: dark ? '#1f1f1f' : '#f9fafb',
+    color: dark ? '#e2e8f0' : '#131313', fontSize: 13, outline: 'none',
   };
   const cardSt = {
-    background: dark ? '#13161f' : '#fff',
-    border: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}`,
+    background: dark ? '#171717' : '#fff',
+    border: `1px solid ${dark ? '#262626' : '#e5e7eb'}`,
     borderRadius: 14, padding: 20,
   };
 
@@ -656,11 +648,11 @@ function ReportConfigPanel({ config, onChange, dark, scopeYear = '' }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={cardSt}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg,#6366f1,#4338ca)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg,#f97316,#c2410c)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Globe size={15} color="#fff" />
           </div>
           <div>
-            <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: dark ? '#f1f5f9' : '#111827' }}>Government / Authority Header</p>
+            <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: dark ? '#f1f5f9' : '#131313' }}>Government / Authority Header</p>
             <p style={{ margin: 0, fontSize: 11, color: dark ? '#7b839a' : '#9ca3af' }}>Shown top-left of the report</p>
           </div>
         </div>
@@ -682,7 +674,7 @@ function ReportConfigPanel({ config, onChange, dark, scopeYear = '' }) {
                     type="button"
                     onClick={() => setDraft(d => ({ ...d, academicYear: scopeYear }))}
                     title={`Set to "${scopeYear}", the year currently selected at the top of the page`}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 3, border: 'none', background: 'none', color: '#6366f1', fontSize: 10, fontWeight: 700, textTransform: 'none', letterSpacing: 0, cursor: 'pointer', padding: 0 }}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 3, border: 'none', background: 'none', color: '#f97316', fontSize: 10, fontWeight: 700, textTransform: 'none', letterSpacing: 0, cursor: 'pointer', padding: 0 }}
                   >
                     <RefreshCw size={10} /> Use {scopeYear}
                   </button>
@@ -714,7 +706,7 @@ function ReportConfigPanel({ config, onChange, dark, scopeYear = '' }) {
           <div style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg,#10b981,#059669)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Phone size={15} color="#fff" />
           </div>
-          <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: dark ? '#f1f5f9' : '#111827' }}>Contact Information</p>
+          <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: dark ? '#f1f5f9' : '#131313' }}>Contact Information</p>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
           <div style={{ gridColumn: '1/-1' }}>{field('Address', 'schoolAddress')}</div>
@@ -729,7 +721,7 @@ function ReportConfigPanel({ config, onChange, dark, scopeYear = '' }) {
           <div style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg,#f59e0b,#d97706)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <User2 size={15} color="#fff" />
           </div>
-          <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: dark ? '#f1f5f9' : '#111827' }}>Report Signatory</p>
+          <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: dark ? '#f1f5f9' : '#131313' }}>Report Signatory</p>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
           {field('Principal / Director Name', 'managerName', 'text', 'Full Name')}
@@ -742,7 +734,7 @@ function ReportConfigPanel({ config, onChange, dark, scopeYear = '' }) {
           <div style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg,#06b6d4,#0891b2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <AlignLeft size={15} color="#fff" />
           </div>
-          <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: dark ? '#f1f5f9' : '#111827' }}>Footer Legend / Note</p>
+          <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: dark ? '#f1f5f9' : '#131313' }}>Footer Legend / Note</p>
         </div>
         {field('Legend text (shown below the marks table)', 'footerNote', 'textarea')}
       </div>
@@ -750,9 +742,9 @@ function ReportConfigPanel({ config, onChange, dark, scopeYear = '' }) {
       <button onClick={handleSave} disabled={saving} style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
         padding: '12px 24px', borderRadius: 12, border: 'none',
-        background: saved ? 'linear-gradient(135deg,#10b981,#059669)' : 'linear-gradient(135deg,#6366f1,#4338ca)',
+        background: saved ? 'linear-gradient(135deg,#10b981,#059669)' : 'linear-gradient(135deg,#f97316,#c2410c)',
         color: '#fff', fontSize: 14, fontWeight: 700, cursor: saving ? 'wait' : 'pointer',
-        boxShadow: '0 4px 20px rgba(99,102,241,0.35)', transition: 'all 0.3s', opacity: saving ? 0.75 : 1,
+        boxShadow: '0 4px 20px rgba(249,115,22,0.35)', transition: 'all 0.3s', opacity: saving ? 0.75 : 1,
       }}>
         {saved ? <CheckCircle2 size={16} /> : <Save size={16} />}
         {saving ? 'Saving…' : saved ? 'Saved Successfully!' : 'Save Report Configuration'}
@@ -883,8 +875,8 @@ export default function AdminAssessments() {
     open: false, variant: 'warning', title: '', message: '', onConfirm: null, loading: false, confirmText: 'Confirm',
   });
 
-  const card       = { background: dark ? '#13161f' : '#fff', border: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}`, borderRadius: 16, padding: 20 };
-  const inputStyle = { width: '100%', padding: '9px 12px', borderRadius: 10, border: `1px solid ${dark ? '#2a3042' : '#d1d5db'}`, background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#e2e8f0' : '#111827', fontSize: 13, outline: 'none', boxSizing: 'border-box' };
+  const card       = { background: dark ? '#171717' : '#fff', border: `1px solid ${dark ? '#262626' : '#e5e7eb'}`, borderRadius: 16, padding: 20 };
+  const inputStyle = { width: '100%', padding: '9px 12px', borderRadius: 10, border: `1px solid ${dark ? '#333333' : '#d1d5db'}`, background: dark ? '#1f1f1f' : '#f9fafb', color: dark ? '#e2e8f0' : '#131313', fontSize: 13, outline: 'none', boxSizing: 'border-box' };
   const labelStyle = { fontSize: 11, fontWeight: 600, color: dark ? '#7b839a' : '#6b7280', marginBottom: 4, display: 'block', textTransform: 'uppercase', letterSpacing: '0.06em' };
 
   function openConfirm(opts) { setConfirmModal({ open: true, loading: false, confirmText: 'Confirm', cancelText: 'Cancel', ...opts }); }
@@ -1334,6 +1326,7 @@ export default function AdminAssessments() {
     { key: 'courses',     label: 'Courses & Modules', icon: BookOpen },
     { key: 'academicYear',label: 'Academic Year',     icon: Calendar },
     { key: 'submissions', label: 'Mark Submissions',  icon: ClipboardCheck },
+    { key: 'discipline',  label: 'Discipline Marks',  icon: ShieldCheck },
     { key: 'reports',     label: 'Reports',           icon: BarChart2 },
     { key: 'config',      label: 'Report Settings',   icon: Settings },
   ];
@@ -1619,9 +1612,9 @@ export default function AdminAssessments() {
   const filterSelect = (active) => ({
     padding: '7px 10px', borderRadius: 8, fontSize: 12, fontWeight: 600,
     cursor: 'pointer', outline: 'none', minWidth: 160,
-    border: `1px solid ${active ? '#6366f1' : (dark ? '#2a3042' : '#e5e7eb')}`,
-    background: active ? 'rgba(99,102,241,0.08)' : (dark ? '#1a1f2e' : '#f9fafb'),
-    color: active ? '#6366f1' : (dark ? '#e2e8f0' : '#374151'),
+    border: `1px solid ${active ? '#f97316' : (dark ? '#333333' : '#e5e7eb')}`,
+    background: active ? 'rgba(249,115,22,0.08)' : (dark ? '#1f1f1f' : '#f9fafb'),
+    color: active ? '#f97316' : (dark ? '#e2e8f0' : '#404040'),
   });
 
   return (
@@ -1634,7 +1627,7 @@ export default function AdminAssessments() {
           body       { background: white !important; }
           .print-area{ padding: 0 !important; }
         }
-        .course-card:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(99,102,241,0.18) !important; }
+        .course-card:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(249,115,22,0.18) !important; }
         .course-card       { transition: all 0.2s ease; }
         .assess-tabbar { scrollbar-width: none; -ms-overflow-style: none; }
         .assess-tabbar::-webkit-scrollbar { display: none; }
@@ -1643,13 +1636,13 @@ export default function AdminAssessments() {
         .assess-tab-btn {
           transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
         }
-        .assess-tab-btn:hover  { background: rgba(99,102,241,0.07); color: #6366f1; }
+        .assess-tab-btn:hover  { background: rgba(249,115,22,0.07); color: #f97316; }
         .assess-tab-btn:active { transform: scale(0.97); }
-        .assess-tab-btn:focus-visible { outline: none; box-shadow: 0 0 0 2px rgba(99,102,241,0.35); }
+        .assess-tab-btn:focus-visible { outline: none; box-shadow: 0 0 0 2px rgba(249,115,22,0.35); }
         .assess-tab-icon { transition: transform 0.25s cubic-bezier(.22,1,.36,1); }
         .assess-tab-btn:hover .assess-tab-icon { transform: scale(1.15) rotate(-6deg); }
         .assess-tab-indicator {
-          box-shadow: 0 1px 6px rgba(99,102,241,0.4);
+          box-shadow: 0 1px 6px rgba(249,115,22,0.4);
           transition: transform 0.35s cubic-bezier(.22,1,.36,1), width 0.35s cubic-bezier(.22,1,.36,1);
         }
         @media (max-width: 640px) {
@@ -1663,7 +1656,7 @@ export default function AdminAssessments() {
         }
         .rt-card:hover  { transform: translateY(-3px); }
         .rt-card:active { transform: translateY(-1px) scale(0.99); }
-        .rt-card:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(99,102,241,0.32), 0 6px 18px rgba(99,102,241,0.18); }
+        .rt-card:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(249,115,22,0.32), 0 6px 18px rgba(249,115,22,0.18); }
         .rt-card:hover .rt-icon { transform: scale(1.08) rotate(-4deg); }
         .rt-icon { transition: transform 0.28s cubic-bezier(.22,1,.36,1); }
         @keyframes rtCheckPop {
@@ -1678,15 +1671,15 @@ export default function AdminAssessments() {
           transition: border-color 0.18s ease, box-shadow 0.18s ease;
         }
         .filter-select:hover  { border-color: #94a3b8 !important; }
-        .filter-select:focus  { border-color: #6366f1 !important; box-shadow: 0 0 0 3px rgba(99,102,241,0.14); outline: none; }
+        .filter-select:focus  { border-color: #f97316 !important; box-shadow: 0 0 0 3px rgba(249,115,22,0.14); outline: none; }
 
         /* ── Reports tab action buttons ── */
         .btn-print { transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, color 0.18s ease; }
-        .btn-print:hover  { border-color: #6366f1 !important; color: #6366f1 !important; transform: translateY(-2px); box-shadow: 0 6px 16px rgba(99,102,241,0.14); }
+        .btn-print:hover  { border-color: #f97316 !important; color: #f97316 !important; transform: translateY(-2px); box-shadow: 0 6px 16px rgba(249,115,22,0.14); }
         .btn-print:active { transform: translateY(0); }
 
         .btn-export-pdf { position: relative; overflow: hidden; transition: transform 0.18s ease, box-shadow 0.18s ease; }
-        .btn-export-pdf:hover  { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(99,102,241,0.4) !important; }
+        .btn-export-pdf:hover  { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(249,115,22,0.4) !important; }
         .btn-export-pdf:active { transform: translateY(0) scale(0.98); }
         .btn-export-pdf::after {
           content: ''; position: absolute; top: 0; left: -60%; width: 40%; height: 100%;
@@ -1706,37 +1699,56 @@ export default function AdminAssessments() {
         }
         @keyframes rtPulseRing { 0% { transform: scale(0.6); opacity: 0.7; } 100% { transform: scale(1.9); opacity: 0; } }
 
-        /* ── Mark Submissions drill-down: class & teacher cards ── */
-        .subm-crumb-btn { transition: background 0.18s ease, color 0.18s ease, transform 0.15s ease; }
-        .subm-crumb-btn:hover:not(:disabled) { transform: translateY(-1px); }
-        .subm-crumb-btn:active:not(:disabled) { transform: translateY(0) scale(0.98); }
+        /* ── Mark Submissions drill-down: breadcrumb, stat chips, pending badge ──
+           Reuses the indigo-only .aop-* card system (grid stagger, class/teacher
+           cards, empty states, arrow chip) defined globally in index.css, so this
+           tab now shares one visual language with Online Assessment Performance —
+           no more per-card rainbow, just depth and motion carrying the brand hue. */
+        .msub-crumb-bar {
+          display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 18px;
+          padding: 8px 10px; border-radius: 13px;
+          background: color-mix(in srgb, #f97316 5%, var(--card-bg));
+          border: 1px solid color-mix(in srgb, #f97316 14%, var(--card-border));
+        }
+        .msub-crumb-btn {
+          display: flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 9px; cursor: pointer;
+          border: 1px solid transparent; background: transparent; color: var(--text-secondary);
+          font-size: 12.5px; font-weight: 700;
+          transition: background 0.18s ease, color 0.18s ease, transform 0.15s ease, border-color 0.18s ease;
+        }
+        .msub-crumb-btn:hover:not(:disabled) { transform: translateY(-1px); background: color-mix(in srgb, #f97316 8%, transparent); }
+        .msub-crumb-btn:active:not(:disabled) { transform: translateY(0) scale(0.98); }
+        .msub-crumb-btn--active {
+          color: #f97316; background: color-mix(in srgb, #f97316 12%, transparent);
+          border-color: color-mix(in srgb, #f97316 30%, transparent);
+        }
+        .msub-crumb-sep { color: var(--text-secondary); opacity: 0.55; flex-shrink: 0; }
+        .msub-refresh-btn {
+          margin-left: auto; display: flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 9px;
+          border: 1px solid var(--card-border); background: transparent; color: var(--text-secondary);
+          font-size: 12px; font-weight: 700; cursor: pointer;
+          transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+        }
+        .msub-refresh-btn:hover { background: color-mix(in srgb, #f97316 8%, transparent); color: #f97316; border-color: color-mix(in srgb, #f97316 30%, transparent); }
 
-        .subm-class-card, .subm-teacher-card {
-          transition: transform 0.25s cubic-bezier(.22,1,.36,1), box-shadow 0.25s ease, border-color 0.25s ease;
+        .msub-pending-chip {
+          position: absolute; top: 12px; right: 14px; z-index: 2;
+          display: flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 800;
+          padding: 3px 9px; border-radius: 20px; color: #fff;
+          background: rgba(255,255,255,0.16); border: 1px solid rgba(255,255,255,0.3);
+          backdrop-filter: blur(4px);
         }
-        .subm-class-card:hover, .subm-teacher-card:hover {
-          transform: translateY(-5px);
-          box-shadow: 0 16px 36px rgba(99,102,241,0.2);
-          border-color: #6366f1 !important;
+
+        .msub-stat-pill {
+          display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; font-weight: 700;
+          padding: 4px 10px 4px 8px; border-radius: 999px; white-space: nowrap;
+          background: color-mix(in srgb, var(--pill-color) 12%, var(--card-bg));
+          border: 1px solid color-mix(in srgb, var(--pill-color) 32%, var(--card-border));
+          color: var(--pill-color);
+          transition: transform 0.15s ease;
         }
-        .subm-class-card:active, .subm-teacher-card:active { transform: translateY(-2px) scale(0.99); }
-        .subm-class-card:focus-visible, .subm-teacher-card:focus-visible {
-          outline: none; box-shadow: 0 0 0 3px rgba(99,102,241,0.32), 0 12px 28px rgba(99,102,241,0.2);
-        }
-        .subm-card-icon { transition: transform 0.28s cubic-bezier(.22,1,.36,1); }
-        .subm-class-card:hover .subm-card-icon, .subm-teacher-card:hover .subm-card-icon {
-          transform: scale(1.08) rotate(-4deg);
-        }
-        .subm-card-arrow { transition: transform 0.22s ease; }
-        .subm-class-card:hover .subm-card-arrow, .subm-teacher-card:hover .subm-card-arrow {
-          transform: translateX(4px);
-        }
-        .subm-class-card::before {
-          content: ''; position: absolute; inset: 0; opacity: 0; pointer-events: none;
-          background: radial-gradient(120px 80px at 20% 0%, rgba(255,255,255,0.16), transparent 70%);
-          transition: opacity 0.25s ease;
-        }
-        .subm-class-card:hover::before { opacity: 1; }
+        .msub-stat-pill:hover { transform: translateY(-1px); }
+        .msub-stat-pill-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--pill-color); flex-shrink: 0; }
 
         /* ── Academic Year / Term scope selector cards ── */
         .assess-scope-card { transition: transform 0.2s cubic-bezier(.22,1,.36,1), box-shadow 0.2s ease; }
@@ -1772,12 +1784,12 @@ export default function AdminAssessments() {
         }
         .subm-action-icon--reject { border: 1.5px solid rgba(239,68,68,0.45); }
         .subm-action-btn--approve {
-          background: linear-gradient(135deg, #6366f1, #4338ca);
+          background: linear-gradient(135deg, #f97316, #c2410c);
           color: #fff;
-          box-shadow: 0 6px 18px rgba(99,102,241,0.35);
+          box-shadow: 0 6px 18px rgba(249,115,22,0.35);
         }
         .subm-action-btn--approve:not(:disabled):hover {
-          box-shadow: 0 12px 28px rgba(99,102,241,0.5);
+          box-shadow: 0 12px 28px rgba(249,115,22,0.5);
           filter: brightness(1.08);
         }
         .subm-action-icon--approve { border: 1.5px solid rgba(255,255,255,0.55); }
@@ -1788,17 +1800,13 @@ export default function AdminAssessments() {
           transition: transform 0.22s cubic-bezier(.22,1,.36,1), box-shadow 0.22s ease, border-color 0.22s ease;
         }
         .ay-year-card:hover { transform: translateY(-3px); box-shadow: 0 14px 30px rgba(0,0,0,0.22); }
-        .ay-year-card--active { box-shadow: 0 10px 28px rgba(99,102,241,0.16); }
+        .ay-year-card--active { box-shadow: 0 10px 28px rgba(249,115,22,0.16); }
         .ay-icon-btn { transition: transform 0.16s cubic-bezier(.22,1,.36,1), box-shadow 0.16s ease, background 0.16s ease, color 0.16s ease; }
         .ay-icon-btn:not(:disabled):hover { transform: translateY(-1px); }
         .ay-icon-btn:not(:disabled):active { transform: translateY(0) scale(0.95); }
         .ay-icon-btn:disabled { cursor: default; opacity: 0.5; }
-        .ay-term-pill { position: relative; transition: transform 0.16s cubic-bezier(.22,1,.36,1), box-shadow 0.16s ease, background 0.16s ease, border-color 0.16s ease, color 0.16s ease; }
-        .ay-term-pill:not(:disabled):hover { transform: translateY(-1px); }
-        .ay-term-pill:not(:disabled):active { transform: translateY(0) scale(0.96); }
-        .ay-term-pill:disabled { cursor: default; }
         .ay-new-btn { position: relative; overflow: hidden; transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease; }
-        .ay-new-btn:hover  { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(99,102,241,0.45) !important; filter: brightness(1.06); }
+        .ay-new-btn:hover  { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(249,115,22,0.45) !important; filter: brightness(1.06); }
         .ay-new-btn:active { transform: translateY(0) scale(0.98); }
         .ay-new-btn::after {
           content: ''; position: absolute; top: 0; left: -60%; width: 40%; height: 100%;
@@ -1811,7 +1819,79 @@ export default function AdminAssessments() {
         @keyframes ayPop { 0% { opacity: 0; transform: scale(0.5); } 60% { opacity: 1; transform: scale(1.15); } 100% { transform: scale(1); } }
         .ay-format-ok { animation: ayPop 0.32s cubic-bezier(.34,1.56,.64,1); }
         .ay-modal-input { transition: border-color 0.18s ease, box-shadow 0.18s ease; }
-        .ay-modal-input:focus { border-color: #6366f1 !important; box-shadow: 0 0 0 4px rgba(99,102,241,0.15); outline: none; }
+        .ay-modal-input:focus { border-color: #f97316 !important; box-shadow: 0 0 0 4px rgba(249,115,22,0.15); outline: none; }
+
+        /* ── Term open/closed toggle switch ──
+           Each term gets its own little glass capsule with a lock/unlock
+           icon, the term label, and a true sliding switch (not a plain
+           pill) — green-glass/indigo glow when open, warm red-glass when
+           closed, with a bouncy thumb and a soft pulsing ring while it's
+           in its "on" (open) state so the row reads at a glance. */
+        .ay-term-switch-card {
+          display: flex; align-items: center; gap: 8px;
+          padding: 7px 10px 7px 12px; border-radius: 999px;
+          border: 1px solid ${dark ? '#333333' : '#e5e7eb'};
+          background: ${dark ? '#1a1a1a' : '#f9fafb'};
+          transition: transform 0.2s cubic-bezier(.22,1,.36,1), box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+        }
+        .ay-term-switch-card:hover { transform: translateY(-1px); }
+        .ay-term-switch-card--open {
+          border-color: rgba(249,115,22,0.35);
+          background: ${dark ? 'linear-gradient(135deg, rgba(249,115,22,0.14), rgba(249,115,22,0.03))' : 'linear-gradient(135deg, #fff7ed, #f9fafb)'};
+        }
+        .ay-term-switch-card--open:hover { box-shadow: 0 8px 18px rgba(249,115,22,0.18); }
+        .ay-term-switch-card--closed {
+          border-color: rgba(220,38,38,0.28);
+          background: ${dark ? 'linear-gradient(135deg, rgba(220,38,38,0.10), rgba(220,38,38,0.02))' : 'linear-gradient(135deg, #fef2f2, #f9fafb)'};
+        }
+        .ay-term-switch-card--closed:hover { box-shadow: 0 8px 18px rgba(220,38,38,0.14); }
+        .ay-term-switch-card--busy { opacity: 0.85; }
+        .ay-term-switch-icon {
+          display: flex; align-items: center; justify-content: center;
+          width: 18px; height: 18px; border-radius: 999px; flex-shrink: 0;
+          transition: background 0.2s ease, color 0.2s ease, transform 0.25s cubic-bezier(.34,1.56,.64,1);
+        }
+        .ay-term-switch-card--open .ay-term-switch-icon { background: rgba(249,115,22,0.16); color: #f97316; }
+        .ay-term-switch-card--closed .ay-term-switch-icon { background: rgba(220,38,38,0.14); color: #dc2626; transform: rotate(-8deg); }
+        .ay-term-switch-label {
+          font-size: 11.5px; font-weight: 800; letter-spacing: 0.01em;
+          color: ${dark ? '#c7ccdb' : '#404040'};
+        }
+        .ay-term-switch-card--closed .ay-term-switch-label { color: #dc2626; }
+
+        .ay-term-switch-track {
+          position: relative; flex-shrink: 0;
+          width: 38px; height: 21px; padding: 0; border-radius: 999px; border: none; cursor: pointer;
+          background: ${dark ? '#333333' : '#d1d5db'};
+          transition: background 0.28s ease, box-shadow 0.28s ease;
+        }
+        .ay-term-switch-track:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(249,115,22,0.35); }
+        .ay-term-switch-track--on {
+          background: linear-gradient(135deg, #f97316, #c2410c);
+          box-shadow: 0 0 0 1px rgba(249,115,22,0.25), 0 2px 8px rgba(249,115,22,0.4);
+        }
+        .ay-term-switch-track--on::after {
+          content: ''; position: absolute; inset: -3px; border-radius: 999px;
+          border: 1.5px solid rgba(249,115,22,0.55); opacity: 0.7;
+          animation: aySwitchGlow 2.2s ease-out infinite;
+        }
+        .ay-term-switch-track--busy { cursor: default; opacity: 0.75; }
+        .ay-term-switch-track:not(:disabled):active .ay-term-switch-thumb { width: 19px; }
+
+        .ay-term-switch-thumb {
+          position: absolute; top: 2.5px; left: 3px; width: 16px; height: 16px; border-radius: 50%;
+          background: #fff; display: flex; align-items: center; justify-content: center;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.35);
+          transition: transform 0.32s cubic-bezier(.34,1.56,.64,1), width 0.18s ease;
+          color: #f97316;
+        }
+        .ay-term-switch-track--on .ay-term-switch-thumb { transform: translateX(17px); }
+        .ay-term-switch-spin { animation: spin 0.7s linear infinite; }
+        @keyframes aySwitchGlow {
+          0%   { transform: scale(0.9); opacity: 0.65; }
+          70%  { transform: scale(1.25); opacity: 0; }
+          100% { transform: scale(1.25); opacity: 0; }
+        }
       `}</style>
 
       {/* ── Page Header ── */}
@@ -1819,10 +1899,10 @@ export default function AdminAssessments() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-              <div style={{ width: 40, height: 40, borderRadius: 12, background: 'linear-gradient(135deg,#6366f1,#4338ca)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: 40, height: 40, borderRadius: 12, background: 'linear-gradient(135deg,#f97316,#c2410c)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <GraduationCap size={20} color="#fff" />
               </div>
-              <h1 className="assess-page-title" style={{ fontSize: 22, fontWeight: 800, color: dark ? '#f1f5f9' : '#111827', margin: 0, fontFamily: "'Sora',sans-serif" }}>
+              <h1 className="assess-page-title" style={{ fontSize: 22, fontWeight: 800, color: dark ? '#f1f5f9' : '#131313', margin: 0, fontFamily: "'Sora',sans-serif" }}>
                 Modules, Submissions and Report Management
               </h1>
             </div>
@@ -1833,8 +1913,8 @@ export default function AdminAssessments() {
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <ScopeSelectorCard
               icon={Calendar}
-              colorFrom="#6366f1"
-              colorTo="#4338ca"
+              colorFrom="#f97316"
+              colorTo="#c2410c"
               value={submissionYearFilter}
               displayValue={submissionYearFilter || 'All Years'}
               onChange={val => setSubmissionYearFilter(val)}
@@ -1856,8 +1936,8 @@ export default function AdminAssessments() {
               options={[{ value: '', label: 'All Terms' }, ...TERMS.map(t => ({ value: t, label: t }))]}
             />
             {[
-              { label: 'Courses',     val: courses.length,     color: '#6366f1' },
-              { label: 'Assessments', val: scopedAssessmentsCount, color: '#8b5cf6' },
+              { label: 'Courses',     val: courses.length,     color: '#f97316' },
+              { label: 'Assessments', val: scopedAssessmentsCount, color: '#f97316' },
               { label: 'Students',    val: students.length,    color: '#10b981' },
             ].map(s => (
               <div key={s.label} style={{ padding: '8px 16px', borderRadius: 12, background: s.color + '18', border: '1px solid ' + s.color + '33', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -1869,7 +1949,7 @@ export default function AdminAssessments() {
         </div>
 
         {/* Tabs */}
-        <div className="assess-tabbar" ref={tabBarRef} style={{ position: 'relative', display: 'flex', gap: 4, marginTop: 20, borderBottom: `2px solid ${dark ? '#1e2130' : '#e5e7eb'}`, overflowX: 'auto' }}>
+        <div className="assess-tabbar" ref={tabBarRef} style={{ position: 'relative', display: 'flex', gap: 4, marginTop: 20, borderBottom: `2px solid ${dark ? '#262626' : '#e5e7eb'}`, overflowX: 'auto' }}>
           {tabs.map(({ key, label, icon: Icon }) => (
             <button
               key={key}
@@ -1880,10 +1960,10 @@ export default function AdminAssessments() {
                 display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px',
                 border: 'none', borderRadius: '10px 10px 0 0', flexShrink: 0, whiteSpace: 'nowrap',
                 background: tab === key ? (dark ? '#1d2235' : '#fff') : 'transparent',
-                color: tab === key ? '#6366f1' : (dark ? '#7b839a' : '#6b7280'),
+                color: tab === key ? '#f97316' : (dark ? '#7b839a' : '#6b7280'),
                 fontWeight: tab === key ? 700 : 500, fontSize: 13, cursor: 'pointer',
                 marginBottom: -2, position: 'relative',
-                boxShadow: tab === key ? '0 -2px 10px rgba(99,102,241,0.08)' : 'none',
+                boxShadow: tab === key ? '0 -2px 10px rgba(249,115,22,0.08)' : 'none',
               }}
             >
               <Icon size={14} className="assess-tab-icon" />
@@ -1892,7 +1972,7 @@ export default function AdminAssessments() {
           ))}
           <div className="assess-tab-indicator" style={{
             position: 'absolute', bottom: -2, height: 2.5, borderRadius: 2,
-            background: 'linear-gradient(90deg,#6366f1,#4338ca)',
+            background: 'linear-gradient(90deg,#f97316,#c2410c)',
             transform: `translateX(${tabIndicator.left}px)`, width: tabIndicator.width,
           }} />
         </div>
@@ -1902,7 +1982,7 @@ export default function AdminAssessments() {
       {tab === 'courses' && (
         <div className="no-print" style={{ animation: 'fadeUp 0.3s ease' }}>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 9, background: dark ? '#1a1f2e' : '#f1f5f9', border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}` }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 9, background: dark ? '#1f1f1f' : '#f1f5f9', border: `1px solid ${dark ? '#333333' : '#e5e7eb'}` }}>
               <Filter size={12} color={dark ? '#7b839a' : '#6b7280'} />
               <span style={{ fontSize: 11, fontWeight: 700, color: dark ? '#7b839a' : '#6b7280', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Filter</span>
             </div>
@@ -1932,33 +2012,33 @@ export default function AdminAssessments() {
             </div>
 
             {hasActiveCourseFilter && (
-              <button onClick={() => { setCourseFilterTeacher(''); setCourseFilterCategory(''); setCourseFilterClass(''); }} style={{ padding: '7px 12px', borderRadius: 8, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#7b839a' : '#6b7280', fontSize: 12, cursor: 'pointer', fontWeight: 600, alignSelf: 'flex-end' }}>
+              <button onClick={() => { setCourseFilterTeacher(''); setCourseFilterCategory(''); setCourseFilterClass(''); }} style={{ padding: '7px 12px', borderRadius: 8, border: `1px solid ${dark ? '#333333' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#7b839a' : '#6b7280', fontSize: 12, cursor: 'pointer', fontWeight: 600, alignSelf: 'flex-end' }}>
                 Clear
               </button>
             )}
             {hasActiveCourseFilter && (
-              <div style={{ alignSelf: 'flex-end', padding: '7px 12px', borderRadius: 8, background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)' }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: '#6366f1' }}>{filteredCourses.length} module{filteredCourses.length !== 1 ? 's' : ''} found</span>
+              <div style={{ alignSelf: 'flex-end', padding: '7px 12px', borderRadius: 8, background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.2)' }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: '#f97316' }}>{filteredCourses.length} module{filteredCourses.length !== 1 ? 's' : ''} found</span>
               </div>
             )}
 
             {/* View toggle */}
-            <div style={{ alignSelf: 'flex-end', display: 'flex', gap: 2, padding: 3, borderRadius: 9, background: dark ? '#1a1f2e' : '#f1f5f9', border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}` }}>
+            <div style={{ alignSelf: 'flex-end', display: 'flex', gap: 2, padding: 3, borderRadius: 9, background: dark ? '#1f1f1f' : '#f1f5f9', border: `1px solid ${dark ? '#333333' : '#e5e7eb'}` }}>
               {[
                 { key: 'cards', icon: '⊞', title: 'Card view' },
                 { key: 'table', icon: '☰', title: 'Table view' },
               ].map(v => (
                 <button key={v.key} title={v.title} onClick={() => setCourseView(v.key)} style={{
                   width: 28, height: 28, borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 14,
-                  background: courseView === v.key ? (dark ? '#2a3042' : '#fff') : 'transparent',
-                  color: courseView === v.key ? '#6366f1' : (dark ? '#7b839a' : '#9ca3af'),
+                  background: courseView === v.key ? (dark ? '#333333' : '#fff') : 'transparent',
+                  color: courseView === v.key ? '#f97316' : (dark ? '#7b839a' : '#9ca3af'),
                   boxShadow: courseView === v.key ? '0 1px 4px rgba(0,0,0,0.12)' : 'none',
                   transition: 'all 0.15s',
                 }}>{v.icon}</button>
               ))}
             </div>
 
-            <button onClick={openCreateCourse} style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 7, padding: '8px 20px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg,#6366f1,#4338ca)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 16px rgba(99,102,241,0.4)', alignSelf: 'flex-end' }}>
+            <button onClick={openCreateCourse} style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 7, padding: '8px 20px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg,#f97316,#c2410c)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 16px rgba(249,115,22,0.4)', alignSelf: 'flex-end' }}>
               <Plus size={14} /> Add Module
             </button>
           </div>
@@ -1980,22 +2060,22 @@ export default function AdminAssessments() {
 
           {loading ? (
             <div style={{ textAlign: 'center', padding: 80 }}>
-              <div style={{ width: 44, height: 44, borderRadius: '50%', border: '3px solid #6366f1', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', margin: '0 auto 14px' }} />
+              <div style={{ width: 44, height: 44, borderRadius: '50%', border: '3px solid #f97316', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', margin: '0 auto 14px' }} />
               <p style={{ color: dark ? '#7b839a' : '#9ca3af', fontSize: 13 }}>Loading modules…</p>
             </div>
           ) : filteredCourses.length === 0 ? (
             <div style={{ ...card, textAlign: 'center', padding: 70 }}>
-              <div style={{ width: 70, height: 70, borderRadius: 20, background: 'linear-gradient(135deg,#6366f1,#4338ca)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
+              <div style={{ width: 70, height: 70, borderRadius: 20, background: 'linear-gradient(135deg,#f97316,#c2410c)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
                 <BookOpen size={30} color="#fff" />
               </div>
-              <p style={{ color: dark ? '#e8ecf4' : '#111827', fontWeight: 800, fontSize: 17, margin: '0 0 6px' }}>
+              <p style={{ color: dark ? '#e8ecf4' : '#131313', fontWeight: 800, fontSize: 17, margin: '0 0 6px' }}>
                 {hasActiveCourseFilter ? 'No modules match your filters' : 'No Modules Yet'}
               </p>
               <p style={{ color: dark ? '#7b839a' : '#9ca3af', margin: '0 0 20px', fontSize: 13 }}>
                 {hasActiveCourseFilter ? 'Try adjusting the class, teacher or type filters above.' : 'Add TVET modules to assign teachers and track assessments.'}
               </p>
               {!hasActiveCourseFilter && (
-                <button onClick={openCreateCourse} style={{ padding: '9px 20px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#6366f1,#4338ca)', color: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+                <button onClick={openCreateCourse} style={{ padding: '9px 20px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#f97316,#c2410c)', color: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
                   <Plus size={13} style={{ marginRight: 6, verticalAlign: 'middle' }} />Add Your First Module
                 </button>
               )}
@@ -2024,10 +2104,10 @@ export default function AdminAssessments() {
                             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
                               <div style={{ flex: 1 }}>
                                 {c.code && <div style={{ fontSize: 10, fontWeight: 800, color: cb.text, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 3 }}>{c.code}</div>}
-                                <p style={{ fontSize: 13, fontWeight: 700, color: dark ? '#e8ecf4' : '#111827', margin: 0, lineHeight: 1.4 }}>{c.name}</p>
+                                <p style={{ fontSize: 13, fontWeight: 700, color: dark ? '#e8ecf4' : '#131313', margin: 0, lineHeight: 1.4 }}>{c.name}</p>
                               </div>
                               <div style={{ display: 'flex', gap: 5, marginLeft: 8 }}>
-                                <button onClick={() => openEditCourse(c)} style={{ width: 28, height: 28, borderRadius: 7, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: dark ? '#1a1f2e' : '#f9fafb', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <button onClick={() => openEditCourse(c)} style={{ width: 28, height: 28, borderRadius: 7, border: `1px solid ${dark ? '#333333' : '#e5e7eb'}`, background: dark ? '#1f1f1f' : '#f9fafb', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                   <Edit2 size={11} color={dark ? '#7b839a' : '#6b7280'} />
                                 </button>
                                 <button onClick={() => deleteCourse(c._id)} style={{ width: 28, height: 28, borderRadius: 7, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.07)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -2049,19 +2129,19 @@ export default function AdminAssessments() {
                                   <School size={10} color={dark ? '#7b839a' : '#9ca3af'} style={{ marginTop: 2, flexShrink: 0 }} />
                                   <div>
                                     {classNames.length === 1
-                                      ? <span>Class: <strong style={{ color: dark ? '#e2e8f0' : '#374151' }}>{classNames[0]}</strong></span>
+                                      ? <span>Class: <strong style={{ color: dark ? '#e2e8f0' : '#404040' }}>{classNames[0]}</strong></span>
                                       : (
                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center' }}>
                                           <span style={{ marginRight: 2 }}>Classes:</span>
                                           {classNames.map((n, i) => (
-                                            <span key={i} style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 5, background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', color: '#6366f1' }}>{n}</span>
+                                            <span key={i} style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 5, background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.2)', color: '#f97316' }}>{n}</span>
                                           ))}
                                         </div>
                                       )}
                                   </div>
                                 </div>
                               )}
-                              {c.teacher_id && <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: dark ? '#7b839a' : '#6b7280' }}><UserCheck size={10} color={dark ? '#7b839a' : '#9ca3af'} />Teacher: <strong style={{ color: dark ? '#e2e8f0' : '#374151' }}>{c.teacher_id?.name || 'Assigned'}</strong></div>}
+                              {c.teacher_id && <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: dark ? '#7b839a' : '#6b7280' }}><UserCheck size={10} color={dark ? '#7b839a' : '#9ca3af'} />Teacher: <strong style={{ color: dark ? '#e2e8f0' : '#404040' }}>{c.teacher_id?.name || 'Assigned'}</strong></div>}
                             </div>
                           </div>
                         );
@@ -2069,11 +2149,11 @@ export default function AdminAssessments() {
                     </div>
                   ) : (
                     /* ── Table view ── */
-                    <div style={{ borderRadius: 12, overflow: 'hidden', border: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}` }}>
+                    <div style={{ borderRadius: 12, overflow: 'hidden', border: `1px solid ${dark ? '#262626' : '#e5e7eb'}` }}>
                       <div style={{ overflowX: 'auto' }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 640 }}>
                         <thead>
-                          <tr style={{ background: dark ? '#1a1f2e' : '#f9fafb', borderBottom: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}` }}>
+                          <tr style={{ background: dark ? '#1f1f1f' : '#f9fafb', borderBottom: `1px solid ${dark ? '#262626' : '#e5e7eb'}` }}>
                             {['Code', 'Module Name', 'Weight', 'Classes', 'Teacher', 'Actions'].map(h => (
                               <th key={h} style={{ padding: '9px 14px', fontSize: 10, fontWeight: 700, color: dark ? '#7b839a' : '#6b7280', textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
                             ))}
@@ -2083,14 +2163,14 @@ export default function AdminAssessments() {
                           {catCourses.map((c, i) => {
                             const classNames = getCourseClassNames(c);
                             return (
-                              <tr key={c._id} style={{ background: i % 2 === 0 ? 'transparent' : (dark ? '#ffffff04' : '#fafbfd'), borderBottom: `1px solid ${dark ? '#1e2130' : '#f1f5f9'}` }}>
+                              <tr key={c._id} style={{ background: i % 2 === 0 ? 'transparent' : (dark ? '#ffffff04' : '#fafbfd'), borderBottom: `1px solid ${dark ? '#262626' : '#f1f5f9'}` }}>
                                 <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
                                   {c.code
                                     ? <span style={{ fontSize: 11, fontWeight: 800, fontFamily: 'monospace', color: cb.text, background: cb.bg, padding: '2px 7px', borderRadius: 5, border: `1px solid ${cb.border}` }}>{c.code}</span>
                                     : <span style={{ color: dark ? '#4a5068' : '#d1d5db', fontSize: 12 }}>—</span>}
                                 </td>
                                 <td style={{ padding: '10px 14px' }}>
-                                  <span style={{ fontSize: 13, fontWeight: 600, color: dark ? '#e8ecf4' : '#111827' }}>{c.name}</span>
+                                  <span style={{ fontSize: 13, fontWeight: 600, color: dark ? '#e8ecf4' : '#131313' }}>{c.name}</span>
                                 </td>
                                 <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
                                   <span style={{ fontSize: 12, fontWeight: 700, color: cb.text }}>{c.total_marks || 100}</span>
@@ -2102,17 +2182,17 @@ export default function AdminAssessments() {
                                     : (
                                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                                         {classNames.map((n, idx) => (
-                                          <span key={idx} style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 6, background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', color: '#6366f1', whiteSpace: 'nowrap' }}>{n}</span>
+                                          <span key={idx} style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 6, background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.2)', color: '#f97316', whiteSpace: 'nowrap' }}>{n}</span>
                                         ))}
                                       </div>
                                     )}
                                 </td>
-                                <td style={{ padding: '10px 14px', fontSize: 12, color: dark ? '#c4c9d4' : '#374151', whiteSpace: 'nowrap' }}>
+                                <td style={{ padding: '10px 14px', fontSize: 12, color: dark ? '#c4c9d4' : '#404040', whiteSpace: 'nowrap' }}>
                                   {c.teacher_id?.name || <span style={{ color: dark ? '#4a5068' : '#d1d5db' }}>—</span>}
                                 </td>
                                 <td style={{ padding: '10px 14px' }}>
                                   <div style={{ display: 'flex', gap: 6 }}>
-                                    <button onClick={() => openEditCourse(c)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 7, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#94a3b8' : '#6b7280', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                                    <button onClick={() => openEditCourse(c)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 7, border: `1px solid ${dark ? '#333333' : '#e5e7eb'}`, background: dark ? '#1f1f1f' : '#f9fafb', color: dark ? '#94a3b8' : '#6b7280', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
                                       <Edit2 size={10} /> Edit
                                     </button>
                                     <button onClick={() => deleteCourse(c._id)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 7, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.07)', color: '#ef4444', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
@@ -2143,17 +2223,17 @@ export default function AdminAssessments() {
           {/* ── Header banner: intro + live stats + New Academic Year CTA ── */}
           <div style={{
             position: 'relative', overflow: 'hidden', marginBottom: 22, borderRadius: 20, padding: 24,
-            background: dark ? 'linear-gradient(135deg,#1b1f33,#141726 60%,#181c30)' : 'linear-gradient(135deg,#eef0ff,#f7f8ff 60%,#eef2ff)',
+            background: dark ? 'linear-gradient(135deg,#1b1f33,#141726 60%,#181c30)' : 'linear-gradient(135deg,#eef0ff,#f7f8ff 60%,#fff7ed)',
             border: `1px solid ${dark ? '#2a2f4a' : '#e0e4ff'}`,
           }}>
-            <div style={{ position: 'absolute', top: -50, right: -40, width: 220, height: 220, borderRadius: '50%', background: 'radial-gradient(circle, rgba(99,102,241,0.18), transparent 70%)', pointerEvents: 'none' }} />
+            <div style={{ position: 'absolute', top: -50, right: -40, width: 220, height: 220, borderRadius: '50%', background: 'radial-gradient(circle, rgba(249,115,22,0.18), transparent 70%)', pointerEvents: 'none' }} />
             <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 18, flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                <div style={{ width: 54, height: 54, borderRadius: 16, background: 'linear-gradient(135deg,#6366f1,#4338ca)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 10px 24px rgba(99,102,241,0.4)' }}>
+                <div style={{ width: 54, height: 54, borderRadius: 16, background: 'linear-gradient(135deg,#f97316,#c2410c)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 10px 24px rgba(249,115,22,0.4)' }}>
                   <Calendar size={24} color="#fff" />
                 </div>
                 <div>
-                  <h2 style={{ margin: 0, fontSize: 19, fontWeight: 800, color: dark ? '#f1f5f9' : '#111827' }}>Academic Year</h2>
+                  <h2 style={{ margin: 0, fontSize: 19, fontWeight: 800, color: dark ? '#f1f5f9' : '#131313' }}>Academic Year</h2>
                   <p style={{ margin: '4px 0 0', fontSize: 13, color: dark ? '#9aa2c0' : '#6b7280', maxWidth: 480 }}>
                     Set the current academic year. All new mark-recording activity by teachers automatically belongs to whichever year is active here — teachers can't change it themselves.
                   </p>
@@ -2163,8 +2243,8 @@ export default function AdminAssessments() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                 {/* Live stats */}
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <div style={{ padding: '8px 14px', borderRadius: 12, background: dark ? 'rgba(99,102,241,0.12)' : '#fff', border: `1px solid ${dark ? '#2a2f4a' : '#e0e4ff'}`, textAlign: 'center', minWidth: 64 }}>
-                    <div style={{ fontSize: 18, fontWeight: 800, color: '#6366f1', lineHeight: 1.1 }}>{academicYears.length}</div>
+                  <div style={{ padding: '8px 14px', borderRadius: 12, background: dark ? 'rgba(249,115,22,0.12)' : '#fff', border: `1px solid ${dark ? '#2a2f4a' : '#e0e4ff'}`, textAlign: 'center', minWidth: 64 }}>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: '#f97316', lineHeight: 1.1 }}>{academicYears.length}</div>
                     <div style={{ fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: dark ? '#7b839a' : '#9ca3af' }}>Years</div>
                   </div>
                   <div style={{ padding: '8px 14px', borderRadius: 12, background: dark ? 'rgba(16,185,129,0.1)' : '#fff', border: `1px solid ${dark ? '#1f3a34' : '#d1fae5'}`, textAlign: 'center', minWidth: 90 }}>
@@ -2186,8 +2266,8 @@ export default function AdminAssessments() {
                   onClick={() => setShowYearModal(true)}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 8, padding: '12px 20px', borderRadius: 13, border: 'none',
-                    background: 'linear-gradient(135deg,#6366f1,#4338ca)', color: '#fff', fontSize: 13.5, fontWeight: 800,
-                    cursor: 'pointer', boxShadow: '0 8px 22px rgba(99,102,241,0.4)',
+                    background: 'linear-gradient(135deg,#f97316,#c2410c)', color: '#fff', fontSize: 13.5, fontWeight: 800,
+                    cursor: 'pointer', boxShadow: '0 8px 22px rgba(249,115,22,0.4)',
                   }}
                 >
                   <span style={{ width: 22, height: 22, borderRadius: 7, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -2214,22 +2294,22 @@ export default function AdminAssessments() {
             </div>
           ) : academicYears.length === 0 ? (
             <div style={{ ...card, textAlign: 'center', padding: 60 }}>
-              <div style={{ width: 64, height: 64, borderRadius: 20, background: 'linear-gradient(135deg,#6366f1,#4338ca)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <div style={{ width: 64, height: 64, borderRadius: 20, background: 'linear-gradient(135deg,#f97316,#c2410c)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
                 <Calendar size={28} color="#fff" />
               </div>
-              <p style={{ color: dark ? '#e8ecf4' : '#111827', fontWeight: 800, fontSize: 16, margin: '0 0 6px' }}>No academic years yet</p>
+              <p style={{ color: dark ? '#e8ecf4' : '#131313', fontWeight: 800, fontSize: 16, margin: '0 0 6px' }}>No academic years yet</p>
               <p style={{ color: dark ? '#7b839a' : '#9ca3af', margin: '0 0 20px' }}>Create your school's first academic year to get started.</p>
               <button
                 className="ay-new-btn"
                 onClick={() => setShowYearModal(true)}
-                style={{ padding: '10px 22px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg,#6366f1,#4338ca)', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer', boxShadow: '0 8px 20px rgba(99,102,241,0.35)' }}
+                style={{ padding: '10px 22px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg,#f97316,#c2410c)', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer', boxShadow: '0 8px 20px rgba(249,115,22,0.35)' }}
               >
                 <Plus size={14} style={{ verticalAlign: 'middle', marginRight: 6 }} />New Academic Year
               </button>
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill,minmax(360px,1fr))', gap: 16 }}>
-              {[...academicYears].sort((a, b) => (b.is_active - a.is_active) || b.name.localeCompare(a.name)).map(y => {
+              {[...academicYears].sort((a, b) => (a.name || '').localeCompare(b.name || '')).map(y => {
                 const disabledTerms = y.disabled_terms || [];
                 const openCount = TERMS.length - disabledTerms.length;
                 return (
@@ -2238,30 +2318,30 @@ export default function AdminAssessments() {
                     className={`ay-year-card${y.is_active ? ' ay-year-card--active' : ''}`}
                     style={{
                       padding: 18, borderRadius: 16,
-                      border: `1.5px solid ${y.is_active ? '#6366f1' : (dark ? '#2a3042' : '#e5e7eb')}`,
+                      border: `1.5px solid ${y.is_active ? '#f97316' : (dark ? '#333333' : '#e5e7eb')}`,
                       background: y.is_active
-                        ? (dark ? 'linear-gradient(160deg,rgba(99,102,241,0.14),rgba(99,102,241,0.03))' : 'linear-gradient(160deg,#eef0ff,#fff)')
-                        : (dark ? '#13161f' : '#fff'),
+                        ? (dark ? 'linear-gradient(160deg,rgba(249,115,22,0.14),rgba(249,115,22,0.03))' : 'linear-gradient(160deg,#eef0ff,#fff)')
+                        : (dark ? '#171717' : '#fff'),
                     }}
                   >
                     {y.is_active && (
-                      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg,#6366f1,#818cf8,#6366f1)' }} />
+                      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg,#f97316,#fb923c,#f97316)' }} />
                     )}
 
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, marginBottom: 14 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
                         <div style={{
                           width: 40, height: 40, borderRadius: 12, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          background: y.is_active ? 'linear-gradient(135deg,#6366f1,#4338ca)' : (dark ? '#1a1f2e' : '#f3f4f6'),
+                          background: y.is_active ? 'linear-gradient(135deg,#f97316,#c2410c)' : (dark ? '#1f1f1f' : '#f3f4f6'),
                         }}>
                           <Calendar size={17} color={y.is_active ? '#fff' : (dark ? '#7b839a' : '#9ca3af')} />
                         </div>
                         <div>
-                          <div style={{ fontSize: 16, fontWeight: 800, color: dark ? '#f1f5f9' : '#111827' }}>{y.name}</div>
+                          <div style={{ fontSize: 16, fontWeight: 800, color: dark ? '#f1f5f9' : '#131313' }}>{y.name}</div>
                           {y.is_active ? (
-                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 2, padding: '2px 8px', borderRadius: 999, background: 'rgba(99,102,241,0.15)' }}>
-                              <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#6366f1' }} />
-                              <span style={{ fontSize: 10, fontWeight: 800, color: '#6366f1', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Current / Active</span>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 2, padding: '2px 8px', borderRadius: 999, background: 'rgba(249,115,22,0.15)' }}>
+                              <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#f97316' }} />
+                              <span style={{ fontSize: 10, fontWeight: 800, color: '#f97316', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Current / Active</span>
                             </div>
                           ) : (
                             <div style={{ fontSize: 11, color: dark ? '#7b839a' : '#9ca3af', marginTop: 2 }}>
@@ -2277,7 +2357,7 @@ export default function AdminAssessments() {
                             className="ay-icon-btn"
                             onClick={() => activateAcademicYear(y.id || y._id, y.name)}
                             title={`Set ${y.name} as the active academic year`}
-                            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 9, border: 'none', background: '#6366f1', color: '#fff', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', boxShadow: '0 3px 10px rgba(99,102,241,0.35)' }}
+                            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 9, border: 'none', background: '#f97316', color: '#fff', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', boxShadow: '0 3px 10px rgba(249,115,22,0.35)' }}
                           >
                             <CheckCircle2 size={13} /> Set Active
                           </button>
@@ -2287,7 +2367,7 @@ export default function AdminAssessments() {
                             className="ay-icon-btn"
                             onClick={() => deleteAcademicYear(y.id || y._id, y.name)}
                             title="Delete this academic year"
-                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 9, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: 'transparent', color: '#dc2626', cursor: 'pointer', flexShrink: 0 }}
+                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 9, border: `1px solid ${dark ? '#333333' : '#e5e7eb'}`, background: 'transparent', color: '#dc2626', cursor: 'pointer', flexShrink: 0 }}
                           >
                             <Trash2 size={13} />
                           </button>
@@ -2304,28 +2384,34 @@ export default function AdminAssessments() {
                         Optimistically flips on click — no page/tab reload,
                         just this one pill updating (with its own tiny
                         spinner) while the request settles. ── */}
-                    <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', paddingTop: 12, borderTop: `1px dashed ${dark ? '#2a3042' : '#e5e7eb'}` }}>
+                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', paddingTop: 14, borderTop: `1px dashed ${dark ? '#333333' : '#e5e7eb'}` }}>
                       {TERMS.map(t => {
                         const isOpen = !disabledTerms.includes(t);
                         const busy = termToggleBusyKey === `${y.id || y._id}:${t}`;
                         return (
-                          <button
+                          <div
                             key={t}
-                            className="ay-term-pill"
-                            disabled={busy}
-                            onClick={() => setTermStatus(y.id || y._id, y.name, t, !isOpen)}
-                            title={isOpen ? `Click to close ${t} — teachers won't be able to create/record assessments in it` : `Click to reopen ${t}`}
-                            style={{
-                              display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 999,
-                              fontSize: 11.5, fontWeight: 700, cursor: busy ? 'default' : 'pointer',
-                              border: `1px solid ${isOpen ? (dark ? '#2a3042' : '#e5e7eb') : '#dc262655'}`,
-                              background: isOpen ? (dark ? '#1a1f2e' : '#f9fafb') : 'rgba(220,38,38,0.1)',
-                              color: isOpen ? (dark ? '#9aa2b5' : '#4b5563') : '#dc2626',
-                            }}
+                            className={`ay-term-switch-card${isOpen ? ' ay-term-switch-card--open' : ' ay-term-switch-card--closed'}${busy ? ' ay-term-switch-card--busy' : ''}`}
                           >
-                            {busy ? <RefreshCw size={11} style={{ animation: 'spin 0.6s linear infinite' }} /> : (isOpen ? <Unlock size={11} /> : <Lock size={11} />)}
-                            {t}
-                          </button>
+                            <span className="ay-term-switch-icon">
+                              {isOpen ? <Unlock size={11} /> : <Lock size={11} />}
+                            </span>
+                            <span className="ay-term-switch-label">{t}</span>
+                            <button
+                              type="button"
+                              role="switch"
+                              aria-checked={isOpen}
+                              aria-label={`${t} ${isOpen ? 'open' : 'closed'}`}
+                              disabled={busy}
+                              onClick={() => setTermStatus(y.id || y._id, y.name, t, !isOpen)}
+                              title={isOpen ? `Click to close ${t} — teachers won't be able to create/record assessments in it` : `Click to reopen ${t}`}
+                              className={`ay-term-switch-track${isOpen ? ' ay-term-switch-track--on' : ''}${busy ? ' ay-term-switch-track--busy' : ''}`}
+                            >
+                              <span className="ay-term-switch-thumb">
+                                {busy && <RefreshCw size={9} className="ay-term-switch-spin" />}
+                              </span>
+                            </button>
+                          </div>
                         );
                       })}
                     </div>
@@ -2335,7 +2421,7 @@ export default function AdminAssessments() {
             </div>
           )}
 
-          <div style={{ marginTop: 16, padding: '14px 18px', borderRadius: 14, background: dark ? '#1a1f2e' : '#f0f9ff', border: `1px solid ${dark ? '#2a3042' : '#bae6fd'}`, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+          <div style={{ marginTop: 16, padding: '14px 18px', borderRadius: 14, background: dark ? '#1f1f1f' : '#f0f9ff', border: `1px solid ${dark ? '#333333' : '#bae6fd'}`, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
             <span style={{ fontSize: 15, lineHeight: 1 }}>💡</span>
             <p style={{ margin: 0, fontSize: 12, color: dark ? '#9aa2c0' : '#0369a1', lineHeight: 1.6 }}>
               <strong>Tip:</strong> Switching the active year doesn't touch existing assessments or marks — they stay tied to the year they were recorded in. Only new assessments teachers create from now on will use{activeAcademicYear ? ` "${activeAcademicYear.name}"` : ' the new active year'}.
@@ -2354,11 +2440,11 @@ export default function AdminAssessments() {
               >
                 <div style={{
                   width: 460, borderRadius: 22, overflow: 'hidden',
-                  background: dark ? '#13161f' : '#fff', border: `1px solid ${dark ? '#232a3d' : '#e5e7eb'}`,
+                  background: dark ? '#171717' : '#fff', border: `1px solid ${dark ? '#232a3d' : '#e5e7eb'}`,
                   boxShadow: '0 40px 90px rgba(6,10,20,0.5)', animation: 'ayModalIn 0.22s cubic-bezier(.22,1,.36,1)',
                 }}>
                   {/* Gradient header */}
-                  <div style={{ position: 'relative', overflow: 'hidden', padding: '26px 28px 22px', background: 'linear-gradient(135deg,#4338ca,#6366f1 60%,#818cf8)' }}>
+                  <div style={{ position: 'relative', overflow: 'hidden', padding: '26px 28px 22px', background: 'linear-gradient(135deg,#c2410c,#f97316 60%,#fb923c)' }}>
                     <div style={{ position: 'absolute', top: -30, right: -30, width: 140, height: 140, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,0.16), transparent 70%)' }} />
                     <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 13 }}>
                       <div style={{ width: 44, height: 44, borderRadius: 13, background: 'rgba(255,255,255,0.16)', border: '1px solid rgba(255,255,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, backdropFilter: 'blur(6px)' }}>
@@ -2387,7 +2473,7 @@ export default function AdminAssessments() {
                         placeholder="e.g. 2027-2028"
                         className="ay-modal-input"
                         onKeyDown={e => { if (e.key === 'Enter' && formatOk && !duplicate) createAcademicYear(); }}
-                        style={{ ...inputStyle, padding: '12px 40px 12px 14px', fontSize: 15, fontWeight: 700, border: `1.5px solid ${trimmed ? (formatOk && !duplicate ? '#10b981' : '#dc2626') : (dark ? '#2a3042' : '#d1d5db')}` }}
+                        style={{ ...inputStyle, padding: '12px 40px 12px 14px', fontSize: 15, fontWeight: 700, border: `1.5px solid ${trimmed ? (formatOk && !duplicate ? '#10b981' : '#dc2626') : (dark ? '#333333' : '#d1d5db')}` }}
                       />
                       {trimmed && (
                         <span className="ay-format-ok" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)' }}>
@@ -2405,8 +2491,8 @@ export default function AdminAssessments() {
                           : 'Format: two consecutive years, e.g. "2027-2028".'}
                     </p>
 
-                    <div style={{ marginTop: 18, padding: '12px 14px', borderRadius: 12, background: dark ? '#1a1f2e' : '#f0f9ff', border: `1px solid ${dark ? '#2a3042' : '#bae6fd'}`, display: 'flex', gap: 9, alignItems: 'flex-start' }}>
-                      <Sparkles size={14} color="#6366f1" style={{ flexShrink: 0, marginTop: 1 }} />
+                    <div style={{ marginTop: 18, padding: '12px 14px', borderRadius: 12, background: dark ? '#1f1f1f' : '#f0f9ff', border: `1px solid ${dark ? '#333333' : '#bae6fd'}`, display: 'flex', gap: 9, alignItems: 'flex-start' }}>
+                      <Sparkles size={14} color="#f97316" style={{ flexShrink: 0, marginTop: 1 }} />
                       <p style={{ margin: 0, fontSize: 11.5, color: dark ? '#9aa2c0' : '#0369a1', lineHeight: 1.6 }}>
                         New years start with every term open and inactive — nothing changes for teachers until you set it active.
                       </p>
@@ -2416,7 +2502,7 @@ export default function AdminAssessments() {
                       <button
                         onClick={() => { setShowYearModal(false); setNewYearName(''); }}
                         disabled={academicYearBusy}
-                        style={{ flex: 1, padding: '12px', borderRadius: 12, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#94a3b8' : '#6b7280', fontSize: 13, fontWeight: 700, cursor: academicYearBusy ? 'default' : 'pointer' }}
+                        style={{ flex: 1, padding: '12px', borderRadius: 12, border: `1px solid ${dark ? '#333333' : '#e5e7eb'}`, background: dark ? '#1f1f1f' : '#f9fafb', color: dark ? '#94a3b8' : '#6b7280', fontSize: 13, fontWeight: 700, cursor: academicYearBusy ? 'default' : 'pointer' }}
                       >
                         Cancel
                       </button>
@@ -2425,11 +2511,11 @@ export default function AdminAssessments() {
                         disabled={!formatOk || duplicate || academicYearBusy}
                         style={{
                           flex: 2, padding: '12px', borderRadius: 12, border: 'none',
-                          background: (!formatOk || duplicate || academicYearBusy) ? (dark ? '#2a3042' : '#e5e7eb') : 'linear-gradient(135deg,#6366f1,#4338ca)',
+                          background: (!formatOk || duplicate || academicYearBusy) ? (dark ? '#333333' : '#e5e7eb') : 'linear-gradient(135deg,#f97316,#c2410c)',
                           color: (!formatOk || duplicate || academicYearBusy) ? (dark ? '#4a5568' : '#9ca3af') : '#fff',
                           fontSize: 13, fontWeight: 800,
                           cursor: (!formatOk || duplicate || academicYearBusy) ? 'not-allowed' : 'pointer',
-                          boxShadow: (!formatOk || duplicate || academicYearBusy) ? 'none' : '0 8px 20px rgba(99,102,241,0.4)',
+                          boxShadow: (!formatOk || duplicate || academicYearBusy) ? 'none' : '0 8px 20px rgba(249,115,22,0.4)',
                           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
                         }}
                       >
@@ -2450,34 +2536,20 @@ export default function AdminAssessments() {
         <div className="no-print" style={{ animation: 'fadeUp 0.3s ease' }}>
 
           {/* ── Breadcrumb: All Classes → Class → Teacher (module + type live in the modal) ── */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 18 }}>
+          <div className="msub-crumb-bar">
             <button
-              className="subm-crumb-btn"
+              className={`msub-crumb-btn${!submissionClassFilter ? ' msub-crumb-btn--active' : ''}`}
               onClick={() => { setSubmissionClassFilter(''); setSubmissionTeacherFilter(''); setSubmissionCourseFilter(''); setSubmissionTypeFilter(''); }}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 9, cursor: 'pointer',
-                border: `1px solid ${!submissionClassFilter ? '#6366f1' : (dark ? '#2a3042' : '#e5e7eb')}`,
-                background: !submissionClassFilter ? 'rgba(99,102,241,0.1)' : (dark ? '#1a1f2e' : '#f9fafb'),
-                color: !submissionClassFilter ? '#6366f1' : (dark ? '#c4c9d4' : '#374151'),
-                fontSize: 12.5, fontWeight: 700,
-              }}
             >
               <School size={13} /> All Classes
             </button>
 
             {submissionClassFilter && (
               <>
-                <ChevronRight size={14} color={dark ? '#3f4759' : '#cbd5e1'} />
+                <ChevronRight size={13} className="msub-crumb-sep" />
                 <button
-                  className="subm-crumb-btn"
+                  className={`msub-crumb-btn${!submissionTeacherFilter ? ' msub-crumb-btn--active' : ''}`}
                   onClick={() => { setSubmissionTeacherFilter(''); setSubmissionCourseFilter(''); setSubmissionTypeFilter(''); }}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 9, cursor: 'pointer',
-                    border: `1px solid ${!submissionTeacherFilter ? '#6366f1' : (dark ? '#2a3042' : '#e5e7eb')}`,
-                    background: !submissionTeacherFilter ? 'rgba(99,102,241,0.1)' : (dark ? '#1a1f2e' : '#f9fafb'),
-                    color: !submissionTeacherFilter ? '#6366f1' : (dark ? '#c4c9d4' : '#374151'),
-                    fontSize: 12.5, fontWeight: 700,
-                  }}
                 >
                   <Users size={13} /> {selectedSubmissionClass?.name || 'Class'}
                 </button>
@@ -2486,24 +2558,17 @@ export default function AdminAssessments() {
 
             {submissionTeacherFilter && (
               <>
-                <ChevronRight size={14} color={dark ? '#3f4759' : '#cbd5e1'} />
+                <ChevronRight size={13} className="msub-crumb-sep" />
                 <button
-                  className="subm-crumb-btn"
+                  className={`msub-crumb-btn${!submissionCourseFilter ? ' msub-crumb-btn--active' : ''}`}
                   onClick={() => { setSubmissionCourseFilter(''); setSubmissionTypeFilter(''); }}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 9, cursor: 'pointer',
-                    border: `1px solid ${!submissionCourseFilter ? '#6366f1' : (dark ? '#2a3042' : '#e5e7eb')}`,
-                    background: !submissionCourseFilter ? 'rgba(99,102,241,0.1)' : (dark ? '#1a1f2e' : '#f9fafb'),
-                    color: !submissionCourseFilter ? '#6366f1' : (dark ? '#c4c9d4' : '#374151'),
-                    fontSize: 12.5, fontWeight: 700,
-                  }}
                 >
                   <User2 size={13} /> {selectedSubmissionTeacher?.name || 'Teacher'}
                 </button>
               </>
             )}
 
-            <button onClick={fetchSubmissions} style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 9, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#7b839a' : '#6b7280', fontSize: 12, cursor: 'pointer' }}>
+            <button onClick={fetchSubmissions} className="msub-refresh-btn">
               <RefreshCw size={12} /> Refresh
             </button>
           </div>
@@ -2511,61 +2576,45 @@ export default function AdminAssessments() {
           {!submissionClassFilter ? (
             /* ═══ LEVEL 1: Class cards ═══ */
             classSubmissionCards.length === 0 ? (
-              <div style={{ ...card, textAlign: 'center', padding: 60 }}>
-                <div style={{ width: 64, height: 64, borderRadius: 20, background: 'rgba(99,102,241,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                  <School size={28} color="#6366f1" />
-                </div>
-                <p style={{ color: dark ? '#e8ecf4' : '#111827', fontWeight: 700, fontSize: 15, margin: '0 0 6px' }}>No Classes Yet</p>
-                <p style={{ color: dark ? '#7b839a' : '#9ca3af', margin: 0, fontSize: 13 }}>Create a class first to start reviewing mark submissions.</p>
+              <div className="aop-empty">
+                <div className="aop-empty-icon"><School size={24} /></div>
+                <p style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: 14.5 }}>No classes yet</p>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>Create a class first to start reviewing mark submissions.</p>
               </div>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(270px,1fr))', gap: 16 }}>
-                {classSubmissionCards.map(({ cls, classId, courseCount, teacherCount, studentCount, total, pending, approved, rejected, draft }, idx) => {
-                  const [g1, g2] = CLASS_CARD_GRADIENTS[idx % CLASS_CARD_GRADIENTS.length];
-                  return (
-                    <button
-                      key={classId}
-                      className="subm-class-card"
-                      onClick={() => setSubmissionClassFilter(classId)}
-                      style={{
-                        position: 'relative', textAlign: 'left', cursor: 'pointer', padding: 0, overflow: 'hidden',
-                        border: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}`, borderRadius: 18,
-                        background: dark ? '#13161f' : '#fff', animation: `fadeUp 0.35s ease ${idx * 0.03}s both`,
-                      }}
-                    >
-                      <div style={{ height: 64, background: `linear-gradient(135deg, ${g1}, ${g2})`, position: 'relative' }}>
-                        {pending > 0 && (
-                          <span style={{ position: 'absolute', top: 10, right: 10, display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 800, padding: '3px 9px', borderRadius: 20, background: 'rgba(255,255,255,0.94)', color: '#b45309' }}>
-                            <Clock size={10} /> {pending} pending
-                          </span>
-                        )}
+              <div className="aop-grid">
+                {classSubmissionCards.map(({ cls, classId, courseCount, teacherCount, studentCount, total, pending, approved, rejected, draft }, idx) => (
+                  <button
+                    key={classId}
+                    className="aop-class-card"
+                    onClick={() => setSubmissionClassFilter(classId)}
+                    style={{ '--i': idx }}
+                  >
+                    <div className="aop-class-banner">
+                      <div className="aop-class-shine" />
+                      <div className="aop-class-badge"><School size={12} /> Class</div>
+                      <div className="aop-class-name">{cls.name}</div>
+                      <div className="aop-class-sub">
+                        {teacherCount} teacher{teacherCount !== 1 ? 's' : ''} · {courseCount} course{courseCount !== 1 ? 's' : ''} · {studentCount} student{studentCount !== 1 ? 's' : ''}
                       </div>
-                      <div className="subm-card-icon" style={{
-                        position: 'absolute', top: 42, left: 18, width: 46, height: 46, borderRadius: 14,
-                        background: dark ? '#13161f' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        boxShadow: '0 6px 16px rgba(0,0,0,0.18)', border: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}`,
-                      }}>
-                        <School size={20} color={g1} />
-                      </div>
-                      <div style={{ padding: '26px 18px 18px' }}>
-                        <p style={{ margin: '0 0 3px', fontSize: 15, fontWeight: 800, color: dark ? '#f1f5f9' : '#111827' }}>{cls.name}</p>
-                        <p style={{ margin: '0 0 14px', fontSize: 11.5, color: dark ? '#7b839a' : '#9ca3af' }}>
-                          {teacherCount} teacher{teacherCount !== 1 ? 's' : ''} · {courseCount} course{courseCount !== 1 ? 's' : ''} · {studentCount} student{studentCount !== 1 ? 's' : ''}
-                        </p>
-                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', minHeight: 22 }}>
-                          <StatPill color="#f59e0b" label="Pending"  value={pending} />
-                          <StatPill color="#10b981" label="Approved" value={approved} />
-                          <StatPill color="#ef4444" label="Rejected" value={rejected} />
-                          <StatPill color="#9ca3af" label="Draft"    value={draft} />
-                        </div>
-                        <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${dark ? '#1e2130' : '#f1f5f9'}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <span style={{ fontSize: 11.5, fontWeight: 700, color: '#6366f1' }}>{total} assessment{total !== 1 ? 's' : ''} total</span>
-                          <ChevronRight size={16} color="#6366f1" className="subm-card-arrow" />
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
+                      {pending > 0 && (
+                        <span className="msub-pending-chip">
+                          <Clock size={10} /> {pending} pending
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ padding: '14px 18px 4px', display: 'flex', gap: 6, flexWrap: 'wrap', minHeight: 30 }}>
+                      <StatPill color="#f59e0b" label="Pending"  value={pending} />
+                      <StatPill color="#10b981" label="Approved" value={approved} />
+                      <StatPill color="#ef4444" label="Rejected" value={rejected} />
+                      <StatPill color="#9ca3af" label="Draft"    value={draft} />
+                    </div>
+                    <div className="aop-class-foot">
+                      <span className="aop-class-foot-item accent">{total} assessment{total !== 1 ? 's' : ''} total</span>
+                      <div className="aop-assess-arrow"><ChevronRight size={15} /></div>
+                    </div>
+                  </button>
+                ))}
               </div>
             )
           ) : !submissionTeacherFilter ? (
@@ -2573,53 +2622,48 @@ export default function AdminAssessments() {
             (() => {
               const classTeachers = teachersForClassId(submissionClassFilter);
               return classTeachers.length === 0 ? (
-                <div style={{ ...card, textAlign: 'center', padding: 60 }}>
-                  <div style={{ width: 64, height: 64, borderRadius: 20, background: 'rgba(99,102,241,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                    <Users size={28} color="#6366f1" />
-                  </div>
-                  <p style={{ color: dark ? '#e8ecf4' : '#111827', fontWeight: 700, fontSize: 15, margin: '0 0 6px' }}>No Teachers Found</p>
-                  <p style={{ color: dark ? '#7b839a' : '#9ca3af', margin: 0, fontSize: 13 }}>
+                <div className="aop-empty">
+                  <div className="aop-empty-icon"><Users size={24} /></div>
+                  <p style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: 14.5 }}>No teachers found</p>
+                  <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>
                     No teacher is assigned to a course in <strong>{selectedSubmissionClass?.name}</strong> yet.
                   </p>
                 </div>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 14 }}>
+                <div className="aop-grid">
                   {classTeachers.map((t, idx) => (
                     <button
                       key={t.id}
-                      className="subm-teacher-card"
+                      className="aop-teacher-card"
                       onClick={() => setSubmissionTeacherFilter(t.id)}
-                      style={{
-                        textAlign: 'left', cursor: 'pointer', padding: 16, borderRadius: 16,
-                        border: `1px solid ${t.unassigned ? (dark ? '#3a3220' : '#fde68a') : (dark ? '#1e2130' : '#e5e7eb')}`,
-                        background: dark ? '#13161f' : '#fff',
-                        animation: `fadeUp 0.3s ease ${idx * 0.03}s both`,
-                      }}
+                      style={{ '--i': idx, borderColor: t.unassigned ? (dark ? '#3a3220' : '#fde68a') : undefined }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <div className="subm-card-icon" style={{
+                        <div style={{
                           width: 44, height: 44, borderRadius: '50%', flexShrink: 0,
-                          background: t.unassigned ? (dark ? '#2a2818' : '#fef3c7') : 'linear-gradient(135deg,#6366f1,#4338ca)',
+                          background: t.unassigned ? (dark ? '#2a2818' : '#fef3c7') : 'linear-gradient(135deg,#f97316,#c2410c)',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           color: t.unassigned ? '#f59e0b' : '#fff', fontWeight: 800, fontSize: 14,
+                          boxShadow: t.unassigned ? 'none' : '0 6px 16px color-mix(in srgb, #f97316 40%, transparent)',
+                          transition: 'transform 0.3s cubic-bezier(.34,1.56,.64,1)',
                         }}>
                           {t.unassigned ? <Users size={18} /> : initials(t.name)}
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <p style={{ margin: 0, fontSize: 13.5, fontWeight: 800, color: t.unassigned ? '#f59e0b' : (dark ? '#f1f5f9' : '#111827'), whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.name}</p>
-                          <p style={{ margin: '2px 0 0', fontSize: 11, color: dark ? '#7b839a' : '#9ca3af', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          <p style={{ margin: 0, fontSize: 13.5, fontWeight: 800, color: t.unassigned ? '#f59e0b' : 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.name}</p>
+                          <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {t.unassigned ? 'No teacher assigned to these modules yet' : (t.courseNames.length ? t.courseNames.join(', ') : 'No course assigned')}
                           </p>
                         </div>
-                        <ChevronRight size={16} color="#6366f1" className="subm-card-arrow" style={{ flexShrink: 0 }} />
+                        <div className="aop-assess-arrow" style={{ flexShrink: 0 }}><ChevronRight size={15} /></div>
                       </div>
-                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 12, minHeight: 22 }}>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 12, minHeight: 30 }}>
                         <StatPill color="#f59e0b" label="Pending"  value={t.pending} />
                         <StatPill color="#10b981" label="Approved" value={t.approved} />
                         <StatPill color="#ef4444" label="Rejected" value={t.rejected} />
                         <StatPill color="#9ca3af" label="Draft"    value={t.draft} />
                         {t.total === 0 && (
-                          <span style={{ fontSize: 10.5, color: dark ? '#7b839a' : '#9ca3af', fontWeight: 600 }}>
+                          <span style={{ fontSize: 10.5, color: 'var(--text-secondary)', fontWeight: 600 }}>
                             {t.unassigned ? `${t.courseNames.length} module${t.courseNames.length !== 1 ? 's' : ''} awaiting a teacher` : 'No assessments yet'}
                           </span>
                         )}
@@ -2634,61 +2678,56 @@ export default function AdminAssessments() {
             (() => {
               const teacherModules = modulesForClassTeacher(submissionClassFilter, submissionTeacherFilter);
               return teacherModules.length === 0 ? (
-                <div style={{ ...card, textAlign: 'center', padding: 60 }}>
-                  <div style={{ width: 64, height: 64, borderRadius: 20, background: 'rgba(99,102,241,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                    <BookOpen size={28} color="#6366f1" />
-                  </div>
-                  <p style={{ color: dark ? '#e8ecf4' : '#111827', fontWeight: 700, fontSize: 15, margin: '0 0 6px' }}>No Modules Found</p>
-                  <p style={{ color: dark ? '#7b839a' : '#9ca3af', margin: 0, fontSize: 13 }}>
+                <div className="aop-empty">
+                  <div className="aop-empty-icon"><BookOpen size={24} /></div>
+                  <p style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: 14.5 }}>No modules found</p>
+                  <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>
                     <strong>{selectedSubmissionTeacher?.name}</strong> doesn't teach any module in <strong>{selectedSubmissionClass?.name}</strong> yet.
                   </p>
                 </div>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 14 }}>
+                <div className="aop-grid">
                   {teacherModules.map((m, idx) => {
                     const cb = catBadge(m.course?.category);
                     return (
                       <button
                         key={m.id}
-                        className="subm-teacher-card"
+                        className="aop-teacher-card"
                         onClick={() => openModuleModal(m.id)}
-                        style={{
-                          textAlign: 'left', cursor: 'pointer', padding: 16, borderRadius: 16,
-                          border: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}`, background: dark ? '#13161f' : '#fff',
-                          animation: `fadeUp 0.3s ease ${idx * 0.03}s both`,
-                        }}
+                        style={{ '--i': idx }}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                          <div className="subm-card-icon" style={{
+                          <div style={{
                             width: 44, height: 44, borderRadius: 14, flexShrink: 0,
-                            background: 'linear-gradient(135deg,#6366f1,#4338ca)', display: 'flex',
+                            background: 'linear-gradient(135deg,#f97316,#c2410c)', display: 'flex',
                             alignItems: 'center', justifyContent: 'center', color: '#fff',
+                            boxShadow: '0 6px 16px color-mix(in srgb, #f97316 40%, transparent)',
                           }}>
                             <BookOpen size={19} />
                           </div>
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <p style={{ margin: 0, fontSize: 13.5, fontWeight: 800, color: dark ? '#f1f5f9' : '#111827', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.course?.name || 'Untitled Module'}</p>
+                            <p style={{ margin: 0, fontSize: 13.5, fontWeight: 800, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.course?.name || 'Untitled Module'}</p>
                             {m.course?.category && (
                               <span style={{ display: 'inline-block', marginTop: 3, fontSize: 9, fontWeight: 800, padding: '2px 7px', borderRadius: 5, background: cb.bg, color: cb.text, border: `1px solid ${cb.border}`, textTransform: 'uppercase' }}>
                                 {m.course.category.replace(' modules', '')}
                               </span>
                             )}
                           </div>
-                          <ChevronRight size={16} color="#6366f1" className="subm-card-arrow" style={{ flexShrink: 0 }} />
+                          <div className="aop-assess-arrow" style={{ flexShrink: 0 }}><ChevronRight size={15} /></div>
                         </div>
-                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 12, minHeight: 22 }}>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 12, minHeight: 30 }}>
                           <StatPill color="#f59e0b" label="Pending"  value={m.pending} />
                           <StatPill color="#10b981" label="Approved" value={m.approved} />
                           <StatPill color="#ef4444" label="Rejected" value={m.rejected} />
                           <StatPill color="#9ca3af" label="Draft"    value={m.draft} />
                           {m.total === 0 && (
-                            <span style={{ fontSize: 10.5, color: dark ? '#7b839a' : '#9ca3af', fontWeight: 600 }}>No assessments yet</span>
+                            <span style={{ fontSize: 10.5, color: 'var(--text-secondary)', fontWeight: 600 }}>No assessments yet</span>
                           )}
                         </div>
-                        <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${dark ? '#1e2130' : '#f1f5f9'}`, display: 'flex', gap: 8 }}>
+                        <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--card-border)', display: 'flex', gap: 8 }}>
                           {m.types.map(t => (
-                            <span key={t.key} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 700, color: t.count ? t.color : (dark ? '#3f4759' : '#cbd5e1') }}>
-                              <span style={{ width: 6, height: 6, borderRadius: '50%', background: t.count ? t.color : (dark ? '#2a3042' : '#e5e7eb'), display: 'inline-block' }} />
+                            <span key={t.key} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 700, color: t.count ? t.color : 'var(--text-secondary)' }}>
+                              <span style={{ width: 6, height: 6, borderRadius: '50%', background: t.count ? t.color : 'var(--card-border)', display: 'inline-block' }} />
                               {t.short}{t.count ? '' : ' —'}
                             </span>
                           ))}
@@ -2713,17 +2752,17 @@ export default function AdminAssessments() {
 
             return (
               <div onClick={e => { if (e.target === e.currentTarget) closeModuleModal(); }} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-                <div style={{ width: 780, maxWidth: '100%', maxHeight: '90vh', overflowY: 'auto', borderRadius: 20, background: dark ? '#13161f' : '#fff', border: `1px solid ${dark ? '#1e2535' : '#e5e7eb'}`, padding: 0, boxShadow: '0 32px 80px rgba(0,0,0,0.4)' }}>
+                <div style={{ width: 780, maxWidth: '100%', maxHeight: '90vh', overflowY: 'auto', borderRadius: 20, background: dark ? '#171717' : '#fff', border: `1px solid ${dark ? '#1e2535' : '#e5e7eb'}`, padding: 0, boxShadow: '0 32px 80px rgba(0,0,0,0.4)' }}>
 
                   {/* Header */}
-                  <div style={{ padding: '22px 26px 0', position: 'sticky', top: 0, background: dark ? '#13161f' : '#fff', zIndex: 2 }}>
+                  <div style={{ padding: '22px 26px 0', position: 'sticky', top: 0, background: dark ? '#171717' : '#fff', zIndex: 2 }}>
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <div style={{ width: 42, height: 42, borderRadius: 13, flexShrink: 0, background: 'linear-gradient(135deg,#6366f1,#4338ca)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+                        <div style={{ width: 42, height: 42, borderRadius: 13, flexShrink: 0, background: 'linear-gradient(135deg,#f97316,#c2410c)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
                           <BookOpen size={18} />
                         </div>
                         <div>
-                          <h3 style={{ margin: 0, fontSize: 16.5, fontWeight: 800, color: dark ? '#f1f5f9' : '#111827' }}>{selectedSubmissionCourse?.name || 'Module'}</h3>
+                          <h3 style={{ margin: 0, fontSize: 16.5, fontWeight: 800, color: dark ? '#f1f5f9' : '#131313' }}>{selectedSubmissionCourse?.name || 'Module'}</h3>
                           <p style={{ margin: '3px 0 0', fontSize: 12, color: dark ? '#7b839a' : '#9ca3af' }}>
                             {selectedSubmissionTeacher?.name} · {selectedSubmissionClass?.name}
                             {submissionTermFilter && <> · {submissionTermFilter}</>}
@@ -2731,13 +2770,13 @@ export default function AdminAssessments() {
                           </p>
                         </div>
                       </div>
-                      <button onClick={closeModuleModal} style={{ border: 'none', background: dark ? '#1e2130' : '#f3f4f6', borderRadius: 8, width: 32, height: 32, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <button onClick={closeModuleModal} style={{ border: 'none', background: dark ? '#262626' : '#f3f4f6', borderRadius: 8, width: 32, height: 32, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         <X size={16} />
                       </button>
                     </div>
 
                     {/* Tabs */}
-                    <div style={{ display: 'flex', gap: 4, marginTop: 20, borderBottom: `2px solid ${dark ? '#1e2130' : '#e5e7eb'}` }}>
+                    <div style={{ display: 'flex', gap: 4, marginTop: 20, borderBottom: `2px solid ${dark ? '#262626' : '#e5e7eb'}` }}>
                       {modalTabs.map(t => {
                         const tMatches = submissionsForModuleType(submissionCourseFilter, submissionTeacherFilter, t.key);
                         const isActive = t.key === activeType;
@@ -2754,7 +2793,7 @@ export default function AdminAssessments() {
                             }}
                           >
                             {t.label}
-                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: tMatches.length ? t.color : (dark ? '#2a3042' : '#e5e7eb'), display: 'inline-block' }} />
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: tMatches.length ? t.color : (dark ? '#333333' : '#e5e7eb'), display: 'inline-block' }} />
                           </button>
                         );
                       })}
@@ -2768,14 +2807,14 @@ export default function AdminAssessments() {
                         <div style={{ width: 60, height: 60, borderRadius: 18, background: (activeTypeMeta?.color || '#f59e0b') + '18', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
                           <Clock size={26} color={activeTypeMeta?.color || '#f59e0b'} />
                         </div>
-                        <p style={{ color: dark ? '#e8ecf4' : '#111827', fontWeight: 700, fontSize: 15, margin: '0 0 6px' }}>Not Submitted Yet</p>
+                        <p style={{ color: dark ? '#e8ecf4' : '#131313', fontWeight: 700, fontSize: 15, margin: '0 0 6px' }}>Not Submitted Yet</p>
                         <p style={{ color: dark ? '#7b839a' : '#9ca3af', margin: '0 auto', fontSize: 13, maxWidth: 400 }}>
                           {selectedSubmissionTeacher?.name || 'This teacher'} has not submitted any {activeTypeMeta?.label || 'assessment'} for {selectedSubmissionCourse?.name || 'this module'} yet.
                         </p>
                       </div>
                     ) : (!viewingSubmission || viewingSubmissionLoading || (viewingSubmission.assessment?._id || viewingSubmission.assessment?.id) !== primary?._id) ? (
                       <div style={{ textAlign: 'center', padding: '48px 20px' }}>
-                        <div style={{ width: 36, height: 36, borderRadius: '50%', border: '3px solid #6366f1', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
+                        <div style={{ width: 36, height: 36, borderRadius: '50%', border: '3px solid #f97316', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
                         <p style={{ color: dark ? '#7b839a' : '#9ca3af' }}>Loading submission…</p>
                       </div>
                     ) : (() => {
@@ -2789,7 +2828,7 @@ export default function AdminAssessments() {
                       return (
                         <>
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-                            <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600, color: dark ? '#c4c9d4' : '#374151' }}>
+                            <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600, color: dark ? '#c4c9d4' : '#404040' }}>
                               View and manage the assessment submitted by the teacher.
                             </p>
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 700, padding: '5px 12px', borderRadius: 8, background: statusInfo.color + '18', color: statusInfo.color, border: `1px solid ${statusInfo.color}40`, flexShrink: 0 }}>
@@ -2797,7 +2836,7 @@ export default function AdminAssessments() {
                             </span>
                           </div>
 
-                          <div style={{ overflowX: 'auto', marginTop: 18, borderRadius: 14, border: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}` }}>
+                          <div style={{ overflowX: 'auto', marginTop: 18, borderRadius: 14, border: `1px solid ${dark ? '#262626' : '#e5e7eb'}` }}>
                             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                               <thead>
                                 <tr>
@@ -2814,7 +2853,7 @@ export default function AdminAssessments() {
                                       onClick={key ? () => toggleSubmissionSort(key) : undefined}
                                       title={key ? `Sort by ${key === 'name' ? 'student name' : 'performance'}` : undefined}
                                       style={{
-                                        padding: '9px 14px', background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#7b839a' : '#6b7280',
+                                        padding: '9px 14px', background: dark ? '#1f1f1f' : '#f9fafb', color: dark ? '#7b839a' : '#6b7280',
                                         fontSize: 11, fontWeight: 700, textAlign: 'left', userSelect: 'none',
                                         cursor: key ? 'pointer' : 'default', whiteSpace: 'nowrap',
                                       }}
@@ -2823,7 +2862,7 @@ export default function AdminAssessments() {
                                         {label}
                                         {key && (
                                           submissionSortKey === key
-                                            ? (submissionSortDir === 'desc' ? <ChevronDown size={12} color="#6366f1" /> : <ChevronRight size={12} color="#6366f1" style={{ transform: 'rotate(-90deg)' }} />)
+                                            ? (submissionSortDir === 'desc' ? <ChevronDown size={12} color="#f97316" /> : <ChevronRight size={12} color="#f97316" style={{ transform: 'rotate(-90deg)' }} />)
                                             : <ChevronDown size={12} style={{ opacity: 0.25 }} />
                                         )}
                                       </span>
@@ -2848,9 +2887,9 @@ export default function AdminAssessments() {
                                   .map((s, i) => (
                                   <tr key={s.student_id} style={{ background: i % 2 === 0 ? 'transparent' : (dark ? '#ffffff05' : '#f9fafb50') }}>
                                     <td style={{ padding: '9px 14px', fontSize: 12, color: dark ? '#7b839a' : '#9ca3af' }}>{i + 1}</td>
-                                    <td style={{ padding: '9px 14px', fontSize: 13, fontWeight: 600, color: dark ? '#e2e8f0' : '#374151' }}>{s.name}</td>
+                                    <td style={{ padding: '9px 14px', fontSize: 13, fontWeight: 600, color: dark ? '#e2e8f0' : '#404040' }}>{s.name}</td>
                                     <td style={{ padding: '9px 14px', fontSize: 13, fontWeight: 700, color: pctColor(s.percentage) }}>{s.marks ?? '—'}</td>
-                                    <td style={{ padding: '9px 14px', fontSize: 13, color: dark ? '#e2e8f0' : '#374151' }}>{s.max_marks}</td>
+                                    <td style={{ padding: '9px 14px', fontSize: 13, color: dark ? '#e2e8f0' : '#404040' }}>{s.max_marks}</td>
                                     <td style={{ padding: '9px 14px', fontSize: 13, fontWeight: 700, color: pctColor(s.percentage) }}>{s.percentage != null ? Math.min(s.percentage, 100) + '%' : '—'}</td>
                                     <td style={{ padding: '9px 14px' }}><GradeBadge grade={s.grade} /></td>
                                   </tr>
@@ -2898,16 +2937,23 @@ export default function AdminAssessments() {
         </div>
       )}
 
+      {/* ══════════ DISCIPLINE MARKS TAB ══════════ */}
+      {tab === 'discipline' && (
+        <div style={{ animation: 'fadeUp 0.3s ease' }}>
+          <AdminDisciplinePanel dark={dark} />
+        </div>
+      )}
+
       {/* ══════════ REPORTS TAB ══════════ */}
       {tab === 'reports' && (
         <div style={{ animation: 'fadeUp 0.3s ease' }}>
           <div className="no-print" style={{ ...card, marginBottom: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
-              <div style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg,#6366f1,#4338ca)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <div style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg,#f97316,#c2410c)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <Sparkles size={16} color="#fff" />
               </div>
               <div>
-                <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: dark ? '#e8ecf4' : '#111827' }}>Select Report Type</p>
+                <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: dark ? '#e8ecf4' : '#131313' }}>Select Report Type</p>
                 <p style={{ margin: 0, fontSize: 11.5, color: dark ? '#7b839a' : '#9ca3af' }}>Choose what kind of report you'd like to generate</p>
               </div>
             </div>
@@ -2919,20 +2965,20 @@ export default function AdminAssessments() {
               ].map(({ key, label, icon: Icon, desc }) => (
                 <button key={key} className="rt-card" onClick={() => { setReportType(key); setReportData(null); }} style={{
                   display: 'flex', alignItems: 'center', gap: 10, padding: '13px 18px', borderRadius: 12, cursor: 'pointer',
-                  border: `2px solid ${reportType === key ? '#6366f1' : (dark ? '#2a3042' : '#e5e7eb')}`,
-                  background: reportType === key ? 'rgba(99,102,241,0.08)' : (dark ? '#1a1f2e' : '#f9fafb'),
-                  boxShadow: reportType === key ? '0 4px 14px rgba(99,102,241,0.15)' : 'none',
+                  border: `2px solid ${reportType === key ? '#f97316' : (dark ? '#333333' : '#e5e7eb')}`,
+                  background: reportType === key ? 'rgba(249,115,22,0.08)' : (dark ? '#1f1f1f' : '#f9fafb'),
+                  boxShadow: reportType === key ? '0 4px 14px rgba(249,115,22,0.15)' : 'none',
                   flex: 1, minWidth: 170,
                 }}>
-                  <div className="rt-icon" style={{ width: 38, height: 38, borderRadius: 10, background: reportType === key ? 'linear-gradient(135deg,#6366f1,#4338ca)' : (dark ? '#2a3042' : '#e5e7eb'), display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <div className="rt-icon" style={{ width: 38, height: 38, borderRadius: 10, background: reportType === key ? 'linear-gradient(135deg,#f97316,#c2410c)' : (dark ? '#333333' : '#e5e7eb'), display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <Icon size={18} color={reportType === key ? '#fff' : (dark ? '#7b839a' : '#9ca3af')} />
                   </div>
                   <div style={{ textAlign: 'left' }}>
-                    <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: reportType === key ? '#6366f1' : (dark ? '#e8ecf4' : '#111827') }}>{label}</p>
+                    <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: reportType === key ? '#f97316' : (dark ? '#e8ecf4' : '#131313') }}>{label}</p>
                     <p style={{ margin: 0, fontSize: 11, color: dark ? '#7b839a' : '#9ca3af' }}>{desc}</p>
                   </div>
                   {reportType === key && (
-                    <div className="rt-check" style={{ position: 'absolute', top: -7, right: -7, width: 20, height: 20, borderRadius: '50%', background: 'linear-gradient(135deg,#6366f1,#4338ca)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(99,102,241,0.5)', border: `2px solid ${dark ? '#13161f' : '#fff'}` }}>
+                    <div className="rt-check" style={{ position: 'absolute', top: -7, right: -7, width: 20, height: 20, borderRadius: '50%', background: 'linear-gradient(135deg,#f97316,#c2410c)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(249,115,22,0.5)', border: `2px solid ${dark ? '#171717' : '#fff'}` }}>
                       <CheckCircle2 size={12} color="#fff" />
                     </div>
                   )}
@@ -2940,7 +2986,7 @@ export default function AdminAssessments() {
               ))}
             </div>
 
-            <div style={{ paddingTop: 18, borderTop: `1px solid ${dark ? '#1e2130' : '#f1f5f9'}` }}>
+            <div style={{ paddingTop: 18, borderTop: `1px solid ${dark ? '#262626' : '#f1f5f9'}` }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))', gap: 14 }}>
                 {reportType === 'student' && (
                   <>
@@ -3008,9 +3054,9 @@ export default function AdminAssessments() {
                             {reportFilter.studentIds.map(id => {
                               const st = students.find(s => (s._id || s.id) === id);
                               return st ? (
-                                <span key={id} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 6, background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.25)', fontSize: 11, color: '#6366f1', fontWeight: 600 }}>
+                                <span key={id} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 6, background: 'rgba(249,115,22,0.12)', border: '1px solid rgba(249,115,22,0.25)', fontSize: 11, color: '#f97316', fontWeight: 600 }}>
                                   {st.name}
-                                  <button onClick={() => setReportFilter(f => ({ ...f, studentIds: f.studentIds.filter(x => x !== id) }))} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0, color: '#6366f1' }}>×</button>
+                                  <button onClick={() => setReportFilter(f => ({ ...f, studentIds: f.studentIds.filter(x => x !== id) }))} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0, color: '#f97316' }}>×</button>
                                 </span>
                               ) : null;
                             })}
@@ -3028,13 +3074,13 @@ export default function AdminAssessments() {
                         "which term, in which year" for the whole page. ── */}
                     <div style={{
                       display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', borderRadius: 12,
-                      background: dark ? 'rgba(99,102,241,0.08)' : '#f5f6ff', border: `1px solid ${dark ? 'rgba(99,102,241,0.25)' : '#e0e4ff'}`,
+                      background: dark ? 'rgba(249,115,22,0.08)' : '#f5f6ff', border: `1px solid ${dark ? 'rgba(249,115,22,0.25)' : '#e0e4ff'}`,
                     }}>
-                      <div style={{ width: 30, height: 30, borderRadius: 9, background: 'linear-gradient(135deg,#6366f1,#4338ca)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <div style={{ width: 30, height: 30, borderRadius: 9, background: 'linear-gradient(135deg,#f97316,#c2410c)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         <Clock size={14} color="#fff" />
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 12.5, fontWeight: 700, color: dark ? '#e2e8f0' : '#111827' }}>
+                        <div style={{ fontSize: 12.5, fontWeight: 700, color: dark ? '#e2e8f0' : '#131313' }}>
                           {reportFilter.term ? `${reportFilter.term} report` : 'Annual report'}
                           {reportFilter.year && <span style={{ fontWeight: 500, color: dark ? '#9aa2c0' : '#6b7280' }}> · {reportFilter.year}</span>}
                           {!reportFilter.year && <span style={{ fontWeight: 500, color: dark ? '#9aa2c0' : '#6b7280' }}> · All Years</span>}
@@ -3052,11 +3098,11 @@ export default function AdminAssessments() {
               </div>
             </div>
 
-            <div style={{ marginTop: 18, paddingTop: 16, borderTop: `1px solid ${dark ? '#1e2130' : '#f1f5f9'}`, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ marginTop: 18, paddingTop: 16, borderTop: `1px solid ${dark ? '#262626' : '#f1f5f9'}`, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
               {reportLoading && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderRadius: 10, background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)' }}>
-                  <div style={{ width: 14, height: 14, border: '2px solid rgba(99,102,241,0.4)', borderTopColor: '#6366f1', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-                  <span style={{ fontSize: 12, color: '#6366f1', fontWeight: 600 }}>Generating report…</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderRadius: 10, background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.2)' }}>
+                  <div style={{ width: 14, height: 14, border: '2px solid rgba(249,115,22,0.4)', borderTopColor: '#f97316', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                  <span style={{ fontSize: 12, color: '#f97316', fontWeight: 600 }}>Generating report…</span>
                 </div>
               )}
               {reportData && !reportLoading && (
@@ -3065,13 +3111,13 @@ export default function AdminAssessments() {
                     <span className="pulse-dot"><CheckCircle size={13} color="#10b981" /></span>
                     <span style={{ fontSize: 12, color: '#10b981', fontWeight: 600 }}>Report ready</span>
                   </div>
-                  <button className="btn-print" onClick={() => window.print()} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 10, border: `1.5px solid ${dark ? '#2a3042' : '#cbd5e1'}`, background: dark ? '#1a1f2e' : '#fff', color: dark ? '#e2e8f0' : '#374151', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                  <button className="btn-print" onClick={() => window.print()} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 10, border: `1.5px solid ${dark ? '#333333' : '#cbd5e1'}`, background: dark ? '#1f1f1f' : '#fff', color: dark ? '#e2e8f0' : '#404040', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
                     <Printer size={14} /> Print Report
                   </button>
-                  <button className="btn-export-pdf" onClick={handleExportPdf} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#6366f1,#4338ca)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 14px rgba(99,102,241,0.3)' }}>
+                  <button className="btn-export-pdf" onClick={handleExportPdf} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#f97316,#c2410c)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 14px rgba(249,115,22,0.3)' }}>
                     <Download size={14} /> Export as PDF
                   </button>
-                  <button className="btn-clear" onClick={() => setReportData(null)} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 10, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#7b839a' : '#9ca3af', fontSize: 13, cursor: 'pointer' }}>
+                  <button className="btn-clear" onClick={() => setReportData(null)} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 10, border: `1px solid ${dark ? '#333333' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#7b839a' : '#9ca3af', fontSize: 13, cursor: 'pointer' }}>
                     <RefreshCw size={13} /> Clear
                   </button>
                 </>
@@ -3090,13 +3136,13 @@ export default function AdminAssessments() {
       {/* ══════════ CONFIG TAB ══════════ */}
       {tab === 'config' && (
         <div className="no-print" style={{ animation: 'fadeUp 0.3s ease' }}>
-          <div style={{ ...card, marginBottom: 20, background: 'linear-gradient(135deg,#6366f110,#4338ca08)', borderColor: '#6366f125' }}>
+          <div style={{ ...card, marginBottom: 20, background: 'linear-gradient(135deg,#f9731610,#c2410c08)', borderColor: '#f9731625' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              <div style={{ width: 52, height: 52, borderRadius: 16, background: 'linear-gradient(135deg,#6366f1,#4338ca)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <div style={{ width: 52, height: 52, borderRadius: 16, background: 'linear-gradient(135deg,#f97316,#c2410c)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <Settings size={24} color="#fff" />
               </div>
               <div>
-                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: dark ? '#f1f5f9' : '#111827' }}>Report Configuration</h2>
+                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: dark ? '#f1f5f9' : '#131313' }}>Report Configuration</h2>
                 <p style={{ margin: '4px 0 0', fontSize: 13, color: dark ? '#7b839a' : '#6b7280' }}>
                   Customise school branding, contact details, and signatory for all reports.
                 </p>
@@ -3109,12 +3155,12 @@ export default function AdminAssessments() {
             <div style={{ position: isMobile ? 'static' : 'sticky', top: 20 }}>
               <div style={{ ...card, marginBottom: 12 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
-                  <Eye size={14} color="#6366f1" />
-                  <span style={{ fontSize: 12, fontWeight: 700, color: '#6366f1', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Live Preview</span>
+                  <Eye size={14} color="#f97316" />
+                  <span style={{ fontSize: 12, fontWeight: 700, color: '#f97316', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Live Preview</span>
                 </div>
                 <ReportHeaderPreview config={reportConfig} />
               </div>
-              <div style={{ padding: '12px 16px', borderRadius: 12, background: dark ? '#1a1f2e' : '#f0f9ff', border: `1px solid ${dark ? '#2a3042' : '#bae6fd'}` }}>
+              <div style={{ padding: '12px 16px', borderRadius: 12, background: dark ? '#1f1f1f' : '#f0f9ff', border: `1px solid ${dark ? '#333333' : '#bae6fd'}` }}>
                 <p style={{ margin: 0, fontSize: 11, color: dark ? '#7b839a' : '#0369a1', lineHeight: 1.6 }}>
                   💡 <strong>Tip:</strong> All changes are saved to your browser and applied instantly to new reports.
                 </p>
@@ -3127,17 +3173,17 @@ export default function AdminAssessments() {
       {/* ══════════ COURSE MODAL ══════════ */}
       {showCourseModal && (
         <div onClick={e => { if (e.target === e.currentTarget) setShowCourseModal(false); }} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <div style={{ width: 560, maxWidth: '100%', borderRadius: 22, background: dark ? '#13161f' : '#fff', border: `1px solid ${dark ? '#1e2535' : '#e5e7eb'}`, padding: isMobile ? 18 : 30, boxShadow: '0 32px 80px rgba(0,0,0,0.4)', maxHeight: '90vh', overflowY: 'auto' }}>
+          <div style={{ width: 560, maxWidth: '100%', borderRadius: 22, background: dark ? '#171717' : '#fff', border: `1px solid ${dark ? '#1e2535' : '#e5e7eb'}`, padding: isMobile ? 18 : 30, boxShadow: '0 32px 80px rgba(0,0,0,0.4)', maxHeight: '90vh', overflowY: 'auto' }}>
             {/* Modal header */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 22 }}>
-              <div style={{ width: 42, height: 42, borderRadius: 12, background: 'linear-gradient(135deg,#6366f1,#4338ca)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: 42, height: 42, borderRadius: 12, background: 'linear-gradient(135deg,#f97316,#c2410c)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <BookOpen size={18} color="#fff" />
               </div>
               <div style={{ flex: 1 }}>
-                <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: dark ? '#f1f5f9' : '#111827' }}>{editingCourse ? 'Edit Module' : 'Add New Module'}</h2>
+                <h2 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: dark ? '#f1f5f9' : '#131313' }}>{editingCourse ? 'Edit Module' : 'Add New Module'}</h2>
                 <p style={{ margin: 0, fontSize: 12, color: dark ? '#7b839a' : '#9ca3af' }}>Fill in the module details below</p>
               </div>
-              <button onClick={() => setShowCourseModal(false)} style={{ border: 'none', background: dark ? '#1e2130' : '#f3f4f6', borderRadius: 8, width: 32, height: 32, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <button onClick={() => setShowCourseModal(false)} style={{ border: 'none', background: dark ? '#262626' : '#f3f4f6', borderRadius: 8, width: 32, height: 32, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <X size={16} />
               </button>
             </div>
@@ -3152,7 +3198,7 @@ export default function AdminAssessments() {
                     const cb = catBadge(cat);
                     const selected = courseForm.category === cat;
                     return (
-                      <button key={cat} type="button" onClick={() => setCourseForm(f => ({ ...f, category: cat }))} style={{ padding: '10px 8px', borderRadius: 10, cursor: 'pointer', textAlign: 'center', border: `2px solid ${selected ? cb.dot : (dark ? '#2a3042' : '#e5e7eb')}`, background: selected ? cb.bg : 'transparent', transition: 'all 0.15s' }}>
+                      <button key={cat} type="button" onClick={() => setCourseForm(f => ({ ...f, category: cat }))} style={{ padding: '10px 8px', borderRadius: 10, cursor: 'pointer', textAlign: 'center', border: `2px solid ${selected ? cb.dot : (dark ? '#333333' : '#e5e7eb')}`, background: selected ? cb.bg : 'transparent', transition: 'all 0.15s' }}>
                         <div style={{ width: 10, height: 10, borderRadius: '50%', background: cb.dot, margin: '0 auto 6px' }} />
                         <span style={{ fontSize: 11, fontWeight: selected ? 800 : 500, color: selected ? cb.text : (dark ? '#7b839a' : '#6b7280'), display: 'block', lineHeight: 1.3 }}>
                           {cat.replace(' modules', '')}
@@ -3162,7 +3208,7 @@ export default function AdminAssessments() {
                     );
                   })}
                 </div>
-                <button type="button" onClick={() => setCourseForm(f => ({ ...f, category: 'Elective Non Examinable' }))} style={{ width: '100%', marginTop: 8, padding: '8px 12px', borderRadius: 9, cursor: 'pointer', textAlign: 'left', border: `1.5px solid ${courseForm.category === 'Elective Non Examinable' ? '#4a044e' : (dark ? '#2a3042' : '#e5e7eb')}`, background: courseForm.category === 'Elective Non Examinable' ? '#4a044e15' : 'transparent', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button type="button" onClick={() => setCourseForm(f => ({ ...f, category: 'Elective Non Examinable' }))} style={{ width: '100%', marginTop: 8, padding: '8px 12px', borderRadius: 9, cursor: 'pointer', textAlign: 'left', border: `1.5px solid ${courseForm.category === 'Elective Non Examinable' ? '#4a044e' : (dark ? '#333333' : '#e5e7eb')}`, background: courseForm.category === 'Elective Non Examinable' ? '#4a044e15' : 'transparent', display: 'flex', alignItems: 'center', gap: 8 }}>
                   <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#4a044e', flexShrink: 0 }} />
                   <span style={{ fontSize: 11, fontWeight: courseForm.category === 'Elective Non Examinable' ? 700 : 500, color: courseForm.category === 'Elective Non Examinable' ? '#4a044e' : (dark ? '#7b839a' : '#6b7280') }}>Elective Non Examinable</span>
                   {courseForm.category === 'Elective Non Examinable' && <span style={{ fontSize: 9, color: '#4a044e', fontWeight: 700, marginLeft: 'auto' }}>✓ Selected</span>}
@@ -3196,14 +3242,14 @@ export default function AdminAssessments() {
                 <label style={{ ...labelStyle, marginBottom: 6 }}>
                   Assign to Classes
                   {courseForm.class_ids.length > 0 && (
-                    <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: 'rgba(99,102,241,0.10)', color: '#6366f1', border: '1px solid rgba(99,102,241,0.25)' }}>
+                    <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: 'rgba(249,115,22,0.10)', color: '#f97316', border: '1px solid rgba(249,115,22,0.25)' }}>
                       {courseForm.class_ids.length} selected
                     </span>
                   )}
                 </label>
 
                 {/* Info tip */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 10px', borderRadius: 8, background: dark ? '#1a1f2e' : '#f0f9ff', border: `1px solid ${dark ? '#2a3042' : '#bae6fd'}`, marginBottom: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 10px', borderRadius: 8, background: dark ? '#1f1f1f' : '#f0f9ff', border: `1px solid ${dark ? '#333333' : '#bae6fd'}`, marginBottom: 10 }}>
                   <Users size={12} color="#0369a1" />
                   <span style={{ fontSize: 11, color: dark ? '#7b839a' : '#0369a1' }}>
                     This module will be available to all selected classes simultaneously.
@@ -3230,9 +3276,9 @@ export default function AdminAssessments() {
 
             {/* Summary badge when multiple classes selected */}
             {courseForm.class_ids.length > 1 && (
-              <div style={{ marginTop: 14, padding: '10px 14px', borderRadius: 10, background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.18)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <CheckCircle2 size={14} color="#6366f1" />
-                <span style={{ fontSize: 12, color: '#6366f1', fontWeight: 600 }}>
+              <div style={{ marginTop: 14, padding: '10px 14px', borderRadius: 10, background: 'rgba(249,115,22,0.06)', border: '1px solid rgba(249,115,22,0.18)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <CheckCircle2 size={14} color="#f97316" />
+                <span style={{ fontSize: 12, color: '#f97316', fontWeight: 600 }}>
                   This module will be assigned to {courseForm.class_ids.length} classes at once.
                 </span>
               </div>
@@ -3240,8 +3286,8 @@ export default function AdminAssessments() {
 
             {/* Actions */}
             <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
-              <button onClick={() => setShowCourseModal(false)} style={{ flex: 1, padding: '11px', borderRadius: 10, border: `1px solid ${dark ? '#2a3042' : '#e5e7eb'}`, background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#94a3b8' : '#6b7280', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
-              <button onClick={saveCourse} style={{ flex: 2, padding: '11px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#6366f1,#4338ca)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 14px rgba(99,102,241,0.35)' }}>
+              <button onClick={() => setShowCourseModal(false)} style={{ flex: 1, padding: '11px', borderRadius: 10, border: `1px solid ${dark ? '#333333' : '#e5e7eb'}`, background: dark ? '#1f1f1f' : '#f9fafb', color: dark ? '#94a3b8' : '#6b7280', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
+              <button onClick={saveCourse} style={{ flex: 2, padding: '11px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#f97316,#c2410c)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 14px rgba(249,115,22,0.35)' }}>
                 {editingCourse ? 'Save Changes' : 'Create Module'}
               </button>
             </div>
@@ -3269,7 +3315,7 @@ export default function AdminAssessments() {
               rows={3}
               disabled={confirmModal.loading}
               placeholder="Explain what needs to be corrected…"
-              style={{ width: '100%', padding: '9px 12px', borderRadius: 10, boxSizing: 'border-box', border: `1px solid ${dark ? '#2a3042' : '#d1d5db'}`, background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#e2e8f0' : '#111827', fontSize: 13, outline: 'none', resize: 'vertical', opacity: confirmModal.loading ? 0.6 : 1 }}
+              style={{ width: '100%', padding: '9px 12px', borderRadius: 10, boxSizing: 'border-box', border: `1px solid ${dark ? '#333333' : '#d1d5db'}`, background: dark ? '#1f1f1f' : '#f9fafb', color: dark ? '#e2e8f0' : '#131313', fontSize: 13, outline: 'none', resize: 'vertical', opacity: confirmModal.loading ? 0.6 : 1 }}
             />
           </div>
         )}
@@ -3282,11 +3328,11 @@ export default function AdminAssessments() {
    REPORT HEADER PREVIEW
 ══════════════════════════════════════════════════════════ */
 function ReportHeaderPreview({ config }) {
-  const pc = config.primaryColor || '#6366f1';
+  const pc = config.primaryColor || '#f97316';
   return (
     <div style={{ fontFamily: 'Arial, sans-serif', fontSize: 8, color: '#1a1a2e', border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
       <div style={{ padding: '6px 10px', background: '#f8f9fa', borderBottom: '1px solid #dee2e6', display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 6, alignItems: 'start' }}>
-        <div style={{ fontSize: 7, lineHeight: 1.7, color: '#374151' }}>
+        <div style={{ fontSize: 7, lineHeight: 1.7, color: '#404040' }}>
           <div style={{ fontWeight: 800 }}>{config.republic || 'REPUBLIC OF RWANDA'}</div>
           <div>{config.ministry || 'MINISTRY OF EDUCATION'}</div>
           <div>{config.district || 'DISTRICT ...'}</div>
@@ -3301,7 +3347,7 @@ function ReportHeaderPreview({ config }) {
               : <School size={18} color={pc} />}
           </div>
         </div>
-        <div style={{ fontSize: 7, lineHeight: 1.7, color: '#374151', textAlign: 'right' }}>
+        <div style={{ fontSize: 7, lineHeight: 1.7, color: '#404040', textAlign: 'right' }}>
           <div>ACADEMIC YEAR: {config.academicYear}</div>
           <div>CLASS: Level 3 FBO A</div>
           <div>LEARNER NAME: Student Name</div>
@@ -3460,13 +3506,13 @@ function ReportView({ data, dark, students, classes, config, selectedTerm }) {
     const avg = sData.length
       ? Math.round(sData.filter(s => s.percentage != null).reduce((s, x) => s + (x.percentage || 0), 0) / (sData.filter(s => s.percentage != null).length || 1))
       : null;
-    const th = { padding: '10px 14px', background: dark ? '#1a1f2e' : '#f9fafb', color: dark ? '#7b839a' : '#6b7280', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: 'left' };
-    const td = { padding: '10px 14px', borderBottom: `1px solid ${dark ? '#1e2130' : '#f1f5f9'}`, color: dark ? '#e2e8f0' : '#374151', fontSize: 13 };
+    const th = { padding: '10px 14px', background: dark ? '#1f1f1f' : '#f9fafb', color: dark ? '#7b839a' : '#6b7280', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: 'left' };
+    const td = { padding: '10px 14px', borderBottom: `1px solid ${dark ? '#262626' : '#f1f5f9'}`, color: dark ? '#e2e8f0' : '#404040', fontSize: 13 };
     return (
-      <div style={{ background: dark ? '#13161f' : '#fff', border: `1px solid ${dark ? '#1e2130' : '#e5e7eb'}`, borderRadius: 16, padding: 24 }}>
+      <div style={{ background: dark ? '#171717' : '#fff', border: `1px solid ${dark ? '#262626' : '#e5e7eb'}`, borderRadius: 16, padding: 24 }}>
         <div style={{ marginBottom: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: dark ? '#f1f5f9' : '#111827' }}>{assessment?.title}</h2>
+            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: dark ? '#f1f5f9' : '#131313' }}>{assessment?.title}</h2>
             <TypeBadge type={assessment?.type} />
             {assessment?.course_id?.category && (() => {
               const cb = catBadge(assessment.course_id.category);
@@ -3475,7 +3521,7 @@ function ReportView({ data, dark, students, classes, config, selectedTerm }) {
           </div>
           <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
             {[['Course', assessment?.course_id?.name], ['Term', assessment?.term], ['Year', assessment?.academic_year], ['Teacher', assessment?.teacher_id?.name]].map(([k, v]) => v && (
-              <span key={k} style={{ fontSize: 12, color: dark ? '#7b839a' : '#9ca3af' }}>{k}: <strong style={{ color: dark ? '#e2e8f0' : '#374151' }}>{v}</strong></span>
+              <span key={k} style={{ fontSize: 12, color: dark ? '#7b839a' : '#9ca3af' }}>{k}: <strong style={{ color: dark ? '#e2e8f0' : '#404040' }}>{v}</strong></span>
             ))}
             {avg != null && <span style={{ fontSize: 13, fontWeight: 700, color: pctColor(Math.min(avg, 100)) }}>Class Avg: {Math.min(avg, 100)}%</span>}
           </div>
@@ -3522,7 +3568,7 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
   const isAnnualView  = !selectedTerm;
   const selTermIdx    = selectedTerm ? TERMS.indexOf(selectedTerm) : null;
   const termShortLabel = (t) => (TERMS.indexOf(t) === 0 ? '1ST TERM' : TERMS.indexOf(t) === 1 ? '2ND TERM' : '3RD TERM');
-  const pc = config?.primaryColor || '#6366f1';
+  const pc = config?.primaryColor || '#f97316';
   const reportDate = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
 
   const courseMap = new Map();
@@ -3650,7 +3696,32 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
   const annualRank  = student.rank       || null;
   const totalRanked = student.rank_total || allStudents.length;
   const termRanks   = student.term_ranks || {};
-  const behaviourMarks = student.behaviour || null;
+  // Discipline (behavior) marks — recorded by the class teacher, approved by
+  // admin (see student.discipline from adminClassReport: only ever holds a
+  // value once approved, same rule as every academic mark on this report).
+  // Reshaped here into the { terms: { [termIndex]: {...} }, annualPct,
+  // annualMarks } shape this table already expects.
+  const behaviourMarks = (() => {
+    const d = student.discipline || {};
+    const terms = {};
+    let maxSeen = null;
+    TERMS.forEach((t, ti) => {
+      const entry = d[t];
+      if (entry && entry.marks != null) {
+        maxSeen = entry.max_marks || maxSeen;
+        terms[ti] = { FA: entry.marks, avg: Math.round((entry.marks / (entry.max_marks || 1)) * 100) };
+      }
+    });
+    const recorded = Object.values(terms);
+    // Same "missing term counts as 0" rule the academic annual average
+    // above uses — a behavior mark only recorded in Term 1 shouldn't look
+    // like a full-year 100% if Terms 2/3 haven't been recorded yet.
+    const annualPct = recorded.length
+      ? Math.min(Math.round(recorded.reduce((s, x) => s + x.avg, 0) / TERMS.length), 100)
+      : null;
+    const annualMarks = recorded.length ? recorded.reduce((s, x) => s + x.FA, 0) : null;
+    return { terms, annualPct, annualMarks, annualMax: maxSeen };
+  })();
 
   /*
    * The report's final 3-column summary (%, Marks, Decision + Position) is
@@ -3719,7 +3790,7 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
   const fz       = (n) => Math.round(n * scale * 10) / 10;
   const cellPad  = `${Math.round(3 * scale * 10) / 10}px ${Math.round(4 * scale * 10) / 10}px`;
 
-  function decColor(d) { return d === 'C' ? '#059669' : d === 'NYC' ? '#dc2626' : '#374151'; }
+  function decColor(d) { return d === 'C' ? '#059669' : d === 'NYC' ? '#dc2626' : '#404040'; }
 
   const cell     = { padding: cellPad, fontSize: fs, borderRight: border, borderBottom: border, textAlign: 'center', verticalAlign: 'middle' };
   const cellLeft = { ...cell, textAlign: 'left' };
@@ -3728,7 +3799,7 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
 
   function VLabel({ text, bg }) {
     return (
-      <div style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', transform: 'rotate(180deg)', fontSize: fz(6.5), fontWeight: 700, whiteSpace: 'nowrap', lineHeight: 1, padding: '4px 1px', background: bg || 'transparent', color: '#374151' }}>
+      <div style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', transform: 'rotate(180deg)', fontSize: fz(6.5), fontWeight: 700, whiteSpace: 'nowrap', lineHeight: 1, padding: '4px 1px', background: bg || 'transparent', color: '#404040' }}>
         {text}
       </div>
     );
@@ -3746,8 +3817,8 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
                 <div>{config?.district || 'DISTRICT ...'}</div>
                 <div style={{ fontWeight: 800 }}>{config?.schoolName || 'School Name'}</div>
                 {config?.schoolMotto && <div style={{ fontStyle: 'italic', color: '#555' }}>{config.schoolMotto}</div>}
-                {config?.schoolEmail && <div style={{ color: '#374151' }}>Email: {config.schoolEmail}</div>}
-                {config?.schoolPhone && <div style={{ color: '#374151' }}>Tel: {config.schoolPhone}</div>}
+                {config?.schoolEmail && <div style={{ color: '#404040' }}>Email: {config.schoolEmail}</div>}
+                {config?.schoolPhone && <div style={{ color: '#404040' }}>Tel: {config.schoolPhone}</div>}
               </div>
             </td>
             <td style={{ width: '30%', verticalAlign: 'middle', textAlign: 'center', padding: '0 8px' }}>
@@ -3831,7 +3902,7 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
           <tr style={{ background: '#f5f7fa' }}>
             <td style={{ ...hCell, fontSize: fz(6) }} />
             <td style={{ ...cellLeft, fontWeight: 700, fontSize: fz(6) }} colSpan={2}>Behaviour</td>
-            <td style={{ ...cell, fontWeight: 700, fontSize: fz(6) }}>{student.behaviourMax || 40}</td>
+            <td style={{ ...cell, fontWeight: 700, fontSize: fz(6) }}>{behaviourMarks?.annualMax || 20}</td>
             {termsToRender.map((t) => {
               const ti = TERMS.indexOf(t);
               return (
@@ -3844,8 +3915,16 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
               );
             })}
             <td style={{ ...cell, fontWeight: 700, background: '#f0f4f8', fontSize: fz(6) }}>{isAnnualView ? (behaviourMarks?.annualPct ?? '—') : (behaviourMarks?.terms?.[selTermIdx]?.avg ?? '—')}</td>
-            <td style={{ ...cell, fontWeight: 700, background: '#f0f4f8', fontSize: fz(6) }}>{isAnnualView ? (behaviourMarks?.annualMarks ?? '—') : '—'}</td>
-            <td style={{ ...cell, fontWeight: 700, color: '#059669', background: '#f0f4f8', fontSize: fz(6) }}>C</td>
+            <td style={{ ...cell, fontWeight: 700, background: '#f0f4f8', fontSize: fz(6) }}>{isAnnualView ? (behaviourMarks?.annualMarks ?? '—') : (behaviourMarks?.terms?.[selTermIdx]?.FA ?? '—')}</td>
+            <td style={{ ...cell, fontWeight: 700, color: (() => {
+              const shownPct = isAnnualView ? behaviourMarks?.annualPct : behaviourMarks?.terms?.[selTermIdx]?.avg;
+              return shownPct == null ? '#9ca3af' : (shownPct >= 50 ? '#059669' : '#dc2626');
+            })(), background: '#f0f4f8', fontSize: fz(6) }}>
+              {(() => {
+                const shownPct = isAnnualView ? behaviourMarks?.annualPct : behaviourMarks?.terms?.[selTermIdx]?.avg;
+                return shownPct == null ? '—' : (shownPct >= 50 ? 'C' : 'NYC');
+              })()}
+            </td>
           </tr>
         </thead>
 
@@ -3874,9 +3953,9 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
                         const td_ = row.terms[ti];
                         return (
                           <Fragment key={`r${row._id}t${ti}`}>
-                            <td style={{ ...cell, color: td_.FA != null ? '#374151' : '#ccc', fontSize: fz(6) }}>{td_.FA != null ? td_.FA : 'N/A'}</td>
-                            <td style={{ ...cell, color: td_.IA != null ? '#374151' : '#ccc', fontSize: fz(6) }}>{td_.IA != null ? td_.IA : 'N/A'}</td>
-                            <td style={{ ...cell, color: td_.CA != null ? '#374151' : '#ccc', fontSize: fz(6) }}>{td_.CA != null ? td_.CA : 'N/A'}</td>
+                            <td style={{ ...cell, color: td_.FA != null ? '#404040' : '#ccc', fontSize: fz(6) }}>{td_.FA != null ? td_.FA : 'N/A'}</td>
+                            <td style={{ ...cell, color: td_.IA != null ? '#404040' : '#ccc', fontSize: fz(6) }}>{td_.IA != null ? td_.IA : 'N/A'}</td>
+                            <td style={{ ...cell, color: td_.CA != null ? '#404040' : '#ccc', fontSize: fz(6) }}>{td_.CA != null ? td_.CA : 'N/A'}</td>
                             <td style={{ ...cell, fontWeight: 700, color: pctColor(td_.avg), background: '#f8f9fc', fontSize: fz(6) }}>{td_.avg != null ? td_.avg + '%' : '—'}</td>
                           </Fragment>
                         );
@@ -3943,11 +4022,11 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
                   <td style={{ ...cell, fontSize: fz(6) }} />
                   <td style={{ ...cell, fontSize: fz(6) }} />
                   <td style={{ ...cell, fontSize: fz(6) }} />
-                  <td style={{ ...hCell, fontSize: fz(6), color: tr_ ? '#6366f1' : '#9ca3af' }}>{posLabel}</td>
+                  <td style={{ ...hCell, fontSize: fz(6), color: tr_ ? '#f97316' : '#9ca3af' }}>{posLabel}</td>
                 </Fragment>
               );
             })}
-            <td colSpan={3} style={{ ...hCell, background: '#b0c8dc', fontSize: fz(7), fontWeight: 900, color: finalRankEntry?.rank ? '#6366f1' : '#9ca3af' }}>
+            <td colSpan={3} style={{ ...hCell, background: '#b0c8dc', fontSize: fz(7), fontWeight: 900, color: finalRankEntry?.rank ? '#f97316' : '#9ca3af' }}>
               {finalRankEntry?.rank ? `${finalRankEntry.rank}/${finalRankEntry.total}` : '—'}
             </td>
           </tr>

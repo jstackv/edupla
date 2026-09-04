@@ -9,7 +9,7 @@ import {
   RefreshCw, Inbox, TrendingUp, Zap, Star, Crown, Sparkles, AlertCircle,
 } from 'lucide-react';
 
-const TOKENS = { emerald: '#10b981', rose: '#f43f5e', amber: '#f59e0b', slate: '#64748b', gold: '#d97706', indigo: '#6366f1', indigoDeep: '#4338ca', violet: '#8b5cf6' };
+const TOKENS = { emerald: '#10b981', rose: '#f43f5e', amber: '#f59e0b', slate: '#64748b', gold: '#d97706', indigo: '#f97316', indigoDeep: '#c2410c', violet: '#f97316' };
 
 const STATUS_META = {
   PENDING: { label: 'Pending', color: TOKENS.amber, bg: 'rgba(245,158,11,0.1)', icon: Clock },
@@ -20,10 +20,10 @@ const STATUS_META = {
 
 // Duotone theme cycled across plan cards in the Add Subscription modal
 const PLAN_THEMES = [
-  { icon: Zap, grad: 'linear-gradient(135deg,#6366f1,#4338ca)', glow: 'linear-gradient(135deg,#6366f1,#818cf8,#4338ca)', accent: '#6366f1' },
+  { icon: Zap, grad: 'linear-gradient(135deg,#f97316,#c2410c)', glow: 'linear-gradient(135deg,#f97316,#fb923c,#c2410c)', accent: '#f97316' },
   { icon: Star, grad: 'linear-gradient(135deg,#d97706,#f59e0b)', glow: 'linear-gradient(135deg,#d97706,#fbbf24,#f59e0b)', accent: '#d97706' },
-  { icon: Crown, grad: 'linear-gradient(135deg,#8b5cf6,#6366f1)', glow: 'linear-gradient(135deg,#8b5cf6,#a78bfa,#6366f1)', accent: '#8b5cf6' },
-  { icon: Sparkles, grad: 'linear-gradient(135deg,#d97706,#6366f1)', glow: 'linear-gradient(135deg,#d97706,#fbbf24,#6366f1)', accent: '#d97706' },
+  { icon: Crown, grad: 'linear-gradient(135deg,#f97316,#f97316)', glow: 'linear-gradient(135deg,#f97316,#fb923c,#f97316)', accent: '#f97316' },
+  { icon: Sparkles, grad: 'linear-gradient(135deg,#d97706,#f97316)', glow: 'linear-gradient(135deg,#d97706,#fbbf24,#f97316)', accent: '#d97706' },
 ];
 
 const GLOBAL_STYLES = `
@@ -47,21 +47,21 @@ const GLOBAL_STYLES = `
   .sub-btn { transition: transform .15s cubic-bezier(0.16,1,0.3,1), filter .15s, box-shadow .2s, background .15s, border-color .15s; }
   .sub-btn:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.06); }
   .sub-btn:active:not(:disabled) { transform: translateY(0) scale(0.98); }
-  .sub-btn:focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; }
+  .sub-btn:focus-visible { outline: 2px solid #f97316; outline-offset: 2px; }
   .sub-input { transition: border-color .18s, box-shadow .18s, background .18s; }
-  .sub-input:focus { outline: none; border-color: #6366f1 !important; box-shadow: 0 0 0 3px rgba(99,102,241,0.15); }
+  .sub-input:focus { outline: none; border-color: #f97316 !important; box-shadow: 0 0 0 3px rgba(249,115,22,0.15); }
 
   .sub-refresh-icon { transition: transform .5s cubic-bezier(0.16,1,0.3,1); }
   .sub-btn:hover .sub-refresh-icon { transform: rotate(180deg); }
 
   .sub-cta { position: relative; overflow: hidden; }
   .sub-cta::after { content:''; position:absolute; top:0; bottom:0; width:35%; background: linear-gradient(115deg, transparent, rgba(255,255,255,0.32), transparent); animation: sub-btn-shimmer 2.8s ease-in-out infinite; }
-  .sub-cta:hover:not(:disabled) { box-shadow: 0 14px 32px rgba(99,102,241,0.4) !important; transform: translateY(-2px) !important; }
+  .sub-cta:hover:not(:disabled) { box-shadow: 0 14px 32px rgba(249,115,22,0.4) !important; transform: translateY(-2px) !important; }
   .sub-cta-arrow { transition: transform .25s cubic-bezier(0.34,1.56,0.64,1); }
   .sub-cta:hover .sub-cta-arrow { transform: translateX(3px); }
 
   .sub-stat-card { transition: transform .18s cubic-bezier(0.16,1,0.3,1), box-shadow .18s, border-color .18s; }
-  .sub-stat-card:hover { transform: translateY(-3px); box-shadow: 0 12px 28px rgba(0,0,0,0.08); border-color: rgba(99,102,241,0.3) !important; }
+  .sub-stat-card:hover { transform: translateY(-3px); box-shadow: 0 12px 28px rgba(0,0,0,0.08); border-color: rgba(249,115,22,0.3) !important; }
 
   .sub-plan-card { position: relative; cursor: pointer; text-align: left; border-radius: 18px; transition: transform .18s cubic-bezier(0.16,1,0.3,1); animation: sub-pop-in .4s cubic-bezier(0.16,1,0.3,1) both; }
   .sub-plan-card:hover { transform: translateY(-3px); }
@@ -73,7 +73,7 @@ const GLOBAL_STYLES = `
   .sub-plan-icon::after { content:''; position:absolute; inset:0; background: radial-gradient(circle at 30% 20%, rgba(255,255,255,0.35), transparent 60%); }
 
   .sub-copy-field { transition: transform .15s, box-shadow .15s, border-color .15s; }
-  .sub-copy-field:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(99,102,241,0.12); }
+  .sub-copy-field:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(249,115,22,0.12); }
   .sub-copy-btn { transition: background .15s, transform .1s; }
   .sub-copy-btn:hover { transform: scale(1.08); }
   .sub-copy-btn:active { transform: scale(0.94); }
@@ -81,12 +81,12 @@ const GLOBAL_STYLES = `
   .sub-step-num { width: 22px; height: 22px; border-radius: 999px; flex-shrink: 0; display:flex; align-items:center; justify-content:center; font-size: 10.5px; font-weight: 800; font-family:'Sora',sans-serif; }
 
   .sub-progress-track { display:flex; align-items:center; gap:6px; }
-  .sub-progress-dot { height: 5px; border-radius: 3px; flex: 1; background: rgba(99,102,241,0.16); transition: background .3s; }
-  .sub-progress-dot.active { background: linear-gradient(90deg,#6366f1,#d97706); }
-  .sub-progress-dot.done { background: #6366f1; }
+  .sub-progress-dot { height: 5px; border-radius: 3px; flex: 1; background: rgba(249,115,22,0.16); transition: background .3s; }
+  .sub-progress-dot.active { background: linear-gradient(90deg,#f97316,#d97706); }
+  .sub-progress-dot.done { background: #f97316; }
 
   .sub-receipt-btn { transition: transform .15s, box-shadow .15s, background .15s, border-color .15s; }
-  .sub-receipt-btn:hover { transform: translateY(-1px); background: rgba(99,102,241,0.08) !important; border-color: rgba(99,102,241,0.35) !important; color: #6366f1 !important; }
+  .sub-receipt-btn:hover { transform: translateY(-1px); background: rgba(249,115,22,0.08) !important; border-color: rgba(249,115,22,0.35) !important; color: #f97316 !important; }
 
   .sub-close-btn { transition: transform .15s, background .15s; }
   .sub-close-btn:hover { transform: rotate(90deg); background: rgba(244,63,94,0.1) !important; }
@@ -179,12 +179,12 @@ function MembershipCard({ billing }) {
         position: 'relative', borderRadius: 24, padding: '24px 26px', overflow: 'hidden',
         background: `
           radial-gradient(circle at 18% 12%, rgba(255,255,255,0.22) 0%, transparent 40%),
-          radial-gradient(circle at 88% 88%, rgba(124,58,237,0.5) 0%, transparent 55%),
-          linear-gradient(135deg, #4338ca 0%, #6366f1 45%, #7c3aed 100%)
+          radial-gradient(circle at 88% 88%, rgba(234,88,12,0.5) 0%, transparent 55%),
+          linear-gradient(135deg, #c2410c 0%, #f97316 45%, #ea580c 100%)
         `,
         boxShadow: hovering
-          ? '0 30px 62px rgba(67,56,202,0.45), inset 0 1px 0 rgba(255,255,255,0.2)'
-          : '0 22px 50px rgba(67,56,202,0.35), inset 0 1px 0 rgba(255,255,255,0.18)',
+          ? '0 30px 62px rgba(194,65,12,0.45), inset 0 1px 0 rgba(255,255,255,0.2)'
+          : '0 22px 50px rgba(194,65,12,0.35), inset 0 1px 0 rgba(255,255,255,0.18)',
         border: '1px solid rgba(255,255,255,0.08)',
         transform: `rotateX(${tilt.x}deg) rotateY(${tilt.y}deg) scale(${hovering ? 1.012 : 1})`,
         transition: hovering ? 'box-shadow .3s, transform .08s linear' : 'transform .5s cubic-bezier(0.16,1,0.3,1), box-shadow .4s',
@@ -325,7 +325,7 @@ function MembershipCard({ billing }) {
 }
 
 // ── Copy-to-clipboard chip, used inside the payee instructions step ──────
-function CopyField({ icon: Icon, label, value, accent = '#6366f1' }) {
+function CopyField({ icon: Icon, label, value, accent = '#f97316' }) {
   const [copied, setCopied] = useState(false);
   const doCopy = async () => {
     try { await navigator.clipboard.writeText(value); setCopied(true); setTimeout(() => setCopied(false), 1800); }
@@ -415,12 +415,12 @@ function AddSubscriptionModal({ onClose, onSubmitted }) {
         {/* header */}
         <div style={{
           position: 'relative', overflow: 'hidden', padding: '1.4rem 1.6rem 1.05rem',
-          background: 'linear-gradient(135deg, rgba(99,102,241,0.12), rgba(217,119,6,0.06))',
+          background: 'linear-gradient(135deg, rgba(249,115,22,0.12), rgba(217,119,6,0.06))',
           borderBottom: '1px solid var(--card-border)',
         }}>
           <div style={{
             position: 'absolute', top: -50, right: -40, width: 130, height: 130, borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(99,102,241,0.24) 0%, transparent 70%)', pointerEvents: 'none',
+            background: 'radial-gradient(circle, rgba(249,115,22,0.24) 0%, transparent 70%)', pointerEvents: 'none',
           }} />
           <div style={{ position: 'relative', zIndex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
@@ -431,7 +431,7 @@ function AddSubscriptionModal({ onClose, onSubmitted }) {
                   </button>
                 )}
                 <div>
-                  <p style={{ fontSize: 10, fontWeight: 700, color: '#6366f1', margin: 0, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  <p style={{ fontSize: 10, fontWeight: 700, color: '#f97316', margin: 0, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                     {step === 'plans' ? 'Step 1 of 2' : 'Step 2 of 2'}
                   </p>
                   <h2 style={{ fontFamily: "'Sora',sans-serif", fontWeight: 800, fontSize: 16.5, color: 'var(--text-primary)', margin: '2px 0 0' }}>
@@ -453,7 +453,7 @@ function AddSubscriptionModal({ onClose, onSubmitted }) {
         <div style={{ padding: '1.4rem 1.6rem 1.6rem' }}>
           {loading ? (
             <div style={{ padding: '30px 0', textAlign: 'center' }}>
-              <Loader2 size={22} className="animate-spin" color="#6366f1" style={{ margin: '0 auto 10px' }} />
+              <Loader2 size={22} className="animate-spin" color="#f97316" style={{ margin: '0 auto 10px' }} />
               <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', margin: 0 }}>Loading plans…</p>
             </div>
           ) : step === 'plans' ? (
@@ -477,7 +477,7 @@ function AddSubscriptionModal({ onClose, onSubmitted }) {
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                             <p style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>{plan.name}</p>
                             {isPopular && (
-                              <span style={{ fontSize: 9, fontWeight: 800, color: '#6366f1', background: 'rgba(99,102,241,0.12)', padding: '2px 6px', borderRadius: 999, textTransform: 'uppercase', letterSpacing: '0.03em', flexShrink: 0 }}>
+                              <span style={{ fontSize: 9, fontWeight: 800, color: '#f97316', background: 'rgba(249,115,22,0.12)', padding: '2px 6px', borderRadius: 999, textTransform: 'uppercase', letterSpacing: '0.03em', flexShrink: 0 }}>
                                 Popular
                               </span>
                             )}
@@ -512,7 +512,7 @@ function AddSubscriptionModal({ onClose, onSubmitted }) {
 
               <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
-                  <div className="sub-step-num" style={{ background: '#6366f1', color: '#fff' }}>1</div>
+                  <div className="sub-step-num" style={{ background: '#f97316', color: '#fff' }}>1</div>
                   <div style={{ width: 1.5, flex: 1, background: 'var(--card-border)', margin: '4px 0' }} />
                 </div>
                 <div style={{ paddingBottom: 14 }}>
@@ -520,7 +520,7 @@ function AddSubscriptionModal({ onClose, onSubmitted }) {
                     Send the exact amount via MTN Mobile Money
                   </p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <CopyField icon={User} label="Recipient name" value={payee.name} accent="#6366f1" />
+                    <CopyField icon={User} label="Recipient name" value={payee.name} accent="#f97316" />
                     <CopyField icon={PhoneCall} label="MoMo number" value={payee.phone} accent="#d97706" />
                   </div>
                 </div>
@@ -557,9 +557,9 @@ function AddSubscriptionModal({ onClose, onSubmitted }) {
 
               <button onClick={submitClaim} disabled={submitting} className="sub-btn sub-cta" style={{
                 width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-                background: 'linear-gradient(135deg,#6366f1,#4338ca)', color: '#fff', border: 'none', borderRadius: 13,
+                background: 'linear-gradient(135deg,#f97316,#c2410c)', color: '#fff', border: 'none', borderRadius: 13,
                 padding: '13px 14px', cursor: 'pointer', fontSize: 13.5, fontWeight: 700, opacity: submitting ? 0.75 : 1,
-                boxShadow: '0 8px 22px rgba(99,102,241,0.28)',
+                boxShadow: '0 8px 22px rgba(249,115,22,0.28)',
               }}>
                 {submitting ? (<><Loader2 size={15} className="animate-spin" /> Submitting…</>) : (<>I've Sent the Payment <Check size={14} /></>)}
               </button>
@@ -640,18 +640,18 @@ function buildReceiptHtml(payment, schoolName) {
   }
   .side-accent {
     position: absolute; left: 0; top: 0; bottom: 0; width: 7px; z-index: 4;
-    background: linear-gradient(180deg,#6366f1 0%,#8b5cf6 45%,#d97706 100%);
+    background: linear-gradient(180deg,#f97316 0%,#f97316 45%,#d97706 100%);
   }
   .watermark {
     position: absolute; inset: 0; z-index: 0; opacity: 0.028; pointer-events: none;
     transform: rotate(-24deg) scale(1.5); transform-origin: center; padding-top: 20px;
   }
   .wm-row { display: flex; gap: 70px; margin-bottom: 46px; }
-  .wm-row span { font-weight: 800; font-size: 30px; letter-spacing: 0.1em; color: #4338ca; white-space: nowrap; }
+  .wm-row span { font-weight: 800; font-size: 30px; letter-spacing: 0.1em; color: #c2410c; white-space: nowrap; }
 
   .band {
     position: relative; z-index: 1; height: 132px; margin-left: 7px;
-    background: linear-gradient(135deg,#4338ca 0%,#6366f1 55%,#7c3aed 100%);
+    background: linear-gradient(135deg,#c2410c 0%,#f97316 55%,#ea580c 100%);
     display: flex; align-items: center; justify-content: space-between; padding: 0 48px;
   }
   .band::before {
@@ -678,7 +678,7 @@ function buildReceiptHtml(payment, schoolName) {
 
   .eyebrow {
     display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px;
-    background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.2); color: #4338ca;
+    background: rgba(249,115,22,0.08); border: 1px solid rgba(249,115,22,0.2); color: #c2410c;
     font-size: 10px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 14px;
   }
 
@@ -696,13 +696,13 @@ function buildReceiptHtml(payment, schoolName) {
   .seal.rejected { color: #f43f5e; }
   .seal.pending { color: #f59e0b; }
 
-  h1.title { font-size: 21px; font-weight: 800; color: #1e1b4b; margin: 0 0 4px; }
+  h1.title { font-size: 21px; font-weight: 800; color: #431407; margin: 0 0 4px; }
   .issued { font-size: 12px; color: #94a3b8; margin: 0 0 22px; }
 
   .amount-block {
     display: flex; justify-content: space-between; align-items: center;
-    background: linear-gradient(135deg, rgba(99,102,241,0.07), rgba(217,119,6,0.05));
-    border: 1px solid rgba(99,102,241,0.18); border-left: 4px solid #d97706;
+    background: linear-gradient(135deg, rgba(249,115,22,0.07), rgba(217,119,6,0.05));
+    border: 1px solid rgba(249,115,22,0.18); border-left: 4px solid #d97706;
     border-radius: 14px; padding: 22px 26px; margin: 0 0 30px;
   }
   .amount-block .label { font-size: 11.5px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.06em; margin: 0 0 5px; }
@@ -723,14 +723,14 @@ function buildReceiptHtml(payment, schoolName) {
   tr:nth-child(even) { background: #faf9ff; }
   tr:not(:last-child) td { border-bottom: 1px solid #f1f0fa; }
   .r-label { padding: 11px 16px; font-size: 12.5px; font-weight: 600; color: #64748b; white-space: nowrap; }
-  .r-value { padding: 11px 16px; font-size: 12.5px; font-weight: 700; color: #1e1b4b; text-align: right; }
+  .r-value { padding: 11px 16px; font-size: 12.5px; font-weight: 700; color: #431407; text-align: right; }
 
   .footer { margin-top: 40px; padding-top: 22px; border-top: 1.5px dashed #e2e8f0; text-align: center; }
-  .footer .thanks { font-size: 13.5px; font-weight: 700; color: #1e1b4b; margin: 0 0 6px; }
+  .footer .thanks { font-size: 13.5px; font-weight: 700; color: #431407; margin: 0 0 6px; }
   .footer p { font-size: 11px; color: #94a3b8; line-height: 1.7; margin: 0; }
 
   .barcode { display: flex; gap: 2px; align-items: flex-end; justify-content: center; margin: 22px 0 6px; height: 36px; }
-  .barcode span { display: inline-block; background: #1e1b4b; opacity: 0.72; }
+  .barcode span { display: inline-block; background: #431407; opacity: 0.72; }
 
   .meta-row {
     display: flex; justify-content: space-between; margin-top: 26px; padding-top: 14px;
@@ -838,7 +838,7 @@ function ReceiptModal({ payment, schoolName, onClose }) {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--card-border)' }}>
           <h3 style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Receipt</h3>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={handlePrint} className="sub-btn sub-cta" style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 9, border: 'none', background: 'linear-gradient(135deg,#6366f1,#4338ca)', color: '#fff', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}>
+            <button onClick={handlePrint} className="sub-btn sub-cta" style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 9, border: 'none', background: 'linear-gradient(135deg,#f97316,#c2410c)', color: '#fff', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}>
               <Printer size={12} /> Print
             </button>
             <button onClick={onClose} className="sub-btn sub-close-btn" style={{ width: 30, height: 30, borderRadius: 8, border: 'none', cursor: 'pointer', background: 'var(--surface-100)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -849,15 +849,15 @@ function ReceiptModal({ payment, schoolName, onClose }) {
 
         <div style={{ padding: '28px 26px', background: '#fff', color: '#0f172a' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 22 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg,#6366f1,#4338ca)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg,#f97316,#c2410c)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <GraduationCap size={17} color="#fff" />
             </div>
-            <span style={{ fontFamily: "'Sora',sans-serif", fontWeight: 800, fontSize: 16, color: '#1e1b4b' }}>EDUPLA</span>
+            <span style={{ fontFamily: "'Sora',sans-serif", fontWeight: 800, fontSize: 16, color: '#431407' }}>EDUPLA</span>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
             <div>
-              <p style={{ fontSize: 17, fontWeight: 800, margin: 0, color: '#1e1b4b' }}>Payment Receipt</p>
+              <p style={{ fontSize: 17, fontWeight: 800, margin: 0, color: '#431407' }}>Payment Receipt</p>
               <p style={{ fontSize: 11, color: '#64748b', margin: '3px 0 0' }}>#{String(payment._id).slice(-10).toUpperCase()}</p>
             </div>
             {payment.status === 'SUCCESSFUL' && (
@@ -882,13 +882,13 @@ function ReceiptModal({ payment, schoolName, onClose }) {
             ].map(([label, value]) => (
               <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5 }}>
                 <span style={{ color: '#64748b', fontWeight: 600 }}>{label}</span>
-                <span style={{ color: '#1e1b4b', fontWeight: 700, textAlign: 'right' }}>{value}</span>
+                <span style={{ color: '#431407', fontWeight: 700, textAlign: 'right' }}>{value}</span>
               </div>
             ))}
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 22 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: '#1e1b4b' }}>Total paid</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: '#431407' }}>Total paid</span>
             <span style={{ fontFamily: "'Sora',sans-serif", fontSize: 22, fontWeight: 800, color: '#d97706' }}>
               {formatMoney(payment.amount, payment.currency)}
             </span>
@@ -958,8 +958,8 @@ export default function Subscription() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22, flexWrap: 'wrap', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{
-            width: 44, height: 44, borderRadius: 13, background: 'linear-gradient(135deg,#6366f1,#4338ca)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 20px rgba(99,102,241,0.35)',
+            width: 44, height: 44, borderRadius: 13, background: 'linear-gradient(135deg,#f97316,#c2410c)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 20px rgba(249,115,22,0.35)',
           }}>
             <Wallet size={21} color="#fff" />
           </div>
@@ -998,8 +998,8 @@ export default function Subscription() {
           ) : (
             <button onClick={() => setShowAddModal(true)} className="sub-btn sub-cta" style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '16px 20px', borderRadius: 16,
-              border: 'none', background: 'linear-gradient(135deg,#6366f1,#4338ca)', color: '#fff', cursor: 'pointer',
-              fontSize: 14.5, fontWeight: 700, boxShadow: '0 10px 24px rgba(99,102,241,0.3)',
+              border: 'none', background: 'linear-gradient(135deg,#f97316,#c2410c)', color: '#fff', cursor: 'pointer',
+              fontSize: 14.5, fontWeight: 700, boxShadow: '0 10px 24px rgba(249,115,22,0.3)',
             }}>
               <PlusCircle size={18} /> Add Subscription <ArrowRight size={15} className="sub-cta-arrow" />
             </button>

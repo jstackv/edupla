@@ -88,6 +88,7 @@ const resolveProgramConfig = async (programConfigId, adminId) => {
   };
 };
 const { notifyAccountStatus, notifyWelcome, notifyPasswordReset } = require('../services/emailService');
+const { recomputeClassActive } = require('../utils/classActivation');
 
 // ── Dashboard Stats ────────────────────────────────────────────────────
 const getDashboardStats = async (req, res) => {
@@ -159,10 +160,10 @@ const getTeachers = async (req, res) => {
     // trips to Mongo on every page load).
     const teacherIds = teachers.map(t => t._id);
     const classesByTeacher = teacherIds.length
-      ? await Class.find({ $or: [{ teacher_id: { $in: teacherIds } }, { extra_teachers: { $in: teacherIds } }] }, 'teacher_id extra_teachers students').lean()
+      ? await Class.find({ $or: [{ teacher_id: { $in: teacherIds } }, { extra_teachers: { $in: teacherIds } }] }, 'name teacher_id extra_teachers students').lean()
       : [];
     const statsByTeacher = {};
-    teacherIds.forEach(id => { statsByTeacher[id.toString()] = { classCount: 0, studentSet: new Set() }; });
+    teacherIds.forEach(id => { statsByTeacher[id.toString()] = { classCount: 0, studentSet: new Set(), classTeacherOf: [] }; });
     classesByTeacher.forEach(c => {
       const owners = new Set([
         c.teacher_id ? c.teacher_id.toString() : null,
@@ -173,15 +174,53 @@ const getTeachers = async (req, res) => {
         if (!bucket) return;
         bucket.classCount += 1;
         c.students.forEach(s => bucket.studentSet.add(s.toString()));
+        // "Class teacher" (homeroom) is specifically Class.teacher_id — being
+        // listed only in extra_teachers (a subject teacher for that class)
+        // doesn't count, since only the class teacher can record discipline
+        // marks for a class.
+        if (c.teacher_id && c.teacher_id.toString() === tid) bucket.classTeacherOf.push({ id: c._id, name: c.name });
       });
     });
 
     const result = teachers.map(t => {
-      const stats = statsByTeacher[t._id.toString()] || { classCount: 0, studentSet: new Set() };
-      return { ...t, id: t._id, class_count: stats.classCount, student_count: stats.studentSet.size };
+      const stats = statsByTeacher[t._id.toString()] || { classCount: 0, studentSet: new Set(), classTeacherOf: [] };
+      return {
+        ...t, id: t._id, class_count: stats.classCount, student_count: stats.studentSet.size,
+        is_class_teacher: stats.classTeacherOf.length > 0,
+        class_teacher_of: stats.classTeacherOf,
+      };
     });
 
     res.json({ teachers: result, total, page: parseInt(page), limit: parseInt(limit) });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+// A focused directory of class teachers specifically — who IS one, which
+// class, and which classes still have nobody in charge (so an admin can
+// spot at a glance why a class won't come active). Distinct from
+// getTeachers above, which lists every teacher regardless of role.
+const getClassTeachersOverview = async (req, res) => {
+  try {
+    const classes = await Class.find({ created_by: req.user.id })
+      .populate('teacher_id', 'name email phone')
+      .select('name level trade students teacher_id is_active')
+      .sort({ name: 1 })
+      .lean();
+
+    const withTeacher = classes.filter(c => c.teacher_id);
+    const withoutTeacher = classes.filter(c => !c.teacher_id);
+
+    res.json({
+      class_teachers: withTeacher.map(c => ({
+        class_id: c._id, class_name: c.name, level: c.level, trade: c.trade,
+        student_count: c.students?.length || 0, is_active: c.is_active,
+        teacher: { id: c.teacher_id._id, name: c.teacher_id.name, email: c.teacher_id.email, phone: c.teacher_id.phone },
+      })),
+      classes_needing_a_class_teacher: withoutTeacher.map(c => ({
+        class_id: c._id, class_name: c.name, level: c.level, trade: c.trade,
+        student_count: c.students?.length || 0,
+      })),
+    });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
@@ -255,11 +294,15 @@ const getAllClasses = async (req, res) => {
 const adminCreateClass = async (req, res) => {
   try {
     const { name, description, level, trade, teacher_id, extra_teacher_ids = [], programConfigId } = req.body;
-    if (!name || !teacher_id) return res.status(400).json({ message: 'Name and teacher are required' });
+    // A class teacher is no longer required up front — a class can exist
+    // with nobody in charge of it yet, but it stays inactive (see
+    // recomputeClassActive) until both a class teacher AND at least one
+    // student are in place.
+    if (!name) return res.status(400).json({ message: 'Class name is required' });
     const toObjectId = (id) => {
       try { return new mongoose.Types.ObjectId(String(id)); } catch { return null; }
     };
-    const teacherObjId = toObjectId(teacher_id);
+    const teacherObjId = teacher_id ? toObjectId(teacher_id) : null;
     const teacherIdStr = teacherObjId ? teacherObjId.toString() : '';
     const extraIds = extra_teacher_ids
       .map(toObjectId)
@@ -273,27 +316,36 @@ const adminCreateClass = async (req, res) => {
       created_by: req.user.id,
       ...program,
     });
+    await recomputeClassActive(cls._id);
     res.status(201).json({ message: 'Class created', id: cls._id });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
 const adminUpdateClass = async (req, res) => {
   try {
-    const { name, description, level, trade, teacher_id, extra_teacher_ids = [], programConfigId } = req.body;
+    const { name, description, level, trade, teacher_id, programConfigId } = req.body;
     // Cast IDs to ObjectId safely, exclude the class teacher from extra_teachers
     const toObjectId = (id) => {
       try { return new mongoose.Types.ObjectId(String(id)); } catch { return null; }
     };
-    const teacherObjId = toObjectId(teacher_id);
+    const teacherObjId = teacher_id ? toObjectId(teacher_id) : null;
     const teacherIdStr = teacherObjId ? teacherObjId.toString() : '';
-    const allExtraIds = extra_teacher_ids
-      .map(toObjectId)
-      .filter(id => id && id.toString() !== teacherIdStr);
 
     const update = {
       name, description: description || null, level: level || null, trade: trade || null,
-      teacher_id: teacherObjId, extra_teachers: allExtraIds,
+      teacher_id: teacherObjId,
     };
+
+    // Co-teachers are managed by their own dedicated endpoint
+    // (PUT /classes/:id/extra-teachers) now — only touch extra_teachers
+    // here if a caller explicitly sends the key, so this endpoint can't
+    // silently wipe it out on every ordinary "Edit Class" save.
+    if (Object.prototype.hasOwnProperty.call(req.body, 'extra_teacher_ids')) {
+      const allExtraIds = (req.body.extra_teacher_ids || [])
+        .map(toObjectId)
+        .filter(id => id && id.toString() !== teacherIdStr);
+      update.extra_teachers = allExtraIds;
+    }
 
     // Only touch program fields if the client included the key at all (covers explicit clearing too)
     if (Object.prototype.hasOwnProperty.call(req.body, 'programConfigId')) {
@@ -302,6 +354,7 @@ const adminUpdateClass = async (req, res) => {
 
     const result = await Class.findByIdAndUpdate(req.params.id, update);
     if (!result) return res.status(404).json({ message: 'Class not found' });
+    await recomputeClassActive(req.params.id);
     res.json({ message: 'Class updated' });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
@@ -325,7 +378,30 @@ const adminAssignClassToTeacher = async (req, res) => {
       { teacher_id, $addToSet: { extra_teachers: teacher_id } }
     );
     if (!result) return res.status(404).json({ message: 'Class not found' });
+    await recomputeClassActive(req.params.id);
     res.json({ message: 'Class assigned to teacher' });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+// A dedicated, narrow endpoint for the "Add Teachers" (co-teacher) checklist
+// in the Manage Class modal — deliberately separate from adminUpdateClass,
+// which expects the FULL class form (name/description/level/trade/etc) and
+// would otherwise null out any of those fields left out of a partial call.
+// This only ever touches extra_teachers, and never the class teacher itself.
+const adminSetExtraTeachers = async (req, res) => {
+  try {
+    const { extra_teacher_ids = [] } = req.body;
+    const cls = await Class.findById(req.params.id);
+    if (!cls) return res.status(404).json({ message: 'Class not found' });
+    const toObjectId = (id) => {
+      try { return new mongoose.Types.ObjectId(String(id)); } catch { return null; }
+    };
+    const teacherIdStr = cls.teacher_id ? cls.teacher_id.toString() : '';
+    cls.extra_teachers = extra_teacher_ids
+      .map(toObjectId)
+      .filter(id => id && id.toString() !== teacherIdStr);
+    await cls.save();
+    res.json({ message: 'Teachers updated' });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
@@ -397,6 +473,7 @@ const adminMoveClassStudents = async (req, res) => {
       ),
     ]);
 
+    await Promise.all([recomputeClassActive(req.params.id), recomputeClassActive(targetClassId)]);
     res.json({ message: `${idsToMove.length} student${idsToMove.length !== 1 ? 's' : ''} moved successfully`, moved: idsToMove.length });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
@@ -438,6 +515,7 @@ const adminEraseClassStudents = async (req, res) => {
 
     await Class.updateMany({}, { $pullAll: { students: objectIds } });
     await User.deleteMany({ _id: { $in: objectIds }, role: 'student' });
+    await recomputeClassActive(req.params.id);
 
     res.json({ message: `${idsToErase.length} student${idsToErase.length !== 1 ? 's' : ''} erased permanently`, erased: idsToErase.length });
   } catch (err) { res.status(500).json({ message: err.message }); }
@@ -784,13 +862,32 @@ const resetStudentPassword = async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
+// Manual override on top of the automatic class-teacher+roster rule (see
+// utils/classActivation.js): an admin can force a fully-staffed class
+// offline (suspend it), but can't force ON a class that's missing its
+// class teacher or has no students yet — that must be fixed first.
 const toggleClassStatus = async (req, res) => {
   try {
     const cls = await Class.findById(req.params.id);
     if (!cls) return res.status(404).json({ message: 'Class not found' });
-    cls.is_active = !cls.is_active;
+
+    if (cls.is_active) {
+      cls.manually_disabled = true;
+      cls.is_active = false;
+      await cls.save();
+      return res.json({ message: 'Class deactivated successfully', is_active: false });
+    }
+
+    const qualifies = Boolean(cls.teacher_id) && (cls.students?.length || 0) > 0;
+    if (!qualifies) {
+      return res.status(400).json({
+        message: 'Assign a class teacher and enroll at least one student before activating this class.',
+      });
+    }
+    cls.manually_disabled = false;
+    cls.is_active = true;
     await cls.save();
-    res.json({ message: `Class ${cls.is_active ? 'activated' : 'deactivated'} successfully`, is_active: cls.is_active });
+    res.json({ message: 'Class activated successfully', is_active: true });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
@@ -956,8 +1053,8 @@ const uploadReportLogo = async (req, res) => {
 };
 
 module.exports = {
-  getDashboardStats, getTeachers, createTeacher, updateTeacher, deleteTeacher,
-  getAllClasses, adminCreateClass, adminUpdateClass, adminDeleteClass, adminAssignClassToTeacher,
+  getDashboardStats, getTeachers, getClassTeachersOverview, createTeacher, updateTeacher, deleteTeacher,
+  getAllClasses, adminCreateClass, adminUpdateClass, adminDeleteClass, adminAssignClassToTeacher, adminSetExtraTeachers,
   adminGetClassTeachers, adminGetClassStudents, adminMoveClassStudents, adminEraseClassStudents,
   getAllStudents, adminCreateStudent, adminUpdateStudent, adminDeleteStudent,
   adminAssignStudentToClass, adminGetStudentDetail,

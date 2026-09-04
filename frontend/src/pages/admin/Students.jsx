@@ -17,10 +17,10 @@ import {
 
 /* ── Constants ── */
 
-const LEVEL_COLORS = ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#ec4899', '#06b6d4', '#f97316', '#64748b'];
-const TRADE_COLORS = ['#f59e0b', '#06b6d4', '#ec4899', '#f97316', '#6366f1', '#10b981', '#3b82f6', '#8b5cf6'];
-const LEVEL_BG    = ['#dbeafe', '#d1fae5', '#ede9fe', '#fef3c7', '#fce7f3', '#cffafe', '#ffedd5', '#f1f5f9'];
-const TRADE_BG    = ['#fef3c7', '#cffafe', '#fce7f3', '#ffedd5', '#e0e7ff', '#d1fae5', '#dbeafe', '#ede9fe'];
+const LEVEL_COLORS = ['#3b82f6', '#10b981', '#f97316', '#f59e0b', '#ec4899', '#06b6d4', '#f97316', '#64748b'];
+const TRADE_COLORS = ['#f59e0b', '#06b6d4', '#ec4899', '#f97316', '#f97316', '#10b981', '#3b82f6', '#f97316'];
+const LEVEL_BG    = ['#dbeafe', '#d1fae5', '#ffedd5', '#fef3c7', '#fce7f3', '#cffafe', '#ffedd5', '#f1f5f9'];
+const TRADE_BG    = ['#fef3c7', '#cffafe', '#fce7f3', '#ffedd5', '#ffedd5', '#d1fae5', '#dbeafe', '#ffedd5'];
 
 /* ── Status Badge ── */
 function StatusBadge({ is_active }) {
@@ -37,8 +37,8 @@ function StatusBadge({ is_active }) {
 
 
 const AVATAR_COLORS = [
-  ['#10b981','#059669'], ['#6366f1','#4338ca'], ['#0ea5e9','#0284c7'],
-  ['#f59e0b','#d97706'], ['#ec4899','#db2777'], ['#8b5cf6','#7c3aed'],
+  ['#10b981','#059669'], ['#f97316','#c2410c'], ['#0ea5e9','#0284c7'],
+  ['#f59e0b','#d97706'], ['#ec4899','#db2777'], ['#f97316','#ea580c'],
 ];
 function getAvatarColors(name) {
   return AVATAR_COLORS[(name?.charCodeAt(0) || 0) % AVATAR_COLORS.length];
@@ -94,7 +94,7 @@ function StatStrip({ students, levels = [], trades = [] }) {
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10 }}>
       {[
         { icon: GraduationCap, label: 'Total Students', value: students.length,    color: '#10b981', bg: '#ecfdf5' },
-        { icon: BookOpen,      label: 'Enrolled',       value: withClasses,        color: '#6366f1', bg: '#eef2ff' },
+        { icon: BookOpen,      label: 'Enrolled',       value: withClasses,        color: '#f97316', bg: '#fff7ed' },
         { icon: Layers,        label: 'Trades Active',  value: Object.values(byTrade).filter(Boolean).length, color: '#0ea5e9', bg: '#f0f9ff' },
         { icon: Award,         label: 'Top Trade',      value: topTrade?.[0] || '—', color: '#f59e0b', bg: '#fffbeb', isText: true },
       ].map(({ icon: Icon, label, value, color, bg, isText }) => (
@@ -141,8 +141,8 @@ function StudentCard({ student: s, levels = [], trades = [], onEdit, onDelete, o
           <div style={{ display: 'flex', gap: 3, opacity: hovered ? 1 : 0, transition: 'opacity 0.18s' }}>
             {isSuperAdmin && <ImpersonateButton userId={s.id} name={s.name} />}
             <button onClick={() => onResetPassword(s)} title="Reset password"
-              style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#eef2ff', display: 'flex', transition: 'background 0.15s' }}>
-              <KeyRound size={13} style={{ color: '#6366f1' }} />
+              style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#fff7ed', display: 'flex', transition: 'background 0.15s' }}>
+              <KeyRound size={13} style={{ color: '#f97316' }} />
             </button>
             <button onClick={() => onEdit(s)}
               style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: 'var(--surface-100)', display: 'flex', transition: 'background 0.15s' }}>
@@ -244,8 +244,8 @@ function StudentRow({ student: s, levels = [], trades = [], onEdit, onDelete, on
         <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end', opacity: hovered ? 1 : 0.3, transition: 'opacity 0.15s' }}>
           {isSuperAdmin && <ImpersonateButton userId={s.id} name={s.name} />}
           <button onClick={() => onResetPassword(s)} title="Reset password"
-            style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#eef2ff', display: 'flex' }}>
-            <KeyRound size={13} style={{ color: '#6366f1' }} />
+            style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#fff7ed', display: 'flex' }}>
+            <KeyRound size={13} style={{ color: '#f97316' }} />
           </button>
           <button onClick={() => onEdit(s)}
             style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: 'var(--surface-100)', display: 'flex' }}>
@@ -427,7 +427,7 @@ export default function AdminStudents() {
         boxShadow: '0 8px 32px rgba(16,185,129,0.2)',
       }}>
         <div style={{ position: 'absolute', top: -50, right: -30, width: 200, height: 200, borderRadius: '50%', background: 'rgba(16,185,129,0.07)', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', bottom: -20, right: 200, width: 90, height: 90, borderRadius: '50%', background: 'rgba(99,102,241,0.1)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', bottom: -20, right: 200, width: 90, height: 90, borderRadius: '50%', background: 'rgba(249,115,22,0.1)', pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', top: 30, right: 100, width: 50, height: 50, borderRadius: '50%', background: 'rgba(52,211,153,0.12)', pointerEvents: 'none' }} />
 
         <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>

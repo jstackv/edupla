@@ -162,7 +162,7 @@ export default function TeacherStudentDmModal({ studentId, studentName, onClose 
 
         <div className="chat-wallpaper tg-scroll flex-1 overflow-y-auto" style={{ padding: '14px 12px' }}>
           {loading ? (
-            <div className="flex justify-center py-10"><div className="w-5 h-5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" /></div>
+            <div className="flex justify-center py-10"><div className="w-5 h-5 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" /></div>
           ) : messages.length === 0 ? (
             <div className="tg-empty-state flex flex-col items-center justify-center h-full text-center">
               <MessageCircle className="w-8 h-8 mb-2" style={{ color: 'var(--text-secondary)', opacity: 0.4 }} />
@@ -181,7 +181,7 @@ export default function TeacherStudentDmModal({ studentId, studentName, onClose 
                 )}
                 <div style={{ maxWidth: '78%' }}>
                   <div style={{
-                    background: isMine ? 'linear-gradient(135deg, #9333ea, #7e22ce)' : 'var(--surface-100)',
+                    background: isMine ? 'linear-gradient(135deg, #ea580c, #c2410c)' : 'var(--surface-100)',
                     color: isMine ? '#fff' : 'var(--text-primary)', padding: '8px 12px',
                     borderRadius: isMine ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
                     fontSize: 13.5, lineHeight: 1.45, wordBreak: 'break-word',
@@ -207,7 +207,7 @@ export default function TeacherStudentDmModal({ studentId, studentName, onClose 
             style={{ background: 'var(--surface-100)', border: '1.5px solid var(--card-border)', color: 'var(--text-primary)' }} />
           <button onClick={handleSend} disabled={!text.trim() || posting || disabled}
             className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-all active:scale-95 disabled:opacity-40"
-            style={{ background: 'linear-gradient(135deg, #9333ea, #7e22ce)' }}>
+            style={{ background: 'linear-gradient(135deg, #ea580c, #c2410c)' }}>
             <Send className="w-4 h-4 text-white" />
           </button>
         </div>

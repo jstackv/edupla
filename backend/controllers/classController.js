@@ -101,7 +101,7 @@ const getMyClasses = async (req, res) => {
     const { Assignment } = require('../models/db');
     const studentId = new mongoose.Types.ObjectId(req.session.user.id);
     const classes = await Class.find({ students: studentId })
-      .populate('teacher_id', 'name email')
+      .populate('teacher_id', 'name email phone')
       .lean();
 
     const result = await Promise.all(classes.map(async (c) => {
@@ -110,6 +110,8 @@ const getMyClasses = async (req, res) => {
         ...c,
         id: c._id,
         teacher_name: c.teacher_id?.name,
+        teacher_email: c.teacher_id?.email,
+        teacher_phone: c.teacher_id?.phone,
         student_count: c.students.length,
         assignment_count,
       };

@@ -125,26 +125,26 @@ export default function ShareAssessmentModal({ assessment, onClose, onShared }) 
     <Modal
       isOpen={true} onClose={onClose}
       title={`${isReshare ? 'Update sharing' : 'Share'} — ${assessment.title}`}
-      icon={Send} accent="#6366f1" accent2="#8b5cf6"
+      icon={Send} accent="#f97316" accent2="#f97316"
     >
       <div className="space-y-4">
         <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
           This will {isReshare ? 're-publish' : 'publish'} the assessment to <strong style={{ color: 'var(--text-primary)' }}>{assessment.class_id?.name || 'the class'}</strong>. Every student will get an in-app and email notification.
         </p>
         {isReshare && (
-          <p className="qm-note text-xs px-3 py-2 rounded-xl" style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', color: 'var(--text-secondary)' }}>
+          <p className="qm-note text-xs px-3 py-2 rounded-xl" style={{ background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.2)', color: 'var(--text-secondary)' }}>
             Just want to give students an extra attempt? Use <strong style={{ color: 'var(--text-primary)' }}>Add Attempt</strong> instead — it's quicker and skips the full re-notification.
           </p>
         )}
 
-        <div className="qm-field-group" style={{ '--qm-accent': '#6366f1' }}>
+        <div className="qm-field-group" style={{ '--qm-accent': '#f97316' }}>
           <label className="text-xs font-semibold flex items-center gap-1.5 mb-1.5" style={{ color: 'var(--text-secondary)' }}>
             <span className="qm-field-icon-wrap"><Clock className="w-3.5 h-3.5" /></span> Duration (minutes)
           </label>
           <Stepper value={durationMinutes} onChange={setDurationMinutes} min={5} step={5} className="w-full" title="Attempt duration in minutes" />
         </div>
 
-        <div className="qm-field-group" style={{ '--qm-accent': '#6366f1' }}>
+        <div className="qm-field-group" style={{ '--qm-accent': '#f97316' }}>
           <label className="text-xs font-semibold flex items-center gap-1.5 mb-1.5" style={{ color: 'var(--text-secondary)' }}>
             <span className="qm-field-icon-wrap"><CalendarPlus className="w-3.5 h-3.5" /></span> Available from <span className="font-normal normal-case" style={{ color: 'var(--text-secondary)' }}>(optional)</span>
           </label>
@@ -154,7 +154,7 @@ export default function ShareAssessmentModal({ assessment, onClose, onShared }) 
           </p>
         </div>
 
-        <div className="qm-field-group" style={{ '--qm-accent': '#6366f1' }}>
+        <div className="qm-field-group" style={{ '--qm-accent': '#f97316' }}>
           <label className="text-xs font-semibold flex items-center gap-1.5 mb-1.5" style={{ color: 'var(--text-secondary)' }}>
             <span className="qm-field-icon-wrap"><CalendarClock className="w-3.5 h-3.5" /></span> Expiry date &amp; time
           </label>
@@ -162,7 +162,7 @@ export default function ShareAssessmentModal({ assessment, onClose, onShared }) 
           <p className="text-xs mt-1.5" style={{ color: 'var(--text-secondary)' }}>Students can no longer start the assessment after this time.</p>
         </div>
 
-        <div className="qm-field-group" style={{ '--qm-accent': '#6366f1' }}>
+        <div className="qm-field-group" style={{ '--qm-accent': '#f97316' }}>
           <label className="text-xs font-semibold flex items-center gap-1.5 mb-1.5" style={{ color: 'var(--text-secondary)' }}>
             <span className="qm-field-icon-wrap"><RotateCcw className="w-3.5 h-3.5" /></span> Number of attempts
           </label>
@@ -170,7 +170,7 @@ export default function ShareAssessmentModal({ assessment, onClose, onShared }) 
           <p className="text-xs mt-1.5" style={{ color: 'var(--text-secondary)' }}>Questions are shuffled per attempt whenever more than one attempt is allowed.</p>
         </div>
 
-        <div className="qm-field-group" style={{ '--qm-accent': '#6366f1' }}>
+        <div className="qm-field-group" style={{ '--qm-accent': '#f97316' }}>
           <label className="text-xs font-semibold flex items-center gap-1.5 mb-1.5" style={{ color: 'var(--text-secondary)' }}>
             <span className="qm-field-icon-wrap"><FileText className="w-3.5 h-3.5" /></span> Instructions shown to students
           </label>

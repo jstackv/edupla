@@ -7,7 +7,7 @@ import { BookMarked, Users, ClipboardCheck, GraduationCap, Award, Mail, Phone, C
    the same class always renders the same way, and multiple classes read as
    visually distinct from one another. */
 const CLASS_PALETTES = [
-  { from: '#4338ca', to: '#7c3aed', accent: '#818cf8' }, // indigo → violet
+  { from: '#c2410c', to: '#ea580c', accent: '#fb923c' }, // indigo → violet
   { from: '#0369a1', to: '#0891b2', accent: '#38bdf8' }, // ocean
   { from: '#047857', to: '#059669', accent: '#34d399' }, // emerald
   { from: '#b45309', to: '#ea580c', accent: '#fbbf24' }, // amber

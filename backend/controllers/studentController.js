@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const { User, Class, Submission } = require('../models/db');
+const { recomputeClassActive } = require('../utils/classActivation');
 
 // Helper: get all class IDs belonging to this teacher
 const getTeacherClassIds = async (teacherId) => {
@@ -115,6 +116,7 @@ const createStudent = async (req, res) => {
       await Promise.all(validClasses.map(c =>
         Class.updateOne({ _id: c._id }, { $addToSet: { students: student._id } })
       ));
+      await Promise.all(validClasses.map(c => recomputeClassActive(c._id)));
     }
 
     res.status(201).json({ message: 'Student created successfully', id: student._id, defaultPassword });
@@ -144,6 +146,8 @@ const updateStudent = async (req, res) => {
       Class.updateOne({ _id: c._id }, { $pull: { students: new mongoose.Types.ObjectId(studentId) } })
     ));
 
+    let touchedClassIds = myClasses.map(c => c._id);
+
     if (classIds.length > 0) {
       const validClasses = await Class.find({
         _id: { $in: classIds },
@@ -152,7 +156,9 @@ const updateStudent = async (req, res) => {
       await Promise.all(validClasses.map(c =>
         Class.updateOne({ _id: c._id }, { $addToSet: { students: studentId } })
       ));
+      touchedClassIds = touchedClassIds.concat(validClasses.map(c => c._id));
     }
+    await Promise.all(touchedClassIds.map(recomputeClassActive));
 
     res.json({ message: 'Student updated successfully' });
   } catch (err) { res.status(500).json({ message: err.message }); }
@@ -171,6 +177,7 @@ const deleteStudent = async (req, res) => {
     if (!result) return res.status(404).json({ message: 'Student not found' });
     // Clean up enrollment
     await Class.updateMany({}, { $pull: { students: new mongoose.Types.ObjectId(req.params.id) } });
+    await recomputeClassActive(accessClass._id);
     res.json({ message: 'Student deleted' });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
@@ -182,6 +189,7 @@ const assignToClass = async (req, res) => {
     const cls = await Class.findOne({ _id: classId, $or: [{ teacher_id: teacherId }, { extra_teachers: teacherId }] });
     if (!cls) return res.status(403).json({ message: 'Class not found or not authorized' });
     await Class.updateOne({ _id: classId }, { $addToSet: { students: req.params.id } });
+    await recomputeClassActive(classId);
     res.json({ message: 'Student assigned to class' });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };

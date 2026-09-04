@@ -107,7 +107,14 @@ const classSchema = new mongoose.Schema(
     },
     extra_teachers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     students: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
-    is_active: { type: Boolean, default: true },
+    is_active: { type: Boolean, default: false },
+    // A class only ever turns is_active=true automatically once it has BOTH
+    // a class teacher (teacher_id) AND at least one enrolled student — see
+    // utils/classActivation.js. An admin can still force a fully-staffed
+    // class offline (e.g. suspending it mid-year); that deliberate choice
+    // is remembered here so a later, unrelated enrollment/teacher change
+    // doesn't silently flip it back on behind the admin's back.
+    manually_disabled: { type: Boolean, default: false },
     created_by: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -647,7 +654,95 @@ const assessmentSubmissionSchema = new mongoose.Schema(
   { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } },
 );
 
-// Question bank for a quiz-mode Assessment. One document per question.
+// ── Discipline (behavior) marks ─────────────────────────────────────────
+// A parallel, class-teacher-only marks workflow that mirrors the Assessment
+// / Mark / AssessmentSubmission pattern above, but is scoped to a whole
+// class + term rather than a course/module: only the class's own class
+// teacher (Class.teacher_id) may record it, and it goes through the same
+// admin approve/reject review before it counts on any report.
+const disciplineRecordSchema = new mongoose.Schema(
+  {
+    class_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Class",
+      required: true,
+    },
+    teacher_id: {
+      // The class teacher who recorded it — snapshotted at submission time
+      // so a later re-assignment of the class teacher doesn't rewrite history.
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    term: {
+      type: String,
+      enum: ["Term 1", "Term 2", "Term 3"],
+      required: true,
+    },
+    academic_year: { type: String, required: true },
+    max_marks: { type: Number, default: 20 },
+    status: {
+      type: String,
+      enum: ["draft", "submitted", "approved", "rejected"],
+      default: "draft",
+    },
+    submitted_at: { type: Date, default: null },
+    reviewed_by: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    reviewed_at: { type: Date, default: null },
+    review_note: { type: String, default: null },
+    created_by: {
+      // The school (admin) this record belongs to — mirrors Class.created_by,
+      // kept here too so admin queries never need to hop through Class first.
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+  },
+  { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } },
+);
+disciplineRecordSchema.index(
+  { class_id: 1, term: 1, academic_year: 1 },
+  { unique: true },
+);
+disciplineRecordSchema.index({ teacher_id: 1 });
+disciplineRecordSchema.index({ created_by: 1, status: 1 });
+
+const disciplineMarkSchema = new mongoose.Schema(
+  {
+    discipline_record_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "DisciplineRecord",
+      required: true,
+    },
+    student_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    marks: { type: Number, default: null },
+    // Approved snapshot — this, not `marks`, is what reports read once the
+    // record has been approved. Mirrors Mark.approved_marks exactly.
+    approved_marks: { type: Number, default: null },
+    remarks: { type: String, default: null },
+    entered_by: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+  },
+  { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } },
+);
+disciplineMarkSchema.index(
+  { discipline_record_id: 1, student_id: 1 },
+  { unique: true },
+);
+disciplineMarkSchema.index({ student_id: 1 });
+
+
 // `type` decides which of the optional fields are meaningful:
 //   mcq         → options[] (with is_correct flags via correct_answer key list)
 //   true_false  → correct_answer: 'true' | 'false'
@@ -1126,6 +1221,8 @@ const AssessmentSubmission = mongoose.model(
   "AssessmentSubmission",
   assessmentSubmissionSchema,
 );
+const DisciplineRecord = mongoose.model("DisciplineRecord", disciplineRecordSchema);
+const DisciplineMark = mongoose.model("DisciplineMark", disciplineMarkSchema);
 const AssessmentQuestion = mongoose.model(
   "AssessmentQuestion",
   assessmentQuestionSchema,
@@ -1173,6 +1270,8 @@ module.exports = {
   Assessment,
   Mark,
   AssessmentSubmission,
+  DisciplineRecord,
+  DisciplineMark,
   AssessmentQuestion,
   AssessmentAttempt,
   Maintenance,

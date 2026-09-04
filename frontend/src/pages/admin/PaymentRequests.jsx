@@ -9,7 +9,7 @@ import {
   Printer, Receipt, GraduationCap, ChevronUp, ChevronDown, Tag, ToggleLeft, ToggleRight,
 } from 'lucide-react';
 
-const TOKENS = { emerald: '#10b981', rose: '#f43f5e', amber: '#f59e0b', slate: '#64748b', gold: '#d97706', indigo: '#6366f1' };
+const TOKENS = { emerald: '#10b981', rose: '#f43f5e', amber: '#f59e0b', slate: '#64748b', gold: '#d97706', indigo: '#f97316' };
 
 const STATUS_META = {
   PENDING: { label: 'Pending', color: TOKENS.amber, bg: 'rgba(245,158,11,0.1)', icon: Clock },
@@ -29,7 +29,7 @@ const GLOBAL_STYLES = `
   @keyframes pr-glow-emerald { 0%,100% { box-shadow: 0 0 0 rgba(16,185,129,0); } 50% { box-shadow: 0 0 14px rgba(16,185,129,0.25); } }
 
   .pr-row { animation: pr-fade 0.4s cubic-bezier(0.16,1,0.3,1) both; position: relative; transition: background .15s; }
-  .pr-row:hover { background: rgba(99,102,241,0.025); }
+  .pr-row:hover { background: rgba(249,115,22,0.025); }
   .pr-row.is-pending { border-left: 3px solid ${TOKENS.amber}; }
   .pr-row:not(.is-pending) { border-left: 3px solid transparent; }
 
@@ -37,8 +37,8 @@ const GLOBAL_STYLES = `
   .pr-btn { transition: transform .15s cubic-bezier(0.16,1,0.3,1), filter .15s, box-shadow .2s; }
   .pr-btn:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.06); }
   .pr-btn:active:not(:disabled) { transform: translateY(0) scale(0.98); }
-  .pr-btn:focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; }
-  .pr-search input:focus, .pr-check:focus-visible { outline: 2px solid #6366f1; outline-offset: 1px; }
+  .pr-btn:focus-visible { outline: 2px solid #f97316; outline-offset: 2px; }
+  .pr-search input:focus, .pr-check:focus-visible { outline: 2px solid #f97316; outline-offset: 1px; }
 
   .pr-stat-card { transition: transform .2s cubic-bezier(0.16,1,0.3,1), box-shadow .2s; }
   .pr-stat-card:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(0,0,0,0.12); }
@@ -208,16 +208,16 @@ function buildReceiptHtml(payment) {
   }
   .sheet {
     width: 460px; background: #ffffff; border-radius: 22px; overflow: hidden;
-    box-shadow: 0 34px 70px rgba(67,56,202,0.2); position: relative;
+    box-shadow: 0 34px 70px rgba(194,65,12,0.2); position: relative;
   }
   .side-accent {
     position: absolute; left: 0; top: 0; bottom: 0; width: 6px;
-    background: linear-gradient(180deg, #6366f1, #7c3aed, #d97706); z-index: 4;
+    background: linear-gradient(180deg, #f97316, #ea580c, #d97706); z-index: 4;
   }
 
   /* ── Header band ─────────────────────────────────────────────── */
   .band {
-    background: linear-gradient(135deg, #3730a3 0%, #4338ca 40%, #6366f1 75%, #7c3aed 100%);
+    background: linear-gradient(135deg, #9a3412 0%, #c2410c 40%, #f97316 75%, #ea580c 100%);
     padding: 24px 26px 30px 30px; position: relative; overflow: hidden;
   }
   .band::before {
@@ -285,7 +285,7 @@ function buildReceiptHtml(payment) {
   .detail-row:last-child { border-bottom: none; }
   .detail-label { display: flex; align-items: center; gap: 7px; color: #64748b; font-weight: 600; font-size: 12px; flex-shrink: 0; }
   .detail-label svg { color: #a5adc7; flex-shrink: 0; }
-  .detail-value { color: #1e1b4b; font-weight: 700; font-size: 12.5px; text-align: right; }
+  .detail-value { color: #431407; font-weight: 700; font-size: 12.5px; text-align: right; }
 
   /* ── Tear-off stub ────────────────────────────────────────────── */
   .stub {
@@ -295,7 +295,7 @@ function buildReceiptHtml(payment) {
   }
   .stub-ref { display: flex; flex-direction: column; gap: 6px; }
   .barcode { display: flex; align-items: flex-end; gap: 2px; height: 26px; }
-  .barcode span { display: block; width: 2px; background: #4338ca; opacity: 0.75; }
+  .barcode span { display: block; width: 2px; background: #c2410c; opacity: 0.75; }
   .stub-ref-num { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #6b7292; letter-spacing: 0.06em; }
   .stub-total { text-align: right; }
   .stub-total-label { font-size: 10px; font-weight: 700; color: #6b7292; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 2px; }
@@ -303,16 +303,16 @@ function buildReceiptHtml(payment) {
 
   /* ── Footer ───────────────────────────────────────────────────── */
   .footer { text-align: center; padding: 16px 20px 22px; }
-  .footer-divider { width: 40px; height: 3px; border-radius: 3px; background: linear-gradient(90deg,#6366f1,#d97706); margin: 0 auto 12px; }
+  .footer-divider { width: 40px; height: 3px; border-radius: 3px; background: linear-gradient(90deg,#f97316,#d97706); margin: 0 auto 12px; }
   .footer p { font-size: 9.5px; color: #a5adc7; margin: 2px 0; line-height: 1.7; }
-  .footer .thanks { font-size: 11.5px; color: #4338ca; font-weight: 700; margin-bottom: 5px; }
+  .footer .thanks { font-size: 11.5px; color: #c2410c; font-weight: 700; margin-bottom: 5px; }
 
   .watermark {
     position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
     pointer-events: none; z-index: 0; overflow: hidden;
   }
   .watermark span {
-    font-family: 'Sora', sans-serif; font-weight: 800; font-size: 92px; color: rgba(99,102,241,0.032);
+    font-family: 'Sora', sans-serif; font-weight: 800; font-size: 92px; color: rgba(249,115,22,0.032);
     transform: rotate(-22deg); white-space: nowrap; letter-spacing: 0.05em;
   }
 
@@ -418,15 +418,15 @@ function ReceiptModal({ payment, onClose }) {
 
         <div id="pr-receipt-printable" style={{ padding: '28px 26px', background: '#fff', color: '#0f172a' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 22 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg,#6366f1,#4338ca)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg,#f97316,#c2410c)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <GraduationCap size={17} color="#fff" />
             </div>
-            <span style={{ fontFamily: "'Sora',sans-serif", fontWeight: 800, fontSize: 16, color: '#1e1b4b' }}>EDUPLA</span>
+            <span style={{ fontFamily: "'Sora',sans-serif", fontWeight: 800, fontSize: 16, color: '#431407' }}>EDUPLA</span>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
             <div>
-              <p style={{ fontSize: 17, fontWeight: 800, margin: 0, color: '#1e1b4b' }}>Payment Receipt</p>
+              <p style={{ fontSize: 17, fontWeight: 800, margin: 0, color: '#431407' }}>Payment Receipt</p>
               <p style={{ fontSize: 11, color: '#64748b', margin: '3px 0 0' }}>#{String(payment._id).slice(-10).toUpperCase()}</p>
             </div>
             <div className="pr-stamp" style={{
@@ -451,13 +451,13 @@ function ReceiptModal({ payment, onClose }) {
             ].map(([label, value]) => (
               <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, gap: 12 }}>
                 <span style={{ color: '#64748b', fontWeight: 600, flexShrink: 0 }}>{label}</span>
-                <span style={{ color: '#1e1b4b', fontWeight: 700, textAlign: 'right' }}>{value}</span>
+                <span style={{ color: '#431407', fontWeight: 700, textAlign: 'right' }}>{value}</span>
               </div>
             ))}
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 22 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: '#1e1b4b' }}>Total paid</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: '#431407' }}>Total paid</span>
             <span style={{ fontFamily: "'Sora',sans-serif", fontSize: 22, fontWeight: 800, color: '#d97706' }}>
               {formatMoney(payment.amount, payment.currency)}
             </span>
@@ -642,7 +642,7 @@ function PlanManagerModal({ onClose }) {
       <div className="pr-modal" style={{ width: '100%', maxWidth: 560, maxHeight: '85vh', overflowY: 'auto', background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 22, padding: 26 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 38, height: 38, borderRadius: 11, background: 'linear-gradient(135deg,#6366f1,#4338ca)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 16px rgba(99,102,241,0.35)' }}>
+            <div style={{ width: 38, height: 38, borderRadius: 11, background: 'linear-gradient(135deg,#f97316,#c2410c)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 16px rgba(249,115,22,0.35)' }}>
               <Settings2 size={18} color="#fff" />
             </div>
             <div>
@@ -698,7 +698,7 @@ function PlanManagerModal({ onClose }) {
 
                 <div style={{
                   width: 36, height: 36, borderRadius: 10, flexShrink: 0,
-                  background: 'linear-gradient(135deg, rgba(99,102,241,0.16), rgba(67,56,202,0.1))',
+                  background: 'linear-gradient(135deg, rgba(249,115,22,0.16), rgba(194,65,12,0.1))',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
                   <Tag size={15} color={TOKENS.indigo} />
@@ -739,7 +739,7 @@ function PlanManagerModal({ onClose }) {
             ))}
 
             {editing ? (
-              <div className="pr-modal" style={{ padding: 16, borderRadius: 16, border: `1.5px solid ${TOKENS.indigo}`, background: 'rgba(99,102,241,0.05)', marginTop: 6 }}>
+              <div className="pr-modal" style={{ padding: 16, borderRadius: 16, border: `1.5px solid ${TOKENS.indigo}`, background: 'rgba(249,115,22,0.05)', marginTop: 6 }}>
                 <p style={{ fontSize: 11.5, fontWeight: 700, color: TOKENS.indigo, textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 10px' }}>
                   {editing === 'new' ? 'New plan' : 'Edit plan'}
                 </p>
@@ -788,7 +788,7 @@ function PlanManagerModal({ onClose }) {
               <button onClick={startNew} className="pr-btn" style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                 padding: '12px', borderRadius: 14, border: `1.5px dashed ${TOKENS.indigo}`,
-                background: 'rgba(99,102,241,0.04)', color: TOKENS.indigo, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', marginTop: 4,
+                background: 'rgba(249,115,22,0.04)', color: TOKENS.indigo, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', marginTop: 4,
               }}>
                 <Plus size={14} /> Add plan
               </button>
@@ -1097,9 +1097,9 @@ export default function PaymentRequests() {
           return (
             <button key={key} onClick={() => { setFilter(key); setSelected(new Set()); }} className="pr-btn" style={{
               padding: '7px 13px', borderRadius: 999, fontSize: 12, fontWeight: 700, cursor: 'pointer',
-              border: `1px solid ${active ? (meta?.color || '#6366f1') : 'var(--card-border)'}`,
-              background: active ? (meta?.bg || 'rgba(99,102,241,0.1)') : 'var(--surface-100)',
-              color: active ? (meta?.color || '#6366f1') : 'var(--text-secondary)',
+              border: `1px solid ${active ? (meta?.color || '#f97316') : 'var(--card-border)'}`,
+              background: active ? (meta?.bg || 'rgba(249,115,22,0.1)') : 'var(--surface-100)',
+              color: active ? (meta?.color || '#f97316') : 'var(--text-secondary)',
             }}>
               {key === 'ALL' ? 'All' : meta.label} ({count})
             </button>

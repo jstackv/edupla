@@ -267,7 +267,7 @@ export default function PdfViewer({ url, title, dark, accent, tp, tm, border, ca
   const resetZoom = () => setScale(1.15);
 
   const toolbarBg = dark ? 'rgba(13,17,23,0.82)' : 'rgba(255,255,255,0.82)';
-  const railBg = dark ? '#0b0f1a' : '#f8fafc';
+  const railBg = dark ? '#0a0a0a' : '#f8fafc';
   const pageBg = dark ? '#05070d' : '#e7ebf2';
   const chipBg = dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)';
   const dotColor = dark ? 'rgba(255,255,255,0.045)' : 'rgba(15,23,42,0.05)';

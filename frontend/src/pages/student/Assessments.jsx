@@ -27,7 +27,7 @@ function daysUntil(d) {
    score reads the same shade of green everywhere in the app. */
 function scoreColor(pct) {
   if (pct >= 80) return '#10b981';
-  if (pct >= 60) return '#6366f1';
+  if (pct >= 60) return '#f97316';
   if (pct >= 40) return '#f59e0b';
   return '#ef4444';
 }
@@ -36,8 +36,8 @@ function statusInfo(a) {
   if (a.expired && a.best_score == null) return { key: 'expired', label: 'Expired', color: '#9ca3af', bg: 'rgba(156,163,175,0.15)' };
   if (a.in_progress_attempt_id) return { key: 'progress', label: 'In progress', color: '#f59e0b', bg: 'rgba(245,158,11,0.14)' };
   if (a.best_score != null) return { key: 'graded', label: 'Graded', color: '#10b981', bg: 'rgba(16,185,129,0.14)' };
-  if (a.has_pending_grading) return { key: 'pending', label: 'Awaiting grading', color: '#6366f1', bg: 'rgba(99,102,241,0.14)' };
-  if (a.not_yet_available) return { key: 'scheduled', label: 'Starts soon', color: '#8b5cf6', bg: 'rgba(139,92,246,0.14)' };
+  if (a.has_pending_grading) return { key: 'pending', label: 'Awaiting grading', color: '#f97316', bg: 'rgba(249,115,22,0.14)' };
+  if (a.not_yet_available) return { key: 'scheduled', label: 'Starts soon', color: '#f97316', bg: 'rgba(249,115,22,0.14)' };
   if (!a.can_start) return { key: 'locked', label: 'No attempts left', color: '#9ca3af', bg: 'rgba(156,163,175,0.15)' };
   return { key: 'new', label: 'Not started', color: '#3b82f6', bg: 'rgba(59,130,246,0.14)' };
 }
@@ -54,7 +54,7 @@ function bucketOf(a) {
 
 /* Deterministic accent color per module name, so the same module always
    reads the same hue across the page (card rail, chips, group heading). */
-const MODULE_PALETTE = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#0ea5e9', '#f43f5e', '#14b8a6'];
+const MODULE_PALETTE = ['#f97316', '#f97316', '#ec4899', '#f59e0b', '#10b981', '#0ea5e9', '#f43f5e', '#14b8a6'];
 function moduleColor(name) {
   const s = name || 'Other';
   let hash = 0;
@@ -168,7 +168,7 @@ function ExpiryChip({ expiresAt, expired }) {
 function StartsChip({ availableFrom }) {
   if (!availableFrom) return null;
   return (
-    <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold flex-shrink-0" style={{ background: 'rgba(139,92,246,0.14)', color: '#8b5cf6' }}>
+    <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold flex-shrink-0" style={{ background: 'rgba(249,115,22,0.14)', color: '#f97316' }}>
       <CalendarClock className="w-3 h-3" /> Starts {fmtDate(availableFrom)}
     </span>
   );
@@ -343,7 +343,7 @@ function ModalStatusPill({ data }) {
   let label, color, bg, pulsing = false;
   if (data.expired) { label = 'Expired'; color = '#9ca3af'; bg = 'rgba(156,163,175,0.15)'; }
   else if (data.in_progress_attempt_id) { label = 'In progress'; color = '#f59e0b'; bg = 'rgba(245,158,11,0.14)'; pulsing = true; }
-  else if (data.not_yet_available) { label = 'Starts soon'; color = '#8b5cf6'; bg = 'rgba(139,92,246,0.14)'; }
+  else if (data.not_yet_available) { label = 'Starts soon'; color = '#f97316'; bg = 'rgba(249,115,22,0.14)'; }
   else if (data.attempts_left <= 0) { label = 'No attempts left'; color = '#9ca3af'; bg = 'rgba(156,163,175,0.15)'; }
   else { label = 'Ready to start'; color = '#3b82f6'; bg = 'rgba(59,130,246,0.14)'; pulsing = true; }
   return (
@@ -389,7 +389,7 @@ function CountdownShowcase({ target, locked, windowStart, windowEnd }) {
 
   const urgent = !locked && diff <= 30 * 60 * 1000;
   const soon = !locked && !urgent && diff <= 2 * 60 * 60 * 1000;
-  const color = locked ? '#8b5cf6' : urgent ? '#ef4444' : soon ? '#f59e0b' : '#6366f1';
+  const color = locked ? '#f97316' : urgent ? '#ef4444' : soon ? '#f59e0b' : '#f97316';
 
   let windowPct = null;
   if (windowStart && windowEnd) {
@@ -480,18 +480,18 @@ function InstructionsModal({ assessment, onClose, onStart, starting }) {
           {countdownTarget && <CountdownShowcase target={countdownTarget} locked={data.not_yet_available} windowStart={windowStart} windowEnd={data.expires_at} />}
 
           <div className="grid grid-cols-2 gap-3 text-sm">
-            <StatTile icon={Clock} color="#6366f1" value={`${data.duration_minutes} min`} label="Time limit" i={0} />
+            <StatTile icon={Clock} color="#f97316" value={`${data.duration_minutes} min`} label="Time limit" i={0} />
             <StatTile icon={RotateCcw} color="#f59e0b" value={`${data.attempts_left} of ${data.max_attempts}`} label="Attempts left" i={1} />
             <StatTile icon={ListChecks} color="#10b981" value={`${data.question_count} questions`} label={`Total ${data.total_marks} pts`} i={2} />
             <StatTile icon={CalendarClock} color="#ef4444" value={fmtDate(data.expires_at)} label="Available until" small i={3} />
             {data.available_from && (
-              <StatTile icon={CalendarClock} color="#8b5cf6" value={fmtDate(data.available_from)} label="Opens for starting" small i={4} />
+              <StatTile icon={CalendarClock} color="#f97316" value={fmtDate(data.available_from)} label="Opens for starting" small i={4} />
             )}
           </div>
 
           {data.not_yet_available && (
             <div className="sa-note sa-note-violet p-3.5 rounded-xl text-sm flex items-start gap-2.5">
-              <CalendarClock className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#8b5cf6' }} />
+              <CalendarClock className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#f97316' }} />
               <p style={{ color: 'var(--text-secondary)' }}>
                 This assessment isn't open yet. You'll be able to start it on <strong style={{ color: 'var(--text-primary)' }}>{fmtDate(data.available_from)}</strong> — once your {data.duration_minutes} minute window opens, it starts from that moment.
               </p>
@@ -540,8 +540,8 @@ function CompletionRing({ pct, size = 84 }) {
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="flex-shrink-0">
       <defs>
         <linearGradient id="sa-ring-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#6366f1" />
-          <stop offset="100%" stopColor="#8b5cf6" />
+          <stop offset="0%" stopColor="#f97316" />
+          <stop offset="100%" stopColor="#f97316" />
         </linearGradient>
       </defs>
       <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--card-border)" strokeWidth={stroke} />
@@ -583,7 +583,7 @@ function CommandCenter({ assessments, loaded }) {
   if (total === 0) return null;
 
   const items = [
-    { label: 'Assigned', value: cTotal, color: '#6366f1', icon: ClipboardCheck },
+    { label: 'Assigned', value: cTotal, color: '#f97316', icon: ClipboardCheck },
     { label: 'Graded', value: cGraded, color: '#10b981', icon: Award },
     { label: 'In progress', value: cProgress, color: '#f59e0b', icon: Hourglass },
     { label: 'To start', value: cToStart, color: '#3b82f6', icon: Sparkles },
@@ -833,7 +833,7 @@ export default function StudentAssessments() {
       <div className="flex items-center gap-3 mb-6 relative">
         <div
           className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 relative overflow-hidden"
-          style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}
+          style={{ background: 'linear-gradient(135deg, #f97316, #f97316)' }}
         >
           <div className="absolute inset-0 opacity-40" style={{ background: 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.6), transparent 60%)' }} />
           <ClipboardCheck className="w-5 h-5 text-white assessment-icon-float relative" />
@@ -850,12 +850,12 @@ export default function StudentAssessments() {
         </div>
       ) : assessments.length === 0 ? (
         <div className="card p-12 text-center relative overflow-hidden">
-          <div className="pointer-events-none absolute inset-0" style={{ background: 'radial-gradient(circle at 50% 0%, rgba(99,102,241,0.08), transparent 60%)' }} />
+          <div className="pointer-events-none absolute inset-0" style={{ background: 'radial-gradient(circle at 50% 0%, rgba(249,115,22,0.08), transparent 60%)' }} />
           <div className="sa-empty-orbit" aria-hidden="true">
             <span /><span /><span />
           </div>
-          <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 relative" style={{ background: 'rgba(99,102,241,0.1)' }}>
-            <Inbox className="w-8 h-8 assessment-icon-float" style={{ color: '#6366f1' }} />
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 relative" style={{ background: 'rgba(249,115,22,0.1)' }}>
+            <Inbox className="w-8 h-8 assessment-icon-float" style={{ color: '#f97316' }} />
           </div>
           <p className="font-semibold mb-1 relative" style={{ color: 'var(--text-primary)' }}>Nothing here yet</p>
           <p className="text-sm relative" style={{ color: 'var(--text-secondary)' }}>No assessments have been shared with your class yet — check back once your teacher publishes one.</p>

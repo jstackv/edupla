@@ -26,6 +26,7 @@
     "examsQuizzes": "Assessments",
     "broadcasts": "Broadcasts",
     "discussion": "Discussion",
+    "disciplineMarks": "Discipline Marks",
 
     "myDashboard": "Dashboard",
     "learningModules": "Modules",
@@ -36,6 +37,7 @@
     "faculty": "Teachers",
     "studentBody": "Students",
     "curriculum": "Curriculum",
+    "onlinePerformance": "Online Performance",
     "institutionSettings": "TVET Settings",
     "subscriptionPlan": "Subscription Plan",
 
