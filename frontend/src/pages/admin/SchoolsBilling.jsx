@@ -8,8 +8,8 @@ import {
 } from 'lucide-react';
 
 const TOKENS = {
-  purple: '#f97316',
-  purpleDeep: '#c2410c',
+  purple: '#ea580c',
+  purpleDeep: '#9a3412',
   emerald: '#10b981',
   amber: '#f59e0b',
   rose: '#f43f5e',
@@ -37,16 +37,16 @@ const GLOBAL_STYLES = `
     transition: transform 0.25s cubic-bezier(0.16,1,0.3,1);
   }
   .sb-row:hover::before { transform: scaleY(1); }
-  .sb-row:hover { background: rgba(249,115,22,0.03); }
+  .sb-row:hover { background: rgba(234, 88, 12,0.03); }
 
   .sb-modal { animation: sb-scale 0.22s cubic-bezier(0.16,1,0.3,1) both; }
 
   .sb-btn { transition: transform .15s cubic-bezier(0.16,1,0.3,1), filter .15s, box-shadow .2s, background .15s, border-color .15s; }
   .sb-btn:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.06); }
   .sb-btn:active:not(:disabled) { transform: translateY(0) scale(0.98); }
-  .sb-btn:focus-visible { outline: 2px solid #f97316; outline-offset: 2px; }
+  .sb-btn:focus-visible { outline: 2px solid #ea580c; outline-offset: 2px; }
 
-  .sb-search input:focus { outline: 2px solid #f97316; outline-offset: 1px; }
+  .sb-search input:focus { outline: 2px solid #ea580c; outline-offset: 1px; }
 
   .sb-ring-urgent { animation: sb-urgent-pulse 2s ease-in-out infinite; }
 
@@ -376,7 +376,7 @@ function FreeTrialModal({ school, onClose, onDone }) {
           display: 'flex', alignItems: 'center', gap: 10, padding: '11px 13px', marginBottom: 16,
           borderRadius: 12, border: '1.5px solid var(--card-border)', background: 'var(--surface-100)',
         }}>
-          <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(249,115,22,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(234, 88, 12,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <Building2 size={16} color={TOKENS.purple} />
           </div>
           <div style={{ minWidth: 0, flex: 1 }}>
@@ -466,7 +466,7 @@ function ResetDaysModal({ school, onClose, onDone }) {
     <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)', padding: 16 }}>
       <div className="sb-modal" style={{ width: '100%', maxWidth: 400, background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 20, padding: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-          <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(249,115,22,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(234, 88, 12,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <RotateCw size={16} color={TOKENS.purple} />
           </div>
           <h3 style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Reset days</h3>
@@ -479,7 +479,7 @@ function ResetDaysModal({ school, onClose, onDone }) {
           display: 'flex', alignItems: 'center', gap: 10, padding: '11px 13px', marginBottom: 16,
           borderRadius: 12, border: '1.5px solid var(--card-border)', background: 'var(--surface-100)',
         }}>
-          <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(249,115,22,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(234, 88, 12,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <Building2 size={16} color={TOKENS.purple} />
           </div>
           <div style={{ minWidth: 0, flex: 1 }}>
@@ -514,7 +514,7 @@ function ResetDaysModal({ school, onClose, onDone }) {
               style={{
                 flex: 1, textAlign: 'left', padding: '10px 12px', borderRadius: 12, cursor: 'pointer',
                 border: `1.5px solid ${type === opt.value ? TOKENS.purple : 'var(--card-border)'}`,
-                background: type === opt.value ? 'rgba(249,115,22,0.06)' : 'var(--surface-100)',
+                background: type === opt.value ? 'rgba(234, 88, 12,0.06)' : 'var(--surface-100)',
               }}
             >
               <p style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>{opt.label}</p>
@@ -628,7 +628,7 @@ export default function SchoolsBilling() {
             width: 44, height: 44, borderRadius: 13,
             background: `linear-gradient(135deg, ${TOKENS.purple}, ${TOKENS.purpleDeep})`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 8px 20px rgba(249,115,22,0.35)',
+            boxShadow: '0 8px 20px rgba(234, 88, 12,0.35)',
           }}>
             <Building2 size={21} color="#fff" />
           </div>

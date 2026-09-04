@@ -290,7 +290,7 @@ export default function Students() {
             return (
               <div key={s.id}
                 className="card hover:shadow-soft transition-all hover:-translate-y-0.5 relative"
-                style={isSelected ? { borderColor: 'var(--primary-500, #f97316)' } : undefined}>
+                style={isSelected ? { borderColor: 'var(--primary-500, #ea580c)' } : undefined}>
                 <button
                   onClick={() => toggleOne(s.id)}
                   aria-label={isSelected ? 'Deselect student' : 'Select student'}

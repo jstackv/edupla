@@ -11,7 +11,7 @@ const STATUS_FILTERS = [
   { key: 'submitted', label: 'Pending Review', color: '#f59e0b' },
   { key: 'approved',  label: 'Approved',       color: '#10b981' },
   { key: 'rejected',  label: 'Rejected',       color: '#ef4444' },
-  { key: '',          label: 'All',            color: '#f97316' },
+  { key: '',          label: 'All',            color: '#ea580c' },
 ];
 
 function initials(name = '') {
@@ -113,7 +113,7 @@ export default function AdminDisciplinePanel() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-        <div className="aop-hero-icon" style={{ width: 42, height: 42, background: 'linear-gradient(135deg,#f97316,#c2410c)', border: 'none', boxShadow: '0 6px 16px color-mix(in srgb, #f97316 40%, transparent)' }}>
+        <div className="aop-hero-icon" style={{ width: 42, height: 42, background: 'linear-gradient(135deg,#ea580c,#9a3412)', border: 'none', boxShadow: '0 6px 16px color-mix(in srgb, #ea580c 40%, transparent)' }}>
           <ShieldCheck size={20} color="#fff" />
         </div>
         <div>
@@ -154,7 +154,7 @@ export default function AdminDisciplinePanel() {
           {records.map((r, i) => (
             <button key={r.id} onClick={() => openDetail(r.id)} className="aop-assess-row" style={{ '--i': i }}>
               <div style={{ minWidth: 180, display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ width: 34, height: 34, borderRadius: 10, background: 'linear-gradient(135deg,#f97316,#c2410c)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <div style={{ width: 34, height: 34, borderRadius: 10, background: 'linear-gradient(135deg,#ea580c,#9a3412)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <School size={16} color="#fff" />
                 </div>
                 <div>
@@ -194,8 +194,8 @@ export default function AdminDisciplinePanel() {
           onClick={() => setDetail(null)}
         >
           <div style={{ borderRadius: 20, border: '1px solid var(--card-border)', background: 'var(--card-bg)', width: '100%', maxWidth: 680, maxHeight: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 24px 60px rgba(0,0,0,0.3)' }} onClick={e => e.stopPropagation()}>
-            <div style={{ padding: '18px 22px', borderBottom: '1px solid var(--card-border)', display: 'flex', alignItems: 'center', gap: 12, background: 'color-mix(in srgb, #f97316 5%, var(--card-bg))' }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg,#f97316,#c2410c)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <div style={{ padding: '18px 22px', borderBottom: '1px solid var(--card-border)', display: 'flex', alignItems: 'center', gap: 12, background: 'color-mix(in srgb, #ea580c 5%, var(--card-bg))' }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg,#ea580c,#9a3412)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <ShieldCheck size={17} color="#fff" />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -227,7 +227,7 @@ export default function AdminDisciplinePanel() {
                       const marked = rows.filter(s => s.marks != null);
                       const avg = marked.length ? Math.round(marked.reduce((s, x) => s + x.marks, 0) / marked.length / detail.record.max_marks * 100) : null;
                       const stats = [
-                        { label: 'Students', value: rows.length, icon: Users, color: '#f97316' },
+                        { label: 'Students', value: rows.length, icon: Users, color: '#ea580c' },
                         { label: 'Marked', value: marked.length, icon: ClipboardCheck, color: '#0ea5e9' },
                         { label: 'Avg score', value: avg != null ? `${avg}%` : '—', icon: TrendingUp, color: pctColor(avg) },
                       ];

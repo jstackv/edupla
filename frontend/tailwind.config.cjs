@@ -8,17 +8,21 @@ module.exports = {
         display: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
       },
       colors: {
+        // Brand — dark orange. Replaces the old indigo scale so any
+        // remaining `primary-*` utility classes (spinners, badges, buttons
+        // on pages that hadn't been hand-converted yet) resolve to the
+        // same dark-orange brand as the rest of the app instead of indigo.
         primary: {
-          50:  '#eef2ff',
-          100: '#e0e7ff',
-          200: '#c7d2fe',
-          300: '#a5b4fc',
-          400: '#818cf8',
-          500: '#6366f1',
-          600: '#4f46e5',
-          700: '#4338ca',
-          800: '#3730a3',
-          900: '#312e81',
+          50:  '#ffedd5',
+          100: '#fed7aa',
+          200: '#fdba74',
+          300: '#fb923c',
+          400: '#f97316',
+          500: '#ea580c',
+          600: '#c2410c',
+          700: '#9a3412',
+          800: '#7c2d12',
+          900: '#431407',
         },
       },
       borderRadius: {

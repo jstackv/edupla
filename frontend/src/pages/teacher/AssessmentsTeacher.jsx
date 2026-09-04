@@ -45,25 +45,25 @@ const TERMS = ['Term 1', 'Term 2', 'Term 3'];
 const ASSESSMENT_TYPES = [
   { key: 'FA', label: 'Formative Assessment',     color: '#2563eb', desc: 'Ongoing evaluation during the learning process' },
   { key: 'IA', label: 'Integrated Assessment',    color: '#0d9488', desc: 'Holistic evaluation across multiple competencies' },
-  { key: 'CA', label: 'Comprehensive Assessment', color: '#ea580c', desc: 'End-of-term summative evaluation' },
+  { key: 'CA', label: 'Comprehensive Assessment', color: '#c2410c', desc: 'End-of-term summative evaluation' },
 ];
 
 /* ─────────── Design tokens ("gradebook" system) ───────────
-   Deep navy stays the anchor (it's the school brand), a warm gold
+   Dark orange stays the anchor (it's the school brand), a warm gold
    "mastery" accent stands in for anything achievement/completion related
    (rings, celebration states), teal + violet stay as the two bulk-action
    accents already established by the download/upload buttons.          */
 const T = {
-  navyDeep:  '#0c1f3d',
-  navy:      '#1a3a6b',
-  blue:      '#1565c0',
-  blueBright:'#2563eb',
+  navyDeep:  '#431407',
+  navy:      '#9a3412',
+  blue:      '#c2410c',
+  blueBright:'#ea580c',
   teal:      '#0d9488',
   tealBright:'#14b8a6',
-  violet:    '#ea580c',
-  violetBright:'#f97316',
-  gold:      '#c9910a',
-  goldBright:'#f0b429',
+  violet:    '#7e22ce',
+  violetBright:'#a855f7',
+  gold:      '#a16207',
+  goldBright:'#eab308',
   green:     '#10b981',
   amber:     '#f59e0b',
   red:       '#ef4444',
@@ -76,7 +76,7 @@ const TILE_PALETTE = [
   { grad: [T.navy, T.blueBright],     solid: T.blueBright,   soft: `${T.blueBright}16` },
   { grad: [T.teal, T.tealBright],     solid: T.tealBright,   soft: `${T.tealBright}16` },
   { grad: [T.violet, T.violetBright], solid: T.violetBright, soft: `${T.violetBright}16` },
-  { grad: ['#a8720a', T.goldBright],  solid: T.goldBright,   soft: `${T.goldBright}1c` },
+  { grad: ['#854d0e', T.goldBright],  solid: T.goldBright,   soft: `${T.goldBright}1c` },
 ];
 
 const FONT_IMPORT = `@import url('https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap');`;
@@ -121,7 +121,7 @@ const GLOBAL_KEYFRAMES = `
 
   .ta-skel { background-image: linear-gradient(90deg, rgba(148,163,184,0.10) 0px, rgba(148,163,184,0.22) 40px, rgba(148,163,184,0.10) 80px); background-size: 600px 100%; animation: shimmer 1.5s infinite linear; }
 
-  .ta-root *:focus-visible { outline: 2.5px solid #2563eb; outline-offset: 2px; border-radius: 6px; }
+  .ta-root *:focus-visible { outline: 2.5px solid #ea580c; outline-offset: 2px; border-radius: 6px; }
 
   .ta-mastery-badge { animation: pulseGlow 2.2s ease-in-out infinite; }
   .ta-sparkle { animation: sparklePulse 1.6s ease-in-out infinite; }

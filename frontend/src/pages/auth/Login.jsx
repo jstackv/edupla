@@ -12,14 +12,14 @@ import BrandMark from '../../components/common/BrandMark';
 ───────────────────────────────────────────── */
 
 const FEATURES_KEYS = [
-  { labelKey: 'auth.features.smartClassrooms', icon: '📚', color: '#f97316' },
+  { labelKey: 'auth.features.smartClassrooms', icon: '📚', color: '#ea580c' },
   { labelKey: 'auth.features.liveAnalytics',   icon: '📊', color: '#0ea5e9' },
   { labelKey: 'auth.features.instantFeedback', icon: '⚡', color: '#f59e0b' },
   { labelKey: 'auth.features.teamSpaces',      icon: '🤝', color: '#10b981' },
 ];
 
 const TRUST_BADGES = [
-  { icon: '🔒', color: '#f97316' },
+  { icon: '🔒', color: '#ea580c' },
   { icon: '⏱',  color: '#0ea5e9' },
   { icon: '🏅', color: '#10b981' },
 ];
@@ -28,7 +28,7 @@ const TRUST_BADGES = [
    Shown on the left panel so users know exactly what they're getting
    before they type a single character. */
 const ACCESS_INFO = [
-  { icon: '🔐', textKey: 'auth.accessInfo.encrypted',  default: 'Encrypted sessions',      color: '#f97316' },
+  { icon: '🔐', textKey: 'auth.accessInfo.encrypted',  default: 'Encrypted sessions',      color: '#ea580c' },
   { icon: '🧭', textKey: 'auth.accessInfo.roleBased',   default: 'Role-based access',       color: '#0ea5e9' },
   { icon: '⏱',  textKey: 'auth.accessInfo.autoLogout',  default: 'Auto-logout protection',  color: '#10b981' },
 ];
@@ -126,8 +126,8 @@ function Ticker({ dark }) {
     <div style={{
       display: 'flex', alignItems: 'center', gap: 9,
       padding: '8px 15px', borderRadius: 100,
-      background: dark ? 'rgba(255,255,255,0.05)' : 'rgba(249,115,22,0.05)',
-      border: `1px solid ${dark ? 'rgba(255,255,255,0.08)' : 'rgba(249,115,22,0.12)'}`,
+      background: dark ? 'rgba(255,255,255,0.05)' : 'rgba(234, 88, 12,0.05)',
+      border: `1px solid ${dark ? 'rgba(255,255,255,0.08)' : 'rgba(234, 88, 12,0.12)'}`,
       backdropFilter: 'blur(10px)',
       overflow: 'hidden',
     }}>
@@ -217,20 +217,20 @@ export default function Login() {
   const C = {
     bg:          dark ? '#080c18'                : '#f8faff',
     panel:       dark ? 'rgba(8,12,24,0.88)'      : 'rgba(255,255,255,0.9)',
-    panelBorder: dark ? 'rgba(255,255,255,0.07)'  : 'rgba(249,115,22,0.12)',
+    panelBorder: dark ? 'rgba(255,255,255,0.07)'  : 'rgba(234, 88, 12,0.12)',
     card:        dark ? 'rgba(10,13,26,0.94)'     : '#ffffff',
-    cardBorder:  dark ? 'rgba(255,255,255,0.08)'  : 'rgba(249,115,22,0.14)',
-    cardShadow:  dark ? '0 40px 100px rgba(0,0,0,0.65)' : '0 32px 80px rgba(249,115,22,0.16)',
+    cardBorder:  dark ? 'rgba(255,255,255,0.08)'  : 'rgba(234, 88, 12,0.14)',
+    cardShadow:  dark ? '0 40px 100px rgba(0,0,0,0.65)' : '0 32px 80px rgba(234, 88, 12,0.16)',
     chip:        dark ? 'rgba(255,255,255,0.04)'  : 'rgba(255,255,255,0.92)',
     input:       dark ? 'rgba(255,255,255,0.05)'  : '#f8faff',
     inputBorder: dark ? 'rgba(255,255,255,0.1)'   : '#e1e7f7',
-    inputFocus:  '#f97316',
+    inputFocus:  '#ea580c',
     text:        dark ? '#f1f5f9'                 : '#0f172a',
     text2:       dark ? '#8592b4'                 : '#475569',
     text3:       dark ? '#475173'                 : '#94a3b8',
     divider:     dark ? 'rgba(255,255,255,0.07)'  : '#e2e8f4',
-    accent:      '#f97316',
-    accentDark:  '#ea580c',
+    accent:      '#ea580c',
+    accentDark:  '#c2410c',
   };
 
   // ── handlers ──
@@ -386,7 +386,7 @@ export default function Login() {
 
         .ep-accent-line {
           height: 2.5px;
-          background: linear-gradient(90deg,#ea580c,#ea580c,#0ea5e9,#ea580c,#ea580c);
+          background: linear-gradient(90deg,#c2410c,#c2410c,#0ea5e9,#c2410c,#c2410c);
           background-size: 200% 100%;
           animation: ep-linepan 6s linear infinite;
         }
@@ -395,21 +395,21 @@ export default function Login() {
 
         .ep-logo-badge {
           width: 42px; height: 42px; border-radius: 13px; flex-shrink: 0;
-          background: linear-gradient(135deg,#ea580c,#ea580c);
+          background: linear-gradient(135deg,#c2410c,#c2410c);
           display: flex; align-items: center; justify-content: center;
-          box-shadow: 0 0 0 1px rgba(249,115,22,0.35), 0 8px 22px rgba(249,115,22,0.4);
+          box-shadow: 0 0 0 1px rgba(234, 88, 12,0.35), 0 8px 22px rgba(234, 88, 12,0.4);
           transition: transform 0.35s cubic-bezier(0.22,1,0.36,1), box-shadow 0.35s;
         }
-        .ep-logo-badge:hover { transform: rotate(-6deg) scale(1.06); box-shadow: 0 0 0 1px rgba(249,115,22,0.5), 0 12px 30px rgba(249,115,22,0.55); }
+        .ep-logo-badge:hover { transform: rotate(-6deg) scale(1.06); box-shadow: 0 0 0 1px rgba(234, 88, 12,0.5), 0 12px 30px rgba(234, 88, 12,0.55); }
 
         .ep-submit {
           width: 100%; padding: 14px;
           border-radius: 15px; border: none;
-          background: linear-gradient(135deg, #ea580c 0%, #f97316 45%, #ea580c 100%);
+          background: linear-gradient(135deg, #c2410c 0%, #ea580c 45%, #c2410c 100%);
           color: #fff; font-size: 14.5px; font-weight: 700;
           font-family: 'Outfit', sans-serif; letter-spacing: -0.01em; cursor: pointer;
           display: flex; align-items: center; justify-content: center; gap: 8px;
-          box-shadow: 0 10px 28px rgba(249,115,22,0.42);
+          box-shadow: 0 10px 28px rgba(234, 88, 12,0.42);
           transition: opacity 0.18s, transform 0.2s cubic-bezier(0.22,1,0.36,1), box-shadow 0.25s;
           position: relative; overflow: hidden;
         }
@@ -419,7 +419,7 @@ export default function Login() {
           background: linear-gradient(160deg, rgba(255,255,255,0.16) 0%, transparent 55%);
           pointer-events: none;
         }
-        .ep-submit:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 16px 40px rgba(249,115,22,0.55); }
+        .ep-submit:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 16px 40px rgba(234, 88, 12,0.55); }
         .ep-submit:active:not(:disabled) { transform: translateY(0); }
         .ep-submit:disabled { opacity: 0.55; cursor: not-allowed; }
         .ep-submit:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
@@ -432,7 +432,7 @@ export default function Login() {
           transition: background 0.2s, transform 0.2s;
         }
         .ep-back:hover { transform: translateX(-3px); }
-        .ep-back:focus-visible { outline: 2px solid #f97316; outline-offset: 2px; }
+        .ep-back:focus-visible { outline: 2px solid #ea580c; outline-offset: 2px; }
 
         .ep-checkbox {
           width: 19px; height: 19px; border-radius: 6.5px;
@@ -526,7 +526,7 @@ export default function Login() {
 
         {/* fixed ambient blobs, same family as the landing page */}
         <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0 }}>
-          <div className="ep-mesh-a" style={{ position: 'absolute', top: '-14%', left: '4%', width: 520, height: 520, borderRadius: '50%', background: 'radial-gradient(circle,rgba(249,115,22,0.16),transparent 70%)', filter: 'blur(95px)' }} />
+          <div className="ep-mesh-a" style={{ position: 'absolute', top: '-14%', left: '4%', width: 520, height: 520, borderRadius: '50%', background: 'radial-gradient(circle,rgba(234, 88, 12,0.16),transparent 70%)', filter: 'blur(95px)' }} />
           <div className="ep-mesh-b" style={{ position: 'absolute', bottom: '-16%', right: '2%', width: 460, height: 460, borderRadius: '50%', background: 'radial-gradient(circle,rgba(14,165,233,0.13),transparent 70%)', filter: 'blur(85px)' }} />
         </div>
 
@@ -536,8 +536,8 @@ export default function Login() {
           style={{ background: C.panel, borderColor: C.panelBorder, zIndex: 2 }}
         >
           {/* dot-grid texture, masked toward the middle */}
-          <div className="ep-grid-pattern" style={{ position: 'absolute', inset: 0, backgroundImage: `radial-gradient(circle,${dark ? 'rgba(255,255,255,0.05)' : 'rgba(234,88,12,0.07)'} 1px, transparent 1px)`, backgroundSize: '22px 22px', opacity: 0.5, pointerEvents: 'none', maskImage: 'radial-gradient(ellipse 65% 55% at 50% 30%, black, transparent)', WebkitMaskImage: 'radial-gradient(ellipse 65% 55% at 50% 30%, black, transparent)' }} />
-          <div style={{ position: 'absolute', width: 280, height: 280, top: -60, right: -60, borderRadius: '50%', background: 'radial-gradient(circle, rgba(249,115,22,0.12), transparent 70%)', pointerEvents: 'none' }} />
+          <div className="ep-grid-pattern" style={{ position: 'absolute', inset: 0, backgroundImage: `radial-gradient(circle,${dark ? 'rgba(255,255,255,0.05)' : 'rgba(194, 65, 12,0.07)'} 1px, transparent 1px)`, backgroundSize: '22px 22px', opacity: 0.5, pointerEvents: 'none', maskImage: 'radial-gradient(ellipse 65% 55% at 50% 30%, black, transparent)', WebkitMaskImage: 'radial-gradient(ellipse 65% 55% at 50% 30%, black, transparent)' }} />
+          <div style={{ position: 'absolute', width: 280, height: 280, top: -60, right: -60, borderRadius: '50%', background: 'radial-gradient(circle, rgba(234, 88, 12,0.12), transparent 70%)', pointerEvents: 'none' }} />
 
           {/* Brand */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, position: 'relative', zIndex: 1, marginBottom: 8 }}>
@@ -565,9 +565,9 @@ export default function Login() {
             <div style={{
               display: 'inline-flex', alignItems: 'center', gap: 8,
               padding: '6px 14px', borderRadius: 100, marginBottom: 20, width: 'fit-content',
-              background: dark ? 'rgba(249,115,22,0.12)' : 'rgba(249,115,22,0.07)',
-              border: '1px solid rgba(249,115,22,0.28)',
-              fontSize: 11, fontWeight: 600, color: dark ? '#fb923c' : '#ea580c', letterSpacing: '0.04em',
+              background: dark ? 'rgba(234, 88, 12,0.12)' : 'rgba(234, 88, 12,0.07)',
+              border: '1px solid rgba(234, 88, 12,0.28)',
+              fontSize: 11, fontWeight: 600, color: dark ? '#f97316' : '#c2410c', letterSpacing: '0.04em',
             }}>
               <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#34d399', animation: 'ep-glowdot 2s infinite' }} />
               {t('auth.trustedByEducators')}
@@ -577,7 +577,7 @@ export default function Login() {
               <span style={{ display: 'block', fontFamily: "'Instrument Serif',serif", fontStyle: 'italic', fontWeight: 400, fontSize: 'clamp(1.8rem, 3vw, 2.5rem)', lineHeight: 1.1, letterSpacing: '-0.02em', color: C.text, margin: '0 0 4px' }}>
                 {t('auth.heroTitleLine1')}
               </span>
-              <span style={{ display: 'block', fontFamily: "'Outfit',sans-serif", fontSize: 'clamp(1.9rem, 3.4vw, 2.7rem)', fontWeight: 900, lineHeight: 1.05, letterSpacing: '-0.04em', background: 'linear-gradient(135deg,#fb923c 0%,#fb923c 50%,#38bdf8 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+              <span style={{ display: 'block', fontFamily: "'Outfit',sans-serif", fontSize: 'clamp(1.9rem, 3.4vw, 2.7rem)', fontWeight: 900, lineHeight: 1.05, letterSpacing: '-0.04em', background: 'linear-gradient(135deg,#f97316 0%,#f97316 50%,#38bdf8 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
                 {t('auth.heroTitleLine2')}
               </span>
             </h1>
@@ -589,7 +589,7 @@ export default function Login() {
             {/* what unlocks the moment you sign in */}
             <p style={{
               fontSize: 10.5, fontWeight: 700, letterSpacing: '0.09em', textTransform: 'uppercase',
-              color: dark ? '#fdba74' : '#ea580c', margin: '0 0 10px',
+              color: dark ? '#fb923c' : '#c2410c', margin: '0 0 10px',
             }}>
               {t('auth.unlockedHeading', 'Unlocked the instant you sign in')}
             </p>
@@ -603,10 +603,10 @@ export default function Login() {
                   style={{
                     animationDelay: (0.1 + i * 0.08) + 's',
                     background: dark ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.5)',
-                    border: `1px solid ${dark ? 'rgba(255,255,255,0.05)' : 'rgba(249,115,22,0.08)'}`,
+                    border: `1px solid ${dark ? 'rgba(255,255,255,0.05)' : 'rgba(234, 88, 12,0.08)'}`,
                   }}
                   onMouseEnter={e => { e.currentTarget.style.borderColor = f.color + '45'; e.currentTarget.style.background = f.color + '0e'; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = dark ? 'rgba(255,255,255,0.05)' : 'rgba(249,115,22,0.08)'; e.currentTarget.style.background = dark ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.5)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = dark ? 'rgba(255,255,255,0.05)' : 'rgba(234, 88, 12,0.08)'; e.currentTarget.style.background = dark ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.5)'; }}
                 >
                   <div style={{ width: 30, height: 30, borderRadius: 9, background: f.color + '18', border: '1px solid ' + f.color + '2a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 14 }}>{f.icon}</div>
                   <span style={{ fontSize: 12.5, color: C.text2, fontWeight: 500 }}>{t(f.labelKey)}</span>
@@ -654,13 +654,13 @@ export default function Login() {
           <div style={{
             display: 'flex', alignItems: 'flex-start', gap: 12,
             padding: 15, borderRadius: 16, position: 'relative', zIndex: 1, overflow: 'hidden',
-            background: dark ? 'rgba(249,115,22,0.07)' : 'rgba(249,115,22,0.04)',
-            border: `1px solid ${dark ? 'rgba(249,115,22,0.18)' : 'rgba(249,115,22,0.14)'}`,
+            background: dark ? 'rgba(234, 88, 12,0.07)' : 'rgba(234, 88, 12,0.04)',
+            border: `1px solid ${dark ? 'rgba(234, 88, 12,0.18)' : 'rgba(234, 88, 12,0.14)'}`,
           }}>
-            <div style={{ position: 'absolute', top: 8, right: 12, fontSize: 46, color: '#f97316', opacity: 0.08, fontFamily: 'Georgia,serif', lineHeight: 1, userSelect: 'none' }}>"</div>
+            <div style={{ position: 'absolute', top: 8, right: 12, fontSize: 46, color: '#ea580c', opacity: 0.08, fontFamily: 'Georgia,serif', lineHeight: 1, userSelect: 'none' }}>"</div>
             <div style={{
               width: 35, height: 35, borderRadius: 11, flexShrink: 0,
-              background: 'linear-gradient(135deg,#f97316,#ea580c)',
+              background: 'linear-gradient(135deg,#ea580c,#c2410c)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontFamily: "'Outfit',sans-serif", fontSize: 11, fontWeight: 800, color: '#fff',
             }}>SK</div>
@@ -668,7 +668,7 @@ export default function Login() {
               <p style={{ fontSize: 11.5, lineHeight: 1.68, color: C.text2, fontStyle: 'italic', margin: '0 0 5px' }}>
                 "{t('auth.testimonialQuote')}"
               </p>
-              <p style={{ fontSize: 10.5, fontWeight: 700, color: dark ? '#fdba74' : '#ea580c', margin: 0 }}>{t('auth.testimonialAuthor')}</p>
+              <p style={{ fontSize: 10.5, fontWeight: 700, color: dark ? '#fb923c' : '#c2410c', margin: 0 }}>{t('auth.testimonialAuthor')}</p>
             </div>
           </div>
         </div>
@@ -677,22 +677,22 @@ export default function Login() {
         <div className="ep-right-panel" style={{ zIndex: 2 }}>
           {/* ambient orbs */}
           <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden', zIndex: 0 }}>
-            <div style={{ position: 'absolute', width: 420, height: 420, top: -130, right: -110, borderRadius: '50%', background: dark ? 'radial-gradient(circle,rgba(249,115,22,0.1),transparent 68%)' : 'radial-gradient(circle,rgba(234,88,12,0.06),transparent 68%)' }} />
-            <div style={{ position: 'absolute', width: 300, height: 300, bottom: -110, left: -60, borderRadius: '50%', background: dark ? 'radial-gradient(circle,rgba(234,88,12,0.08),transparent 68%)' : 'radial-gradient(circle,rgba(234,88,12,0.05),transparent 68%)' }} />
+            <div style={{ position: 'absolute', width: 420, height: 420, top: -130, right: -110, borderRadius: '50%', background: dark ? 'radial-gradient(circle,rgba(234, 88, 12,0.1),transparent 68%)' : 'radial-gradient(circle,rgba(194, 65, 12,0.06),transparent 68%)' }} />
+            <div style={{ position: 'absolute', width: 300, height: 300, bottom: -110, left: -60, borderRadius: '50%', background: dark ? 'radial-gradient(circle,rgba(194, 65, 12,0.08),transparent 68%)' : 'radial-gradient(circle,rgba(194, 65, 12,0.05),transparent 68%)' }} />
           </div>
 
           {/* giant faded wordmark — pinned near the top of the panel,
               wide and clearly visible above the login card */}
           <div
             className="ep-wordmark-ghost"
-            style={{ color: dark ? 'rgba(255,255,255,0.14)' : 'rgba(234,88,12,0.16)' }}
+            style={{ color: dark ? 'rgba(255,255,255,0.14)' : 'rgba(194, 65, 12,0.16)' }}
           >
             Edupla
           </div>
 
           <div className="ep-card-wrap" style={{ position: 'relative' }}>
             {/* rotating dashed ring behind the card */}
-            <div className="ep-ring-spin" style={{ top: '50%', left: '50%', width: 560, height: 560, transform: 'translate(-50%,-50%)', border: `1px dashed ${dark ? 'rgba(249,115,22,0.14)' : 'rgba(249,115,22,0.1)'}` }} />
+            <div className="ep-ring-spin" style={{ top: '50%', left: '50%', width: 560, height: 560, transform: 'translate(-50%,-50%)', border: `1px dashed ${dark ? 'rgba(234, 88, 12,0.14)' : 'rgba(234, 88, 12,0.1)'}` }} />
 
             {/* floating access badges — anchored just outside the card's
                 top/bottom edges so they never sit on top of the header,
@@ -701,9 +701,9 @@ export default function Login() {
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
               <span style={{ fontSize: 11, fontWeight: 700, color: '#10b981', whiteSpace: 'nowrap' }}>{t('auth.trustStrip.accessGranted', 'Access is Granted Instantly')}</span>
             </div>
-            <div className="ep-badge-float2" style={{ position: 'absolute', bottom: -16, left: 20, zIndex: 2, padding: '8px 13px', borderRadius: 12, background: dark ? 'rgba(249,115,22,0.12)' : 'rgba(249,115,22,0.07)', border: '1px solid rgba(249,115,22,0.25)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', gap: 7, boxShadow: '0 8px 24px rgba(249,115,22,0.15)' }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-              <span style={{ fontSize: 11, fontWeight: 700, color: dark ? '#fb923c' : '#ea580c', whiteSpace: 'nowrap' }}>{t('auth.trustStrip.systemAccess', '24/7 System Access')}</span>
+            <div className="ep-badge-float2" style={{ position: 'absolute', bottom: -16, left: 20, zIndex: 2, padding: '8px 13px', borderRadius: 12, background: dark ? 'rgba(234, 88, 12,0.12)' : 'rgba(234, 88, 12,0.07)', border: '1px solid rgba(234, 88, 12,0.25)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', gap: 7, boxShadow: '0 8px 24px rgba(234, 88, 12,0.15)' }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#ea580c" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <span style={{ fontSize: 11, fontWeight: 700, color: dark ? '#f97316' : '#c2410c', whiteSpace: 'nowrap' }}>{t('auth.trustStrip.systemAccess', '24/7 System Access')}</span>
             </div>
 
             {/* ── card ── */}
@@ -789,7 +789,7 @@ export default function Login() {
                         <button
                           type="button"
                           onClick={() => { setStep('forgot'); setForgotEmail(form.email); setForgotSent(false); setToast2({ msg: '', type: '' }); }}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11.5, color: dark ? '#fdba74' : '#ea580c', fontWeight: 600, fontFamily: "'Outfit',sans-serif" }}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11.5, color: dark ? '#fb923c' : '#c2410c', fontWeight: 600, fontFamily: "'Outfit',sans-serif" }}
                         >
                           {t('auth.forgotPassword')}
                         </button>
@@ -846,7 +846,7 @@ export default function Login() {
                     <button
                       className="ep-back"
                       onClick={() => { setStep('creds'); setForgotSent(false); setToast2({ msg: '', type: '' }); }}
-                      style={{ color: C.text2, background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(249,115,22,0.06)' }}
+                      style={{ color: C.text2, background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(234, 88, 12,0.06)' }}
                     >
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
                       {t('auth.backToSignIn')}
@@ -856,13 +856,13 @@ export default function Login() {
                   {/* icon */}
                   <div style={{
                     width: 54, height: 54, borderRadius: 17, marginBottom: 18,
-                    background: dark ? 'rgba(249,115,22,0.15)' : '#fff7ed',
-                    border: '1px solid rgba(249,115,22,0.25)',
+                    background: dark ? 'rgba(234, 88, 12,0.15)' : '#ffedd5',
+                    border: '1px solid rgba(234, 88, 12,0.25)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}>
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ea580c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                      <circle cx="12" cy="16" r="1" fill="#f97316"/>
+                      <circle cx="12" cy="16" r="1" fill="#ea580c"/>
                     </svg>
                   </div>
 

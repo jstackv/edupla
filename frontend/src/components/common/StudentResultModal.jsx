@@ -30,7 +30,7 @@ import {
 function scoreColor(pct) {
   if (pct == null) return '#9ca3af';
   if (pct >= 80) return '#10b981';
-  if (pct >= 60) return '#f97316';
+  if (pct >= 60) return '#ea580c';
   if (pct >= 40) return '#f59e0b';
   return '#ef4444';
 }
@@ -61,7 +61,7 @@ const STATUS_META = {
 const ATTEMPT_STATUS_META = {
   graded:      { label: 'Graded',          color: '#10b981' },
   submitted:   { label: 'Awaiting grading', color: '#f59e0b' },
-  in_progress: { label: 'In progress',     color: '#f97316' },
+  in_progress: { label: 'In progress',     color: '#ea580c' },
 };
 
 /* Big circular percentage gauge used in every hero — fills in on mount
@@ -104,7 +104,7 @@ function Gauge({ pct, size = 108, celebrate = false }) {
               style={{
                 '--srm-rot': `${180 + Math.random() * 180}deg`,
                 left: `${10 + Math.random() * 80}%`,
-                background: ['#f59e0b', '#10b981', '#f97316', '#ec4899', '#eab308'][i % 5],
+                background: ['#f59e0b', '#10b981', '#ea580c', '#ec4899', '#eab308'][i % 5],
                 animationDelay: `${Math.random() * 0.3}s`,
               }}
             />
@@ -247,8 +247,8 @@ function AttemptRow({ att, i, maxMarks, expired, onViewResponse }) {
         title={canViewResponse ? 'View your questions and answers' : 'Responses unlock once this assessment closes'}
         className="text-xs font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg flex-shrink-0 w-full sm:w-auto justify-center"
         style={{
-          background: canViewResponse ? 'rgba(249,115,22,0.12)' : 'var(--surface-100)',
-          color: canViewResponse ? '#f97316' : 'var(--text-secondary)',
+          background: canViewResponse ? 'rgba(234, 88, 12,0.12)' : 'var(--surface-100)',
+          color: canViewResponse ? '#ea580c' : 'var(--text-secondary)',
           cursor: canViewResponse ? 'pointer' : 'not-allowed',
           opacity: canViewResponse ? 1 : 0.65,
           border: 'none',
@@ -287,7 +287,7 @@ function AssessmentPanel({ a, moduleName, onViewResponse }) {
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-        <StatTile icon={Clock} color="#f97316" value={`${a.duration_minutes ?? '—'} min`} label="Time limit" />
+        <StatTile icon={Clock} color="#ea580c" value={`${a.duration_minutes ?? '—'} min`} label="Time limit" />
         <StatTile icon={RotateCcw} color="#f59e0b" value={`${a.attempts_used} / ${a.max_attempts}`} label="Attempts used" />
         <StatTile icon={Target} color="#10b981" value={`${a.max_marks} pts`} label="Total marks" />
         <StatTile
@@ -308,8 +308,8 @@ function AssessmentPanel({ a, moduleName, onViewResponse }) {
       )}
 
       {!a.expired && a.attempts.length > 0 && (
-        <div className="sa-note p-3 rounded-xl text-sm flex items-start gap-2.5" style={{ background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.2)' }}>
-          <Lock className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#f97316' }} />
+        <div className="sa-note p-3 rounded-xl text-sm flex items-start gap-2.5" style={{ background: 'rgba(234, 88, 12,0.08)', border: '1px solid rgba(234, 88, 12,0.2)' }}>
+          <Lock className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#ea580c' }} />
           <p style={{ color: 'var(--text-secondary)' }}>
             Detailed question-by-question responses unlock once this assessment closes
             {a.expires_at ? ` on ${fmtDateTime(a.expires_at)}` : ''}.
@@ -349,7 +349,7 @@ function OverallPanel({ data }) {
         <Gauge pct={o.percentage} celebrate={o.percentage != null && o.percentage >= 80} />
         <div className="min-w-0 flex-1 text-center sm:text-left relative z-10">
           <h3 className="font-display font-bold text-lg flex items-center justify-center sm:justify-start gap-1.5" style={{ color: 'var(--text-primary)' }}>
-            <Layers className="w-4.5 h-4.5" style={{ color: '#f97316' }} /> Overall — {data.type_label}
+            <Layers className="w-4.5 h-4.5" style={{ color: '#ea580c' }} /> Overall — {data.type_label}
           </h3>
           <MetaRow
             moduleName={data.course.name}
@@ -371,9 +371,9 @@ function OverallPanel({ data }) {
       </p>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-        <StatTile icon={Target} color="#f97316" value={o.total_obtained != null ? `${Math.round(o.total_obtained)} / ${o.combined_max}` : '—'} label="Total obtained" />
+        <StatTile icon={Target} color="#ea580c" value={o.total_obtained != null ? `${Math.round(o.total_obtained)} / ${o.combined_max}` : '—'} label="Total obtained" />
         <StatTile icon={TrendingUp} color={color} value={o.percentage != null ? `${o.percentage}%` : '—'} label="Overall %" />
-        <StatTile icon={Award} color="#f97316" value={o.marks_on_mw != null ? `${Math.round(o.marks_on_mw)} / ${o.module_weight}` : '—'} label="On module weight" />
+        <StatTile icon={Award} color="#ea580c" value={o.marks_on_mw != null ? `${Math.round(o.marks_on_mw)} / ${o.module_weight}` : '—'} label="On module weight" />
         <StatTile icon={Zap} color="#f59e0b" value={data.assessments.length} label="Assessments" />
       </div>
 
@@ -444,7 +444,7 @@ export default function StudentResultModal({ assessment, onClose }) {
       color: (STATUS_META[a.status] || STATUS_META.not_attempted).color,
     }));
     const showOverall = data.assessments.length > 1;
-    return showOverall ? [...assessmentTabs, { key: 'overall', label: 'Overall', title: 'Overall', color: '#f97316' }] : assessmentTabs;
+    return showOverall ? [...assessmentTabs, { key: 'overall', label: 'Overall', title: 'Overall', color: '#ea580c' }] : assessmentTabs;
   }, [data]);
 
   const activeAssessment = data?.assessments.find(a => String(a.assessment_id) === activeTab);

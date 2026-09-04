@@ -12,7 +12,7 @@ import {
 const TAB_PALETTE = [
   { tab: '#2D6A4F', soft: 'bg-emerald-50 dark:bg-emerald-900/20', text: 'text-emerald-700 dark:text-emerald-300', ring: 'ring-emerald-500/20' },
   { tab: '#1D4ED8', soft: 'bg-blue-50 dark:bg-blue-900/20',       text: 'text-blue-700 dark:text-blue-300',       ring: 'ring-blue-500/20' },
-  { tab: '#EA580C', soft: 'bg-orange-50 dark:bg-orange-900/20',   text: 'text-orange-700 dark:text-orange-300',   ring: 'ring-orange-500/20' },
+  { tab: '#c2410c', soft: 'bg-orange-50 dark:bg-orange-900/20',   text: 'text-orange-700 dark:text-orange-300',   ring: 'ring-orange-500/20' },
   { tab: '#B45309', soft: 'bg-amber-50 dark:bg-amber-900/20',     text: 'text-amber-700 dark:text-amber-300',     ring: 'ring-amber-500/20' },
   { tab: '#BE123C', soft: 'bg-rose-50 dark:bg-rose-900/20',       text: 'text-rose-700 dark:text-rose-300',       ring: 'ring-rose-500/20' },
   { tab: '#0E7490', soft: 'bg-cyan-50 dark:bg-cyan-900/20',       text: 'text-cyan-700 dark:text-cyan-300',       ring: 'ring-cyan-500/20' },

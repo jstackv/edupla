@@ -12,12 +12,12 @@ import {
    the --modx-accent CSS variable, so the grid reads as color-coded at a
    glance instead of a flat list of identical tiles. */
 const CATEGORY_META = {
-  'Specific modules':        { accent: '#f97316', icon: Target,  short: 'Specific' },
+  'Specific modules':        { accent: '#ea580c', icon: Target,  short: 'Specific' },
   'General modules':         { accent: '#0ea5e9', icon: Globe2,  short: 'General' },
   'Complementary modules':   { accent: '#10b981', icon: Puzzle,  short: 'Complementary' },
   'Elective Non Examinable': { accent: '#f59e0b', icon: Compass, short: 'Elective' },
 };
-const DEFAULT_META = { accent: '#0d9488', icon: LibraryBig, short: 'Module' };
+const DEFAULT_META = { accent: '#ea580c', icon: LibraryBig, short: 'Module' };
 const getMeta = (category) => CATEGORY_META[category] || DEFAULT_META;
 
 const PIN_KEY = 'edupla_pinned_modules';
@@ -213,7 +213,7 @@ export default function StudentModules() {
           <div className="modx-filter-row">
             <button
               className={`modx-filter-pill ${activeCategory === 'all' ? 'modx-filter-active' : ''}`}
-              style={{ '--modx-accent': '#0d9488' }}
+              style={{ '--modx-accent': '#ea580c' }}
               onClick={() => setActiveCategory('all')}
             >
               <span className="modx-filter-dot" />All

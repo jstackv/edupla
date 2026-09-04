@@ -40,13 +40,13 @@ import {
 const STATUS_STYLE = {
   graded:         { label: 'Graded',          color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
   needs_grading:  { label: 'Needs grading',   color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
-  submitted:      { label: 'Submitted',       color: '#f97316', bg: 'rgba(249,115,22,0.12)' },
+  submitted:      { label: 'Submitted',       color: '#ea580c', bg: 'rgba(234, 88, 12,0.12)' },
   not_attempted:  { label: 'Not attempted',   color: '#9ca3af', bg: 'rgba(156,163,175,0.12)' },
 };
 
 const ATTEMPT_STATUS_STYLE = {
   graded:       { label: 'Graded',      color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
-  submitted:    { label: 'Submitted',   color: '#f97316', bg: 'rgba(249,115,22,0.12)' },
+  submitted:    { label: 'Submitted',   color: '#ea580c', bg: 'rgba(234, 88, 12,0.12)' },
   in_progress:  { label: 'In progress', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
 };
 
@@ -83,7 +83,7 @@ const roundNum = (v) => (v == null ? v : Math.round(v));
 function perfColor(pct) {
   if (pct == null) return '#9ca3af';
   if (pct >= 80) return '#10b981';
-  if (pct >= 60) return '#f97316';
+  if (pct >= 60) return '#ea580c';
   if (pct >= 40) return '#f59e0b';
   return '#ef4444';
 }
@@ -320,7 +320,7 @@ function GradingView({ attemptId, onClose, onGraded }) {
                   <button
                     onClick={() => startEdit(a.question_id, a.manual_score)}
                     className="text-xs font-semibold flex items-center gap-1 transition-colors duration-150 hover:opacity-80"
-                    style={{ color: '#f97316' }}
+                    style={{ color: '#ea580c' }}
                   >
                     <Pencil className="w-3.5 h-3.5" /> Regrade
                   </button>
@@ -399,7 +399,7 @@ function AttemptsList({ attempts, onViewAttempt }) {
               )}
               {att.total_score != null && <span className="font-mono font-semibold" style={{ color: 'var(--text-primary)' }}>{att.total_score} pts</span>}
               {att.status !== 'in_progress' && (
-                <button onClick={() => onViewAttempt(att.id)} className="font-semibold flex items-center gap-1 transition-colors duration-150 hover:opacity-80" style={{ color: '#f97316' }}>
+                <button onClick={() => onViewAttempt(att.id)} className="font-semibold flex items-center gap-1 transition-colors duration-150 hover:opacity-80" style={{ color: '#ea580c' }}>
                   <Eye className="w-3.5 h-3.5" /> View answers
                 </button>
               )}
@@ -555,13 +555,13 @@ export default function AssessmentAttemptsModal({ assessment, onClose }) {
           {/* Summary stat strip */}
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 assessment-stagger">
             {[
-              { label: 'Students', value: stats.total, color: '#f97316', icon: Users },
+              { label: 'Students', value: stats.total, color: '#ea580c', icon: Users },
               { label: 'Class average', value: stats.avg != null ? `${roundNum(stats.avg)}%` : '—', color: perfColor(stats.avg), icon: TrendingUp },
               { label: 'Top score', value: stats.highest != null ? `${roundNum(stats.highest)}%` : '—', color: '#eab308', icon: Trophy },
               { label: 'Passed', value: stats.passed, color: '#10b981', icon: CheckCircle2 },
               { label: 'Failed', value: stats.failed, color: '#ef4444', icon: XCircle },
               { label: 'Needs grading', value: stats.needsGrading, color: '#f59e0b', icon: AlertTriangle },
-              { label: 'Attempts submitted', value: stats.totalAttempts, color: '#f97316', icon: Repeat },
+              { label: 'Attempts submitted', value: stats.totalAttempts, color: '#ea580c', icon: Repeat },
             ].map((it, i) => (
               <div key={it.label} style={{ '--i': i }} className="card assessment-card results-stat-card p-3.5 flex items-center gap-3 relative overflow-hidden">
                 <div className="pointer-events-none absolute top-0 right-0 w-16 h-16" style={{ background: `radial-gradient(circle at top right, ${it.color}20 0%, transparent 70%)` }} />
@@ -698,7 +698,7 @@ export default function AssessmentAttemptsModal({ assessment, onClose }) {
                             onClick={() => setExpandedStudentId(expanded ? null : row.student_id)}
                             title={expanded ? 'Hide attempts' : 'View attempts'}
                             className="flex-shrink-0 transition-all duration-150 hover:opacity-80"
-                            style={{ color: '#f97316' }}
+                            style={{ color: '#ea580c' }}
                           >
                             {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                           </button>

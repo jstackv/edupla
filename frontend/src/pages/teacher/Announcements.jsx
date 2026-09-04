@@ -138,7 +138,7 @@ export default function TeacherAnnouncements() {
             <div key={a.id} ref={el => { itemRefs.current[a.id] = el; }}
               className="card group hover:shadow-soft transition-all"
               style={flashId === a.id ? {
-                boxShadow: '0 0 0 2px #f97316, 0 8px 24px rgba(249,115,22,0.25)',
+                boxShadow: '0 0 0 2px #ea580c, 0 8px 24px rgba(234, 88, 12,0.25)',
                 transition: 'box-shadow 0.4s ease',
               } : undefined}>
               <div className="flex items-start gap-4">

@@ -63,7 +63,7 @@ export default function BrandMark({ size = 38, animated = true, className = '' }
         }
         .edupla-mark--animated:hover .em-badge {
           transform: scale(1.08) rotate(-4deg);
-          filter: drop-shadow(0 0 3.5px rgba(249, 115, 22, 0.55));
+          filter: drop-shadow(0 0 3.5px rgba(234, 88, 12, 0.55));
         }
 
         .edupla-mark--animated .em-glow { animation: em-breathe 4s ease-in-out infinite; }
@@ -148,15 +148,15 @@ export default function BrandMark({ size = 38, animated = true, className = '' }
           </linearGradient>
 
           <linearGradient id={ids.ember} x1="19.6" y1="6.2" x2="26.8" y2="13.4" gradientUnits="userSpaceOnUse">
-            <stop offset="0" stopColor="#FDBA74" />
-            <stop offset="0.45" stopColor="#F97316" />
-            <stop offset="1" stopColor="#9A3412" />
+            <stop offset="0" stopColor="#fb923c" />
+            <stop offset="0.45" stopColor="#ea580c" />
+            <stop offset="1" stopColor="#7c2d12" />
           </linearGradient>
 
           <linearGradient id={ids.path} x1="9" y1="22" x2="23" y2="10" gradientUnits="userSpaceOnUse">
             <stop offset="0" stopColor="#2DD4BF" stopOpacity="0" />
             <stop offset="0.5" stopColor="#5EEAD4" stopOpacity="0.85" />
-            <stop offset="1" stopColor="#FDBA74" stopOpacity="0.95" />
+            <stop offset="1" stopColor="#fb923c" stopOpacity="0.95" />
           </linearGradient>
 
           <clipPath id={ids.clip}>
@@ -179,7 +179,7 @@ export default function BrandMark({ size = 38, animated = true, className = '' }
             <rect width="32" height="32" fill={`url(#${ids.vignette})`} />
             <rect className="em-glow" width="32" height="32" fill={`url(#${ids.glow})`} />
             <path className="em-shard" d="M0 13 L13 0 L20 0 L0 20 Z" fill={`url(#${ids.shard})`} />
-            <rect x="0.6" y="0.6" width="30.8" height="30.8" rx="8.5" fill="none" stroke="#F97316" strokeOpacity="0.22" strokeWidth="0.9" />
+            <rect x="0.6" y="0.6" width="30.8" height="30.8" rx="8.5" fill="none" stroke="#ea580c" strokeOpacity="0.22" strokeWidth="0.9" />
           </g>
 
           {/* Ascending growth path: a quiet dotted thread from the

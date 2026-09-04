@@ -68,15 +68,15 @@ const SuperAdminLinks = [
 
 /* ─── HELPERS ───────────────────────────────────────────────────── */
 const AVATAR_GRADIENTS = [
-  ['#f97316','#c2410c'], ['#0ea5e9','#0284c7'], ['#10b981','#059669'],
-  ['#f59e0b','#d97706'], ['#ec4899','#db2777'], ['#f97316','#ea580c'],
+  ['#ea580c','#9a3412'], ['#0ea5e9','#0284c7'], ['#10b981','#059669'],
+  ['#f59e0b','#d97706'], ['#ec4899','#db2777'], ['#ea580c','#c2410c'],
 ];
 function getAvatarGradient(name) {
   if (!name) return AVATAR_GRADIENTS[0];
   return AVATAR_GRADIENTS[name.charCodeAt(0) % AVATAR_GRADIENTS.length];
 }
 const ROLE_LABEL_KEY = { teacher: 'roles.teacherPortal', student: 'roles.studentPortal', admin: 'roles.adminPortal' };
-const ROLE_BADGE_COLOR = { teacher: '#f97316', student: '#10b981', admin: '#f97316' };
+const ROLE_BADGE_COLOR = { teacher: '#ea580c', student: '#10b981', admin: '#ea580c' };
 
 /* ══════════════════════════════════════════════════════════════════
    LOGOUT CONFIRMATION MODAL
@@ -232,7 +232,7 @@ function UserDropdown({ user, dark, from, to, initials, onLogoutClick }) {
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
-  const roleColor = ROLE_BADGE_COLOR[user?.role] || '#f97316';
+  const roleColor = ROLE_BADGE_COLOR[user?.role] || '#ea580c';
 
   const menuItems = [
     { icon: UserCircle, label: t('layout.viewProfile'), sub: t('layout.viewProfileSub'), action: () => { navigate('/profile');  setOpen(false); } },
@@ -247,13 +247,13 @@ function UserDropdown({ user, dark, from, to, initials, onLogoutClick }) {
           display: 'flex', alignItems: 'center', gap: 8,
           padding: '4px 10px 4px 5px',
           borderRadius: 12,
-          border: `1.5px solid ${open ? '#f97316' : (dark ? '#262626' : '#e5e7eb')}`,
+          border: `1.5px solid ${open ? '#ea580c' : (dark ? '#262626' : '#e5e7eb')}`,
           background: open ? (dark ? '#1d2235' : '#f3f4f6') : (dark ? '#181c27' : '#f9fafb'),
           cursor: 'pointer', transition: 'all 0.15s',
         }}
         onMouseEnter={e => {
           if (!open) {
-            e.currentTarget.style.borderColor = '#f97316';
+            e.currentTarget.style.borderColor = '#ea580c';
             e.currentTarget.style.background = dark ? '#1d2235' : '#f3f4f6';
           }
         }}
@@ -266,7 +266,7 @@ function UserDropdown({ user, dark, from, to, initials, onLogoutClick }) {
       >
         {/* Avatar */}
         {user?.role === 'admin' ? (
-          <div style={{ width: 28, height: 28, borderRadius: 8, background: '#f97316', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <div style={{ width: 28, height: 28, borderRadius: 8, background: '#ea580c', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <Shield size={13} color="#fff" />
           </div>
         ) : (
@@ -309,11 +309,11 @@ function UserDropdown({ user, dark, from, to, initials, onLogoutClick }) {
           <div style={{
             padding: '16px 16px 12px',
             borderBottom: `1px solid ${dark ? '#1e2535' : '#f1f5f9'}`,
-            background: dark ? 'rgba(249,115,22,0.05)' : 'rgba(249,115,22,0.03)',
+            background: dark ? 'rgba(234, 88, 12,0.05)' : 'rgba(234, 88, 12,0.03)',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               {user?.role === 'admin' ? (
-                <div style={{ width: 38, height: 38, borderRadius: 11, background: 'linear-gradient(135deg,#f97316,#ea580c)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(249,115,22,0.4)' }}>
+                <div style={{ width: 38, height: 38, borderRadius: 11, background: 'linear-gradient(135deg,#ea580c,#c2410c)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(234, 88, 12,0.4)' }}>
                   <Shield size={17} color="#fff" />
                 </div>
               ) : (
@@ -482,7 +482,7 @@ export default function Layout({ children }) {
       <div style={{
         position: 'absolute', bottom: 120, right: -30, width: 120, height: 120,
         borderRadius: '50%', pointerEvents: 'none',
-        background: `radial-gradient(circle, rgba(249,115,22,${dark ? 0.08 : 0.06}) 0%, transparent 70%)`,
+        background: `radial-gradient(circle, rgba(234, 88, 12,${dark ? 0.08 : 0.06}) 0%, transparent 70%)`,
         animation: 'sa-glow 6s ease-in-out infinite reverse',
       }} />
 
@@ -633,7 +633,7 @@ export default function Layout({ children }) {
         onMouseLeave={e => e.currentTarget.style.background = dark ? '#181c27' : '#f9fafb'}
       >
         {user?.role === 'admin' ? (
-          <div style={{ width: 32, height: 32, flexShrink: 0, borderRadius: 9, background: '#f97316', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: 32, height: 32, flexShrink: 0, borderRadius: 9, background: '#ea580c', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Shield size={14} color="#fff" />
           </div>
         ) : (
@@ -656,7 +656,7 @@ export default function Layout({ children }) {
           <span style={{ fontSize: 10, color: dark ? '#4a5168' : '#9ca3af', fontWeight: 500 }}>{user?.email}</span>
         </div>
         {!collapsed && (
-          <div style={{ width: 7, height: 7, borderRadius: '50%', background: ROLE_BADGE_COLOR[user?.role] || '#f97316', flexShrink: 0, boxShadow: `0 0 5px ${ROLE_BADGE_COLOR[user?.role] || '#f97316'}` }} />
+          <div style={{ width: 7, height: 7, borderRadius: '50%', background: ROLE_BADGE_COLOR[user?.role] || '#ea580c', flexShrink: 0, boxShadow: `0 0 5px ${ROLE_BADGE_COLOR[user?.role] || '#ea580c'}` }} />
         )}
       </Link>
 
@@ -735,7 +735,7 @@ export default function Layout({ children }) {
           cursor: pointer; z-index: 20; transition: background 0.15s, border-color 0.15s;
           box-shadow: 0 2px 8px rgba(0,0,0,0.15);
         }
-        .collapse-btn:hover { background: #f97316 !important; border-color: #f97316 !important; }
+        .collapse-btn:hover { background: #ea580c !important; border-color: #ea580c !important; }
         .collapse-btn:hover svg { color: #fff !important; }
         .nav-tooltip { display: none !important; }
         ${collapsed ? `.nav-item-wrap:hover .nav-tooltip { display: flex !important; opacity: 1 !important; pointer-events: none !important; }` : ''}
@@ -834,7 +834,7 @@ export default function Layout({ children }) {
                 borderRadius: 10, padding: '6px 12px', cursor: 'pointer',
                 transition: 'border-color 0.15s',
               }}
-                onMouseEnter={e => e.currentTarget.style.borderColor = '#f97316'}
+                onMouseEnter={e => e.currentTarget.style.borderColor = '#ea580c'}
                 onMouseLeave={e => e.currentTarget.style.borderColor = dark ? '#262626' : '#e5e7eb'}
               >
                 <Search size={13} color={dark ? '#4a5168' : '#9ca3af'} />
@@ -873,10 +873,10 @@ export default function Layout({ children }) {
           {isImpersonating && (
             <div style={{
               padding: '8px 18px', flexShrink: 0,
-              background: 'rgba(234,88,12,0.12)',
-              borderBottom: '1px solid rgba(234,88,12,0.3)',
+              background: 'rgba(194, 65, 12,0.12)',
+              borderBottom: '1px solid rgba(194, 65, 12,0.3)',
               display: 'flex', alignItems: 'center', gap: 8,
-              fontSize: 12, fontWeight: 600, color: '#ea580c',
+              fontSize: 12, fontWeight: 600, color: '#c2410c',
             }}>
             <UserCheck size={14} />
             {t('layout.viewingAs', { name: user?.name, role: user?.role })}
@@ -884,8 +884,8 @@ export default function Layout({ children }) {
               onClick={endImpersonation}
               style={{
                 marginLeft: 'auto', padding: '3px 10px', borderRadius: 7,
-                border: '1px solid rgba(234,88,12,0.4)', background: 'transparent',
-                color: '#ea580c', fontWeight: 700, fontSize: 11.5, cursor: 'pointer',
+                border: '1px solid rgba(194, 65, 12,0.4)', background: 'transparent',
+                color: '#c2410c', fontWeight: 700, fontSize: 11.5, cursor: 'pointer',
               }}
             >
               {t('layout.endSession')}
@@ -948,8 +948,8 @@ function NavItem({ link, location, collapsed, dark, onNav }) {
   const label = t(link.labelKey);
   const active = location.pathname === link.to;
   const [hovered, setHovered] = useState(false);
-  const bg = active ? 'rgba(249,115,22,0.12)' : hovered ? (dark ? '#181c27' : '#f3f4f6') : 'transparent';
-  const color = active ? '#fb923c' : hovered ? (dark ? '#e8ecf4' : '#131313') : (dark ? '#7b839a' : '#6b7280');
+  const bg = active ? 'rgba(234, 88, 12,0.12)' : hovered ? (dark ? '#181c27' : '#f3f4f6') : 'transparent';
+  const color = active ? '#f97316' : hovered ? (dark ? '#e8ecf4' : '#131313') : (dark ? '#7b839a' : '#6b7280');
   return (
     <div className="nav-item-wrap" style={{ position: 'relative' }}>
       <Link to={link.to} onClick={onNav} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
@@ -960,13 +960,13 @@ function NavItem({ link, location, collapsed, dark, onNav }) {
           background: bg, color, fontSize: 12.5, fontWeight: 500,
           marginBottom: 1, transition: 'background 0.15s, color 0.15s',
         }}>
-        {active && (<div style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', width: 3, height: 16, borderRadius: '0 3px 3px 0', background: '#f97316' }} />)}
+        {active && (<div style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', width: 3, height: 16, borderRadius: '0 3px 3px 0', background: '#ea580c' }} />)}
         <Icon size={16} style={{ flexShrink: 0 }} />
         <span style={{ flex: 1, transition: 'opacity 0.26s ease, width 0.26s ease', opacity: collapsed ? 0 : 1, width: collapsed ? 0 : 'auto', overflow: 'hidden', pointerEvents: 'none' }}>
           {label}
         </span>
         {link.badge != null && !collapsed && (
-          <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 5, background: 'rgba(249,115,22,0.2)', color: '#fb923c', flexShrink: 0 }}>{link.badge}</span>
+          <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 5, background: 'rgba(234, 88, 12,0.2)', color: '#f97316', flexShrink: 0 }}>{link.badge}</span>
         )}
         {active && !collapsed && (<ChevronRight size={12} style={{ flexShrink: 0, opacity: 0.6 }} />)}
       </Link>
@@ -1071,7 +1071,7 @@ function TopbarIconBtn({ dark, title, onClick, showDot, children }) {
       style={{
         width: 32, height: 32, borderRadius: 9, cursor: 'pointer',
         background: hovered ? (dark ? '#1d2235' : '#f3f4f6') : (dark ? '#181c27' : '#f9fafb'),
-        border: `1px solid ${hovered ? '#f97316' : (dark ? '#262626' : '#e5e7eb')}`,
+        border: `1px solid ${hovered ? '#ea580c' : (dark ? '#262626' : '#e5e7eb')}`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         position: 'relative', transition: 'background 0.15s, border-color 0.15s',
       }}>
@@ -1079,7 +1079,7 @@ function TopbarIconBtn({ dark, title, onClick, showDot, children }) {
       {showDot && (
         <div style={{
           position: 'absolute', top: 5, right: 5, width: 6, height: 6, borderRadius: '50%',
-          background: '#f97316', border: `1.5px solid ${dark ? '#171717' : '#ffffff'}`,
+          background: '#ea580c', border: `1.5px solid ${dark ? '#171717' : '#ffffff'}`,
           animation: 'edupla-pulse 2s infinite',
         }} />
       )}

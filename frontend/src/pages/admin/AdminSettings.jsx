@@ -19,7 +19,7 @@ const EMPTY = { sector: '', trade: '', qualificationTitle: '', rtqfLevel: '' };
 
 /* ── deterministic accent per row, same gradient set Teachers.jsx uses ── */
 const ROW_COLORS = [
-  ['#f97316','#c2410c'], ['#f97316','#ea580c'], ['#0ea5e9','#0284c7'],
+  ['#ea580c','#9a3412'], ['#ea580c','#c2410c'], ['#0ea5e9','#0284c7'],
   ['#10b981','#059669'], ['#f59e0b','#d97706'], ['#ec4899','#db2777'],
 ];
 function getRowColors(seed) {
@@ -69,7 +69,7 @@ function EditModal({ open, row, onSave, onClose }) {
       <div className="card" style={{ width: '100%', maxWidth: 480, padding: 0, overflow: 'hidden', animation: 'slideUp 0.22s cubic-bezier(0.34,1.56,0.64,1)' }}>
         <div style={{ padding: '20px 22px 18px', borderBottom: '1px solid var(--card-border)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
           <div>
-            <p style={{ fontSize: 10, fontWeight: 700, color: '#f97316', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 5 }}>Edit Program</p>
+            <p style={{ fontSize: 10, fontWeight: 700, color: '#ea580c', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 5 }}>Edit Program</p>
             <p style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1.3, maxWidth: 360 }}>{row.trade}</p>
           </div>
           <button onClick={onClose} style={{ padding: 6, borderRadius: 8, border: 'none', cursor: 'pointer', background: 'var(--surface-100)', display: 'flex', flexShrink: 0, marginLeft: 12 }}>
@@ -177,7 +177,7 @@ function StatStrip({ rows }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10 }}>
       {[
-        { icon: BookOpen,      label: 'Programs',     value: rows.length,        color: '#f97316', bg: '#fff7ed' },
+        { icon: BookOpen,      label: 'Programs',     value: rows.length,        color: '#ea580c', bg: '#ffedd5' },
         { icon: GraduationCap, label: 'Sectors',      value: sectors.length,     color: '#0ea5e9', bg: '#f0f9ff' },
         { icon: Award,         label: 'RTQF Levels',  value: levels.length,      color: '#10b981', bg: '#ecfdf5' },
         { icon: Sparkles,      label: 'Top Sector',   value: topSector?.s || '—', color: '#f59e0b', bg: '#fffbeb', isText: true },
@@ -262,23 +262,23 @@ export default function AdminSettings() {
       {/* ── Hero Banner — same gradient/structure family as Teachers.jsx ── */}
       <div style={{
         borderRadius: 20, padding: '22px 26px', position: 'relative', overflow: 'hidden',
-        background: 'linear-gradient(135deg, #431407 0%, #9a3412 45%, #ea580c 100%)',
-        boxShadow: '0 8px 32px rgba(249,115,22,0.28)',
+        background: 'linear-gradient(135deg, #2a0c03 0%, #7c2d12 45%, #c2410c 100%)',
+        boxShadow: '0 8px 32px rgba(234, 88, 12,0.28)',
       }}>
-        <div style={{ position: 'absolute', top: -50, right: -30, width: 200, height: 200, borderRadius: '50%', background: 'rgba(249,115,22,0.08)', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', bottom: -20, right: 220, width: 90, height: 90, borderRadius: '50%', background: 'rgba(249,115,22,0.12)', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', top: 20, right: 90, width: 55, height: 55, borderRadius: '50%', background: 'rgba(251,146,60,0.1)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', top: -50, right: -30, width: 200, height: 200, borderRadius: '50%', background: 'rgba(234, 88, 12,0.08)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', bottom: -20, right: 220, width: 90, height: 90, borderRadius: '50%', background: 'rgba(234, 88, 12,0.12)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', top: 20, right: 90, width: 55, height: 55, borderRadius: '50%', background: 'rgba(249, 115, 22,0.1)', pointerEvents: 'none' }} />
 
         <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 200 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-              <div style={{ padding: '4px 10px', borderRadius: 99, background: 'rgba(251,146,60,0.2)', border: '1px solid rgba(251,146,60,0.3)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                <GraduationCap size={11} style={{ color: '#fdba74' }} />
-                <span style={{ fontSize: 10, fontWeight: 700, color: '#fdba74', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Admin</span>
+              <div style={{ padding: '4px 10px', borderRadius: 99, background: 'rgba(249, 115, 22,0.2)', border: '1px solid rgba(249, 115, 22,0.3)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                <GraduationCap size={11} style={{ color: '#fb923c' }} />
+                <span style={{ fontSize: 10, fontWeight: 700, color: '#fb923c', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Admin</span>
               </div>
-              <div style={{ padding: '3px 8px', borderRadius: 99, background: 'rgba(251,146,60,0.15)', border: '1px solid rgba(251,146,60,0.25)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#fb923c', animation: 'pulse 2s infinite' }} />
-                <span style={{ fontSize: 10, fontWeight: 600, color: '#fdba74' }}>{rows.length} configured</span>
+              <div style={{ padding: '3px 8px', borderRadius: 99, background: 'rgba(249, 115, 22,0.15)', border: '1px solid rgba(249, 115, 22,0.25)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#f97316', animation: 'pulse 2s infinite' }} />
+                <span style={{ fontSize: 10, fontWeight: 600, color: '#fb923c' }}>{rows.length} configured</span>
               </div>
             </div>
             <h1 style={{ fontSize: 22, fontWeight: 800, color: '#fff', marginBottom: 5, lineHeight: 1.2 }}>
@@ -299,7 +299,7 @@ export default function AdminSettings() {
                 textAlign: 'center', padding: '10px 16px', borderRadius: 14,
                 background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', minWidth: 68,
               }}>
-                <Ic size={13} style={{ color: '#fdba74', margin: '0 auto 4px', display: 'block' }} />
+                <Ic size={13} style={{ color: '#fb923c', margin: '0 auto 4px', display: 'block' }} />
                 <p style={{ fontSize: 18, fontWeight: 800, color: '#fff', lineHeight: 1 }}>{value}</p>
                 <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', marginTop: 3 }}>{label}</p>
               </div>
@@ -374,14 +374,14 @@ export default function AdminSettings() {
       {loading ? (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 0' }}>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ width: 44, height: 44, borderRadius: '50%', border: '3px solid var(--surface-100)', borderTopColor: '#f97316', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
+            <div style={{ width: 44, height: 44, borderRadius: '50%', border: '3px solid var(--surface-100)', borderTopColor: '#ea580c', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
             <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Loading programs…</p>
           </div>
         </div>
       ) : filtered.length === 0 ? (
         <div className="card" style={{ textAlign: 'center', padding: '60px 24px' }}>
-          <div style={{ width: 64, height: 64, borderRadius: 20, background: '#fff7ed', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-            <GraduationCap size={28} style={{ color: '#f97316' }} />
+          <div style={{ width: 64, height: 64, borderRadius: 20, background: '#ffedd5', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+            <GraduationCap size={28} style={{ color: '#ea580c' }} />
           </div>
           <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>
             {search ? `No results for "${search}"` : 'No programs configured yet'}

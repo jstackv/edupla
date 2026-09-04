@@ -36,35 +36,35 @@ const NAV = [
 ];
 
 const FEATURES = [
-  { key: 'documentManagement',   icon: FolderKanban,    color: '#f97316' },
-  { key: 'assignmentWorkflow',   icon: ClipboardList,   color: '#f97316' },
+  { key: 'documentManagement',   icon: FolderKanban,    color: '#ea580c' },
+  { key: 'assignmentWorkflow',   icon: ClipboardList,   color: '#ea580c' },
   { key: 'teacherManagement',    icon: UserCog,         color: '#0ea5e9' },
   { key: 'studentManagement',    icon: Users,           color: '#10b981' },
-  { key: 'assessmentModules',    icon: ListChecks,      color: '#f97316' },
-  { key: 'onlineAssessments',    icon: Timer,           color: '#f97316' },
+  { key: 'assessmentModules',    icon: ListChecks,      color: '#ea580c' },
+  { key: 'onlineAssessments',    icon: Timer,           color: '#ea580c' },
   { key: 'reportManagement',     icon: FileBarChart2,   color: '#14b8a6' },
   { key: 'tvetCurriculumSetup',  icon: SlidersHorizontal, color: '#ec4899' },
   { key: 'markApprovalFlow',     icon: ClipboardCheck,  color: '#22c55e' },
   { key: 'smartAnnouncements',   icon: Megaphone,       color: '#f59e0b' },
   { key: 'groupCollaboration',   icon: MessageSquare,   color: '#0ea5e9' },
   { key: 'enterpriseSecurity',   icon: Shield,          color: '#ef4444' },
-  { key: 'anyDevice',            icon: Globe,           color: '#f97316' },
+  { key: 'anyDevice',            icon: Globe,           color: '#ea580c' },
   { key: 'realTimeNotifications',icon: Bell,            color: '#f59e0b' },
-  { key: 'directMessaging',      icon: Mic,             color: '#f97316' },
+  { key: 'directMessaging',      icon: Mic,             color: '#ea580c' },
 ];
 
 // TVET / competency-based curriculum configuration pipeline
 const CURRICULUM_PIPELINE = [
-  { key: 'sector',              icon: Layers,     color: '#f97316' },
+  { key: 'sector',              icon: Layers,     color: '#ea580c' },
   { key: 'trade',                icon: Target,     color: '#0ea5e9' },
   { key: 'qualificationTitle',   icon: Award,      color: '#f59e0b' },
   { key: 'rtqfLevel',            icon: BadgeCheck, color: '#10b981' },
-  { key: 'modules',              icon: Boxes,      color: '#f97316' },
+  { key: 'modules',              icon: Boxes,      color: '#ea580c' },
 ];
 
 // Assessment categories used inside a module
 const ASSESSMENT_TYPES = [
-  { code: 'FA', key: 'fa', color: '#f97316' },
+  { code: 'FA', key: 'fa', color: '#ea580c' },
   { code: 'IA', key: 'ia', color: '#0ea5e9' },
   { code: 'CA', key: 'ca', color: '#10b981' },
 ];
@@ -79,26 +79,26 @@ const MARK_WORKFLOW = [
 
 // Reporting outputs
 const REPORT_TYPES = [
-  { key: 'studentReportCard',      icon: FileCheck2,    color: '#f97316' },
+  { key: 'studentReportCard',      icon: FileCheck2,    color: '#ea580c' },
   { key: 'assessmentReport',       icon: BarChart2,     color: '#0ea5e9' },
   { key: 'classPerformanceReport', icon: FileBarChart2, color: '#10b981' },
 ];
 
 const STEPS = [
-  { n: '01', key: 'adminConfigures', icon: Target,   color: '#f97316' },
+  { n: '01', key: 'adminConfigures', icon: Target,   color: '#ea580c' },
   { n: '02', key: 'teachersDeliver', icon: BookOpen, color: '#0ea5e9' },
   { n: '03', key: 'studentsThrive',  icon: Rocket,   color: '#10b981' },
 ];
 
 const TESTIMONIALS = [
-  { init: 'SK', name: 'Sarah Kim',     key: 'sarahKim',    stars: 5, color: '#f97316' },
+  { init: 'SK', name: 'Sarah Kim',     key: 'sarahKim',    stars: 5, color: '#ea580c' },
   { init: 'MR', name: 'Marcus Reid',   key: 'marcusReid',  stars: 5, color: '#0ea5e9' },
   { init: 'AJ', name: 'Aisha Jabari',  key: 'aishaJabari', stars: 5, color: '#10b981' },
   { init: 'DL', name: 'Dr. David Lee', key: 'davidLee',    stars: 5, color: '#f59e0b' },
 ];
 
 const STATS = [
-  { key: 'students',  v: '2,400+', icon: Users,      c: '#f97316' },
+  { key: 'students',  v: '2,400+', icon: Users,      c: '#ea580c' },
   { key: 'modules',   v: '180+',   icon: BookOpen,   c: '#0ea5e9' },
   { key: 'educators', v: '120+',   icon: Award,      c: '#10b981' },
   { key: 'passRate',  v: '96%',    icon: TrendingUp, c: '#f59e0b' },
@@ -191,35 +191,35 @@ function MockupCard(props) {
   }, []);
   var s = {
     bg:     dark ? 'rgba(10,12,22,0.97)' : '#fff',
-    border: dark ? 'rgba(255,255,255,0.06)' : 'rgba(249,115,22,0.1)',
+    border: dark ? 'rgba(255,255,255,0.06)' : 'rgba(234, 88, 12,0.1)',
     tp:     dark ? '#f1f5f9' : '#0f172a',
     tm:     dark ? '#64748b' : '#94a3b8',
     cb:     dark ? 'rgba(255,255,255,0.04)' : 'rgba(248,250,255,0.9)',
   };
   var cards = [
-    { icon: Users,         label: tr('landing.mockup.students'),  v: '247', c: '#f97316', bg: 'rgba(249,115,22,0.1)' },
+    { icon: Users,         label: tr('landing.mockup.students'),  v: '247', c: '#ea580c', bg: 'rgba(234, 88, 12,0.1)' },
     { icon: BookOpen,      label: tr('landing.mockup.classes'),   v: '18',  c: '#0ea5e9', bg: 'rgba(14,165,233,0.1)' },
     { icon: ClipboardList, label: tr('landing.mockup.tasks'),     v: '94',  c: '#10b981', bg: 'rgba(16,185,129,0.1)' },
     { icon: TrendingUp,    label: tr('landing.mockup.avgGrade'), v: '87%', c: '#f59e0b', bg: 'rgba(245,158,11,0.1)'  },
   ];
   return (
-    <div style={{ borderRadius:20, overflow:'hidden', border:'1px solid '+s.border, background:s.bg, boxShadow:dark?'0 40px 100px rgba(0,0,0,0.7)':'0 40px 100px rgba(249,115,22,0.18)', fontFamily:"'Outfit',sans-serif" }}>
-      <div style={{ height:34, background:dark?'rgba(255,255,255,0.02)':'rgba(249,115,22,0.03)', borderBottom:'1px solid '+s.border, display:'flex', alignItems:'center', gap:5, padding:'0 12px' }}>
+    <div style={{ borderRadius:20, overflow:'hidden', border:'1px solid '+s.border, background:s.bg, boxShadow:dark?'0 40px 100px rgba(0,0,0,0.7)':'0 40px 100px rgba(234, 88, 12,0.18)', fontFamily:"'Outfit',sans-serif" }}>
+      <div style={{ height:34, background:dark?'rgba(255,255,255,0.02)':'rgba(234, 88, 12,0.03)', borderBottom:'1px solid '+s.border, display:'flex', alignItems:'center', gap:5, padding:'0 12px' }}>
         {['#ef4444','#f59e0b','#10b981'].map(function(c,i) { return <div key={i} style={{ width:9, height:9, borderRadius:'50%', background:c, opacity:0.7 }} />; })}
-        <div style={{ margin:'0 auto', height:18, width:180, borderRadius:5, background:dark?'rgba(255,255,255,0.05)':'rgba(249,115,22,0.06)', display:'flex', alignItems:'center', justifyContent:'center', gap:5 }}>
+        <div style={{ margin:'0 auto', height:18, width:180, borderRadius:5, background:dark?'rgba(255,255,255,0.05)':'rgba(234, 88, 12,0.06)', display:'flex', alignItems:'center', justifyContent:'center', gap:5 }}>
           <div style={{ width:6, height:6, borderRadius:'50%', background:'#10b981', boxShadow:'0 0 5px #10b981' }} />
           <span style={{ fontSize:9, color:s.tm, fontWeight:500 }}>app.edupla.school</span>
         </div>
       </div>
       <div style={{ display:'flex', height:330 }}>
-        <div style={{ width:52, background:dark?'rgba(255,255,255,0.02)':'rgba(249,115,22,0.025)', borderRight:'1px solid '+s.border, display:'flex', flexDirection:'column', alignItems:'center', paddingTop:14, gap:5 }}>
-          <div style={{ width:28, height:28, borderRadius:8, background:'linear-gradient(135deg,#f97316,#f97316)', display:'flex', alignItems:'center', justifyContent:'center', marginBottom:10 }}>
+        <div style={{ width:52, background:dark?'rgba(255,255,255,0.02)':'rgba(234, 88, 12,0.025)', borderRight:'1px solid '+s.border, display:'flex', flexDirection:'column', alignItems:'center', paddingTop:14, gap:5 }}>
+          <div style={{ width:28, height:28, borderRadius:8, background:'linear-gradient(135deg,#ea580c,#ea580c)', display:'flex', alignItems:'center', justifyContent:'center', marginBottom:10 }}>
             <GraduationCap size={13} color="white" />
           </div>
           {[LayoutDashboard, BookOpen, ClipboardList, Megaphone, FileText].map(function(Icon,i) {
             return (
-              <div key={i} style={{ width:32, height:32, borderRadius:9, display:'flex', alignItems:'center', justifyContent:'center', background:i===0?'rgba(249,115,22,0.15)':'transparent' }}>
-                <Icon size={14} color={i===0?'#fb923c':s.tm} />
+              <div key={i} style={{ width:32, height:32, borderRadius:9, display:'flex', alignItems:'center', justifyContent:'center', background:i===0?'rgba(234, 88, 12,0.15)':'transparent' }}>
+                <Icon size={14} color={i===0?'#f97316':s.tm} />
               </div>
             );
           })}
@@ -230,7 +230,7 @@ function MockupCard(props) {
               <div style={{ fontSize:13, fontWeight:700, color:s.tp, letterSpacing:'-0.02em' }}>{tr('landing.mockup.goodMorning')}</div>
               <div style={{ fontSize:9, color:s.tm, marginTop:1 }}>{tr('landing.mockup.assignmentsDueToday')}</div>
             </div>
-            <div style={{ width:26, height:26, borderRadius:8, background:'linear-gradient(135deg,#f97316,#f97316)', fontSize:9, fontWeight:800, color:'white', display:'flex', alignItems:'center', justifyContent:'center' }}>SK</div>
+            <div style={{ width:26, height:26, borderRadius:8, background:'linear-gradient(135deg,#ea580c,#ea580c)', fontSize:9, fontWeight:800, color:'white', display:'flex', alignItems:'center', justifyContent:'center' }}>SK</div>
           </div>
           <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:7 }}>
             {cards.map(function(card, i) {
@@ -250,7 +250,7 @@ function MockupCard(props) {
             <div style={{ padding:'9px 10px', borderRadius:11, background:s.cb, border:'1px solid '+s.border }}>
               <div style={{ fontSize:9, fontWeight:700, color:s.tp, opacity:0.6, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:8 }}>{tr('landing.mockup.activity')}</div>
               {[
-                { icon: ClipboardList, c: '#f97316', t: tr('landing.mockup.mathHwGraded') },
+                { icon: ClipboardList, c: '#ea580c', t: tr('landing.mockup.mathHwGraded') },
                 { icon: Bell,          c: '#f59e0b', t: tr('landing.mockup.announcementSent') },
                 { icon: FileText,      c: '#10b981', t: tr('landing.mockup.notesUploaded') },
               ].map(function(item, i) {
@@ -269,7 +269,7 @@ function MockupCard(props) {
               <div style={{ fontSize:9, fontWeight:700, color:s.tp, opacity:0.6, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:8 }}>{tr('landing.mockup.submissionsPerWeek')}</div>
               <div style={{ display:'flex', alignItems:'flex-end', gap:3, height:58 }}>
                 {[40,65,30,85,55,90,70].map(function(h,i) {
-                  return <div key={i} style={{ flex:1, borderRadius:'2px 2px 0 0', background:'linear-gradient(180deg,#f97316,#f97316)', height:h+'%', opacity:0.6+(i/7)*0.4 }} />;
+                  return <div key={i} style={{ flex:1, borderRadius:'2px 2px 0 0', background:'linear-gradient(180deg,#ea580c,#ea580c)', height:h+'%', opacity:0.6+(i/7)*0.4 }} />;
                 })}
               </div>
               <div style={{ display:'flex', justifyContent:'space-between', marginTop:4 }}>
@@ -339,7 +339,7 @@ function FooterLink(props) {
   var dark = props.dark;
   var tm = props.tm;
   function onEnter(e) {
-    e.currentTarget.style.color = dark ? '#fdba74' : '#ea580c';
+    e.currentTarget.style.color = dark ? '#fb923c' : '#c2410c';
     e.currentTarget.style.paddingLeft = '4px';
   }
   function onLeave(e) {
@@ -364,7 +364,7 @@ function BottomLink(props) {
   var label = props.label;
   var dark = props.dark;
   var tm = props.tm;
-  function onEnter(e) { e.currentTarget.style.color = dark ? '#fdba74' : '#ea580c'; }
+  function onEnter(e) { e.currentTarget.style.color = dark ? '#fb923c' : '#c2410c'; }
   function onLeave(e) { e.currentTarget.style.color = tm; }
   return (
     
@@ -441,10 +441,10 @@ export default function Landing() {
   var t = {
     bg:       dark ? '#080c18' : '#f8faff',
     card:     dark ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.9)',
-    bord:     dark ? 'rgba(255,255,255,0.07)' : 'rgba(249,115,22,0.12)',
+    bord:     dark ? 'rgba(255,255,255,0.07)' : 'rgba(234, 88, 12,0.12)',
     tp:       dark ? '#f1f5f9' : '#0f172a',
     tm:       dark ? '#64748b' : '#64748b',
-    stripeBg: dark ? 'rgba(255,255,255,0.015)' : 'rgba(249,115,22,0.022)',
+    stripeBg: dark ? 'rgba(255,255,255,0.015)' : 'rgba(234, 88, 12,0.022)',
   };
 
   var jsonLd = {
@@ -523,7 +523,7 @@ export default function Landing() {
         .footer-wordmark { animation: footerWordmarkDrift 10s ease-in-out infinite; }
         .footer-stat-chip { opacity:0; animation: footerStatIn 0.5s ease forwards; transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease; }
         .footer-stat-chip:hover { transform: translateY(-3px); }
-        .footer-newsletter-input:focus { box-shadow: 0 0 0 3px rgba(249,115,22,0.25); border-color:#f97316 !important; }
+        .footer-newsletter-input:focus { box-shadow: 0 0 0 3px rgba(234, 88, 12,0.25); border-color:#ea580c !important; }
         .footer-send-btn { position:relative; overflow:hidden; }
         .footer-send-btn::after { content:''; position:absolute; inset:0; background:linear-gradient(120deg,transparent 30%,rgba(255,255,255,0.4) 50%,transparent 70%); transform:translateX(-120%); transition:transform 0.6s ease; }
         .footer-send-btn:hover::after { transform:translateX(120%); }
@@ -593,8 +593,8 @@ export default function Landing() {
       `}</style>
 
       <div style={{ position:'fixed', inset:0, pointerEvents:'none', zIndex:0 }}>
-        <div style={{ position:'absolute', width:800, height:800, borderRadius:'50%', top:'-20%', left:'-15%', background:'radial-gradient(circle,rgba(249,115,22,0.18),transparent)', filter:'blur(120px)' }} />
-        <div style={{ position:'absolute', width:600, height:600, borderRadius:'50%', top:'40%', right:'-10%', background:'radial-gradient(circle,rgba(249,115,22,0.15),transparent)', filter:'blur(100px)' }} />
+        <div style={{ position:'absolute', width:800, height:800, borderRadius:'50%', top:'-20%', left:'-15%', background:'radial-gradient(circle,rgba(234, 88, 12,0.18),transparent)', filter:'blur(120px)' }} />
+        <div style={{ position:'absolute', width:600, height:600, borderRadius:'50%', top:'40%', right:'-10%', background:'radial-gradient(circle,rgba(234, 88, 12,0.15),transparent)', filter:'blur(100px)' }} />
         <div style={{ position:'absolute', width:400, height:400, borderRadius:'50%', bottom:'10%', left:'20%', background:'radial-gradient(circle,rgba(14,165,233,0.12),transparent)', filter:'blur(90px)' }} />
       </div>
 
@@ -614,7 +614,7 @@ export default function Landing() {
               return (
                 <a key={item.key} href={'#'+item.anchor}
                   style={{ padding:'7px 14px', borderRadius:9, fontSize:14, fontWeight:500, color:t.tm, textDecoration:'none', transition:'all 0.2s' }}
-                  onMouseEnter={function(e){ e.currentTarget.style.color=dark?'#fdba74':'#ea580c'; e.currentTarget.style.background=dark?'rgba(249,115,22,0.08)':'rgba(249,115,22,0.06)'; }}
+                  onMouseEnter={function(e){ e.currentTarget.style.color=dark?'#fb923c':'#c2410c'; e.currentTarget.style.background=dark?'rgba(234, 88, 12,0.08)':'rgba(234, 88, 12,0.06)'; }}
                   onMouseLeave={function(e){ e.currentTarget.style.color=t.tm; e.currentTarget.style.background='transparent'; }}
                 >{item.staticLabel || tr('landing.nav.'+item.key)}</a>
               );
@@ -629,13 +629,13 @@ export default function Landing() {
             </button>
             <Link to="/login"
               style={{ padding:'9px 18px', borderRadius:10, background:'transparent', border:'1.5px solid '+t.bord, color:t.tp, fontWeight:600, fontSize:13, textDecoration:'none', transition:'all 0.2s' }}
-              onMouseEnter={function(e){ e.currentTarget.style.borderColor='#f97316'; e.currentTarget.style.color='#f97316'; }}
+              onMouseEnter={function(e){ e.currentTarget.style.borderColor='#ea580c'; e.currentTarget.style.color='#ea580c'; }}
               onMouseLeave={function(e){ e.currentTarget.style.borderColor=t.bord; e.currentTarget.style.color=t.tp; }}
             >{tr('landing.nav.login')}</Link>
             <Link to="/login"
-              style={{ padding:'9px 20px', borderRadius:10, background:'linear-gradient(135deg,#ea580c,#ea580c)', color:'white', fontWeight:700, fontSize:13, textDecoration:'none', display:'flex', alignItems:'center', gap:6, boxShadow:'0 4px 14px rgba(249,115,22,0.4)', transition:'all 0.25s' }}
-              onMouseEnter={function(e){ e.currentTarget.style.transform='translateY(-1px)'; e.currentTarget.style.boxShadow='0 8px 22px rgba(249,115,22,0.5)'; }}
-              onMouseLeave={function(e){ e.currentTarget.style.transform='translateY(0)'; e.currentTarget.style.boxShadow='0 4px 14px rgba(249,115,22,0.4)'; }}
+              style={{ padding:'9px 20px', borderRadius:10, background:'linear-gradient(135deg,#c2410c,#c2410c)', color:'white', fontWeight:700, fontSize:13, textDecoration:'none', display:'flex', alignItems:'center', gap:6, boxShadow:'0 4px 14px rgba(234, 88, 12,0.4)', transition:'all 0.25s' }}
+              onMouseEnter={function(e){ e.currentTarget.style.transform='translateY(-1px)'; e.currentTarget.style.boxShadow='0 8px 22px rgba(234, 88, 12,0.5)'; }}
+              onMouseLeave={function(e){ e.currentTarget.style.transform='translateY(0)'; e.currentTarget.style.boxShadow='0 4px 14px rgba(234, 88, 12,0.4)'; }}
             >{tr('landing.nav.getStarted')} <ArrowRight size={13} /></Link>
           </div>
 
@@ -658,7 +658,7 @@ export default function Landing() {
                 >{item.staticLabel || tr('landing.nav.'+item.key)}</a>
               );
             })}
-            <Link to="/login" onClick={function(){ setMob(false); }} style={{ marginTop:10, padding:'12px', borderRadius:11, background:'linear-gradient(135deg,#ea580c,#ea580c)', color:'white', fontWeight:700, fontSize:14, textDecoration:'none', textAlign:'center' }}>{tr('landing.nav.getStartedFree')}</Link>
+            <Link to="/login" onClick={function(){ setMob(false); }} style={{ marginTop:10, padding:'12px', borderRadius:11, background:'linear-gradient(135deg,#c2410c,#c2410c)', color:'white', fontWeight:700, fontSize:14, textDecoration:'none', textAlign:'center' }}>{tr('landing.nav.getStartedFree')}</Link>
           </div>
         )}
       </nav>
@@ -669,33 +669,33 @@ export default function Landing() {
         <section style={{ position:'relative', overflow:'hidden' }}>
 
           {/* ambient mesh gradients, unique to the hero */}
-          <div className="hero-mesh-a" style={{ position:'absolute', top:'-12%', left:'6%', width:520, height:520, borderRadius:'50%', background:'radial-gradient(circle,rgba(249,115,22,0.16),transparent 70%)', filter:'blur(90px)', pointerEvents:'none', zIndex:0 }} />
+          <div className="hero-mesh-a" style={{ position:'absolute', top:'-12%', left:'6%', width:520, height:520, borderRadius:'50%', background:'radial-gradient(circle,rgba(234, 88, 12,0.16),transparent 70%)', filter:'blur(90px)', pointerEvents:'none', zIndex:0 }} />
           <div className="hero-mesh-b" style={{ position:'absolute', bottom:'-14%', right:'2%', width:460, height:460, borderRadius:'50%', background:'radial-gradient(circle,rgba(14,165,233,0.14),transparent 70%)', filter:'blur(80px)', pointerEvents:'none', zIndex:0 }} />
 
           {/* faint drifting dot-grid for texture */}
-          <div className="hero-grid-pattern" style={{ position:'absolute', inset:0, backgroundImage:'radial-gradient(circle,'+(dark?'rgba(255,255,255,0.05)':'rgba(234,88,12,0.07)')+' 1px, transparent 1px)', backgroundSize:'24px 24px', opacity:0.5, pointerEvents:'none', zIndex:0, maskImage:'radial-gradient(ellipse 60% 55% at 50% 35%, black, transparent)', WebkitMaskImage:'radial-gradient(ellipse 60% 55% at 50% 35%, black, transparent)' }} />
+          <div className="hero-grid-pattern" style={{ position:'absolute', inset:0, backgroundImage:'radial-gradient(circle,'+(dark?'rgba(255,255,255,0.05)':'rgba(194, 65, 12,0.07)')+' 1px, transparent 1px)', backgroundSize:'24px 24px', opacity:0.5, pointerEvents:'none', zIndex:0, maskImage:'radial-gradient(ellipse 60% 55% at 50% 35%, black, transparent)', WebkitMaskImage:'radial-gradient(ellipse 60% 55% at 50% 35%, black, transparent)' }} />
 
           <div style={{ maxWidth:1200, margin:'0 auto', padding:'clamp(3.5rem,8vw,6rem) 2rem 4rem', display:'grid', gridTemplateColumns:'1fr 1fr', gap:'4rem', alignItems:'center', position:'relative', zIndex:1 }} className="hero-grid">
             <div className="fade-up">
-              <div style={{ display:'inline-flex', alignItems:'center', gap:8, padding:'6px 14px', borderRadius:100, background:dark?'rgba(249,115,22,0.12)':'rgba(249,115,22,0.07)', border:'1px solid '+(dark?'rgba(249,115,22,0.28)':'rgba(249,115,22,0.18)'), marginBottom:28 }}>
+              <div style={{ display:'inline-flex', alignItems:'center', gap:8, padding:'6px 14px', borderRadius:100, background:dark?'rgba(234, 88, 12,0.12)':'rgba(234, 88, 12,0.07)', border:'1px solid '+(dark?'rgba(234, 88, 12,0.28)':'rgba(234, 88, 12,0.18)'), marginBottom:28 }}>
                 <div style={{ width:7, height:7, borderRadius:'50%', background:'#34d399', animation:'glow 2s infinite' }} />
-                <Sparkles size={12} color={dark?'#fb923c':'#ea580c'} />
-                <span style={{ fontSize:12, fontWeight:600, color:dark?'#fb923c':'#ea580c', letterSpacing:'0.04em' }}>{tr('landing.hero.badge')}</span>
+                <Sparkles size={12} color={dark?'#f97316':'#c2410c'} />
+                <span style={{ fontSize:12, fontWeight:600, color:dark?'#f97316':'#c2410c', letterSpacing:'0.04em' }}>{tr('landing.hero.badge')}</span>
               </div>
               <h1 style={{ margin:0 }}>
                 <span style={{ display:'block', fontFamily:"'Instrument Serif',serif", fontStyle:'italic', fontSize:'clamp(3rem,5.5vw,4.8rem)', fontWeight:400, lineHeight:1.06, letterSpacing:'-0.02em', margin:'0 0 10px', color:t.tp }}>{tr('landing.hero.titleLine1')}</span>
-                <span style={{ display:'block', fontFamily:"'Outfit',sans-serif", fontSize:'clamp(2.5rem,4.8vw,4.2rem)', fontWeight:900, lineHeight:1, letterSpacing:'-0.05em', margin:'0 0 26px', background:'linear-gradient(135deg,#ea580c 0%,#ea580c 50%,#0ea5e9 100%)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text' }}>{tr('landing.hero.titleLine2')}</span>
+                <span style={{ display:'block', fontFamily:"'Outfit',sans-serif", fontSize:'clamp(2.5rem,4.8vw,4.2rem)', fontWeight:900, lineHeight:1, letterSpacing:'-0.05em', margin:'0 0 26px', background:'linear-gradient(135deg,#c2410c 0%,#c2410c 50%,#0ea5e9 100%)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text' }}>{tr('landing.hero.titleLine2')}</span>
               </h1>
               <p style={{ fontSize:17, lineHeight:1.78, color:t.tm, maxWidth:470, margin:'0 0 36px' }}>{tr('landing.hero.subtitle')}</p>
               <div style={{ display:'flex', gap:12, flexWrap:'wrap', marginBottom:'2.5rem' }}>
                 <Link to="/login" className="hero-cta-primary"
-                  style={{ display:'inline-flex', alignItems:'center', gap:8, padding:'14px 28px', borderRadius:13, background:'linear-gradient(135deg,#ea580c,#ea580c)', color:'white', fontWeight:700, fontSize:15, textDecoration:'none', boxShadow:'0 8px 28px rgba(249,115,22,0.45)', transition:'all 0.25s' }}
-                  onMouseEnter={function(e){ e.currentTarget.style.transform='translateY(-2px)'; e.currentTarget.style.boxShadow='0 14px 40px rgba(249,115,22,0.55)'; }}
-                  onMouseLeave={function(e){ e.currentTarget.style.transform='translateY(0)'; e.currentTarget.style.boxShadow='0 8px 28px rgba(249,115,22,0.45)'; }}
+                  style={{ display:'inline-flex', alignItems:'center', gap:8, padding:'14px 28px', borderRadius:13, background:'linear-gradient(135deg,#c2410c,#c2410c)', color:'white', fontWeight:700, fontSize:15, textDecoration:'none', boxShadow:'0 8px 28px rgba(234, 88, 12,0.45)', transition:'all 0.25s' }}
+                  onMouseEnter={function(e){ e.currentTarget.style.transform='translateY(-2px)'; e.currentTarget.style.boxShadow='0 14px 40px rgba(234, 88, 12,0.55)'; }}
+                  onMouseLeave={function(e){ e.currentTarget.style.transform='translateY(0)'; e.currentTarget.style.boxShadow='0 8px 28px rgba(234, 88, 12,0.45)'; }}
                 >{tr('landing.hero.getStarted')} <ArrowRight size={15} /></Link>
                 <a href="#features"
                   style={{ display:'inline-flex', alignItems:'center', gap:8, padding:'14px 24px', borderRadius:13, background:t.card, color:t.tp, fontWeight:600, fontSize:15, textDecoration:'none', border:'1px solid '+t.bord, backdropFilter:'blur(12px)', transition:'all 0.2s' }}
-                  onMouseEnter={function(e){ e.currentTarget.style.borderColor='#f97316'; e.currentTarget.style.transform='translateY(-2px)'; }}
+                  onMouseEnter={function(e){ e.currentTarget.style.borderColor='#ea580c'; e.currentTarget.style.transform='translateY(-2px)'; }}
                   onMouseLeave={function(e){ e.currentTarget.style.borderColor=t.bord; e.currentTarget.style.transform='translateY(0)'; }}
                 ><Play size={13} fill="currentColor" /> {tr('landing.hero.seeFeatures')}</a>
               </div>
@@ -703,7 +703,7 @@ export default function Landing() {
                 {[
                   { icon:Shield, label:tr('landing.hero.ferpaCompliant'), color:'#10b981' },
                   { icon:Zap,    label:tr('landing.hero.setupIn30Min'),   color:'#f59e0b' },
-                  { icon:Lock,   label:tr('landing.hero.uptime'),         color:'#f97316' },
+                  { icon:Lock,   label:tr('landing.hero.uptime'),         color:'#ea580c' },
                   { icon:Globe,  label:'Multi-Language', color:'#0ea5e9' },
                 ].map(function(item, i) {
                   var Icon = item.icon;
@@ -721,11 +721,11 @@ export default function Landing() {
             </div>
             <div style={{ animation:'fadeUp 0.9s ease both' }}>
 
-              <div className="hero-wordmark" style={{ textAlign:'center', fontFamily:"'Outfit',sans-serif", fontWeight:900, fontSize:'clamp(4.5rem,9vw,8.5rem)', letterSpacing:'-0.05em', lineHeight:1, color:dark?'rgba(255,255,255,0.09)':'rgba(234,88,12,0.11)', whiteSpace:'nowrap', userSelect:'none', marginBottom:'-1.2rem', position:'relative', zIndex:0 }}>Edupla</div>
+              <div className="hero-wordmark" style={{ textAlign:'center', fontFamily:"'Outfit',sans-serif", fontWeight:900, fontSize:'clamp(4.5rem,9vw,8.5rem)', letterSpacing:'-0.05em', lineHeight:1, color:dark?'rgba(255,255,255,0.09)':'rgba(194, 65, 12,0.11)', whiteSpace:'nowrap', userSelect:'none', marginBottom:'-1.2rem', position:'relative', zIndex:0 }}>Edupla</div>
 
               <div style={{ position:'relative', marginTop:'2.75rem' }}>
-                <div style={{ position:'absolute', top:-30, right:-30, width:200, height:200, borderRadius:'50%', background:'radial-gradient(circle,rgba(249,115,22,0.25),transparent)', filter:'blur(50px)', pointerEvents:'none' }} />
-                <div style={{ position:'absolute', top:'50%', left:'50%', width:400, height:400, transform:'translate(-50%,-50%)', borderRadius:'50%', border:'1px dashed '+(dark?'rgba(249,115,22,0.18)':'rgba(249,115,22,0.14)'), pointerEvents:'none' }} className="hero-ring-spin" />
+                <div style={{ position:'absolute', top:-30, right:-30, width:200, height:200, borderRadius:'50%', background:'radial-gradient(circle,rgba(234, 88, 12,0.25),transparent)', filter:'blur(50px)', pointerEvents:'none' }} />
+                <div style={{ position:'absolute', top:'50%', left:'50%', width:400, height:400, transform:'translate(-50%,-50%)', borderRadius:'50%', border:'1px dashed '+(dark?'rgba(234, 88, 12,0.18)':'rgba(234, 88, 12,0.14)'), pointerEvents:'none' }} className="hero-ring-spin" />
                 <div className="hero-mockup-wrap" style={{ position:'relative', zIndex:1 }}>
                   <MockupCard dark={dark} />
                 </div>
@@ -733,9 +733,9 @@ export default function Landing() {
                   <CheckCircle size={13} color="#10b981" />
                   <span style={{ fontSize:11, fontWeight:700, color:'#10b981', whiteSpace:'nowrap' }}>{tr('landing.hero.assignmentGraded')}</span>
                 </div>
-                <div className="float2" style={{ position:'absolute', bottom:54, left:-36, padding:'9px 14px', borderRadius:12, background:dark?'rgba(249,115,22,0.12)':'rgba(249,115,22,0.07)', border:'1px solid rgba(249,115,22,0.25)', backdropFilter:'blur(12px)', display:'flex', alignItems:'center', gap:7, boxShadow:'0 8px 24px rgba(249,115,22,0.15)', zIndex:2 }}>
-                  <Bell size={13} color="#f97316" />
-                  <span style={{ fontSize:11, fontWeight:700, color:dark?'#fb923c':'#ea580c', whiteSpace:'nowrap' }}>{tr('landing.hero.newSubmissions')}</span>
+                <div className="float2" style={{ position:'absolute', bottom:54, left:-36, padding:'9px 14px', borderRadius:12, background:dark?'rgba(234, 88, 12,0.12)':'rgba(234, 88, 12,0.07)', border:'1px solid rgba(234, 88, 12,0.25)', backdropFilter:'blur(12px)', display:'flex', alignItems:'center', gap:7, boxShadow:'0 8px 24px rgba(234, 88, 12,0.15)', zIndex:2 }}>
+                  <Bell size={13} color="#ea580c" />
+                  <span style={{ fontSize:11, fontWeight:700, color:dark?'#f97316':'#c2410c', whiteSpace:'nowrap' }}>{tr('landing.hero.newSubmissions')}</span>
                 </div>
               </div>
             </div>
@@ -760,7 +760,7 @@ export default function Landing() {
         <section id="features" style={{ padding:'6rem 2rem' }}>
           <div style={{ maxWidth:1200, margin:'0 auto' }}>
             <div style={{ textAlign:'center', marginBottom:'4rem' }}>
-              <Label icon={Layers} text={tr('landing.featuresSection.badge')} color="#ea580c" />
+              <Label icon={Layers} text={tr('landing.featuresSection.badge')} color="#c2410c" />
               <h2 style={{ fontFamily:"'Instrument Serif',serif", fontStyle:'italic', fontSize:'clamp(2rem,3.5vw,3rem)', fontWeight:400, letterSpacing:'-0.02em', margin:'0 0 18px', color:t.tp }}>{tr('landing.featuresSection.title')}</h2>
               <p style={{ fontSize:16, color:t.tm, maxWidth:500, margin:'0 auto', lineHeight:1.75 }}>{tr('landing.featuresSection.subtitle')}</p>
             </div>
@@ -819,7 +819,7 @@ export default function Landing() {
               {/* assessment types */}
               <div style={{ padding:'30px 28px', borderRadius:22, background:t.card, border:'1px solid '+t.bord, backdropFilter:'blur(16px)' }}>
                 <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:20 }}>
-                  <ListChecks size={18} color="#f97316" />
+                  <ListChecks size={18} color="#ea580c" />
                   <h3 style={{ fontWeight:700, fontSize:17, margin:0, color:t.tp }}>{tr('landing.curriculumSection.assessmentTypesTitle')}</h3>
                 </div>
                 <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
@@ -893,7 +893,7 @@ export default function Landing() {
         <section id="how-it-works" style={{ background:t.stripeBg, borderTop:'1px solid '+t.bord, borderBottom:'1px solid '+t.bord, padding:'6rem 2rem' }}>
           <div style={{ maxWidth:1100, margin:'0 auto' }}>
             <div style={{ textAlign:'center', marginBottom:'4rem' }}>
-              <Label icon={Rocket} text={tr('landing.howItWorksSection.badge')} color="#ea580c" />
+              <Label icon={Rocket} text={tr('landing.howItWorksSection.badge')} color="#c2410c" />
               <h2 style={{ fontFamily:"'Instrument Serif',serif", fontStyle:'italic', fontSize:'clamp(2rem,3.5vw,3rem)', fontWeight:400, letterSpacing:'-0.02em', margin:'0 0 18px', color:t.tp }}>{tr('landing.howItWorksSection.title')}</h2>
               <p style={{ fontSize:16, color:t.tm, maxWidth:440, margin:'0 auto', lineHeight:1.75 }}>{tr('landing.howItWorksSection.subtitle')}</p>
             </div>
@@ -1083,7 +1083,7 @@ export default function Landing() {
             <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
               {tr('landing.faqs', { returnObjects: true }).map(function(item, i) {
                 return (
-                  <div key={item.q} style={{ borderRadius:16, background:t.card, border:'1px solid '+(faq===i?'rgba(249,115,22,0.35)':t.bord), overflow:'hidden', transition:'border-color 0.2s' }}>
+                  <div key={item.q} style={{ borderRadius:16, background:t.card, border:'1px solid '+(faq===i?'rgba(234, 88, 12,0.35)':t.bord), overflow:'hidden', transition:'border-color 0.2s' }}>
                     <button onClick={function(){ setFaq(faq===i?null:i); }} style={{ width:'100%', padding:'18px 22px', background:'none', border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'space-between', gap:16, fontFamily:'inherit', textAlign:'left' }}>
                       <span style={{ fontWeight:600, fontSize:15, color:t.tp, letterSpacing:'-0.01em' }}>{item.q}</span>
                       <ChevronDown size={15} color={t.tm} style={{ flexShrink:0, transition:'transform 0.3s', transform:faq===i?'rotate(180deg)':'rotate(0)' }} />
@@ -1098,7 +1098,7 @@ export default function Landing() {
 
         {/* CTA */}
         <section style={{ padding:'2rem 2rem 5rem' }}>
-          <div style={{ maxWidth:900, margin:'0 auto', padding:'clamp(3rem,6vw,5rem) clamp(2rem,5vw,4rem)', borderRadius:28, background:'linear-gradient(135deg,#431407 0%,#7c2d12 30%,#ea580c 65%,#ea580c 100%)', textAlign:'center', position:'relative', overflow:'hidden', boxShadow:'0 32px 80px rgba(234,88,12,0.45)' }}>
+          <div style={{ maxWidth:900, margin:'0 auto', padding:'clamp(3rem,6vw,5rem) clamp(2rem,5vw,4rem)', borderRadius:28, background:'linear-gradient(135deg,#2a0c03 0%,#431407 30%,#c2410c 65%,#c2410c 100%)', textAlign:'center', position:'relative', overflow:'hidden', boxShadow:'0 32px 80px rgba(194, 65, 12,0.45)' }}>
             <div style={{ position:'absolute', top:-80, right:-80, width:400, height:400, borderRadius:'50%', background:'rgba(255,255,255,0.06)', filter:'blur(50px)', pointerEvents:'none' }} />
             <div style={{ position:'absolute', bottom:-50, left:-60, width:300, height:300, borderRadius:'50%', background:'rgba(255,255,255,0.05)', filter:'blur(40px)', pointerEvents:'none' }} />
             <svg style={{ position:'absolute', inset:0, width:'100%', height:'100%', opacity:0.07, pointerEvents:'none' }}>
@@ -1114,7 +1114,7 @@ export default function Landing() {
               <p style={{ fontSize:17, color:'rgba(255,255,255,0.75)', margin:'0 0 36px', lineHeight:1.75, maxWidth:500, marginLeft:'auto', marginRight:'auto' }}>{tr('landing.finalCta.subtitle')}</p>
               <div style={{ display:'flex', gap:12, justifyContent:'center', flexWrap:'wrap' }}>
                 <Link to="/login"
-                  style={{ display:'inline-flex', alignItems:'center', gap:10, padding:'15px 34px', borderRadius:14, background:'white', color:'#431407', fontWeight:800, fontSize:15, textDecoration:'none', boxShadow:'0 8px 30px rgba(0,0,0,0.25)', transition:'all 0.25s' }}
+                  style={{ display:'inline-flex', alignItems:'center', gap:10, padding:'15px 34px', borderRadius:14, background:'white', color:'#2a0c03', fontWeight:800, fontSize:15, textDecoration:'none', boxShadow:'0 8px 30px rgba(0,0,0,0.25)', transition:'all 0.25s' }}
                   onMouseEnter={function(e){ e.currentTarget.style.transform='translateY(-2px) scale(1.02)'; e.currentTarget.style.boxShadow='0 14px 40px rgba(0,0,0,0.3)'; }}
                   onMouseLeave={function(e){ e.currentTarget.style.transform='translateY(0) scale(1)'; e.currentTarget.style.boxShadow='0 8px 30px rgba(0,0,0,0.25)'; }}
                 >{tr('landing.finalCta.startFree')} <ArrowRight size={16} /></Link>
@@ -1132,13 +1132,13 @@ export default function Landing() {
         <footer style={{ borderTop:'1px solid '+t.bord, background:dark?'rgba(8,12,24,0.85)':'rgba(248,250,255,0.92)', backdropFilter:'blur(20px)', position:'relative', overflow:'hidden' }}>
 
           {/* animated gradient accent line along the very top edge */}
-          <div className="footer-accent-line" style={{ position:'absolute', top:0, left:0, right:0, height:2, background:'linear-gradient(90deg,#f97316,#f97316,#0ea5e9,#f97316,#f97316)', pointerEvents:'none' }} />
+          <div className="footer-accent-line" style={{ position:'absolute', top:0, left:0, right:0, height:2, background:'linear-gradient(90deg,#ea580c,#ea580c,#0ea5e9,#ea580c,#ea580c)', pointerEvents:'none' }} />
 
           {/* giant faded wordmark for depth */}
-          <div className="footer-wordmark" style={{ position:'absolute', bottom:-6, left:'50%', transform:'translateX(-50%)', fontFamily:"'Outfit',sans-serif", fontWeight:900, fontSize:'clamp(6rem,18vw,15rem)', letterSpacing:'-0.05em', lineHeight:1, color:dark?'rgba(255,255,255,0.025)':'rgba(234,88,12,0.035)', whiteSpace:'nowrap', pointerEvents:'none', userSelect:'none', zIndex:0 }}>Edupla</div>
+          <div className="footer-wordmark" style={{ position:'absolute', bottom:-6, left:'50%', transform:'translateX(-50%)', fontFamily:"'Outfit',sans-serif", fontWeight:900, fontSize:'clamp(6rem,18vw,15rem)', letterSpacing:'-0.05em', lineHeight:1, color:dark?'rgba(255,255,255,0.025)':'rgba(194, 65, 12,0.035)', whiteSpace:'nowrap', pointerEvents:'none', userSelect:'none', zIndex:0 }}>Edupla</div>
 
-          <div className="footer-blob-a" style={{ position:'absolute', bottom:-100, left:'10%', width:400, height:400, borderRadius:'50%', background:'radial-gradient(circle,rgba(249,115,22,0.1),transparent)', filter:'blur(80px)', pointerEvents:'none' }} />
-          <div className="footer-blob-b" style={{ position:'absolute', top:-60, right:'5%', width:300, height:300, borderRadius:'50%', background:'radial-gradient(circle,rgba(249,115,22,0.08),transparent)', filter:'blur(60px)', pointerEvents:'none' }} />
+          <div className="footer-blob-a" style={{ position:'absolute', bottom:-100, left:'10%', width:400, height:400, borderRadius:'50%', background:'radial-gradient(circle,rgba(234, 88, 12,0.1),transparent)', filter:'blur(80px)', pointerEvents:'none' }} />
+          <div className="footer-blob-b" style={{ position:'absolute', top:-60, right:'5%', width:300, height:300, borderRadius:'50%', background:'radial-gradient(circle,rgba(234, 88, 12,0.08),transparent)', filter:'blur(60px)', pointerEvents:'none' }} />
 
           <div style={{ position:'relative', zIndex:1 }}>
 
@@ -1166,7 +1166,7 @@ export default function Landing() {
 
                 <div className="footer-brand">
                   <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:20 }}>
-                    <div style={{ width:40, height:40, borderRadius:13, background:'linear-gradient(135deg,#ea580c,#ea580c)', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 4px 16px rgba(249,115,22,0.45)' }}>
+                    <div style={{ width:40, height:40, borderRadius:13, background:'linear-gradient(135deg,#c2410c,#c2410c)', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 4px 16px rgba(234, 88, 12,0.45)' }}>
                       <GraduationCap size={18} color="white" />
                     </div>
                     <span style={{ fontFamily:"'Instrument Serif',serif", fontStyle:'italic', fontSize:22, color:t.tp, letterSpacing:'-0.01em' }}>Edupla</span>
@@ -1211,7 +1211,7 @@ export default function Landing() {
                 </div>
 
                 <div>
-                  <p style={{ display:'flex', alignItems:'center', gap:7, fontWeight:700, fontSize:11, letterSpacing:'0.09em', textTransform:'uppercase', color:t.tp, opacity:0.55, margin:'0 0 20px' }}><Layers size={13} color="#f97316" />{tr('landing.footer.product')}</p>
+                  <p style={{ display:'flex', alignItems:'center', gap:7, fontWeight:700, fontSize:11, letterSpacing:'0.09em', textTransform:'uppercase', color:t.tp, opacity:0.55, margin:'0 0 20px' }}><Layers size={13} color="#ea580c" />{tr('landing.footer.product')}</p>
                   <FooterLink label={tr('landing.nav.features')}  dark={dark} tm={t.tm} />
                   <FooterLink label={tr('landing.footer.changelog')} dark={dark} tm={t.tm} />
                   <FooterLink label={tr('landing.footer.roadmap')}   dark={dark} tm={t.tm} />
@@ -1229,8 +1229,8 @@ export default function Landing() {
                 <div>
                   <p style={{ display:'flex', alignItems:'center', gap:7, fontWeight:700, fontSize:11, letterSpacing:'0.09em', textTransform:'uppercase', color:t.tp, opacity:0.55, margin:'0 0 20px' }}><Mail size={13} color="#10b981" />{tr('landing.footer.contact')}</p>
                   <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:14 }}>
-                    <div style={{ width:32, height:32, borderRadius:9, background:'rgba(249,115,22,0.12)', border:'1px solid rgba(249,115,22,0.22)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                      <Mail size={13} color="#f97316" />
+                    <div style={{ width:32, height:32, borderRadius:9, background:'rgba(234, 88, 12,0.12)', border:'1px solid rgba(234, 88, 12,0.22)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                      <Mail size={13} color="#ea580c" />
                     </div>
                     <span style={{ fontSize:13.5, color:t.tm }}>edupla@yahoo.fr</span>
                   </div>
@@ -1258,7 +1258,7 @@ export default function Landing() {
                     © {OWNER.founded} Edupla. Created, designed, and owned by{' '}
                     <a href={OWNER.portfolio} target="_blank" rel="noopener noreferrer"
                       style={{ color:'inherit', fontWeight:700, textDecoration:'underline', textDecorationColor:t.bord, textUnderlineOffset:3, transition:'color 0.2s' }}
-                      onMouseEnter={function(e){ e.currentTarget.style.color = dark ? '#fdba74' : '#ea580c'; }}
+                      onMouseEnter={function(e){ e.currentTarget.style.color = dark ? '#fb923c' : '#c2410c'; }}
                       onMouseLeave={function(e){ e.currentTarget.style.color = 'inherit'; }}
                     >{OWNER.name}</a>. All rights reserved.
                   </p>
@@ -1284,7 +1284,7 @@ export default function Landing() {
             className="back-to-top-btn"
             onClick={scrollToTop}
             aria-label="Back to top"
-            style={{ position:'fixed', bottom:26, right:26, zIndex:90, width:46, height:46, borderRadius:14, background:'linear-gradient(135deg,#ea580c,#ea580c)', border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 12px 30px rgba(249,115,22,0.45)' }}
+            style={{ position:'fixed', bottom:26, right:26, zIndex:90, width:46, height:46, borderRadius:14, background:'linear-gradient(135deg,#c2410c,#c2410c)', border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 12px 30px rgba(234, 88, 12,0.45)' }}
           >
             <ArrowRight size={17} color="white" style={{ transform:'rotate(-90deg)' }} />
           </button>

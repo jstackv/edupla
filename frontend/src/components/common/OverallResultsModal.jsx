@@ -79,7 +79,7 @@ const roundNum = (v) => (v == null ? v : Math.round(v));
 function perfColor(pct) {
   if (pct == null) return '#9ca3af';
   if (pct >= 80) return '#10b981';
-  if (pct >= 60) return '#f97316';
+  if (pct >= 60) return '#ea580c';
   if (pct >= 40) return '#f59e0b';
   return '#ef4444';
 }
@@ -231,7 +231,7 @@ export default function OverallResultsModal({ courseId, classId, type, term, aca
           {stats && (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 assessment-stagger">
               {[
-                { label: 'Students', value: stats.total, color: '#f97316', icon: Users },
+                { label: 'Students', value: stats.total, color: '#ea580c', icon: Users },
                 { label: 'Class average', value: stats.avg != null ? `${roundNum(stats.avg)}%` : '—', color: perfColor(stats.avg), icon: TrendingUp },
                 { label: 'Top score', value: stats.highest != null ? `${roundNum(stats.highest)}%` : '—', color: '#eab308', icon: Trophy },
                 { label: 'Passed', value: stats.passCount, color: '#10b981', icon: CheckCircle2 },

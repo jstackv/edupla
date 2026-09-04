@@ -225,7 +225,7 @@ function StatCard({ icon: Icon, label, value, color, iconBg, to, sublabel, anima
 /* ── Urgency meta ── */
 function urgencyMeta(diff, overdue) {
   if (overdue) return { badge: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400', icon: AlertTriangle, iconColor: 'text-red-500', iconBg: 'bg-red-100 dark:bg-red-900/30', label: 'Overdue', bar: '#ef4444' };
-  if (diff === 0) return { badge: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400', icon: AlertTriangle, iconColor: 'text-orange-500', iconBg: 'bg-orange-100 dark:bg-orange-900/30', label: 'Due today', bar: '#f97316' };
+  if (diff === 0) return { badge: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400', icon: AlertTriangle, iconColor: 'text-orange-500', iconBg: 'bg-orange-100 dark:bg-orange-900/30', label: 'Due today', bar: '#ea580c' };
   if (diff <= 2) return { badge: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400', icon: Clock, iconColor: 'text-amber-500', iconBg: 'bg-amber-100 dark:bg-amber-900/30', label: `${diff}d left`, bar: '#f59e0b' };
   return { badge: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400', icon: Clock, iconColor: 'text-emerald-500', iconBg: 'bg-emerald-100 dark:bg-emerald-900/30', label: `${diff}d left`, bar: '#10b981' };
 }
@@ -233,7 +233,7 @@ function urgencyMeta(diff, overdue) {
 /* ── Score color ── */
 function scoreColor(pct) {
   if (pct >= 80) return '#10b981';
-  if (pct >= 60) return '#f97316';
+  if (pct >= 60) return '#ea580c';
   if (pct >= 40) return '#f59e0b';
   return '#ef4444';
 }
@@ -389,7 +389,7 @@ export default function StudentDashboard() {
   /* Score band for grade rating label — driven by online assessment average */
   const gradeLabel = averageScore === null ? null
     : averageScore >= 80 ? { label: 'Excellent', color: '#10b981' }
-    : averageScore >= 60 ? { label: 'Good', color: '#f97316' }
+    : averageScore >= 60 ? { label: 'Good', color: '#ea580c' }
     : averageScore >= PASS_MARK ? { label: 'Average', color: '#f59e0b' }
     : { label: 'Needs work', color: '#ef4444' };
 
@@ -483,9 +483,9 @@ export default function StudentDashboard() {
   if (loading) return (
     <div className="flex flex-col items-center justify-center py-24 gap-4">
       <div style={{ position: 'relative', width: 48, height: 48 }}>
-        <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '3px solid rgba(16,185,129,0.15)' }} />
-        <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '3px solid transparent', borderTopColor: '#10b981', animation: 'spin 0.9s linear infinite' }} />
-        <GraduationCap style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', color: '#10b981', width: 18, height: 18 }} />
+        <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '3px solid rgba(234,88,12,0.15)' }} />
+        <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '3px solid transparent', borderTopColor: '#ea580c', animation: 'spin 0.9s linear infinite' }} />
+        <GraduationCap style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', color: '#ea580c', width: 18, height: 18 }} />
       </div>
       <p className="text-sm text-muted font-medium">Loading your dashboard…</p>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
@@ -515,7 +515,7 @@ export default function StudentDashboard() {
         style={{
           ...visStyle(0),
           borderRadius: 26,
-          background: 'linear-gradient(120deg, #064e3b 0%, #047857 30%, #0d9488 58%, #0e7490 78%, #c2410c 100%)',
+          background: 'linear-gradient(120deg, #064e3b 0%, #047857 30%, #0d9488 58%, #0e7490 78%, #9a3412 100%)',
           backgroundSize: '160% 160%',
           animation: 'heroGradientDrift 16s ease-in-out infinite',
           padding: '30px 32px', position: 'relative', overflow: 'hidden',
@@ -541,7 +541,7 @@ export default function StudentDashboard() {
         }} />
         <div style={{
           position: 'absolute', bottom: -80, left: '28%', width: 240, height: 240, borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(249,115,22,0.3), transparent 70%)', filter: 'blur(14px)', pointerEvents: 'none',
+          background: 'radial-gradient(circle, rgba(234, 88, 12,0.3), transparent 70%)', filter: 'blur(14px)', pointerEvents: 'none',
           animation: 'heroFloat 8.5s ease-in-out infinite 0.6s',
           transform: `translate(${(heroPos.x - 50) * -0.09}px, ${(heroPos.y - 50) * -0.09}px)`,
           transition: 'transform 0.3s ease-out',
@@ -591,7 +591,7 @@ export default function StudentDashboard() {
               <div style={{ position: 'relative', flexShrink: 0 }}>
                 <div className="hero-avatar-ring" style={{
                   position: 'absolute', inset: -4, borderRadius: 20,
-                  background: 'conic-gradient(from 0deg, #fcd34d, #34d399, #22d3ee, #fb923c, #fcd34d)',
+                  background: 'conic-gradient(from 0deg, #fcd34d, #34d399, #22d3ee, #f97316, #fcd34d)',
                   opacity: 0.55, filter: 'blur(6px)', animation: 'heroRingSpin 6s linear infinite',
                 }} />
                 <div style={{
@@ -788,7 +788,7 @@ export default function StudentDashboard() {
         <div className="card" style={visStyle(0.1)}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-sm flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-              <Timer style={{ width: 14, height: 14, color: '#f97316' }} />
+              <Timer style={{ width: 14, height: 14, color: '#ea580c' }} />
               Assessments available now
               <span className="badge text-xs bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300">{availableQuizzes.length}</span>
             </h3>
@@ -806,8 +806,8 @@ export default function StudentDashboard() {
                 }}
                   onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
                   onMouseLeave={e => e.currentTarget.style.transform = ''}>
-                  <div style={{ width: 34, height: 34, borderRadius: 9, background: 'rgba(249,115,22,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Timer style={{ width: 15, height: 15, color: '#f97316' }} />
+                  <div style={{ width: 34, height: 34, borderRadius: 9, background: 'rgba(234, 88, 12,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Timer style={{ width: 15, height: 15, color: '#ea580c' }} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{q.title}</p>
@@ -828,7 +828,7 @@ export default function StudentDashboard() {
         <div className="card" style={visStyle(0.11)}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-sm flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-              <Lock style={{ width: 13, height: 13, color: '#f97316' }} />
+              <Lock style={{ width: 13, height: 13, color: '#ea580c' }} />
               Assessments opening soon
               <span className="badge text-xs bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300">{scheduledQuizzes.length}</span>
             </h3>
@@ -840,8 +840,8 @@ export default function StudentDashboard() {
                 background: 'var(--card-border)',
                 animation: `fadeSlide 0.35s ease ${i * 0.06}s both`,
               }}>
-                <div style={{ width: 34, height: 34, borderRadius: 9, background: 'rgba(249,115,22,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <Hourglass style={{ width: 15, height: 15, color: '#f97316' }} />
+                <div style={{ width: 34, height: 34, borderRadius: 9, background: 'rgba(234, 88, 12,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Hourglass style={{ width: 15, height: 15, color: '#ea580c' }} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{q.title}</p>
@@ -902,7 +902,7 @@ export default function StudentDashboard() {
           {/* Assessment outcome breakdown donut */}
           <div className="card lg:col-span-2" style={{ display: 'flex', flexDirection: 'column' }}>
             <h3 className="font-semibold text-sm flex items-center gap-2 mb-2" style={{ color: 'var(--text-primary)' }}>
-              <Target style={{ width: 14, height: 14, color: '#f97316' }} />
+              <Target style={{ width: 14, height: 14, color: '#ea580c' }} />
               Assessment outcomes
             </h3>
             {breakdownData.length === 0 ? (
@@ -976,7 +976,7 @@ export default function StudentDashboard() {
             <div className="card lg:col-span-5">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="font-semibold text-sm flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-                  <BarChart3 style={{ width: 14, height: 14, color: '#f97316' }} />
+                  <BarChart3 style={{ width: 14, height: 14, color: '#ea580c' }} />
                   Performance by module
                 </h3>
                 <span className="text-xs text-muted">average score, graded assessments</span>
@@ -1009,7 +1009,7 @@ export default function StudentDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <h3 className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
-                <BarChart3 style={{ display: 'inline', width: 14, height: 14, marginRight: 6, color: '#f97316', verticalAlign: 'middle' }} />
+                <BarChart3 style={{ display: 'inline', width: 14, height: 14, marginRight: 6, color: '#ea580c', verticalAlign: 'middle' }} />
                 Performance
               </h3>
               {performanceTerm && (
@@ -1029,7 +1029,7 @@ export default function StudentDashboard() {
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
             <div className="hero-ring-wrap" style={{ position: 'relative', width: 100, height: 100 }}>
               <svg width={100} height={100} viewBox="0 0 100 100" style={{ transform: 'rotate(-90deg)' }}>
-                <circle cx={50} cy={50} r={40} fill="none" stroke="rgba(249,115,22,0.1)" strokeWidth={9} />
+                <circle cx={50} cy={50} r={40} fill="none" stroke="rgba(234, 88, 12,0.1)" strokeWidth={9} />
                 <circle cx={50} cy={50} r={40} fill="none"
                   stroke={averageScore !== null ? scoreColor(averageScore) : '#e5e7eb'}
                   strokeWidth={9} strokeLinecap="round"
@@ -1050,7 +1050,7 @@ export default function StudentDashboard() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {[
               { label: 'Conducted',      val: conductedQuizzes.length,      total: Math.max(data?.quizzes?.length || 1, 1), color: '#10b981' },
-              { label: 'Passed',         val: passedQuizzes.length,         total: Math.max(gradedQuizzes.length, 1),        color: '#f97316' },
+              { label: 'Passed',         val: passedQuizzes.length,         total: Math.max(gradedQuizzes.length, 1),        color: '#ea580c' },
               { label: 'Pending review', val: pendingGradingQuizzes.length, total: Math.max(conductedQuizzes.length, 1),     color: '#f59e0b' },
             ].map(row => (
               <div key={row.label}>
@@ -1159,7 +1159,7 @@ export default function StudentDashboard() {
       <div className="card" style={visStyle(0.2)}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold text-sm flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-            <Bell style={{ width: 14, height: 14, color: '#f97316' }} />
+            <Bell style={{ width: 14, height: 14, color: '#ea580c' }} />
             Announcements
           </h3>
           <Link to="/student/announcements" className="text-xs text-primary-600 hover:underline flex items-center gap-1">
@@ -1180,7 +1180,7 @@ export default function StudentDashboard() {
               <div key={a.id} style={{
                 display: 'flex', gap: 12, padding: '12px 14px', borderRadius: 14,
                 background: 'var(--card-border)',
-                borderLeft: '3px solid #f97316',
+                borderLeft: '3px solid #ea580c',
                 animation: `fadeSlide 0.35s ease ${i * 0.06}s both`,
               }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -1242,7 +1242,7 @@ export default function StudentDashboard() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 8, borderTop: '1px solid var(--card-border)' }}>
                       <div style={{
                         width: 24, height: 24, borderRadius: '50%', flexShrink: 0,
-                        background: 'linear-gradient(135deg, #ea580c, #f97316)',
+                        background: 'linear-gradient(135deg, #c2410c, #ea580c)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         fontSize: 10, fontWeight: 700, color: '#fff',
                       }}>{initials(course.teacher_id.name)}</div>
@@ -1280,7 +1280,7 @@ export default function StudentDashboard() {
                 }}>
                   <div style={{
                     width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
-                    background: 'linear-gradient(135deg, #ea580c, #f97316)',
+                    background: 'linear-gradient(135deg, #c2410c, #ea580c)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontSize: 14, fontWeight: 700, color: '#fff',
                   }}>{initials(t.name)}</div>
@@ -1379,9 +1379,9 @@ export default function StudentDashboard() {
         <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 9 }}>
           {[
             { label: 'Assignments',  to: '/student/assignments',  icon: ClipboardList, color: '#fbbf24', bg: 'rgba(251,191,36,0.1)' },
-            { label: 'Assessments',  to: '/student/assessments',  icon: Timer,         color: '#f97316', bg: 'rgba(249,115,22,0.1)' },
+            { label: 'Assessments',  to: '/student/assessments',  icon: Timer,         color: '#ea580c', bg: 'rgba(234, 88, 12,0.1)' },
             { label: 'Documents',    to: '/student/documents',    icon: FileText,      color: '#f472b6', bg: 'rgba(244,114,182,0.1)' },
-            { label: 'Groups & DMs', to: '/student/groups',       icon: MessageSquare, color: '#f97316', bg: 'rgba(249,115,22,0.1)' },
+            { label: 'Groups & DMs', to: '/student/groups',       icon: MessageSquare, color: '#ea580c', bg: 'rgba(234, 88, 12,0.1)' },
             { label: 'Announce',     to: '/student/announcements', icon: Megaphone,    color: '#22d3ee', bg: 'rgba(34,211,238,0.1)' },
             { label: 'My Classes',   to: '/student/classes',      icon: BookOpen,      color: '#34d399', bg: 'rgba(52,211,153,0.1)' },
           ].map(a => (
@@ -1416,7 +1416,7 @@ export default function StudentDashboard() {
         .ready-indicator {
           position: relative; display: inline-flex; align-items: center; gap: 7px;
           padding: 8px 16px; border-radius: 30px; overflow: hidden; flex-shrink: 0;
-          background: linear-gradient(135deg, rgba(16,185,129,0.24), rgba(45,212,191,0.16), rgba(249,115,22,0.24));
+          background: linear-gradient(135deg, rgba(16,185,129,0.24), rgba(45,212,191,0.16), rgba(234, 88, 12,0.24));
           background-size: 220% 220%;
           border: 1px solid rgba(255,255,255,0.38);
           backdrop-filter: blur(10px);
@@ -1492,7 +1492,7 @@ export default function StudentDashboard() {
         .scheduled-indicator {
           position: relative; display: inline-flex; align-items: center; gap: 8px;
           padding: 8px 16px; border-radius: 30px; overflow: hidden; flex-shrink: 0;
-          background: linear-gradient(135deg, rgba(249,115,22,0.18), rgba(56,189,248,0.1));
+          background: linear-gradient(135deg, rgba(234, 88, 12,0.18), rgba(56,189,248,0.1));
           border: 1px solid rgba(199,210,254,0.42);
           backdrop-filter: blur(10px);
           animation: scheduledGlowBreathe 3.6s ease-in-out infinite;
@@ -1501,7 +1501,7 @@ export default function StudentDashboard() {
         .scheduled-indicator:hover { transform: translateY(-2px); }
         .scheduled-indicator-glow {
           position: absolute; inset: -7px; border-radius: 40px; z-index: 0; pointer-events: none;
-          background: radial-gradient(circle, rgba(251,146,60,0.38), transparent 70%);
+          background: radial-gradient(circle, rgba(249, 115, 22,0.38), transparent 70%);
           filter: blur(10px); animation: scheduledGlowPulse 3.4s ease-in-out infinite;
         }
         .scheduled-indicator-ripple {
@@ -1510,17 +1510,17 @@ export default function StudentDashboard() {
           animation: scheduledRipple 3.2s ease-out infinite;
         }
         .scheduled-indicator-icon {
-          position: relative; z-index: 1; flex-shrink: 0; color: #fed7aa;
+          position: relative; z-index: 1; flex-shrink: 0; color: #fdba74;
           filter: drop-shadow(0 0 3px rgba(165,180,252,0.7));
           animation: scheduledIconBob 3.1s ease-in-out infinite;
         }
         .scheduled-indicator-label {
-          position: relative; z-index: 1; font-size: 12px; font-weight: 700; letter-spacing: 0.02em; color: #ffedd5;
+          position: relative; z-index: 1; font-size: 12px; font-weight: 700; letter-spacing: 0.02em; color: #fed7aa;
           white-space: nowrap; text-shadow: 0 0 10px rgba(165,180,252,0.4);
         }
         @keyframes scheduledGlowBreathe {
-          0%, 100% { box-shadow: 0 4px 14px rgba(249,115,22,0.16); }
-          50%      { box-shadow: 0 8px 22px rgba(251,146,60,0.36); }
+          0%, 100% { box-shadow: 0 4px 14px rgba(234, 88, 12,0.16); }
+          50%      { box-shadow: 0 8px 22px rgba(249, 115, 22,0.36); }
         }
         @keyframes scheduledGlowPulse {
           0%, 100% { opacity: 0.35; transform: scale(0.94); }

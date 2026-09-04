@@ -136,7 +136,7 @@ function AssignmentCard({ a, onPreview, onSubmit, onResubmit, cardRef, highlight
 
   return (
     <div ref={cardRef} className="card hover:shadow-soft transition-all"
-      style={highlighted ? { boxShadow: '0 0 0 2px #f97316, 0 8px 24px rgba(249,115,22,0.25)', transition: 'box-shadow 0.4s ease' } : undefined}>
+      style={highlighted ? { boxShadow: '0 0 0 2px #ea580c, 0 8px 24px rgba(234, 88, 12,0.25)', transition: 'box-shadow 0.4s ease' } : undefined}>
       <div className="flex flex-col sm:flex-row sm:items-start gap-4">
         {/* Status Icon */}
         <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${

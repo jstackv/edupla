@@ -115,7 +115,7 @@ export default function TeacherStudentDmModal({ studentId, studentName, onClose 
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)' }}>
       <div className="w-full flex flex-col rounded-2xl overflow-hidden shadow-2xl" style={{ maxWidth: 440, height: '70vh', background: 'var(--card-bg)' }}>
-        <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0" style={{ background: 'linear-gradient(135deg, #0c1445 0%, #1e3a5f 40%, #0f4c75 100%)' }}>
+        <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0" style={{ background: 'linear-gradient(135deg, #431407 0%, #7c2d12 40%, #9a3412 100%)' }}>
           <div className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0" style={{ background: 'rgba(255,255,255,0.2)' }}>
             {displayName[0]?.toUpperCase() || '?'}
           </div>
@@ -181,7 +181,7 @@ export default function TeacherStudentDmModal({ studentId, studentName, onClose 
                 )}
                 <div style={{ maxWidth: '78%' }}>
                   <div style={{
-                    background: isMine ? 'linear-gradient(135deg, #ea580c, #c2410c)' : 'var(--surface-100)',
+                    background: isMine ? 'linear-gradient(135deg, #c2410c, #9a3412)' : 'var(--surface-100)',
                     color: isMine ? '#fff' : 'var(--text-primary)', padding: '8px 12px',
                     borderRadius: isMine ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
                     fontSize: 13.5, lineHeight: 1.45, wordBreak: 'break-word',
@@ -207,7 +207,7 @@ export default function TeacherStudentDmModal({ studentId, studentName, onClose 
             style={{ background: 'var(--surface-100)', border: '1.5px solid var(--card-border)', color: 'var(--text-primary)' }} />
           <button onClick={handleSend} disabled={!text.trim() || posting || disabled}
             className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-all active:scale-95 disabled:opacity-40"
-            style={{ background: 'linear-gradient(135deg, #ea580c, #c2410c)' }}>
+            style={{ background: 'linear-gradient(135deg, #c2410c, #9a3412)' }}>
             <Send className="w-4 h-4 text-white" />
           </button>
         </div>

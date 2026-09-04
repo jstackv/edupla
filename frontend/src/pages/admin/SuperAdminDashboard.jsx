@@ -17,10 +17,10 @@ const T = {
   gold: '#f59e0b',
   goldDark: '#d97706',
   goldGlass: 'rgba(245,158,11,0.10)',
-  violet: '#f97316',
-  violetGlass: 'rgba(249,115,22,0.10)',
-  indigo: '#f97316',
-  indigoGlass: 'rgba(249,115,22,0.10)',
+  violet: '#ea580c',
+  violetGlass: 'rgba(234, 88, 12,0.10)',
+  indigo: '#ea580c',
+  indigoGlass: 'rgba(234, 88, 12,0.10)',
   emerald: '#10b981',
   emeraldGlass: 'rgba(16,185,129,0.10)',
   sky: '#0ea5e9',
@@ -148,7 +148,7 @@ function AdminAvatar({ name, isActive, size = 40 }) {
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       fontFamily: "'Sora',sans-serif", fontWeight: 700,
       fontSize: size * 0.35, color: '#fff', letterSpacing: '-0.02em',
-      boxShadow: isActive ? `0 4px 14px rgba(249,115,22,0.35)` : 'none',
+      boxShadow: isActive ? `0 4px 14px rgba(234, 88, 12,0.35)` : 'none',
     }}>
       {initials(name)}
     </div>
@@ -390,11 +390,11 @@ export default function SuperAdminDashboard() {
           marginBottom: 24,
           background: dark
             ? 'linear-gradient(135deg, #0f0c1a 0%, #1a1035 40%, #0d1a2e 100%)'
-            : 'linear-gradient(135deg, #431407 0%, #7c2d12 40%, #1e3a5f 100%)',
+            : 'linear-gradient(135deg, #2a0c03 0%, #431407 40%, #7c2d12 100%)',
           border: `1px solid ${T.gold}30`,
           borderRadius: 24,
           position: 'relative', overflow: 'hidden',
-          boxShadow: `0 20px 60px rgba(249,115,22,0.25)`,
+          boxShadow: `0 20px 60px rgba(234, 88, 12,0.25)`,
         }}>
           {/* Animated orbs */}
           <div style={{
@@ -406,7 +406,7 @@ export default function SuperAdminDashboard() {
           <div style={{
             position: 'absolute', bottom: -40, left: 100, width: 180, height: 180,
             borderRadius: '50%', pointerEvents: 'none',
-            background: 'radial-gradient(circle, rgba(249,115,22,0.12) 0%, transparent 70%)',
+            background: 'radial-gradient(circle, rgba(234, 88, 12,0.12) 0%, transparent 70%)',
             animation: 'orb-drift 11s ease-in-out infinite reverse',
           }} />
 

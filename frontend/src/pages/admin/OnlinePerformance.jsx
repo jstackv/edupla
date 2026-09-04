@@ -294,7 +294,7 @@ export default function AdminOnlinePerformance() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div className="aop-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
               {[
-                { label: 'Students', value: results.rows.length, icon: Users, color: '#f97316' },
+                { label: 'Students', value: results.rows.length, icon: Users, color: '#ea580c' },
                 { label: 'Attempted', value: results.rows.filter(r => r.status !== 'not_attempted').length, icon: ClipboardCheck, color: '#0ea5e9' },
                 { label: 'Passed (C)', value: results.rows.filter(r => r.decision === 'C').length, icon: CheckCircle2, color: '#10b981' },
                 { label: 'Not Competent', value: results.rows.filter(r => r.decision === 'NYC').length, icon: XCircle, color: '#ef4444' },

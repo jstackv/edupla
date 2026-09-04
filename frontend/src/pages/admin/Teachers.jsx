@@ -16,7 +16,7 @@ import {
 
 /* ── Constants ── */
 const AVATAR_COLORS = [
-  ['#f97316','#c2410c'], ['#f97316','#ea580c'], ['#0ea5e9','#0284c7'],
+  ['#ea580c','#9a3412'], ['#ea580c','#c2410c'], ['#0ea5e9','#0284c7'],
   ['#10b981','#059669'], ['#f59e0b','#d97706'], ['#ec4899','#db2777'],
 ];
 function getAvatarColors(name) {
@@ -49,7 +49,7 @@ function StatStrip({ teachers }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10 }}>
       {[
-        { icon: Users,         label: 'Total Teachers',    value: teachers.length,    color: '#f97316', bg: '#fff7ed' },
+        { icon: Users,         label: 'Total Teachers',    value: teachers.length,    color: '#ea580c', bg: '#ffedd5' },
         { icon: BookOpen,      label: 'Teaching Classes',  value: withClasses,        color: '#0ea5e9', bg: '#f0f9ff' },
         { icon: GraduationCap, label: 'With Students',     value: withStudents,       color: '#10b981', bg: '#ecfdf5' },
         { icon: Award,         label: 'Top Teacher',       value: topTeacher?.name?.split(' ')[0] || '—', color: '#f59e0b', bg: '#fffbeb', isText: true },
@@ -110,8 +110,8 @@ function TeacherCard({ teacher: t, onEdit, onDelete, onToggle, onResetPassword, 
           <div style={{ display: 'flex', gap: 3, opacity: hovered ? 1 : 0, transition: 'opacity 0.18s' }}>
             {isSuperAdmin && <ImpersonateButton userId={t.id} name={t.name} />}
             <button onClick={() => onResetPassword(t)} title="Reset password"
-              style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#fff7ed', display: 'flex' }}>
-              <KeyRound size={13} style={{ color: '#f97316' }} />
+              style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#ffedd5', display: 'flex' }}>
+              <KeyRound size={13} style={{ color: '#ea580c' }} />
             </button>
             <button onClick={() => onEdit(t)}
               style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: 'var(--surface-100)', display: 'flex' }}>
@@ -151,7 +151,7 @@ function TeacherCard({ teacher: t, onEdit, onDelete, onToggle, onResetPassword, 
           display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14,
         }}>
           {[
-            { icon: BookOpen, label: 'Classes', value: t.class_count || 0, color: '#f97316', bg: '#fff7ed' },
+            { icon: BookOpen, label: 'Classes', value: t.class_count || 0, color: '#ea580c', bg: '#ffedd5' },
             { icon: GraduationCap, label: 'Students', value: t.student_count || 0, color: '#10b981', bg: '#ecfdf5' },
           ].map(({ icon: Icon, label, value, color, bg }) => (
             <div key={label} style={{ padding: '8px 10px', borderRadius: 10, background: bg, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -223,9 +223,9 @@ function TeacherRow({ teacher: t, onEdit, onDelete, onToggle, onResetPassword, i
       </td>
       <td style={{ padding: '10px 16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <div style={{ padding: '3px 9px', borderRadius: 7, background: '#fff7ed', display: 'flex', alignItems: 'center', gap: 5 }}>
-            <BookOpen size={11} style={{ color: '#f97316' }} />
-            <span style={{ fontSize: 12, fontWeight: 700, color: '#ea580c' }}>{t.class_count || 0}</span>
+          <div style={{ padding: '3px 9px', borderRadius: 7, background: '#ffedd5', display: 'flex', alignItems: 'center', gap: 5 }}>
+            <BookOpen size={11} style={{ color: '#ea580c' }} />
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#c2410c' }}>{t.class_count || 0}</span>
           </div>
         </div>
       </td>
@@ -246,8 +246,8 @@ function TeacherRow({ teacher: t, onEdit, onDelete, onToggle, onResetPassword, i
         <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end', opacity: hovered ? 1 : 0.3, transition: 'opacity 0.15s' }}>
           {isSuperAdmin && <ImpersonateButton userId={t.id} name={t.name} />}
           <button onClick={() => onResetPassword(t)} title="Reset password"
-            style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#fff7ed', display: 'flex' }}>
-            <KeyRound size={13} style={{ color: '#f97316' }} />
+            style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#ffedd5', display: 'flex' }}>
+            <KeyRound size={13} style={{ color: '#ea580c' }} />
           </button>
           <button onClick={() => onEdit(t)}
             style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: 'var(--surface-100)', display: 'flex' }}>
@@ -372,23 +372,23 @@ export default function AdminTeachers() {
       {/* ── Hero Banner ── */}
       <div style={{
         borderRadius: 20, padding: '22px 26px', position: 'relative', overflow: 'hidden',
-        background: 'linear-gradient(135deg, #431407 0%, #9a3412 45%, #ea580c 100%)',
-        boxShadow: '0 8px 32px rgba(249,115,22,0.28)',
+        background: 'linear-gradient(135deg, #2a0c03 0%, #7c2d12 45%, #c2410c 100%)',
+        boxShadow: '0 8px 32px rgba(234, 88, 12,0.28)',
       }}>
-        <div style={{ position: 'absolute', top: -50, right: -30, width: 200, height: 200, borderRadius: '50%', background: 'rgba(249,115,22,0.08)', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', bottom: -20, right: 220, width: 90, height: 90, borderRadius: '50%', background: 'rgba(249,115,22,0.12)', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', top: 20, right: 90, width: 55, height: 55, borderRadius: '50%', background: 'rgba(251,146,60,0.1)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', top: -50, right: -30, width: 200, height: 200, borderRadius: '50%', background: 'rgba(234, 88, 12,0.08)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', bottom: -20, right: 220, width: 90, height: 90, borderRadius: '50%', background: 'rgba(234, 88, 12,0.12)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', top: 20, right: 90, width: 55, height: 55, borderRadius: '50%', background: 'rgba(249, 115, 22,0.1)', pointerEvents: 'none' }} />
 
         <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 200 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-              <div style={{ padding: '4px 10px', borderRadius: 99, background: 'rgba(251,146,60,0.2)', border: '1px solid rgba(251,146,60,0.3)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                <Shield size={11} style={{ color: '#fdba74' }} />
-                <span style={{ fontSize: 10, fontWeight: 700, color: '#fdba74', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Faculty</span>
+              <div style={{ padding: '4px 10px', borderRadius: 99, background: 'rgba(249, 115, 22,0.2)', border: '1px solid rgba(249, 115, 22,0.3)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                <Shield size={11} style={{ color: '#fb923c' }} />
+                <span style={{ fontSize: 10, fontWeight: 700, color: '#fb923c', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Faculty</span>
               </div>
-              <div style={{ padding: '3px 8px', borderRadius: 99, background: 'rgba(251,146,60,0.15)', border: '1px solid rgba(251,146,60,0.25)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#fb923c', animation: 'pulse 2s infinite' }} />
-                <span style={{ fontSize: 10, fontWeight: 600, color: '#fdba74' }}>{total} registered</span>
+              <div style={{ padding: '3px 8px', borderRadius: 99, background: 'rgba(249, 115, 22,0.15)', border: '1px solid rgba(249, 115, 22,0.25)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#f97316', animation: 'pulse 2s infinite' }} />
+                <span style={{ fontSize: 10, fontWeight: 600, color: '#fb923c' }}>{total} registered</span>
               </div>
             </div>
             <h1 style={{ fontSize: 22, fontWeight: 800, color: '#fff', marginBottom: 5, lineHeight: 1.2 }}>
@@ -410,7 +410,7 @@ export default function AdminTeachers() {
                 textAlign: 'center', padding: '10px 16px', borderRadius: 14,
                 background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', minWidth: 68,
               }}>
-                <Ic size={13} style={{ color: '#fdba74', margin: '0 auto 4px', display: 'block' }} />
+                <Ic size={13} style={{ color: '#fb923c', margin: '0 auto 4px', display: 'block' }} />
                 <p style={{ fontSize: 18, fontWeight: 800, color: '#fff', lineHeight: 1 }}>{value}</p>
                 <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', marginTop: 3 }}>{label}</p>
               </div>
@@ -475,7 +475,7 @@ export default function AdminTeachers() {
               style={{
                 padding: '6px 9px', borderRadius: 8, border: 'none', cursor: 'pointer',
                 background: viewMode === mode ? 'var(--card-bg)' : 'transparent',
-                color: viewMode === mode ? '#f97316' : 'var(--text-secondary)',
+                color: viewMode === mode ? '#ea580c' : 'var(--text-secondary)',
                 boxShadow: viewMode === mode ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
                 display: 'flex', transition: 'all 0.15s',
               }}
@@ -494,14 +494,14 @@ export default function AdminTeachers() {
       {loading ? (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 0' }}>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ width: 44, height: 44, borderRadius: '50%', border: '3px solid var(--surface-100)', borderTopColor: '#f97316', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
+            <div style={{ width: 44, height: 44, borderRadius: '50%', border: '3px solid var(--surface-100)', borderTopColor: '#ea580c', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
             <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Loading teachers…</p>
           </div>
         </div>
       ) : teachers.length === 0 ? (
         <div className="card" style={{ textAlign: 'center', padding: '60px 24px' }}>
-          <div style={{ width: 64, height: 64, borderRadius: 20, background: '#fff7ed', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-            <Users size={28} style={{ color: '#f97316' }} />
+          <div style={{ width: 64, height: 64, borderRadius: 20, background: '#ffedd5', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+            <Users size={28} style={{ color: '#ea580c' }} />
           </div>
           <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>No teachers yet</p>
           <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20 }}>Create the first teacher account to get started.</p>
@@ -549,8 +549,8 @@ export default function AdminTeachers() {
         {defaultPassword ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '12px 0 4px' }}>
-              <div style={{ width: 56, height: 56, borderRadius: 18, background: '#fff7ed', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
-                <CheckCircle2 size={28} style={{ color: '#f97316' }} />
+              <div style={{ width: 56, height: 56, borderRadius: 18, background: '#ffedd5', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+                <CheckCircle2 size={28} style={{ color: '#ea580c' }} />
               </div>
               <p style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 4 }}>Teacher Created!</p>
               <p style={{ fontSize: 12, color: 'var(--text-secondary)', textAlign: 'center' }}>Share these login credentials with the teacher.</p>
@@ -574,13 +574,13 @@ export default function AdminTeachers() {
                   <div style={{ display: 'flex', gap: 6 }}>
                     {secret && (
                       <button onClick={() => setShowPassword(p => !p)}
-                        style={{ padding: 6, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#ffedd5', display: 'flex' }}>
-                        {showPassword ? <EyeOff size={14} style={{ color: '#f97316' }} /> : <Eye size={14} style={{ color: '#f97316' }} />}
+                        style={{ padding: 6, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#fed7aa', display: 'flex' }}>
+                        {showPassword ? <EyeOff size={14} style={{ color: '#ea580c' }} /> : <Eye size={14} style={{ color: '#ea580c' }} />}
                       </button>
                     )}
                     <button onClick={() => copyToClipboard(value)}
-                      style={{ padding: 6, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#ffedd5', display: 'flex' }}>
-                      <Copy size={14} style={{ color: '#f97316' }} />
+                      style={{ padding: 6, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#fed7aa', display: 'flex' }}>
+                      <Copy size={14} style={{ color: '#ea580c' }} />
                     </button>
                   </div>
                 </div>
@@ -588,7 +588,7 @@ export default function AdminTeachers() {
             </div>
 
             <div style={{ padding: '10px 14px', borderRadius: 10, background: 'var(--surface-100)', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-              <Shield size={14} style={{ color: '#f97316', flexShrink: 0, marginTop: 1 }} />
+              <Shield size={14} style={{ color: '#ea580c', flexShrink: 0, marginTop: 1 }} />
               <p style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
                 All teachers share a default password. The teacher should change it after their first login.
               </p>
@@ -633,7 +633,7 @@ export default function AdminTeachers() {
 
             {!editing && (
               <div style={{ padding: '10px 14px', borderRadius: 10, background: 'var(--surface-100)', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-                <Shield size={14} style={{ color: '#f97316', flexShrink: 0, marginTop: 1 }} />
+                <Shield size={14} style={{ color: '#ea580c', flexShrink: 0, marginTop: 1 }} />
                 <p style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
                   All teachers share the same default password. The teacher should change it after first login.
                 </p>

@@ -33,7 +33,7 @@ const getTradeMeta = (trades, value) => {
 };
 
 /* ── Mini sparkline ── */
-function Sparkline({ count = 0, max = 1, color = '#f97316' }) {
+function Sparkline({ count = 0, max = 1, color = '#ea580c' }) {
   const bars = 5;
   const heights = Array.from({ length: bars }, (_, i) =>
     Math.max(0.15, (i === bars - 1 ? count : Math.random() * count) / Math.max(max, 1))
@@ -63,9 +63,9 @@ function StatStrip({ classes, levels = [], trades = [] }) {
       display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10,
     }}>
       {[
-        { icon: BookOpen, label: 'Total Classes', value: classes.length, color: '#f97316', bg: '#fff7ed' },
+        { icon: BookOpen, label: 'Total Classes', value: classes.length, color: '#ea580c', bg: '#ffedd5' },
         { icon: GraduationCap, label: 'Total Students', value: totalStudents, color: '#10b981', bg: '#ecfdf5' },
-        { icon: Layers, label: 'Trades Active', value: Object.values(byTrade).filter(Boolean).length, color: '#0ea5e9', bg: '#f0f9ff' },
+        { icon: Layers, label: 'Trades Active', value: Object.values(byTrade).filter(Boolean).length, color: '#ea580c', bg: '#ffedd5' },
         { icon: Star, label: 'Top Trade', value: maxTrade?.[0] || '—', color: '#f59e0b', bg: '#fffbeb', isText: true },
       ].map(({ icon: Icon, label, value, color, bg, isText }) => (
         <div key={label} className="card" style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -164,7 +164,7 @@ function ClassCard({ cls, onEdit, onDelete, onToggle, onViewStudents, onEnroll, 
           {cls.program_config_id && (
             <span title={cls.program_qualification_title || ''} style={{
               fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6,
-              background: '#ffedd5', color: '#ea580c', display: 'inline-flex', alignItems: 'center', gap: 4,
+              background: '#fed7aa', color: '#c2410c', display: 'inline-flex', alignItems: 'center', gap: 4,
               maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}>
               <Award size={10} /> {cls.program_rtqf_level || cls.level || 'Linked'}
@@ -251,14 +251,14 @@ function ClassCard({ cls, onEdit, onDelete, onToggle, onViewStudents, onEnroll, 
             <button onClick={() => onManage(cls)} style={{
               display: 'flex', alignItems: 'center', gap: 5,
               fontSize: 11, fontWeight: 700, color: '#fff',
-              background: 'linear-gradient(135deg, #0f4c75, #0ea5e9)',
+              background: 'linear-gradient(135deg, #9a3412, #ea580c)',
               border: 'none', cursor: 'pointer',
               padding: '6px 12px', borderRadius: 8,
-              boxShadow: '0 3px 10px rgba(14,165,233,0.35)',
+              boxShadow: '0 3px 10px rgba(234, 88, 12,0.35)',
               transition: 'transform 0.15s, box-shadow 0.15s',
             }}
-              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 5px 14px rgba(14,165,233,0.45)'; }}
-              onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 3px 10px rgba(14,165,233,0.35)'; }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 5px 14px rgba(234, 88, 12,0.45)'; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 3px 10px rgba(234, 88, 12,0.35)'; }}
             >
               <Settings2 size={12} /> Manage
             </button>
@@ -323,7 +323,7 @@ function ClassRow({ cls, onEdit, onDelete, onToggle, onViewStudents, onEnroll, o
         {cls.program_config_id && (
           <span title={cls.program_qualification_title || ''} style={{
             fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6,
-            background: '#ffedd5', color: '#ea580c', display: 'inline-flex', alignItems: 'center', gap: 4,
+            background: '#fed7aa', color: '#c2410c', display: 'inline-flex', alignItems: 'center', gap: 4,
           }}>
             <Award size={10} /> {cls.program_rtqf_level || cls.level || 'Linked'}
           </span>
@@ -362,9 +362,9 @@ function ClassRow({ cls, onEdit, onDelete, onToggle, onViewStudents, onEnroll, o
         <button onClick={() => onManage(cls)} title="Manage" style={{
           display: 'flex', alignItems: 'center', gap: 4,
           fontSize: 11, fontWeight: 700, color: '#fff',
-          background: 'linear-gradient(135deg, #0f4c75, #0ea5e9)',
+          background: 'linear-gradient(135deg, #9a3412, #ea580c)',
           border: 'none', cursor: 'pointer', padding: '5px 10px', borderRadius: 8,
-          boxShadow: '0 2px 8px rgba(14,165,233,0.35)',
+          boxShadow: '0 2px 8px rgba(234, 88, 12,0.35)',
         }}>
           <Settings2 size={12} /> Manage
         </button>
@@ -576,20 +576,20 @@ export default function AdminClasses() {
       {/* ── Hero Banner ── */}
       <div style={{
         borderRadius: 20, padding: '22px 26px', position: 'relative', overflow: 'hidden',
-        background: 'linear-gradient(135deg, #0c1445 0%, #1e3a5f 40%, #0f4c75 100%)',
-        boxShadow: '0 8px 32px rgba(14,165,233,0.25)',
+        background: 'linear-gradient(135deg, #431407 0%, #7c2d12 40%, #9a3412 100%)',
+        boxShadow: '0 8px 32px rgba(234, 88, 12,0.25)',
       }}>
         {/* Decorative circles */}
-        <div style={{ position: 'absolute', top: -50, right: -30, width: 180, height: 180, borderRadius: '50%', background: 'rgba(14,165,233,0.08)', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', bottom: -20, right: 200, width: 90, height: 90, borderRadius: '50%', background: 'rgba(249,115,22,0.12)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', top: -50, right: -30, width: 180, height: 180, borderRadius: '50%', background: 'rgba(234, 88, 12,0.08)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', bottom: -20, right: 200, width: 90, height: 90, borderRadius: '50%', background: 'rgba(234, 88, 12,0.12)', pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', top: 20, right: 80, width: 60, height: 60, borderRadius: '50%', background: 'rgba(16,185,129,0.1)', pointerEvents: 'none' }} />
 
         <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 200 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-              <div style={{ padding: '4px 10px', borderRadius: 99, background: 'rgba(14,165,233,0.2)', border: '1px solid rgba(14,165,233,0.3)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                <BookOpen size={11} style={{ color: '#7dd3fc' }} />
-                <span style={{ fontSize: 10, fontWeight: 700, color: '#7dd3fc', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Class Management</span>
+              <div style={{ padding: '4px 10px', borderRadius: 99, background: 'rgba(234, 88, 12,0.2)', border: '1px solid rgba(234, 88, 12,0.3)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                <BookOpen size={11} style={{ color: '#fdba74' }} />
+                <span style={{ fontSize: 10, fontWeight: 700, color: '#fdba74', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Class Management</span>
               </div>
               <div style={{ padding: '3px 8px', borderRadius: 99, background: 'rgba(16,185,129,0.2)', border: '1px solid rgba(16,185,129,0.3)', display: 'flex', alignItems: 'center', gap: 4 }}>
                 <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#34d399', animation: 'pulse 2s infinite' }} />
@@ -673,8 +673,8 @@ export default function AdminClasses() {
           style={{
             display: 'flex', alignItems: 'center', gap: 6,
             padding: '8px 14px', borderRadius: 10, border: '1px solid var(--card-border)',
-            background: showFilters || activeFilters ? '#fff7ed' : 'var(--card-bg)',
-            color: showFilters || activeFilters ? '#f97316' : 'var(--text-secondary)',
+            background: showFilters || activeFilters ? '#ffedd5' : 'var(--card-bg)',
+            color: showFilters || activeFilters ? '#ea580c' : 'var(--text-secondary)',
             fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s',
           }}
         >
@@ -682,7 +682,7 @@ export default function AdminClasses() {
           Filters
           {activeFilters > 0 && (
             <span style={{
-              width: 16, height: 16, borderRadius: '50%', background: '#f97316',
+              width: 16, height: 16, borderRadius: '50%', background: '#ea580c',
               color: '#fff', fontSize: 9, fontWeight: 800,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>{activeFilters}</span>
@@ -698,7 +698,7 @@ export default function AdminClasses() {
               style={{
                 padding: '6px 9px', borderRadius: 8, border: 'none', cursor: 'pointer',
                 background: viewMode === mode ? 'var(--card-bg)' : 'transparent',
-                color: viewMode === mode ? '#f97316' : 'var(--text-secondary)',
+                color: viewMode === mode ? '#ea580c' : 'var(--text-secondary)',
                 boxShadow: viewMode === mode ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
                 display: 'flex', transition: 'all 0.15s',
               }}
@@ -764,14 +764,14 @@ export default function AdminClasses() {
       {loading ? (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 0' }}>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ width: 44, height: 44, borderRadius: '50%', border: '3px solid var(--surface-100)', borderTopColor: '#0ea5e9', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
+            <div style={{ width: 44, height: 44, borderRadius: '50%', border: '3px solid var(--surface-100)', borderTopColor: '#ea580c', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
             <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Loading classes…</p>
           </div>
         </div>
       ) : classes.length === 0 ? (
         <div className="card" style={{ textAlign: 'center', padding: '60px 24px' }}>
-          <div style={{ width: 64, height: 64, borderRadius: 20, background: '#f0f9ff', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-            <BookOpen size={28} style={{ color: '#0ea5e9' }} />
+          <div style={{ width: 64, height: 64, borderRadius: 20, background: '#ffedd5', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+            <BookOpen size={28} style={{ color: '#ea580c' }} />
           </div>
           <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>No classes found</p>
           <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20 }}>
@@ -952,12 +952,12 @@ export default function AdminClasses() {
       <Modal isOpen={studentsModal} onClose={() => setStudentsModal(false)} title={`Students — ${studentsTarget?.name}`}>
         {loadingStudents ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}>
-            <div style={{ width: 32, height: 32, border: '3px solid var(--surface-100)', borderTopColor: '#f97316', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+            <div style={{ width: 32, height: 32, border: '3px solid var(--surface-100)', borderTopColor: '#ea580c', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
           </div>
         ) : classStudents.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '32px 0' }}>
-            <div style={{ width: 52, height: 52, borderRadius: 16, background: '#f0f9ff', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
-              <GraduationCap size={24} style={{ color: '#0ea5e9' }} />
+            <div style={{ width: 52, height: 52, borderRadius: 16, background: '#ffedd5', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+              <GraduationCap size={24} style={{ color: '#ea580c' }} />
             </div>
             <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 }}>No students enrolled</p>
             <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 20 }}>Add students to this class to get started.</p>
@@ -1057,9 +1057,9 @@ export default function AdminClasses() {
           </div>
         ) : (
           <form onSubmit={handleEnrollSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div style={{ padding: '12px 14px', borderRadius: 12, background: '#f0f9ff', border: '1px solid #bae6fd', display: 'flex', gap: 10 }}>
-              <UserPlus size={18} style={{ color: '#0ea5e9', flexShrink: 0, marginTop: 1 }} />
-              <p style={{ fontSize: 12, color: '#0369a1', lineHeight: 1.6 }}>
+            <div style={{ padding: '12px 14px', borderRadius: 12, background: '#ffedd5', border: '1px solid #fdba74', display: 'flex', gap: 10 }}>
+              <UserPlus size={18} style={{ color: '#ea580c', flexShrink: 0, marginTop: 1 }} />
+              <p style={{ fontSize: 12, color: '#9a3412', lineHeight: 1.6 }}>
                 This student will be registered and enrolled directly into <strong>{enrollTarget?.name}</strong>. Since a student can only belong to one class, there's no class list here — it's already decided.
               </p>
             </div>

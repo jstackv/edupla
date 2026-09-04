@@ -60,9 +60,9 @@ export default function StudentAnnouncements() {
           to   { background-position: 400px 0; }
         }
         @keyframes pulseRing {
-          0%   { box-shadow: 0 0 0 2px #f97316, 0 8px 24px rgba(249,115,22,0.35); }
-          50%  { box-shadow: 0 0 0 5px rgba(249,115,22,0.15), 0 8px 30px rgba(249,115,22,0.45); }
-          100% { box-shadow: 0 0 0 2px #f97316, 0 8px 24px rgba(249,115,22,0.35); }
+          0%   { box-shadow: 0 0 0 2px #ea580c, 0 8px 24px rgba(234, 88, 12,0.35); }
+          50%  { box-shadow: 0 0 0 5px rgba(234, 88, 12,0.15), 0 8px 30px rgba(234, 88, 12,0.45); }
+          100% { box-shadow: 0 0 0 2px #ea580c, 0 8px 24px rgba(234, 88, 12,0.35); }
         }
         @keyframes floatIcon {
           0%, 100% { transform: translateY(0) rotate(0deg); }
