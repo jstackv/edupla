@@ -35,7 +35,7 @@ import {
 
 function verdictMeta(a) {
   if (a.needs_manual_grading) return { label: 'Pending review', color: '#d97706', bg: 'rgba(217,119,6,0.14)', ring: 'rgba(217,119,6,0.35)', Icon: Clock3 };
-  if (a.is_correct === true) return { label: 'Correct', color: '#ea580c', bg: 'rgba(234, 88, 12,0.14)', ring: 'rgba(234, 88, 12,0.35)', Icon: CheckCircle2 };
+  if (a.is_correct === true) return { label: 'Correct', color: '#c2410c', bg: 'rgba(194, 65, 12,0.14)', ring: 'rgba(194, 65, 12,0.35)', Icon: CheckCircle2 };
   if (a.is_correct === false) return { label: 'Incorrect', color: '#ef4444', bg: 'rgba(239,68,68,0.14)', ring: 'rgba(239,68,68,0.35)', Icon: XCircle };
   return { label: 'Not answered', color: '#9ca3af', bg: 'rgba(156,163,175,0.16)', ring: 'rgba(156,163,175,0.3)', Icon: AlertCircle };
 }
@@ -91,12 +91,12 @@ function QuestionCard({ a, index }) {
           <div className="arm-options">
             {displayOptions.map(opt => (
               <div key={opt.key} className="arm-option" style={{
-                background: opt.isCorrect ? 'rgba(234, 88, 12,0.1)' : opt.isPicked ? 'rgba(239,68,68,0.08)' : 'var(--surface-50)',
-                borderColor: opt.isCorrect ? 'rgba(234, 88, 12,0.4)' : opt.isPicked ? 'rgba(239,68,68,0.35)' : 'var(--card-border)',
+                background: opt.isCorrect ? 'rgba(194, 65, 12,0.1)' : opt.isPicked ? 'rgba(239,68,68,0.08)' : 'var(--surface-50)',
+                borderColor: opt.isCorrect ? 'rgba(194, 65, 12,0.4)' : opt.isPicked ? 'rgba(239,68,68,0.35)' : 'var(--card-border)',
               }}>
-                <span className="arm-option-key" style={{ color: opt.isCorrect ? '#ea580c' : opt.isPicked ? '#ef4444' : 'var(--text-secondary)' }}>{opt.key}</span>
+                <span className="arm-option-key" style={{ color: opt.isCorrect ? '#c2410c' : opt.isPicked ? '#ef4444' : 'var(--text-secondary)' }}>{opt.key}</span>
                 <span className="arm-option-text">{opt.text}</span>
-                {opt.isCorrect && <CheckCircle2 className="w-4 h-4 flex-shrink-0" style={{ color: '#ea580c' }} />}
+                {opt.isCorrect && <CheckCircle2 className="w-4 h-4 flex-shrink-0" style={{ color: '#c2410c' }} />}
                 {opt.isPicked && !opt.isCorrect && <XCircle className="w-4 h-4 flex-shrink-0" style={{ color: '#ef4444' }} />}
               </div>
             ))}
@@ -117,11 +117,11 @@ function QuestionCard({ a, index }) {
               {a.student_answer || 'No answer submitted'}
             </p>
           </div>
-          <div className="arm-answer-panel" style={{ background: 'rgba(234, 88, 12,0.08)', borderColor: 'rgba(234, 88, 12,0.28)' }}>
-            <p className="arm-answer-label" style={{ color: '#ea580c' }}>
+          <div className="arm-answer-panel" style={{ background: 'rgba(194, 65, 12,0.08)', borderColor: 'rgba(194, 65, 12,0.28)' }}>
+            <p className="arm-answer-label" style={{ color: '#c2410c' }}>
               <GraduationCap className="w-3.5 h-3.5" /> Reference answer
             </p>
-            <p className="arm-answer-text" style={{ color: '#c2410c', fontWeight: 700 }}>
+            <p className="arm-answer-text" style={{ color: '#9a3412', fontWeight: 700 }}>
               {a.correct_answer || '—'}
             </p>
           </div>
@@ -175,7 +175,7 @@ export default function AttemptResponseModal({ attemptId, onClose }) {
   const wrongCount = data?.answers.filter(a => a.is_correct === false).length ?? 0;
   const pendingCount = data?.answers.filter(a => a.needs_manual_grading).length ?? 0;
   const pct = data && data.max_marks ? Math.round(((data.attempt.total_score || 0) / data.max_marks) * 100) : null;
-  const pctColor = pct == null ? '#ea580c' : pct >= 70 ? '#ea580c' : pct >= 50 ? '#f59e0b' : '#ef4444';
+  const pctColor = pct == null ? '#c2410c' : pct >= 70 ? '#c2410c' : pct >= 50 ? '#f59e0b' : '#ef4444';
 
   return (
     <Modal
@@ -183,16 +183,16 @@ export default function AttemptResponseModal({ attemptId, onClose }) {
       onClose={onClose}
       title={data ? `${data.assessment.title} — Attempt ${data.attempt.attempt_number}` : 'Your Responses'}
       icon={ListChecks}
-      accent="#ea580c"
-      accent2="#ea580c"
+      accent="#c2410c"
+      accent2="#c2410c"
       size="2xl"
     >
       <style>{`
         .arm-hero {
           display: flex; align-items: center; gap: 20px; padding: 20px 22px;
           border-radius: 18px; margin-bottom: 20px; position: relative; overflow: hidden;
-          background: linear-gradient(135deg, rgba(234, 88, 12,0.1), rgba(234, 88, 12,0.06));
-          border: 1px solid rgba(234, 88, 12,0.18);
+          background: linear-gradient(135deg, rgba(194, 65, 12,0.1), rgba(194, 65, 12,0.06));
+          border: 1px solid rgba(194, 65, 12,0.18);
         }
         .arm-hero-ring {
           width: 74px; height: 74px; border-radius: 50%; flex-shrink: 0;
@@ -298,7 +298,7 @@ export default function AttemptResponseModal({ attemptId, onClose }) {
 
       {loading ? (
         <div className="flex flex-col items-center justify-center py-20 gap-3">
-          <Loader2 className="w-8 h-8 animate-spin" style={{ color: '#ea580c' }} />
+          <Loader2 className="w-8 h-8 animate-spin" style={{ color: '#c2410c' }} />
           <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Loading your responses…</p>
         </div>
       ) : error ? (
@@ -317,11 +317,11 @@ export default function AttemptResponseModal({ attemptId, onClose }) {
               <span>{pct != null ? `${pct}%` : '—'}</span>
             </div>
             <div className="arm-hero-stats">
-              <div className="arm-hero-chip" style={{ background: 'rgba(234, 88, 12,0.12)', color: '#ea580c' }}>
+              <div className="arm-hero-chip" style={{ background: 'rgba(194, 65, 12,0.12)', color: '#c2410c' }}>
                 <b>{data.attempt.total_score ?? '—'}/{data.max_marks}</b>
                 <span>Score</span>
               </div>
-              <div className="arm-hero-chip" style={{ background: 'rgba(234, 88, 12,0.12)', color: '#ea580c' }}>
+              <div className="arm-hero-chip" style={{ background: 'rgba(194, 65, 12,0.12)', color: '#c2410c' }}>
                 <b>{correctCount}</b>
                 <span>Correct</span>
               </div>

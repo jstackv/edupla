@@ -11,10 +11,10 @@ import {
 
 /* ─── gradient palette keyed by first char ─── */
 const PALETTES = [
-  { a: '#ea580c', b: '#c2410c', c: '#fdba74' },
+  { a: '#c2410c', b: '#9a3412', c: '#fb923c' },
   { a: '#0ea5e9', b: '#0284c7', c: '#bae6fd' },
   { a: '#10b981', b: '#059669', c: '#a7f3d0' },
-  { a: '#ea580c', b: '#c2410c', c: '#fdba74' },
+  { a: '#c2410c', b: '#9a3412', c: '#fb923c' },
   { a: '#ec4899', b: '#db2777', c: '#fbcfe8' },
   { a: '#f59e0b', b: '#d97706', c: '#fde68a' },
 ];
@@ -76,10 +76,10 @@ function AdminProfile({ user, dark }) {
   };
 
   // ── Sovereign (super admin) vs Sentinel (admin) finish ──
-  const accentA   = isSuperAdmin ? '#fb923c' : '#7dd3fc';
-  const accentB   = isSuperAdmin ? '#f97316' : '#38bdf8';
-  const accentGold= isSuperAdmin ? '#fbbf24' : '#22d3ee';
-  const accentDim = isSuperAdmin ? '#9a3412' : '#0369a1';
+  const accentA   = isSuperAdmin ? '#f97316' : '#ea580c';
+  const accentB   = isSuperAdmin ? '#ea580c' : '#9a3412';
+  const accentGold= isSuperAdmin ? '#fbbf24' : '#fb923c';
+  const accentDim = isSuperAdmin ? '#7c2d12' : '#7c2d12';
   const SealIcon  = isSuperAdmin ? Crown : ShieldCheck;
   const clearance = Math.round((ADMIN_MODULES.filter(m => !m.superOnly || isSuperAdmin).length / ADMIN_MODULES.length) * 100);
   const R = 42, CIRC = 2 * Math.PI * R;

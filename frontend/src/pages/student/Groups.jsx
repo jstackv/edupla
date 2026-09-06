@@ -51,13 +51,13 @@ const UNREAD_COLORS = ['#ef4444', '#dc2626'];
 const GOLD = '#eab308';
 
 const GROUP_COLORS = [
-  ['#c2410c', '#9a3412'],
+  ['#9a3412', '#7c2d12'],
   ['#9d174d', '#831843'],
   ['#dc2626', '#b91c1c'],
   ['#db2777', '#be185d'],
   ['#57534e', '#3f3d38'],
-  ['#ea580c', '#c2410c'],
   ['#c2410c', '#9a3412'],
+  ['#9a3412', '#7c2d12'],
   ['#475569', '#334155'],
 ];
 function groupColor(id) {
@@ -69,11 +69,11 @@ const DM_COLORS = ['#4b5563', '#33383f'];
 // there's no per-sender identity color to fall back on there, so this
 // warm, vivid orange carries the "received" identity instead, especially
 // striking on the dark theme.
-const DM_RECEIVED_ACCENT = '#f97316';
-const LEADER_COLORS = ['#c2410c', '#9a3412'];
-const TEACHER_DM_COLORS = ['#c2410c', '#9a3412'];
+const DM_RECEIVED_ACCENT = '#ea580c';
+const LEADER_COLORS = ['#9a3412', '#7c2d12'];
+const TEACHER_DM_COLORS = ['#9a3412', '#7c2d12'];
 
-const SENDER_COLORS = ['#38bdf8', '#34d399', '#f97316', '#f472b6', '#f97316', '#fbbf24', '#4ade80', '#60a5fa'];
+const SENDER_COLORS = ['#38bdf8', '#34d399', '#ea580c', '#f472b6', '#ea580c', '#fbbf24', '#4ade80', '#60a5fa'];
 function senderColor(seed) {
   const s = String(seed || '');
   let hash = 0;
@@ -185,8 +185,8 @@ function VoiceBubble({ url, duration, isMine, otherAccent }) {
   // sit directly inside the message bubble, which already supplies the
   // background/border (mine = solid accent, received = sender's tint).
   // This matches the teacher's voice-note treatment exactly.
-  const barColor = isMine ? 'rgba(255,255,255,0.95)' : (otherAccent || '#fb923c');
-  const barMuted = isMine ? 'rgba(255,255,255,0.32)' : `${otherAccent || '#fb923c'}50`;
+  const barColor = isMine ? 'rgba(255,255,255,0.95)' : (otherAccent || '#f97316');
+  const barMuted = isMine ? 'rgba(255,255,255,0.32)' : `${otherAccent || '#f97316'}50`;
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 224 }}>
@@ -196,7 +196,7 @@ function VoiceBubble({ url, duration, isMine, otherAccent }) {
 
       <button onClick={toggle} title={playing ? 'Pause' : 'Play'}
         className={`wa-voice-play-btn${playing ? ' wa-voice-play-btn-active' : ''}`}
-        style={{ background: isMine ? 'rgba(255,255,255,0.24)' : `${otherAccent || '#f97316'}22`, color: isMine ? '#fff' : (otherAccent || '#fb923c'), '--voice-glow-color': isMine ? 'rgba(255,255,255,0.35)' : `${otherAccent || '#f97316'}70` }}>
+        style={{ background: isMine ? 'rgba(255,255,255,0.24)' : `${otherAccent || '#ea580c'}22`, color: isMine ? '#fff' : (otherAccent || '#f97316'), '--voice-glow-color': isMine ? 'rgba(255,255,255,0.35)' : `${otherAccent || '#ea580c'}70` }}>
         {playing ? <Pause style={{ width: 14, height: 14 }} fill="currentColor" />
           : <Play style={{ width: 14, height: 14, marginLeft: 1.5 }} fill="currentColor" />}
       </button>
@@ -267,16 +267,16 @@ function MessageBubble({
   // hashed color; in 1:1 threads, the thread's own single accent color
   // (teacher DM purple, leader DM violet, peer DM gray) is used, since
   // there's only one other person to color-code.
-  const otherAccent = isMine ? null : isTeacherMsg ? '#c2410c' : isGroupThread ? senderTint : DM_RECEIVED_ACCENT;
-  const nameColor = isTeacherMsg ? '#c2410c' : isLeaderMsg ? GOLD : senderTint;
+  const otherAccent = isMine ? null : isTeacherMsg ? '#9a3412' : isGroupThread ? senderTint : DM_RECEIVED_ACCENT;
+  const nameColor = isTeacherMsg ? '#9a3412' : isLeaderMsg ? GOLD : senderTint;
 
   const bubbleBg = isMine
     ? `linear-gradient(135deg, ${accent[0]}, ${accent[1]})`
-    : isTeacherMsg ? 'linear-gradient(135deg, #c2410c, #9a3412)'
+    : isTeacherMsg ? 'linear-gradient(135deg, #9a3412, #7c2d12)'
     : `linear-gradient(135deg, ${otherAccent}38, ${otherAccent}1c)`;
   const bubbleColor = isMine || isTeacherMsg ? '#fff' : 'var(--text-primary)';
   const bubbleShadow = isMine ? `0 3px 12px -3px ${accent[0]}55`
-    : isTeacherMsg ? '0 3px 12px -3px rgba(194, 65, 12,0.4)'
+    : isTeacherMsg ? '0 3px 12px -3px rgba(154, 52, 18,0.4)'
     : `0 1px 6px -2px ${otherAccent}30`;
   const bubbleBorder = !isMine && !isTeacherMsg ? `1px solid ${otherAccent}55` : 'none';
   const bubbleBorderLeft = !isMine && !isTeacherMsg && item.message_type !== 'image' ? `3px solid ${otherAccent}` : undefined;
@@ -293,7 +293,7 @@ function MessageBubble({
         {item.isFirst && !item.isMine && item.author_name && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, marginLeft: 4 }}>
             <span style={{ fontSize: 11, fontWeight: 700, color: nameColor }}>{item.author_name}</span>
-            {isTeacherMsg && <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 10, fontWeight: 700, background: 'rgba(194, 65, 12,0.12)', color: '#c2410c' }}>Teacher</span>}
+            {isTeacherMsg && <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 10, fontWeight: 700, background: 'rgba(154, 52, 18,0.12)', color: '#9a3412' }}>Teacher</span>}
             {isLeaderMsg && <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 10, fontWeight: 700, background: 'rgba(234,179,8,0.14)', color: GOLD, display: 'inline-flex', alignItems: 'center', gap: 2 }}><Crown style={{ width: 8, height: 8 }} /> Leader</span>}
           </div>
         )}
@@ -499,11 +499,11 @@ function MembersPanel({ group, onClose }) {
           );
         })}
         {group.teacher_name && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 14, background: 'rgba(194, 65, 12,0.06)', border: '1.5px solid rgba(194, 65, 12,0.2)' }}>
-            <div style={{ width: 42, height: 42, borderRadius: '50%', flexShrink: 0, background: 'linear-gradient(135deg, #c2410c, #9a3412)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 15 }}>{group.teacher_name[0].toUpperCase()}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 14, background: 'rgba(154, 52, 18,0.06)', border: '1.5px solid rgba(154, 52, 18,0.2)' }}>
+            <div style={{ width: 42, height: 42, borderRadius: '50%', flexShrink: 0, background: 'linear-gradient(135deg, #9a3412, #7c2d12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 15 }}>{group.teacher_name[0].toUpperCase()}</div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--text-primary)' }}>{group.teacher_name}</div>
-              <div style={{ fontSize: 11, fontWeight: 600, color: '#c2410c', marginTop: 2 }}>Teacher</div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: '#9a3412', marginTop: 2 }}>Teacher</div>
             </div>
           </div>
         )}
@@ -779,11 +779,11 @@ function Composer({
             <div className="wa-recording-panel">
               <button onClick={toggleAudioPreview} title={audioPlaying ? 'Pause' : 'Play'}
                 className={`wa-voice-play-btn${audioPlaying ? ' wa-voice-play-btn-active' : ''}`}
-                style={{ width: 28, height: 28, background: 'rgba(249, 115, 22,0.16)', color: 'var(--wa-voice-accent)', flexShrink: 0 }}>
+                style={{ width: 28, height: 28, background: 'rgba(234, 88, 12,0.16)', color: 'var(--wa-voice-accent)', flexShrink: 0 }}>
                 {audioPlaying ? <Pause style={{ width: 12, height: 12 }} fill="currentColor" /> : <Play style={{ width: 12, height: 12, marginLeft: 1 }} fill="currentColor" />}
               </button>
               <Waveform bars={previewBars} progress={audioDuration ? Math.min(previewTime / audioDuration, 1) : 0}
-                color="var(--wa-voice-accent)" mutedColor="rgba(249, 115, 22,0.22)" playing={audioPlaying} />
+                color="var(--wa-voice-accent)" mutedColor="rgba(234, 88, 12,0.22)" playing={audioPlaying} />
               <span className="wa-recording-time" style={{ color: 'var(--wa-voice-accent)' }}>{fmtDuration(audioPlaying ? previewTime : audioDuration)}</span>
             </div>
             <button onClick={sendVoicePreview} title="Send" className="wa-voice-send-btn wa-voice-send-btn-amber">
@@ -1271,12 +1271,12 @@ function InboxRow({ entry, active, onClick, index }) {
           {entry.type === 'group' ? (entry.name || 'G').slice(0, 2).toUpperCase() : entry.name[0]?.toUpperCase()}
         </div>
         {entry.type === 'leaderdm' && (
-          <div style={{ position: 'absolute', bottom: -2, right: -2, width: 16, height: 16, borderRadius: '50%', background: '#c2410c', border: '2px solid var(--card-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ position: 'absolute', bottom: -2, right: -2, width: 16, height: 16, borderRadius: '50%', background: '#9a3412', border: '2px solid var(--card-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <MessageCircle style={{ width: 8, height: 8, color: '#fff' }} />
           </div>
         )}
         {entry.type === 'teacherdm' && (
-          <div style={{ position: 'absolute', bottom: -2, right: -2, width: 16, height: 16, borderRadius: '50%', background: '#c2410c', border: '2px solid var(--card-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ position: 'absolute', bottom: -2, right: -2, width: 16, height: 16, borderRadius: '50%', background: '#9a3412', border: '2px solid var(--card-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <MessageCircle style={{ width: 8, height: 8, color: '#fff' }} />
           </div>
         )}
@@ -1349,7 +1349,7 @@ function NewMessagePicker({ classes, onPick, onClose }) {
         {classes.length > 1 && (
           <div style={{ padding: '0 18px 10px', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {classes.map(c => (
-              <button key={c.id} onClick={() => setClassId(c.id)} style={{ fontSize: 11.5, fontWeight: 700, padding: '5px 10px', borderRadius: 20, border: 'none', cursor: 'pointer', background: classId === c.id ? 'rgba(194, 65, 12,0.14)' : 'var(--surface-100)', color: classId === c.id ? '#c2410c' : 'var(--text-secondary)' }}>{c.name}</button>
+              <button key={c.id} onClick={() => setClassId(c.id)} style={{ fontSize: 11.5, fontWeight: 700, padding: '5px 10px', borderRadius: 20, border: 'none', cursor: 'pointer', background: classId === c.id ? 'rgba(154, 52, 18,0.14)' : 'var(--surface-100)', color: classId === c.id ? '#9a3412' : 'var(--text-secondary)' }}>{c.name}</button>
             ))}
           </div>
         )}
@@ -1599,7 +1599,7 @@ export default function StudentGroups() {
             {loading ? [0, 1, 2, 3, 4].map(i => <InboxRowSkeleton key={i} delay={i * 60} />)
               : filtered.length === 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '70px 24px', textAlign: 'center' }}>
-                  <div style={{ width: 60, height: 60, borderRadius: 16, marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(194, 65, 12,0.1)' }}><MessageSquare style={{ width: 28, height: 28, color: '#c2410c', opacity: 0.6 }} /></div>
+                  <div style={{ width: 60, height: 60, borderRadius: 16, marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(154, 52, 18,0.1)' }}><MessageSquare style={{ width: 28, height: 28, color: '#9a3412', opacity: 0.6 }} /></div>
                   <p style={{ fontWeight: 700, marginBottom: 6, color: 'var(--text-primary)' }}>{inbox.length === 0 ? 'Nothing here yet' : 'No matches'}</p>
                   <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{inbox.length === 0 ? 'Groups and chats will show up here once your teacher sets them up.' : 'Try a different search or filter.'}</p>
                 </div>
@@ -1622,7 +1622,7 @@ export default function StudentGroups() {
           ) : (
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <div style={{ textAlign: 'center', padding: '0 32px' }}>
-                <div style={{ width: 68, height: 68, borderRadius: 20, margin: '0 auto 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, rgba(194, 65, 12,0.14), rgba(219,39,119,0.1))', animation: 'ibxIconFloat 4s ease-in-out infinite' }}><MessageCircle style={{ width: 32, height: 32, color: '#c2410c', opacity: 0.85 }} /></div>
+                <div style={{ width: 68, height: 68, borderRadius: 20, margin: '0 auto 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, rgba(154, 52, 18,0.14), rgba(219,39,119,0.1))', animation: 'ibxIconFloat 4s ease-in-out infinite' }}><MessageCircle style={{ width: 32, height: 32, color: '#9a3412', opacity: 0.85 }} /></div>
                 <p style={{ fontWeight: 800, marginBottom: 4, color: 'var(--text-primary)' }}>Pick a conversation</p>
                 <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Groups, classmates, and your private teacher line all live in one place now.</p>
               </div>
@@ -1654,8 +1654,8 @@ export default function StudentGroups() {
           --wa-bubble-received-bg: linear-gradient(150deg, rgba(51,56,72,0.78) 0%, rgba(23,25,32,0.92) 100%);
           --wa-bubble-received-text: #eef1f6;
           --wa-bubble-received-border: rgba(165,180,252,0.16);
-          --wa-voice-accent: #fb923c;
-          --wa-voice-accent-2: #f97316;
+          --wa-voice-accent: #f97316;
+          --wa-voice-accent-2: #ea580c;
 
           /* ── Inbox list header chrome (search + filter pills) — light
              theme: soft violet-tinted glass, dark readable text. This is
@@ -1663,23 +1663,23 @@ export default function StudentGroups() {
              and wallpaper keep their own per-conversation branded colors
              and are untouched by this variable. ── */
           --ibx-header-bg: linear-gradient(120deg, #f6f4ff 0%, #efeaff 35%, #f6ecff 65%, #eef1ff 100%);
-          --ibx-header-glow-1: rgba(194, 65, 12,0.14);
+          --ibx-header-glow-1: rgba(154, 52, 18,0.14);
           --ibx-header-glow-2: rgba(219,39,119,0.08);
           --ibx-header-text: #221c35;
-          --ibx-header-icon-bg: rgba(194, 65, 12,0.10);
-          --ibx-header-icon-border: rgba(194, 65, 12,0.18);
-          --ibx-header-icon-color: #9a3412;
-          --ibx-header-btn-bg: rgba(194, 65, 12,0.08);
-          --ibx-header-btn-bg-hover: rgba(194, 65, 12,0.16);
-          --ibx-header-btn-border: rgba(194, 65, 12,0.18);
-          --ibx-header-search-bg: rgba(194, 65, 12,0.06);
-          --ibx-header-search-border: rgba(194, 65, 12,0.16);
+          --ibx-header-icon-bg: rgba(154, 52, 18,0.10);
+          --ibx-header-icon-border: rgba(154, 52, 18,0.18);
+          --ibx-header-icon-color: #7c2d12;
+          --ibx-header-btn-bg: rgba(154, 52, 18,0.08);
+          --ibx-header-btn-bg-hover: rgba(154, 52, 18,0.16);
+          --ibx-header-btn-border: rgba(154, 52, 18,0.18);
+          --ibx-header-search-bg: rgba(154, 52, 18,0.06);
+          --ibx-header-search-border: rgba(154, 52, 18,0.16);
           --ibx-header-search-text: #221c35;
           --ibx-header-search-icon: rgba(34,28,53,0.45);
           --ibx-header-filter-active-bg: #ffffff;
-          --ibx-header-filter-active-text: #9a3412;
-          --ibx-header-filter-active-shadow: 0 2px 8px rgba(194, 65, 12,0.18);
-          --ibx-header-filter-inactive-bg: rgba(194, 65, 12,0.08);
+          --ibx-header-filter-active-text: #7c2d12;
+          --ibx-header-filter-active-shadow: 0 2px 8px rgba(154, 52, 18,0.18);
+          --ibx-header-filter-inactive-bg: rgba(154, 52, 18,0.08);
           --ibx-header-filter-inactive-text: rgba(34,28,53,0.65);
         }
         [data-theme='dark'], .dark {
@@ -1688,13 +1688,13 @@ export default function StudentGroups() {
           --wa-bubble-received-bg: linear-gradient(150deg, rgba(51,56,72,0.78) 0%, rgba(23,25,32,0.92) 100%);
           --wa-bubble-received-text: #eef1f6;
           --wa-bubble-received-border: rgba(165,180,252,0.16);
-          --wa-voice-accent: #fb923c;
-          --wa-voice-accent-2: #f97316;
+          --wa-voice-accent: #f97316;
+          --wa-voice-accent-2: #ea580c;
 
           /* ── Inbox list header chrome — dark theme: unchanged from the
              original design, moody near-black gradient with white text. ── */
           --ibx-header-bg: linear-gradient(120deg, #08090c 0%, #101319 35%, #171b24 65%, #0d0f14 100%);
-          --ibx-header-glow-1: rgba(194, 65, 12,0.4);
+          --ibx-header-glow-1: rgba(154, 52, 18,0.4);
           --ibx-header-glow-2: rgba(219,39,119,0.22);
           --ibx-header-text: #ffffff;
           --ibx-header-icon-bg: rgba(255,255,255,0.15);
@@ -1708,7 +1708,7 @@ export default function StudentGroups() {
           --ibx-header-search-text: #ffffff;
           --ibx-header-search-icon: rgba(255,255,255,0.6);
           --ibx-header-filter-active-bg: #ffffff;
-          --ibx-header-filter-active-text: #7c2d12;
+          --ibx-header-filter-active-text: #431407;
           --ibx-header-filter-active-shadow: none;
           --ibx-header-filter-inactive-bg: rgba(255,255,255,0.14);
           --ibx-header-filter-inactive-text: rgba(255,255,255,0.85);
@@ -1787,8 +1787,8 @@ export default function StudentGroups() {
         .wa-voice-play-btn:active { transform: scale(0.94); }
         .wa-voice-play-btn-active { animation: voicePlayPulse 1.6s ease-in-out infinite; }
         @keyframes voicePlayPulse {
-          0%, 100% { box-shadow: 0 0 0 0 var(--voice-glow-color, rgba(249, 115, 22,0.4)); }
-          50% { box-shadow: 0 0 0 7px rgba(249, 115, 22,0); }
+          0%, 100% { box-shadow: 0 0 0 0 var(--voice-glow-color, rgba(234, 88, 12,0.4)); }
+          50% { box-shadow: 0 0 0 7px rgba(234, 88, 12,0); }
         }
 
         .wa-voice-wave {
@@ -1855,16 +1855,16 @@ export default function StudentGroups() {
           animation: receivedGlowIn 0.7s cubic-bezier(0.16,1,0.3,1) both, receivedGlowPulse 3.4s ease-in-out 0.7s infinite;
         }
         @keyframes receivedGlowIn {
-          0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--bubble-accent, #f97316) 65%, transparent), 0 4px 16px -4px color-mix(in srgb, var(--bubble-accent, #f97316) 55%, transparent); }
-          60% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--bubble-accent, #f97316) 0%, transparent), 0 4px 16px -4px color-mix(in srgb, var(--bubble-accent, #f97316) 45%, transparent); }
-          100% { box-shadow: 0 0 0 0 transparent, 0 4px 16px -4px color-mix(in srgb, var(--bubble-accent, #f97316) 30%, transparent); }
+          0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--bubble-accent, #ea580c) 65%, transparent), 0 4px 16px -4px color-mix(in srgb, var(--bubble-accent, #ea580c) 55%, transparent); }
+          60% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--bubble-accent, #ea580c) 0%, transparent), 0 4px 16px -4px color-mix(in srgb, var(--bubble-accent, #ea580c) 45%, transparent); }
+          100% { box-shadow: 0 0 0 0 transparent, 0 4px 16px -4px color-mix(in srgb, var(--bubble-accent, #ea580c) 30%, transparent); }
         }
         @keyframes receivedGlowPulse {
-          0%, 100% { box-shadow: 0 4px 16px -4px color-mix(in srgb, var(--bubble-accent, #f97316) 30%, transparent); }
-          50% { box-shadow: 0 4px 22px -2px color-mix(in srgb, var(--bubble-accent, #f97316) 50%, transparent); }
+          0%, 100% { box-shadow: 0 4px 16px -4px color-mix(in srgb, var(--bubble-accent, #ea580c) 30%, transparent); }
+          50% { box-shadow: 0 4px 22px -2px color-mix(in srgb, var(--bubble-accent, #ea580c) 50%, transparent); }
         }
         @keyframes replyBarIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes avatarGlowPulse { 0%, 100% { box-shadow: 0 0 0 0 var(--glow-color, rgba(194, 65, 12,0.45)); } 50% { box-shadow: 0 0 0 6px rgba(194, 65, 12,0); } }
+        @keyframes avatarGlowPulse { 0%, 100% { box-shadow: 0 0 0 0 var(--glow-color, rgba(154, 52, 18,0.45)); } 50% { box-shadow: 0 0 0 6px rgba(154, 52, 18,0); } }
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
         @keyframes memberSlideIn { from { opacity: 0; transform: translateX(-12px); } to { opacity: 1; transform: translateX(0); } }

@@ -49,15 +49,15 @@ export default function ResetPasswordModal({ target, role, onClose }) {
       onClose={onClose}
       title={result ? 'Password Reset' : `Reset ${roleLabel} Password`}
       icon={KeyRound}
-      accent="#ea580c"
-      accent2="#ea580c"
+      accent="#c2410c"
+      accent2="#c2410c"
       size="sm"
     >
       {result ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '12px 0 4px' }}>
-            <div style={{ width: 56, height: 56, borderRadius: 18, background: '#ffedd5', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
-              <CheckCircle2 size={28} style={{ color: '#ea580c' }} />
+            <div style={{ width: 56, height: 56, borderRadius: 18, background: '#fed7aa', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+              <CheckCircle2 size={28} style={{ color: '#c2410c' }} />
             </div>
             <p style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 4 }}>
               {target.name}'s password was reset
@@ -85,13 +85,13 @@ export default function ResetPasswordModal({ target, role, onClose }) {
                 <div style={{ display: 'flex', gap: 6 }}>
                   {secret && (
                     <button onClick={() => setShowPassword(p => !p)}
-                      style={{ padding: 6, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#fed7aa', display: 'flex' }}>
-                      {showPassword ? <EyeOff size={14} style={{ color: '#ea580c' }} /> : <Eye size={14} style={{ color: '#ea580c' }} />}
+                      style={{ padding: 6, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#fdba74', display: 'flex' }}>
+                      {showPassword ? <EyeOff size={14} style={{ color: '#c2410c' }} /> : <Eye size={14} style={{ color: '#c2410c' }} />}
                     </button>
                   )}
                   <button onClick={() => copyToClipboard(value)}
-                    style={{ padding: 6, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#fed7aa', display: 'flex' }}>
-                    <Copy size={14} style={{ color: '#ea580c' }} />
+                    style={{ padding: 6, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#fdba74', display: 'flex' }}>
+                    <Copy size={14} style={{ color: '#c2410c' }} />
                   </button>
                 </div>
               </div>
@@ -99,7 +99,7 @@ export default function ResetPasswordModal({ target, role, onClose }) {
           </div>
 
           <div style={{ padding: '10px 14px', borderRadius: 10, background: 'var(--surface-100)', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-            <Mail size={14} style={{ color: '#ea580c', flexShrink: 0, marginTop: 1 }} />
+            <Mail size={14} style={{ color: '#c2410c', flexShrink: 0, marginTop: 1 }} />
             <p style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
               If email is configured for this school, {target.name.split(' ')[0]} was also sent these credentials automatically.
             </p>
@@ -124,7 +124,7 @@ export default function ResetPasswordModal({ target, role, onClose }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 12, background: 'var(--surface-50)' }}>
             <div style={{
               width: 40, height: 40, borderRadius: 12, flexShrink: 0,
-              background: 'linear-gradient(135deg, #ea580c, #ea580c)',
+              background: 'linear-gradient(135deg, #c2410c, #c2410c)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
               <span style={{ color: '#fff', fontWeight: 800, fontSize: 16 }}>{target.name?.[0]?.toUpperCase()}</span>

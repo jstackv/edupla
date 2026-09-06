@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -225,7 +226,7 @@ function StatCard({ icon: Icon, label, value, color, iconBg, to, sublabel, anima
 /* ── Urgency meta ── */
 function urgencyMeta(diff, overdue) {
   if (overdue) return { badge: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400', icon: AlertTriangle, iconColor: 'text-red-500', iconBg: 'bg-red-100 dark:bg-red-900/30', label: 'Overdue', bar: '#ef4444' };
-  if (diff === 0) return { badge: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400', icon: AlertTriangle, iconColor: 'text-orange-500', iconBg: 'bg-orange-100 dark:bg-orange-900/30', label: 'Due today', bar: '#ea580c' };
+  if (diff === 0) return { badge: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400', icon: AlertTriangle, iconColor: 'text-orange-500', iconBg: 'bg-orange-100 dark:bg-orange-900/30', label: 'Due today', bar: '#c2410c' };
   if (diff <= 2) return { badge: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400', icon: Clock, iconColor: 'text-amber-500', iconBg: 'bg-amber-100 dark:bg-amber-900/30', label: `${diff}d left`, bar: '#f59e0b' };
   return { badge: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400', icon: Clock, iconColor: 'text-emerald-500', iconBg: 'bg-emerald-100 dark:bg-emerald-900/30', label: `${diff}d left`, bar: '#10b981' };
 }
@@ -233,7 +234,7 @@ function urgencyMeta(diff, overdue) {
 /* ── Score color ── */
 function scoreColor(pct) {
   if (pct >= 80) return '#10b981';
-  if (pct >= 60) return '#ea580c';
+  if (pct >= 60) return '#c2410c';
   if (pct >= 40) return '#f59e0b';
   return '#ef4444';
 }
@@ -257,6 +258,7 @@ function ChartTooltip({ active, payload, label, unit = '' }) {
 /* ══ MAIN ══ */
 export default function StudentDashboard() {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [ringFilled, setRingFilled] = useState(false);
@@ -285,7 +287,7 @@ export default function StudentDashboard() {
   }, []);
 
   const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const greeting = hour < 12 ? t('studentDashboard.hero.goodMorning') : hour < 17 ? t('studentDashboard.hero.goodAfternoon') : t('studentDashboard.hero.goodEvening');
   const TimeIcon = hour < 12 ? Sunset : hour < 17 ? Sun : Moon; // sunrise-ish / sun / moon
   const todayLabel = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
   const firstName = displayFirstName(user?.name);
@@ -389,7 +391,7 @@ export default function StudentDashboard() {
   /* Score band for grade rating label — driven by online assessment average */
   const gradeLabel = averageScore === null ? null
     : averageScore >= 80 ? { label: 'Excellent', color: '#10b981' }
-    : averageScore >= 60 ? { label: 'Good', color: '#ea580c' }
+    : averageScore >= 60 ? { label: 'Good', color: '#c2410c' }
     : averageScore >= PASS_MARK ? { label: 'Average', color: '#f59e0b' }
     : { label: 'Needs work', color: '#ef4444' };
 
@@ -483,9 +485,9 @@ export default function StudentDashboard() {
   if (loading) return (
     <div className="flex flex-col items-center justify-center py-24 gap-4">
       <div style={{ position: 'relative', width: 48, height: 48 }}>
-        <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '3px solid rgba(234,88,12,0.15)' }} />
-        <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '3px solid transparent', borderTopColor: '#ea580c', animation: 'spin 0.9s linear infinite' }} />
-        <GraduationCap style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', color: '#ea580c', width: 18, height: 18 }} />
+        <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '3px solid rgba(194, 65, 12,0.15)' }} />
+        <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '3px solid transparent', borderTopColor: '#c2410c', animation: 'spin 0.9s linear infinite' }} />
+        <GraduationCap style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', color: '#c2410c', width: 18, height: 18 }} />
       </div>
       <p className="text-sm text-muted font-medium">Loading your dashboard…</p>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
@@ -509,77 +511,62 @@ export default function StudentDashboard() {
       {/* ── Hero ── */}
       <div
         ref={heroRef}
+        className="hero-card"
         onMouseMove={onHeroMove}
         onMouseEnter={() => setHeroHov(true)}
         onMouseLeave={() => setHeroHov(false)}
         style={{
           ...visStyle(0),
           borderRadius: 26,
-          background: 'linear-gradient(120deg, #064e3b 0%, #047857 30%, #0d9488 58%, #0e7490 78%, #9a3412 100%)',
-          backgroundSize: '160% 160%',
-          animation: 'heroGradientDrift 16s ease-in-out infinite',
+          background: 'var(--hero-bg)',
+          border: '1px solid var(--hero-border)',
           padding: '30px 32px', position: 'relative', overflow: 'hidden',
-          boxShadow: heroHov
-            ? '0 32px 84px rgba(5,150,105,0.42), 0 0 0 1px rgba(255,255,255,0.09) inset'
-            : '0 26px 70px rgba(5,150,105,0.35), 0 0 0 1px rgba(255,255,255,0.06) inset',
+          boxShadow: heroHov ? 'var(--hero-shadow), 0 0 0 1px rgba(194,65,12,0.08) inset' : 'var(--hero-shadow)',
           transition: 'box-shadow 0.4s ease',
         }}>
         {/* pointer-tracking spotlight */}
         <div style={{
           position: 'absolute', inset: 0, pointerEvents: 'none',
-          background: `radial-gradient(480px circle at ${heroPos.x}% ${heroPos.y}%, rgba(255,255,255,0.10), transparent 60%)`,
+          background: `radial-gradient(480px circle at ${heroPos.x}% ${heroPos.y}%, var(--hero-glass), transparent 60%)`,
           opacity: heroHov ? 1 : 0, transition: 'opacity 0.35s ease',
         }} />
 
-        {/* animated mesh glow orbs — now gently parallaxed by pointer */}
+        {/* single restrained brand glow — replaces the previous multi-color
+            (green/orange/cyan) floating orbs to keep the flat hero calm */}
         <div style={{
-          position: 'absolute', top: -70, right: -50, width: 280, height: 280, borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(52,211,153,0.35), transparent 70%)', filter: 'blur(10px)', pointerEvents: 'none',
+          position: 'absolute', top: -70, right: -50, width: 320, height: 320, borderRadius: '50%',
+          background: 'radial-gradient(circle, var(--hero-glow), transparent 70%)', filter: 'blur(10px)', pointerEvents: 'none',
           animation: 'heroFloat 7s ease-in-out infinite',
           transform: `translate(${(heroPos.x - 50) * 0.12}px, ${(heroPos.y - 50) * 0.12}px)`,
           transition: 'transform 0.3s ease-out',
         }} />
-        <div style={{
-          position: 'absolute', bottom: -80, left: '28%', width: 240, height: 240, borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(234, 88, 12,0.3), transparent 70%)', filter: 'blur(14px)', pointerEvents: 'none',
-          animation: 'heroFloat 8.5s ease-in-out infinite 0.6s',
-          transform: `translate(${(heroPos.x - 50) * -0.09}px, ${(heroPos.y - 50) * -0.09}px)`,
-          transition: 'transform 0.3s ease-out',
-        }} />
-        <div style={{
-          position: 'absolute', top: '15%', left: -60, width: 180, height: 180, borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(34,211,238,0.28), transparent 70%)', filter: 'blur(12px)', pointerEvents: 'none',
-          animation: 'heroFloat 6.5s ease-in-out infinite 1.2s',
-          transform: `translate(${(heroPos.x - 50) * 0.06}px, ${(heroPos.y - 50) * 0.06}px)`,
-          transition: 'transform 0.3s ease-out',
-        }} />
 
         {/* dot-grid overlay for a techy texture */}
-        <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.07, pointerEvents: 'none' }}>
+        <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.06, pointerEvents: 'none' }}>
           <defs>
             <pattern id="studentHeroDots" width="22" height="22" patternUnits="userSpaceOnUse">
-              <circle cx="1.5" cy="1.5" r="1.5" fill="white" />
+              <circle cx="1.5" cy="1.5" r="1.5" fill="currentColor" style={{ color: 'var(--hero-fg)' }} />
             </pattern>
           </defs>
           <rect width="100%" height="100%" fill="url(#studentHeroDots)" />
         </svg>
 
         {/* shimmer top edge */}
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent)' }} />
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, background: 'linear-gradient(90deg, transparent, var(--hero-glass-border), transparent)' }} />
 
         {/* floating decorative badges */}
         {averageScore !== null && (
           <div style={{
             position: 'absolute', top: 26, right: 148, padding: '7px 13px', borderRadius: 12,
-            background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.22)', backdropFilter: 'blur(10px)',
+            background: 'var(--hero-glass-strong)', border: '1px solid var(--hero-glass-border)', backdropFilter: 'blur(10px)',
             display: 'flex', alignItems: 'center', gap: 6, animation: 'heroFloat 5s ease-in-out infinite', boxShadow: '0 8px 20px rgba(0,0,0,0.12)',
             transition: 'transform 0.25s cubic-bezier(0.34,1.56,0.64,1), background 0.25s ease',
             cursor: 'default',
           }} className="hero-badge-desktop hero-pill"
-            onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.08) translateY(-2px)'; e.currentTarget.style.background = 'rgba(255,255,255,0.2)'; }}
-            onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; }}>
-            <Trophy style={{ width: 12, height: 12, color: '#fcd34d' }} />
-            <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap' }}>{passedQuizzes.length} Assessment{passedQuizzes.length !== 1 ? 's' : ''} passed</span>
+            onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.08) translateY(-2px)'; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = ''; }}>
+            <Trophy style={{ width: 12, height: 12, color: '#c2410c' }} />
+            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--hero-fg)', whiteSpace: 'nowrap' }}>{t('studentDashboard.hero.assessmentsPassed', { count: passedQuizzes.length })}</span>
           </div>
         )}
 
@@ -591,26 +578,26 @@ export default function StudentDashboard() {
               <div style={{ position: 'relative', flexShrink: 0 }}>
                 <div className="hero-avatar-ring" style={{
                   position: 'absolute', inset: -4, borderRadius: 20,
-                  background: 'conic-gradient(from 0deg, #fcd34d, #34d399, #22d3ee, #f97316, #fcd34d)',
+                  background: 'conic-gradient(from 0deg, #fdba74, #ea580c, #9a3412, #ea580c, #fdba74)',
                   opacity: 0.55, filter: 'blur(6px)', animation: 'heroRingSpin 6s linear infinite',
                 }} />
                 <div style={{
                   position: 'relative', width: 54, height: 54, borderRadius: 17,
-                  background: 'linear-gradient(135deg, rgba(255,255,255,0.28), rgba(255,255,255,0.08))',
-                  border: '1px solid rgba(255,255,255,0.32)', backdropFilter: 'blur(10px)',
+                  background: 'var(--hero-glass-strong)',
+                  border: '1px solid var(--hero-glass-border)', backdropFilter: 'blur(10px)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 19, fontWeight: 800, color: '#fff', boxShadow: '0 10px 26px rgba(0,0,0,0.18)',
+                  fontSize: 19, fontWeight: 800, color: 'var(--hero-fg)', boxShadow: '0 10px 26px rgba(0,0,0,0.18)',
                 }}>{initials(user?.name)}</div>
                 <div style={{
                   position: 'absolute', bottom: -2, right: -2, width: 14, height: 14, borderRadius: '50%',
-                  background: '#34d399', border: '2.5px solid #065f46', boxShadow: '0 0 0 2px rgba(52,211,153,0.25)',
+                  background: '#34d399', border: '2.5px solid var(--hero-bg)', boxShadow: '0 0 0 2px rgba(52,211,153,0.25)',
                   animation: 'heroPulse 2.4s ease-in-out infinite',
                 }} />
               </div>
 
               <div style={{ minWidth: 0 }}>
                 <p style={{
-                  fontSize: 11, color: 'rgba(255,255,255,0.55)', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase',
+                  fontSize: 11, color: 'var(--hero-fg-soft)', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase',
                   marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6,
                 }}>
                   <TimeIcon style={{ width: 11, height: 11 }} />
@@ -618,7 +605,7 @@ export default function StudentDashboard() {
                 </p>
                 <h2 className="hero-greeting" style={{
                   fontSize: 'clamp(20px,2.6vw,26px)', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: 8, lineHeight: 1.15,
-                  backgroundImage: 'linear-gradient(100deg, #ffffff 30%, #d1fae5 45%, #ffffff 60%)',
+                  backgroundImage: 'linear-gradient(100deg, var(--hero-fg) 30%, #fdba74 45%, var(--hero-fg) 60%)',
                   backgroundSize: '220% 100%', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent',
                   animation: 'heroTextShine 5s ease-in-out infinite',
                 }}>
@@ -628,15 +615,15 @@ export default function StudentDashboard() {
                 {/* Status pills */}
                 <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
                   {pendingAssessments.length === 0 ? (
-                    <div className="hero-pill" style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.15)', borderRadius: 30, padding: '6px 14px', backdropFilter: 'blur(8px)' }}>
-                      <Sparkles style={{ width: 14, height: 14, color: '#fcd34d' }} />
-                      <span style={{ fontSize: 12, fontWeight: 600, color: '#fff' }}>All caught up — great work!</span>
+                    <div className="hero-pill" style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--hero-glass-strong)', borderRadius: 30, padding: '6px 14px', backdropFilter: 'blur(8px)' }}>
+                      <Sparkles style={{ width: 14, height: 14, color: '#eab308' }} />
+                      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--hero-fg)' }}>{t('studentDashboard.hero.allCaughtUp')}</span>
                     </div>
                   ) : (
-                    <div className="hero-pill" style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.15)', borderRadius: 30, padding: '6px 14px', backdropFilter: 'blur(8px)' }}>
-                      <Flame style={{ width: 14, height: 14, color: '#fcd34d' }} />
-                      <span style={{ fontSize: 12, fontWeight: 600, color: '#fff' }}>
-                        {pendingAssessments.length} assessment{pendingAssessments.length !== 1 ? 's' : ''} need your attention
+                    <div className="hero-pill" style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--hero-glass-strong)', borderRadius: 30, padding: '6px 14px', backdropFilter: 'blur(8px)' }}>
+                      <Flame style={{ width: 14, height: 14, color: '#eab308' }} />
+                      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--hero-fg)' }}>
+                        {t('studentDashboard.hero.needsAttention', { count: pendingAssessments.length })}
                       </span>
                     </div>
                   )}
@@ -656,16 +643,16 @@ export default function StudentDashboard() {
                 {/* Hero micro-stats */}
                 <div style={{ display: 'flex', gap: 22, marginTop: 20, flexWrap: 'wrap' }}>
                   {[
-                    { label: 'Classes', val: data?.classes?.length || 0 },
-                    { label: 'Modules', val: data?.courses?.length || 0 },
-                    { label: 'Assessments passed', val: passedQuizzes.length },
-                    { label: 'Groups', val: data?.groups?.length || 0 },
+                    { label: t('studentDashboard.hero.classes'), val: data?.classes?.length || 0 },
+                    { label: t('studentDashboard.hero.modules'), val: data?.courses?.length || 0 },
+                    { label: t('studentDashboard.hero.assessmentsPassedLabel'), val: passedQuizzes.length },
+                    { label: t('studentDashboard.hero.groups'), val: data?.groups?.length || 0 },
                   ].map(({ label, val }) => (
                     <div key={label} className="hero-microstat">
-                      <p style={{ fontSize: 18, fontWeight: 800, color: '#fff', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+                      <p style={{ fontSize: 18, fontWeight: 800, color: 'var(--hero-fg)', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
                         <AnimatedNumber value={val} />
                       </p>
-                      <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', marginTop: 2, fontWeight: 500 }}>{label}</p>
+                      <p style={{ fontSize: 10, color: 'var(--hero-fg-dim)', marginTop: 2, fontWeight: 500 }}>{label}</p>
                       <span className="hero-microstat-underline" />
                     </div>
                   ))}
@@ -676,17 +663,17 @@ export default function StudentDashboard() {
             {/* Right: dual ring cluster — assignment completion + quiz average */}
             <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexShrink: 0 }}>
               <div className="hero-ring-wrap" style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <ProgressRing percent={ringFilled ? quizCompletionPercent : 0} size={88} stroke={8} color="#fff" glow />
+                <ProgressRing percent={ringFilled ? quizCompletionPercent : 0} size={88} stroke={8} color="var(--hero-fg)" trackColor="var(--hero-glass)" glow />
                 <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-                  <span style={{ fontSize: 17, fontWeight: 800, color: '#fff', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{quizCompletionPercent}%</span>
-                  <span style={{ fontSize: 8.5, color: 'rgba(255,255,255,0.55)', fontWeight: 600, letterSpacing: '0.05em' }}>DONE</span>
+                  <span style={{ fontSize: 17, fontWeight: 800, color: 'var(--hero-fg)', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{quizCompletionPercent}%</span>
+                  <span style={{ fontSize: 8.5, color: 'var(--hero-fg-soft)', fontWeight: 600, letterSpacing: '0.05em' }}>{t('studentDashboard.hero.done')}</span>
                 </div>
               </div>
               <div className="hero-ring-wrap" style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <ProgressRing percent={ringFilled ? (averageScore || 0) : 0} size={88} stroke={8} color="#fcd34d" glow />
+                <ProgressRing percent={ringFilled ? (averageScore || 0) : 0} size={88} stroke={8} color="#f97316" trackColor="var(--hero-glass)" glow />
                 <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-                  <span style={{ fontSize: 17, fontWeight: 800, color: '#fff', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{averageScore !== null ? `${averageScore}%` : '—'}</span>
-                  <span style={{ fontSize: 8.5, color: 'rgba(255,255,255,0.55)', fontWeight: 600, letterSpacing: '0.05em' }}>ASS AVG</span>
+                  <span style={{ fontSize: 17, fontWeight: 800, color: 'var(--hero-fg)', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{averageScore !== null ? `${averageScore}%` : '—'}</span>
+                  <span style={{ fontSize: 8.5, color: 'var(--hero-fg-soft)', fontWeight: 600, letterSpacing: '0.05em' }}>{t('studentDashboard.hero.assAvg')}</span>
                 </div>
               </div>
             </div>
@@ -696,39 +683,39 @@ export default function StudentDashboard() {
           <div className="hero-bars-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginTop: 24 }}>
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                  Quiz completion
+                <span style={{ fontSize: 10, color: 'var(--hero-fg-dim)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                  {t('studentDashboard.hero.quizCompletion')}
                 </span>
-                <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.75)', fontWeight: 700 }}>
+                <span style={{ fontSize: 10, color: 'var(--hero-fg-soft)', fontWeight: 700 }}>
                   {conductedQuizzes.length} / {data?.quizzes?.length || 0}
                 </span>
               </div>
-              <div style={{ height: 5, borderRadius: 5, background: 'rgba(255,255,255,0.12)', overflow: 'hidden' }}>
+              <div style={{ height: 5, borderRadius: 5, background: 'var(--hero-glass)', overflow: 'hidden' }}>
                 <div style={{
                   height: '100%', borderRadius: 5,
-                  background: 'linear-gradient(90deg, rgba(255,255,255,0.7), rgba(255,255,255,0.95))',
+                  background: 'linear-gradient(90deg, #c2410c, #ea580c)',
                   width: `${quizCompletionPercent}%`,
                   transition: 'width 1.3s cubic-bezier(0.34,1.56,0.64,1)',
-                  boxShadow: quizCompletionPercent > 0 ? '0 0 10px rgba(255,255,255,0.6)' : 'none',
+                  boxShadow: quizCompletionPercent > 0 ? '0 0 10px rgba(234,88,12,0.5)' : 'none',
                 }} />
               </div>
             </div>
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                  Assessment pass rate
+                <span style={{ fontSize: 10, color: 'var(--hero-fg-dim)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                  {t('studentDashboard.hero.assessmentPassRate')}
                 </span>
-                <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.75)', fontWeight: 700 }}>
+                <span style={{ fontSize: 10, color: 'var(--hero-fg-soft)', fontWeight: 700 }}>
                   {passedQuizzes.length} / {gradedQuizzes.length}
                 </span>
               </div>
-              <div style={{ height: 5, borderRadius: 5, background: 'rgba(255,255,255,0.12)', overflow: 'hidden' }}>
+              <div style={{ height: 5, borderRadius: 5, background: 'var(--hero-glass)', overflow: 'hidden' }}>
                 <div style={{
                   height: '100%', borderRadius: 5,
-                  background: 'linear-gradient(90deg, #fde68a, #fcd34d)',
+                  background: 'linear-gradient(90deg, #9a3412, #f97316)',
                   width: `${passRate || 0}%`,
                   transition: 'width 1.3s cubic-bezier(0.34,1.56,0.64,1) 0.1s',
-                  boxShadow: (passRate || 0) > 0 ? '0 0 10px rgba(252,211,77,0.6)' : 'none',
+                  boxShadow: (passRate || 0) > 0 ? '0 0 10px rgba(249,115,22,0.5)' : 'none',
                 }} />
               </div>
             </div>
@@ -738,7 +725,6 @@ export default function StudentDashboard() {
 
       <style>{`
         @keyframes heroFloat { 0%,100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-10px) scale(1.03); } }
-        @keyframes heroGradientDrift { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
         @keyframes heroRingSpin { to { transform: rotate(360deg); } }
         @keyframes heroPulse { 0%,100% { box-shadow: 0 0 0 2px rgba(52,211,153,0.25); } 50% { box-shadow: 0 0 0 5px rgba(52,211,153,0.12); } }
         @keyframes heroWave { 0%,100% { transform: rotate(0deg); } 15% { transform: rotate(16deg); } 30% { transform: rotate(-8deg); } 45% { transform: rotate(14deg); } 60% { transform: rotate(0deg); } }
@@ -748,7 +734,7 @@ export default function StudentDashboard() {
         .hero-ring-wrap { transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); }
         .hero-ring-wrap:hover { transform: scale(1.06); }
         .hero-microstat { position: relative; cursor: default; }
-        .hero-microstat-underline { position: absolute; left: 0; right: 100%; bottom: -6px; height: 2px; background: linear-gradient(90deg, #fcd34d, #34d399); border-radius: 2px; transition: right 0.28s ease; }
+        .hero-microstat-underline { position: absolute; left: 0; right: 100%; bottom: -6px; height: 2px; background: linear-gradient(90deg, #f97316, #ea580c); border-radius: 2px; transition: right 0.28s ease; }
         .hero-microstat:hover .hero-microstat-underline { right: 0; }
         @media (max-width: 640px) {
           .hero-badge-desktop { display: none !important; }
@@ -763,24 +749,24 @@ export default function StudentDashboard() {
 
       {/* ── Stat Cards ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3" style={visStyle(0.07)}>
-        <StatCard icon={Timer} label="Pending assessments" value={pendingAssessments.length} to="/student/assessments"
+        <StatCard icon={Timer} label={t('studentDashboard.stats.pendingAssessments')} value={pendingAssessments.length} to="/student/assessments"
           color="text-amber-600" iconBg="bg-amber-100 dark:bg-amber-900/30"
-          sublabel={pendingAssessments.length ? 'not attempted' : 'all clear ✓'} animateNum />
-        <StatCard icon={CheckCircle2} label="Assessments taken" value={conductedQuizzes.length} to="/student/assessments"
+          sublabel={pendingAssessments.length ? t('studentDashboard.stats.notAttempted') : t('studentDashboard.stats.allClear')} animateNum />
+        <StatCard icon={CheckCircle2} label={t('studentDashboard.stats.assessmentsTaken')} value={conductedQuizzes.length} to="/student/assessments"
           color="text-emerald-600" iconBg="bg-emerald-100 dark:bg-emerald-900/30"
-          sublabel={`of ${data?.quizzes?.length || 0} total`} animateNum />
-        <StatCard icon={Award} label="Avg score" value={averageScore !== null ? averageScore : '—'} suffix={averageScore !== null ? '%' : ''}
+          sublabel={t('studentDashboard.stats.ofTotal', { count: data?.quizzes?.length || 0 })} animateNum />
+        <StatCard icon={Award} label={t('studentDashboard.stats.avgScore')} value={averageScore !== null ? averageScore : '—'} suffix={averageScore !== null ? '%' : ''}
           to="/student/assessments" color="text-orange-600" iconBg="bg-orange-100 dark:bg-orange-900/30"
-          sublabel={gradeLabel?.label || 'from quizzes'} animateNum={averageScore !== null} />
-        <StatCard icon={BookOpen} label="Documents" value={data?.documents?.length || 0} to="/student/documents"
+          sublabel={gradeLabel?.label || t('studentDashboard.stats.fromQuizzes')} animateNum={averageScore !== null} />
+        <StatCard icon={BookOpen} label={t('studentDashboard.stats.documents')} value={data?.documents?.length || 0} to="/student/documents"
           color="text-cyan-600" iconBg="bg-cyan-100 dark:bg-cyan-900/30"
-          sublabel="available" animateNum />
-        <StatCard icon={Timer} label="Assessments" value={availableQuizzes.length} to="/student/assessments"
+          sublabel={t('studentDashboard.stats.available')} animateNum />
+        <StatCard icon={Timer} label={t('studentDashboard.stats.assessments')} value={availableQuizzes.length} to="/student/assessments"
           color="text-orange-600" iconBg="bg-orange-100 dark:bg-orange-900/30"
-          sublabel={availableQuizzes.length ? 'ready to attempt' : 'none open'} animateNum />
-        <StatCard icon={MessageSquare} label="Groups" value={data?.groups?.length || 0} to="/student/groups"
+          sublabel={availableQuizzes.length ? t('studentDashboard.stats.readyToAttempt') : t('studentDashboard.stats.noneOpen')} animateNum />
+        <StatCard icon={MessageSquare} label={t('studentDashboard.hero.groups')} value={data?.groups?.length || 0} to="/student/groups"
           color="text-orange-600" iconBg="bg-orange-100 dark:bg-orange-900/30"
-          sublabel="discussion & chat" animateNum />
+          sublabel={t('studentDashboard.stats.discussionAndChat')} animateNum />
       </div>
 
       {/* ── Available Online Quizzes ── */}
@@ -788,12 +774,12 @@ export default function StudentDashboard() {
         <div className="card" style={visStyle(0.1)}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-sm flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-              <Timer style={{ width: 14, height: 14, color: '#ea580c' }} />
-              Assessments available now
+              <Timer style={{ width: 14, height: 14, color: '#c2410c' }} />
+              {t('studentDashboard.sections.availableNow')}
               <span className="badge text-xs bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300">{availableQuizzes.length}</span>
             </h3>
             <Link to="/student/assessments" className="text-xs text-primary-600 hover:underline flex items-center gap-1">
-              View all <ChevronRight className="w-3 h-3" />
+              {t('studentDashboard.sections.viewAll')} <ChevronRight className="w-3 h-3" />
             </Link>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -806,8 +792,8 @@ export default function StudentDashboard() {
                 }}
                   onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
                   onMouseLeave={e => e.currentTarget.style.transform = ''}>
-                  <div style={{ width: 34, height: 34, borderRadius: 9, background: 'rgba(234, 88, 12,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Timer style={{ width: 15, height: 15, color: '#ea580c' }} />
+                  <div style={{ width: 34, height: 34, borderRadius: 9, background: 'rgba(194, 65, 12,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Timer style={{ width: 15, height: 15, color: '#c2410c' }} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{q.title}</p>
@@ -828,8 +814,8 @@ export default function StudentDashboard() {
         <div className="card" style={visStyle(0.11)}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-sm flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-              <Lock style={{ width: 13, height: 13, color: '#ea580c' }} />
-              Assessments opening soon
+              <Lock style={{ width: 13, height: 13, color: '#c2410c' }} />
+              {t('studentDashboard.sections.openingSoon')}
               <span className="badge text-xs bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300">{scheduledQuizzes.length}</span>
             </h3>
           </div>
@@ -840,8 +826,8 @@ export default function StudentDashboard() {
                 background: 'var(--card-border)',
                 animation: `fadeSlide 0.35s ease ${i * 0.06}s both`,
               }}>
-                <div style={{ width: 34, height: 34, borderRadius: 9, background: 'rgba(234, 88, 12,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <Hourglass style={{ width: 15, height: 15, color: '#ea580c' }} />
+                <div style={{ width: 34, height: 34, borderRadius: 9, background: 'rgba(194, 65, 12,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Hourglass style={{ width: 15, height: 15, color: '#c2410c' }} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{q.title}</p>
@@ -863,7 +849,7 @@ export default function StudentDashboard() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, paddingLeft: 2 }}>
               <Calendar style={{ width: 12, height: 12, color: 'var(--text-secondary)', opacity: 0.7 }} />
               <span style={{ fontSize: 11, color: 'var(--text-secondary)', opacity: 0.8 }}>
-                Performance shown for <strong style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{performanceTerm.term} · {performanceTerm.academic_year}</strong>
+                {t('studentDashboard.sections.performanceShownFor')} <strong style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{performanceTerm.term} · {performanceTerm.academic_year}</strong>
               </span>
             </div>
           )}
@@ -874,9 +860,9 @@ export default function StudentDashboard() {
             <div className="flex items-center justify-between mb-2">
               <h3 className="font-semibold text-sm flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
                 <Activity style={{ width: 14, height: 14, color: '#10b981' }} />
-                Weekly assessment activity
+                {t('studentDashboard.sections.weeklyActivity')}
               </h3>
-              <span className="text-xs text-muted">{conductedQuizzes.length} total this period</span>
+              <span className="text-xs text-muted">{t('studentDashboard.sections.totalThisPeriod', { count: conductedQuizzes.length })}</span>
             </div>
             <div style={{ width: '100%', height: 190 }}>
               <ResponsiveContainer>
@@ -902,12 +888,12 @@ export default function StudentDashboard() {
           {/* Assessment outcome breakdown donut */}
           <div className="card lg:col-span-2" style={{ display: 'flex', flexDirection: 'column' }}>
             <h3 className="font-semibold text-sm flex items-center gap-2 mb-2" style={{ color: 'var(--text-primary)' }}>
-              <Target style={{ width: 14, height: 14, color: '#ea580c' }} />
-              Assessment outcomes
+              <Target style={{ width: 14, height: 14, color: '#c2410c' }} />
+              {t('studentDashboard.sections.outcomes')}
             </h3>
             {breakdownData.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center py-6">
-                <p className="text-xs text-muted">No graded assessments yet</p>
+                <p className="text-xs text-muted">{t('studentDashboard.sections.noGraded')}</p>
               </div>
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1 }}>
@@ -923,7 +909,7 @@ export default function StudentDashboard() {
                   </ResponsiveContainer>
                   <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
                     <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>{gradedQuizzes.length}</span>
-                    <span style={{ fontSize: 8, color: 'var(--text-secondary)', fontWeight: 600, letterSpacing: '0.04em' }}>GRADED</span>
+                    <span style={{ fontSize: 8, color: 'var(--text-secondary)', fontWeight: 600, letterSpacing: '0.04em' }}>{t('studentDashboard.sections.graded')}</span>
                   </div>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minWidth: 0 }}>
@@ -945,9 +931,9 @@ export default function StudentDashboard() {
               <div className="flex items-center justify-between mb-2">
                 <h3 className="font-semibold text-sm flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
                   <TrendingUp style={{ width: 14, height: 14, color: '#f59e0b' }} />
-                  Recent score trend
+                  {t('studentDashboard.sections.recentScoreTrend')}
                 </h3>
-                <span className="text-xs text-muted">last {scoreTrend.length} graded assessments</span>
+                <span className="text-xs text-muted">{t('studentDashboard.sections.lastGraded', { count: scoreTrend.length })}</span>
               </div>
               <div style={{ width: '100%', height: 160 }}>
                 <ResponsiveContainer>
@@ -976,10 +962,10 @@ export default function StudentDashboard() {
             <div className="card lg:col-span-5">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="font-semibold text-sm flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-                  <BarChart3 style={{ width: 14, height: 14, color: '#ea580c' }} />
-                  Performance by module
+                  <BarChart3 style={{ width: 14, height: 14, color: '#c2410c' }} />
+                  {t('studentDashboard.sections.performanceByModule')}
                 </h3>
-                <span className="text-xs text-muted">average score, graded assessments</span>
+                <span className="text-xs text-muted">{t('studentDashboard.sections.avgScoreGraded')}</span>
               </div>
               <div style={{ width: '100%', height: 200 }}>
                 <ResponsiveContainer>
@@ -1009,7 +995,7 @@ export default function StudentDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <h3 className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
-                <BarChart3 style={{ display: 'inline', width: 14, height: 14, marginRight: 6, color: '#ea580c', verticalAlign: 'middle' }} />
+                <BarChart3 style={{ display: 'inline', width: 14, height: 14, marginRight: 6, color: '#c2410c', verticalAlign: 'middle' }} />
                 Performance
               </h3>
               {performanceTerm && (
@@ -1029,7 +1015,7 @@ export default function StudentDashboard() {
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
             <div className="hero-ring-wrap" style={{ position: 'relative', width: 100, height: 100 }}>
               <svg width={100} height={100} viewBox="0 0 100 100" style={{ transform: 'rotate(-90deg)' }}>
-                <circle cx={50} cy={50} r={40} fill="none" stroke="rgba(234, 88, 12,0.1)" strokeWidth={9} />
+                <circle cx={50} cy={50} r={40} fill="none" stroke="rgba(194, 65, 12,0.1)" strokeWidth={9} />
                 <circle cx={50} cy={50} r={40} fill="none"
                   stroke={averageScore !== null ? scoreColor(averageScore) : '#e5e7eb'}
                   strokeWidth={9} strokeLinecap="round"
@@ -1050,7 +1036,7 @@ export default function StudentDashboard() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {[
               { label: 'Conducted',      val: conductedQuizzes.length,      total: Math.max(data?.quizzes?.length || 1, 1), color: '#10b981' },
-              { label: 'Passed',         val: passedQuizzes.length,         total: Math.max(gradedQuizzes.length, 1),        color: '#ea580c' },
+              { label: 'Passed',         val: passedQuizzes.length,         total: Math.max(gradedQuizzes.length, 1),        color: '#c2410c' },
               { label: 'Pending review', val: pendingGradingQuizzes.length, total: Math.max(conductedQuizzes.length, 1),     color: '#f59e0b' },
             ].map(row => (
               <div key={row.label}>
@@ -1076,7 +1062,7 @@ export default function StudentDashboard() {
               )}
             </h3>
             <Link to="/student/assignments" className="text-xs text-primary-600 hover:underline flex items-center gap-1">
-              View all <ChevronRight className="w-3 h-3" />
+              {t('studentDashboard.sections.viewAll')} <ChevronRight className="w-3 h-3" />
             </Link>
           </div>
 
@@ -1159,11 +1145,11 @@ export default function StudentDashboard() {
       <div className="card" style={visStyle(0.2)}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold text-sm flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-            <Bell style={{ width: 14, height: 14, color: '#ea580c' }} />
+            <Bell style={{ width: 14, height: 14, color: '#c2410c' }} />
             Announcements
           </h3>
           <Link to="/student/announcements" className="text-xs text-primary-600 hover:underline flex items-center gap-1">
-            View all <ChevronRight className="w-3 h-3" />
+            {t('studentDashboard.sections.viewAll')} <ChevronRight className="w-3 h-3" />
           </Link>
         </div>
         {(data?.announcements || []).length === 0 ? (
@@ -1180,7 +1166,7 @@ export default function StudentDashboard() {
               <div key={a.id} style={{
                 display: 'flex', gap: 12, padding: '12px 14px', borderRadius: 14,
                 background: 'var(--card-border)',
-                borderLeft: '3px solid #ea580c',
+                borderLeft: '3px solid #c2410c',
                 animation: `fadeSlide 0.35s ease ${i * 0.06}s both`,
               }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -1242,7 +1228,7 @@ export default function StudentDashboard() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 8, borderTop: '1px solid var(--card-border)' }}>
                       <div style={{
                         width: 24, height: 24, borderRadius: '50%', flexShrink: 0,
-                        background: 'linear-gradient(135deg, #c2410c, #ea580c)',
+                        background: 'linear-gradient(135deg, #9a3412, #c2410c)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         fontSize: 10, fontWeight: 700, color: '#fff',
                       }}>{initials(course.teacher_id.name)}</div>
@@ -1280,7 +1266,7 @@ export default function StudentDashboard() {
                 }}>
                   <div style={{
                     width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
-                    background: 'linear-gradient(135deg, #c2410c, #ea580c)',
+                    background: 'linear-gradient(135deg, #9a3412, #c2410c)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontSize: 14, fontWeight: 700, color: '#fff',
                   }}>{initials(t.name)}</div>
@@ -1301,7 +1287,7 @@ export default function StudentDashboard() {
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>My classes</h3>
               <Link to="/student/classes" className="text-xs text-primary-600 hover:underline flex items-center gap-1">
-                View all <ChevronRight className="w-3 h-3" />
+                {t('studentDashboard.sections.viewAll')} <ChevronRight className="w-3 h-3" />
               </Link>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -1345,7 +1331,7 @@ export default function StudentDashboard() {
               SHared document materials
             </h3>
             <Link to="/student/documents" className="text-xs text-primary-600 hover:underline flex items-center gap-1">
-              View all <ChevronRight className="w-3 h-3" />
+              {t('studentDashboard.sections.viewAll')} <ChevronRight className="w-3 h-3" />
             </Link>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -1379,9 +1365,9 @@ export default function StudentDashboard() {
         <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 9 }}>
           {[
             { label: 'Assignments',  to: '/student/assignments',  icon: ClipboardList, color: '#fbbf24', bg: 'rgba(251,191,36,0.1)' },
-            { label: 'Assessments',  to: '/student/assessments',  icon: Timer,         color: '#ea580c', bg: 'rgba(234, 88, 12,0.1)' },
+            { label: 'Assessments',  to: '/student/assessments',  icon: Timer,         color: '#c2410c', bg: 'rgba(194, 65, 12,0.1)' },
             { label: 'Documents',    to: '/student/documents',    icon: FileText,      color: '#f472b6', bg: 'rgba(244,114,182,0.1)' },
-            { label: 'Groups & DMs', to: '/student/groups',       icon: MessageSquare, color: '#ea580c', bg: 'rgba(234, 88, 12,0.1)' },
+            { label: 'Groups & DMs', to: '/student/groups',       icon: MessageSquare, color: '#c2410c', bg: 'rgba(194, 65, 12,0.1)' },
             { label: 'Announce',     to: '/student/announcements', icon: Megaphone,    color: '#22d3ee', bg: 'rgba(34,211,238,0.1)' },
             { label: 'My Classes',   to: '/student/classes',      icon: BookOpen,      color: '#34d399', bg: 'rgba(52,211,153,0.1)' },
           ].map(a => (
@@ -1416,7 +1402,7 @@ export default function StudentDashboard() {
         .ready-indicator {
           position: relative; display: inline-flex; align-items: center; gap: 7px;
           padding: 8px 16px; border-radius: 30px; overflow: hidden; flex-shrink: 0;
-          background: linear-gradient(135deg, rgba(16,185,129,0.24), rgba(45,212,191,0.16), rgba(234, 88, 12,0.24));
+          background: linear-gradient(135deg, rgba(16,185,129,0.24), rgba(45,212,191,0.16), rgba(194, 65, 12,0.24));
           background-size: 220% 220%;
           border: 1px solid rgba(255,255,255,0.38);
           backdrop-filter: blur(10px);
@@ -1492,7 +1478,7 @@ export default function StudentDashboard() {
         .scheduled-indicator {
           position: relative; display: inline-flex; align-items: center; gap: 8px;
           padding: 8px 16px; border-radius: 30px; overflow: hidden; flex-shrink: 0;
-          background: linear-gradient(135deg, rgba(234, 88, 12,0.18), rgba(56,189,248,0.1));
+          background: linear-gradient(135deg, rgba(194, 65, 12,0.18), rgba(56,189,248,0.1));
           border: 1px solid rgba(199,210,254,0.42);
           backdrop-filter: blur(10px);
           animation: scheduledGlowBreathe 3.6s ease-in-out infinite;
@@ -1501,7 +1487,7 @@ export default function StudentDashboard() {
         .scheduled-indicator:hover { transform: translateY(-2px); }
         .scheduled-indicator-glow {
           position: absolute; inset: -7px; border-radius: 40px; z-index: 0; pointer-events: none;
-          background: radial-gradient(circle, rgba(249, 115, 22,0.38), transparent 70%);
+          background: radial-gradient(circle, rgba(234, 88, 12,0.38), transparent 70%);
           filter: blur(10px); animation: scheduledGlowPulse 3.4s ease-in-out infinite;
         }
         .scheduled-indicator-ripple {
@@ -1510,17 +1496,17 @@ export default function StudentDashboard() {
           animation: scheduledRipple 3.2s ease-out infinite;
         }
         .scheduled-indicator-icon {
-          position: relative; z-index: 1; flex-shrink: 0; color: #fdba74;
+          position: relative; z-index: 1; flex-shrink: 0; color: #fb923c;
           filter: drop-shadow(0 0 3px rgba(165,180,252,0.7));
           animation: scheduledIconBob 3.1s ease-in-out infinite;
         }
         .scheduled-indicator-label {
-          position: relative; z-index: 1; font-size: 12px; font-weight: 700; letter-spacing: 0.02em; color: #fed7aa;
+          position: relative; z-index: 1; font-size: 12px; font-weight: 700; letter-spacing: 0.02em; color: #fdba74;
           white-space: nowrap; text-shadow: 0 0 10px rgba(165,180,252,0.4);
         }
         @keyframes scheduledGlowBreathe {
-          0%, 100% { box-shadow: 0 4px 14px rgba(234, 88, 12,0.16); }
-          50%      { box-shadow: 0 8px 22px rgba(249, 115, 22,0.36); }
+          0%, 100% { box-shadow: 0 4px 14px rgba(194, 65, 12,0.16); }
+          50%      { box-shadow: 0 8px 22px rgba(234, 88, 12,0.36); }
         }
         @keyframes scheduledGlowPulse {
           0%, 100% { opacity: 0.35; transform: scale(0.94); }

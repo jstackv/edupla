@@ -557,5 +557,123 @@
     "en": "English",
     "fr": "Français",
     "rw": "Kinyarwanda"
+  },
+  "studentDashboard": {
+    "hero": {
+      "goodMorning": "Bonjour",
+      "goodAfternoon": "Bon après-midi",
+      "goodEvening": "Bonsoir",
+      "allCaughtUp": "Tout est à jour — excellent travail !",
+      "needsAttention_one": "{{count}} évaluation nécessite votre attention",
+      "needsAttention_other": "{{count}} évaluations nécessitent votre attention",
+      "assessmentsPassed_one": "{{count}} évaluation réussie",
+      "assessmentsPassed_other": "{{count}} évaluations réussies",
+      "classes": "Classes",
+      "modules": "Modules",
+      "groups": "Groupes",
+      "done": "FAIT",
+      "assAvg": "MOY. ÉVAL",
+      "quizCompletion": "Quiz complétés",
+      "assessmentPassRate": "Taux de réussite",
+      "assessmentsPassedLabel": "Évaluations réussies"
+    },
+    "stats": {
+      "pendingAssessments": "Évaluations en attente",
+      "notAttempted": "non tentée",
+      "allClear": "tout est fait ✓",
+      "assessmentsTaken": "Évaluations passées",
+      "ofTotal": "sur {{count}} au total",
+      "avgScore": "Score moyen",
+      "fromQuizzes": "sur les quiz",
+      "documents": "Documents",
+      "available": "disponibles",
+      "assessments": "Évaluations",
+      "readyToAttempt": "prêtes à tenter",
+      "noneOpen": "aucune ouverte",
+      "discussionAndChat": "discussion et chat"
+    },
+    "sections": {
+      "availableNow": "Évaluations disponibles maintenant",
+      "viewAll": "Tout voir",
+      "openingSoon": "Évaluations bientôt disponibles",
+      "performanceShownFor": "Performance affichée pour",
+      "weeklyActivity": "Activité hebdomadaire d'évaluation",
+      "totalThisPeriod_one": "{{count}} au total cette période",
+      "totalThisPeriod_other": "{{count}} au total cette période",
+      "outcomes": "Résultats des évaluations",
+      "noGraded": "Aucune évaluation notée pour l'instant",
+      "graded": "NOTÉES",
+      "recentScoreTrend": "Tendance des scores récents",
+      "lastGraded": "{{count}} dernières évaluations notées",
+      "performanceByModule": "Performance par module",
+      "avgScoreGraded": "score moyen, évaluations notées"
+    }
+  },
+  "teacherDashboard": {
+    "hero": {
+      "goodMorning": "Bonjour",
+      "goodAfternoon": "Bon après-midi",
+      "goodEvening": "Bonsoir",
+      "classesStudentsModules": "{{classes}} classes · {{students}} élèves · {{modules}} modules",
+      "recordedLast30_one": "{{count}} enregistrée, 30 derniers jours",
+      "recordedLast30_other": "{{count}} enregistrées, 30 derniers jours",
+      "assessments": "Évaluations",
+      "pendingReview": "En attente",
+      "approved": "Approuvées",
+      "classAvg": "Moyenne classe",
+      "approvalProgress": "Progression des approbations"
+    },
+    "stats": {
+      "activeClasses": "Classes actives",
+      "totalStudents": "Total élèves",
+      "modulesAssigned": "cours assignés",
+      "modules": "Modules",
+      "documents": "Documents",
+      "sharedWithStudents": "partagés avec les élèves",
+      "onlineAssessments": "Évaluations en ligne"
+    },
+    "sections": {
+      "assessmentActivity": "Activité d'évaluation",
+      "last30Days": "30 derniers jours · notes et résultats de quiz enregistrés",
+      "gradeDistribution": "Répartition des notes",
+      "graded": "notées",
+      "approvalRate": "Taux d'approbation",
+      "needsAttention": "Nécessite votre attention",
+      "classSnapshot": "Aperçu de la classe",
+      "quizGradeDistribution": "Répartition des notes de quiz",
+      "onlineAssessmentActivity": "Activité des évaluations en ligne",
+      "last30DaysQuiz": "30 derniers jours · tentatives de quiz soumises par les élèves"
+    }
+  },
+  "adminDashboard": {
+    "hero": {
+      "goodMorning": "Bonjour",
+      "goodAfternoon": "Bon après-midi",
+      "goodEvening": "Bonsoir",
+      "administrator": "Administrateur",
+      "allSystemsNormal": "Tous les systèmes fonctionnent",
+      "subtitle": "Voici ce qui se passe dans votre établissement aujourd'hui.",
+      "teachers": "Enseignants",
+      "students": "Élèves",
+      "modules": "Modules",
+      "live": "En direct"
+    },
+    "stats": {
+      "assessments": "Évaluations",
+      "pending": "En attente",
+      "approved": "Approuvées",
+      "assignments": "Devoirs",
+      "announcements": "Annonces"
+    },
+    "heroStats": {
+      "pendingReview": "En attente",
+      "pendingReviewDesc": "En attente de validation admin",
+      "approved": "Approuvées",
+      "approvedDesc": "Notes finalisées",
+      "rejected": "Rejetées",
+      "rejectedDesc": "Retournées à l'enseignant",
+      "totalModules": "Total des modules",
+      "totalModulesDesc": "Toutes classes confondues"
+    }
   }
 }

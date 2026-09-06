@@ -112,7 +112,7 @@ function ResultGauge({ pct, accent, size = 116 }) {
 }
 
 function Confetti({ accent }) {
-  const colors = [accent, '#f59e0b', '#ea580c', '#ec4899', '#eab308'];
+  const colors = [accent, '#f59e0b', '#c2410c', '#ec4899', '#eab308'];
   return (
     <span className="pointer-events-none absolute inset-0 overflow-visible" aria-hidden="true">
       {Array.from({ length: 14 }).map((_, i) => (
@@ -331,9 +331,9 @@ export default function AttemptAssessment() {
             <button key={qq.id} onClick={() => setCurrent(i)}
               className="w-8 h-8 flex-shrink-0 rounded-lg text-xs font-bold transition-all duration-200 hover:scale-110"
               style={{
-                background: i === current ? '#ea580c' : (done ? 'rgba(16,185,129,0.25)' : 'rgba(255,255,255,0.08)'),
+                background: i === current ? '#c2410c' : (done ? 'rgba(16,185,129,0.25)' : 'rgba(255,255,255,0.08)'),
                 color: i === current ? '#fff' : (done ? '#34d399' : 'rgba(255,255,255,0.6)'),
-                boxShadow: i === current ? '0 4px 12px rgba(234, 88, 12,0.45)' : 'none',
+                boxShadow: i === current ? '0 4px 12px rgba(194, 65, 12,0.45)' : 'none',
               }}>{i + 1}</button>
           );
         })}
@@ -357,8 +357,8 @@ export default function AttemptAssessment() {
                       saveAnswer(q.id, next);
                     }}
                     className="w-full text-left px-4 py-3 rounded-xl border-2 transition-all duration-200 flex items-center gap-3 hover:-translate-y-0.5"
-                    style={{ borderColor: selected ? '#ea580c' : 'rgba(255,255,255,0.15)', background: selected ? 'rgba(234, 88, 12,0.15)' : 'rgba(255,255,255,0.04)', color: '#fff', boxShadow: selected ? '0 6px 18px rgba(234, 88, 12,0.25)' : 'none' }}>
-                    <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 transition-transform duration-200" style={{ background: selected ? '#ea580c' : 'rgba(255,255,255,0.1)', transform: selected ? 'scale(1.1)' : 'scale(1)' }}>{opt.key}</span>
+                    style={{ borderColor: selected ? '#c2410c' : 'rgba(255,255,255,0.15)', background: selected ? 'rgba(194, 65, 12,0.15)' : 'rgba(255,255,255,0.04)', color: '#fff', boxShadow: selected ? '0 6px 18px rgba(194, 65, 12,0.25)' : 'none' }}>
+                    <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 transition-transform duration-200" style={{ background: selected ? '#c2410c' : 'rgba(255,255,255,0.1)', transform: selected ? 'scale(1.1)' : 'scale(1)' }}>{opt.key}</span>
                     {opt.text}
                   </button>
                 );
@@ -371,7 +371,7 @@ export default function AttemptAssessment() {
               {['true', 'false'].map(v => (
                 <button key={v} onClick={() => saveAnswer(q.id, v)}
                   className="flex-1 py-4 rounded-xl border-2 font-semibold capitalize transition-all duration-200 hover:-translate-y-0.5"
-                  style={{ borderColor: answers[q.id] === v ? '#ea580c' : 'rgba(255,255,255,0.15)', background: answers[q.id] === v ? 'rgba(234, 88, 12,0.15)' : 'rgba(255,255,255,0.04)', color: '#fff', boxShadow: answers[q.id] === v ? '0 6px 18px rgba(234, 88, 12,0.25)' : 'none' }}>
+                  style={{ borderColor: answers[q.id] === v ? '#c2410c' : 'rgba(255,255,255,0.15)', background: answers[q.id] === v ? 'rgba(194, 65, 12,0.15)' : 'rgba(255,255,255,0.04)', color: '#fff', boxShadow: answers[q.id] === v ? '0 6px 18px rgba(194, 65, 12,0.25)' : 'none' }}>
                   {v}
                 </button>
               ))}

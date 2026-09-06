@@ -7,7 +7,7 @@ import { SUPPORTED_LANGUAGES, setAppLanguage } from '../../i18n';
  * Settings.jsx card variants (admin/teacher/student). Pass the card's own
  * accent color so it matches the surrounding section.
  */
-export default function LanguageOptionsGrid({ dark, accentColor = '#ea580c' }) {
+export default function LanguageOptionsGrid({ dark, accentColor = '#c2410c' }) {
   const { i18n } = useTranslation();
   const current = i18n.language;
 

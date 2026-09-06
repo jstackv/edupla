@@ -71,10 +71,10 @@ export default function ConfirmModal({
     },
     info: {
       icon: Info,
-      iconBg: 'rgba(234, 88, 12,0.12)',
-      iconColor: '#ea580c',
-      btnBg: 'linear-gradient(135deg,#ea580c,#c2410c)',
-      btnShadow: '0 4px 16px rgba(234, 88, 12,0.35)',
+      iconBg: 'rgba(194, 65, 12,0.12)',
+      iconColor: '#c2410c',
+      btnBg: 'linear-gradient(135deg,#c2410c,#9a3412)',
+      btnShadow: '0 4px 16px rgba(194, 65, 12,0.35)',
       accentBorder: '#f9731640',
     },
     reject: {
@@ -100,18 +100,18 @@ export default function ConfirmModal({
     // wants the traditional meaning.
     approve: {
       icon: CheckCircle,
-      iconBg: 'rgba(234, 88, 12,0.12)',
-      iconColor: '#ea580c',
-      btnBg: 'linear-gradient(135deg,#ea580c,#9a3412)',
-      btnShadow: '0 4px 16px rgba(234, 88, 12,0.35)',
+      iconBg: 'rgba(194, 65, 12,0.12)',
+      iconColor: '#c2410c',
+      btnBg: 'linear-gradient(135deg,#c2410c,#7c2d12)',
+      btnShadow: '0 4px 16px rgba(194, 65, 12,0.35)',
       accentBorder: '#f9731640',
     },
     save: {
       icon: Save,
-      iconBg: 'rgba(234, 88, 12,0.12)',
-      iconColor: '#ea580c',
-      btnBg: 'linear-gradient(135deg,#ea580c,#c2410c)',
-      btnShadow: '0 4px 16px rgba(234, 88, 12,0.35)',
+      iconBg: 'rgba(194, 65, 12,0.12)',
+      iconColor: '#c2410c',
+      btnBg: 'linear-gradient(135deg,#c2410c,#9a3412)',
+      btnShadow: '0 4px 16px rgba(194, 65, 12,0.35)',
       accentBorder: '#f9731640',
     },
   };

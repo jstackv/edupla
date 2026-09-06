@@ -45,7 +45,7 @@ const TERMS = ['Term 1', 'Term 2', 'Term 3'];
 const ASSESSMENT_TYPES = [
   { key: 'FA', label: 'Formative Assessment',     color: '#2563eb', desc: 'Ongoing evaluation during the learning process' },
   { key: 'IA', label: 'Integrated Assessment',    color: '#0d9488', desc: 'Holistic evaluation across multiple competencies' },
-  { key: 'CA', label: 'Comprehensive Assessment', color: '#c2410c', desc: 'End-of-term summative evaluation' },
+  { key: 'CA', label: 'Comprehensive Assessment', color: '#9a3412', desc: 'End-of-term summative evaluation' },
 ];
 
 /* ─────────── Design tokens ("gradebook" system) ───────────
@@ -54,10 +54,10 @@ const ASSESSMENT_TYPES = [
    (rings, celebration states), teal + violet stay as the two bulk-action
    accents already established by the download/upload buttons.          */
 const T = {
-  navyDeep:  '#431407',
-  navy:      '#9a3412',
-  blue:      '#c2410c',
-  blueBright:'#ea580c',
+  navyDeep:  '#2a0c03',
+  navy:      '#7c2d12',
+  blue:      '#9a3412',
+  blueBright:'#c2410c',
   teal:      '#0d9488',
   tealBright:'#14b8a6',
   violet:    '#7e22ce',
@@ -121,7 +121,7 @@ const GLOBAL_KEYFRAMES = `
 
   .ta-skel { background-image: linear-gradient(90deg, rgba(148,163,184,0.10) 0px, rgba(148,163,184,0.22) 40px, rgba(148,163,184,0.10) 80px); background-size: 600px 100%; animation: shimmer 1.5s infinite linear; }
 
-  .ta-root *:focus-visible { outline: 2.5px solid #ea580c; outline-offset: 2px; border-radius: 6px; }
+  .ta-root *:focus-visible { outline: 2.5px solid #c2410c; outline-offset: 2px; border-radius: 6px; }
 
   .ta-mastery-badge { animation: pulseGlow 2.2s ease-in-out infinite; }
   .ta-sparkle { animation: sparklePulse 1.6s ease-in-out infinite; }

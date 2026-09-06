@@ -557,5 +557,123 @@
     "en": "English",
     "fr": "Français",
     "rw": "Kinyarwanda"
+  },
+  "studentDashboard": {
+    "hero": {
+      "goodMorning": "Mwaramutse",
+      "goodAfternoon": "Mwiriwe",
+      "goodEvening": "Muramuke",
+      "allCaughtUp": "Byose birakozwe — ni akazi keza!",
+      "needsAttention_one": "Ikizamini {{count}} gikeneye ubwitonzi bwawe",
+      "needsAttention_other": "Ibizamini {{count}} bikeneye ubwitonzi bwawe",
+      "assessmentsPassed_one": "Ikizamini {{count}} watsinze",
+      "assessmentsPassed_other": "Ibizamini {{count}} watsinze",
+      "classes": "Amashuri",
+      "modules": "Modire",
+      "groups": "Amatsinda",
+      "done": "BYARANGIYE",
+      "assAvg": "IMPUZANDENGO",
+      "quizCompletion": "Ibizamini byarangiye",
+      "assessmentPassRate": "Ijanisha ryo gutsinda",
+      "assessmentsPassedLabel": "Ibizamini watsinze"
+    },
+    "stats": {
+      "pendingAssessments": "Ibizamini bitegereje",
+      "notAttempted": "ntibirakorwa",
+      "allClear": "byose birakozwe ✓",
+      "assessmentsTaken": "Ibizamini wakoze",
+      "ofTotal": "muri {{count}} byose",
+      "avgScore": "Amanota rusange",
+      "fromQuizzes": "avuye mu bizamini",
+      "documents": "Inyandiko",
+      "available": "ziraboneka",
+      "assessments": "Ibizamini",
+      "readyToAttempt": "biteguye gukorwa",
+      "noneOpen": "nta na kimwe kifunguye",
+      "discussionAndChat": "ibiganiro n'ubutumwa"
+    },
+    "sections": {
+      "availableNow": "Ibizamini biraboneka ubu",
+      "viewAll": "Reba byose",
+      "openingSoon": "Ibizamini bigiye gufungura",
+      "performanceShownFor": "Imikorere yerekanwa kuri",
+      "weeklyActivity": "Ibikorwa by'icyumweru by'ibizamini",
+      "totalThisPeriod_one": "Byose {{count}} muri iki gihe",
+      "totalThisPeriod_other": "Byose {{count}} muri iki gihe",
+      "outcomes": "Ibisubizo by'ibizamini",
+      "noGraded": "Nta kizamini cyanozwe kirimo",
+      "graded": "BYANOZWE",
+      "recentScoreTrend": "Imikorere y'amanota aheruka",
+      "lastGraded": "ibizamini {{count}} byanozwe biheruka",
+      "performanceByModule": "Imikorere ku modire",
+      "avgScoreGraded": "amanota rusange, ibizamini byanozwe"
+    }
+  },
+  "teacherDashboard": {
+    "hero": {
+      "goodMorning": "Mwaramutse",
+      "goodAfternoon": "Mwiriwe",
+      "goodEvening": "Muramuke",
+      "classesStudentsModules": "amashuri {{classes}} · abanyeshuri {{students}} · modire {{modules}}",
+      "recordedLast30_one": "{{count}} yanditswe, iminsi 30 ishize",
+      "recordedLast30_other": "{{count}} zanditswe, iminsi 30 ishize",
+      "assessments": "Ibizamini",
+      "pendingReview": "Bitegereje isuzuma",
+      "approved": "Byemejwe",
+      "classAvg": "Impuzandengo y'ishuri",
+      "approvalProgress": "Aho igenzura rigeze"
+    },
+    "stats": {
+      "activeClasses": "Amashuri akora",
+      "totalStudents": "Abanyeshuri bose",
+      "modulesAssigned": "amasomo yahawe",
+      "modules": "Modire",
+      "documents": "Inyandiko",
+      "sharedWithStudents": "zasangiwe n'abanyeshuri",
+      "onlineAssessments": "Ibizamini kuri interineti"
+    },
+    "sections": {
+      "assessmentActivity": "Ibikorwa by'ibizamini",
+      "last30Days": "Iminsi 30 ishize · amanota n'ibisubizo byanditswe",
+      "gradeDistribution": "Igabana ry'amanota",
+      "graded": "byanozwe",
+      "approvalRate": "Ijanisha ryo kwemezwa",
+      "needsAttention": "Bikeneye ubwitonzi",
+      "classSnapshot": "Incamake y'ishuri",
+      "quizGradeDistribution": "Igabana ry'amanota y'ibizamini",
+      "onlineAssessmentActivity": "Ibikorwa by'ibizamini kuri interineti",
+      "last30DaysQuiz": "Iminsi 30 ishize · ibigeragezo by'ibizamini byatanzwe n'abanyeshuri"
+    }
+  },
+  "adminDashboard": {
+    "hero": {
+      "goodMorning": "Mwaramutse",
+      "goodAfternoon": "Mwiriwe",
+      "goodEvening": "Muramuke",
+      "administrator": "Umuyobozi",
+      "allSystemsNormal": "Ibintu byose birakora neza",
+      "subtitle": "Dore ibiri kubaho mu kigo cyawe uyu munsi.",
+      "teachers": "Abarimu",
+      "students": "Abanyeshuri",
+      "modules": "Modire",
+      "live": "Ubu ubu"
+    },
+    "stats": {
+      "assessments": "Ibizamini",
+      "pending": "Bitegereje",
+      "approved": "Byemejwe",
+      "assignments": "Imirimo",
+      "announcements": "Amatangazo"
+    },
+    "heroStats": {
+      "pendingReview": "Bitegereje isuzuma",
+      "pendingReviewDesc": "Bitegereje isuzuma ry'umuyobozi",
+      "approved": "Byemejwe",
+      "approvedDesc": "Amanota yarangiye",
+      "rejected": "Byanzwe",
+      "rejectedDesc": "Byasubijwe umwarimu",
+      "totalModules": "Modire zose",
+      "totalModulesDesc": "Ku mashuri yose"
+    }
   }
 }

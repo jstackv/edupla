@@ -21,9 +21,9 @@ import {
 } from 'lucide-react';
 
 const QUESTION_TYPES = [
-  { key: 'mcq',        label: 'Multiple Choice', icon: ListChecks,        color: '#ea580c' },
+  { key: 'mcq',        label: 'Multiple Choice', icon: ListChecks,        color: '#c2410c' },
   { key: 'true_false',  label: 'True / False',    icon: ToggleLeft,        color: '#0d9488' },
-  { key: 'fill_gap',    label: 'Fill in the Gap', icon: PenLine,           color: '#ea580c' },
+  { key: 'fill_gap',    label: 'Fill in the Gap', icon: PenLine,           color: '#c2410c' },
   { key: 'matching',    label: 'Matching',        icon: Shuffle,           color: '#f59e0b' },
   { key: 'open',        label: 'Open Question',   icon: MessageSquareText, color: '#ec4899' },
 ];
@@ -216,7 +216,7 @@ export default function QuizBuilderModal({ assessment, onClose, onSaved }) {
     <Modal
       isOpen={true} onClose={onClose}
       title={`Build Questions — ${assessment.title}`} size="xl"
-      icon={ClipboardList} accent="#ea580c" accent2="#ea580c"
+      icon={ClipboardList} accent="#c2410c" accent2="#c2410c"
     >
       {loading ? (
         <div className="flex items-center justify-center py-12">
@@ -346,7 +346,7 @@ export default function QuizBuilderModal({ assessment, onClose, onSaved }) {
           <>
           {justGenerated && !locked && (
             <div className="p-3 rounded-xl text-sm flex flex-wrap items-center gap-2"
-              style={{ background: 'rgba(234, 88, 12,0.08)', border: '1px solid rgba(234, 88, 12,0.25)' }}>
+              style={{ background: 'rgba(194, 65, 12,0.08)', border: '1px solid rgba(194, 65, 12,0.25)' }}>
               <Sparkles className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--text-secondary)' }} />
               <span style={{ color: 'var(--text-secondary)' }}>Set marks for every generated question at once:</span>
               <Stepper value={bulkMarks} onChange={setBulkMarks} min={0.5} step={0.5} className="w-36" title="Marks per question" />
@@ -407,7 +407,7 @@ export default function QuizBuilderModal({ assessment, onClose, onSaved }) {
 
           <fieldset disabled={locked} className="space-y-4">
             {questions.map((q, idx) => {
-              const qColor = QUESTION_TYPES.find(t => t.key === q.type)?.color || '#ea580c';
+              const qColor = QUESTION_TYPES.find(t => t.key === q.type)?.color || '#c2410c';
               return (
               <div key={q._key} className="qm-question-card card p-4" style={{ '--qi': idx, '--qm-q-color': qColor }}>
                 <div className="flex flex-wrap items-center gap-2 mb-3">

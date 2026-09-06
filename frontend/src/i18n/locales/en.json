@@ -27,12 +27,10 @@
     "broadcasts": "Broadcasts",
     "discussion": "Discussion",
     "disciplineMarks": "Discipline Marks",
-
     "myDashboard": "Dashboard",
     "learningModules": "Modules",
     "studyMaterials": "Study Materials",
     "homework": "Homework",
-
     "overview": "Overview",
     "faculty": "Teachers",
     "studentBody": "Students",
@@ -40,16 +38,13 @@
     "onlinePerformance": "Online Performance",
     "institutionSettings": "TVET Settings",
     "subscriptionPlan": "Subscription Plan",
-
     "commandCenter": "Overview",
     "adminCouncil": "Manage Schools",
     "institutionsBilling": "Manage Billings",
     "treasury": "Treasury",
     "systemHealth": "System Health",
-
     "mainMenu": "Main Menu",
     "management": "Management",
-
     "control": "Control Panel"
   },
   "roles": {
@@ -567,5 +562,123 @@
     "en": "English",
     "fr": "Français",
     "rw": "Kinyarwanda"
+  },
+  "studentDashboard": {
+    "hero": {
+      "goodMorning": "Good morning",
+      "goodAfternoon": "Good afternoon",
+      "goodEvening": "Good evening",
+      "allCaughtUp": "All caught up — great work!",
+      "needsAttention_one": "{{count}} assessment needs your attention",
+      "needsAttention_other": "{{count}} assessments need your attention",
+      "assessmentsPassed_one": "{{count}} Assessment passed",
+      "assessmentsPassed_other": "{{count}} Assessments passed",
+      "classes": "Classes",
+      "modules": "Modules",
+      "groups": "Groups",
+      "done": "DONE",
+      "assAvg": "ASS AVG",
+      "quizCompletion": "Quiz completion",
+      "assessmentPassRate": "Assessment pass rate",
+      "assessmentsPassedLabel": "Assessments passed"
+    },
+    "stats": {
+      "pendingAssessments": "Pending assessments",
+      "notAttempted": "not attempted",
+      "allClear": "all clear ✓",
+      "assessmentsTaken": "Assessments taken",
+      "ofTotal": "of {{count}} total",
+      "avgScore": "Avg score",
+      "fromQuizzes": "from quizzes",
+      "documents": "Documents",
+      "available": "available",
+      "assessments": "Assessments",
+      "readyToAttempt": "ready to attempt",
+      "noneOpen": "none open",
+      "discussionAndChat": "discussion & chat"
+    },
+    "sections": {
+      "availableNow": "Assessments available now",
+      "viewAll": "View all",
+      "openingSoon": "Assessments opening soon",
+      "performanceShownFor": "Performance shown for",
+      "weeklyActivity": "Weekly assessment activity",
+      "totalThisPeriod_one": "{{count}} total this period",
+      "totalThisPeriod_other": "{{count}} total this period",
+      "outcomes": "Assessment outcomes",
+      "noGraded": "No graded assessments yet",
+      "graded": "GRADED",
+      "recentScoreTrend": "Recent score trend",
+      "lastGraded": "last {{count}} graded assessments",
+      "performanceByModule": "Performance by module",
+      "avgScoreGraded": "average score, graded assessments"
+    }
+  },
+  "teacherDashboard": {
+    "hero": {
+      "goodMorning": "Good morning",
+      "goodAfternoon": "Good afternoon",
+      "goodEvening": "Good evening",
+      "classesStudentsModules": "{{classes}} classes · {{students}} students · {{modules}} modules",
+      "recordedLast30_one": "{{count}} recorded, last 30 days",
+      "recordedLast30_other": "{{count}} recorded, last 30 days",
+      "assessments": "Assessments",
+      "pendingReview": "Pending Review",
+      "approved": "Approved",
+      "classAvg": "Class Avg",
+      "approvalProgress": "Approval progress"
+    },
+    "stats": {
+      "activeClasses": "Active Classes",
+      "totalStudents": "Total Students",
+      "modulesAssigned": "assigned courses",
+      "modules": "Modules",
+      "documents": "Documents",
+      "sharedWithStudents": "shared with students",
+      "onlineAssessments": "Online Assessments"
+    },
+    "sections": {
+      "assessmentActivity": "Assessment Activity",
+      "last30Days": "Last 30 days · marks & quiz results recorded",
+      "gradeDistribution": "Grade Distribution",
+      "graded": "graded",
+      "approvalRate": "Approval Rate",
+      "needsAttention": "Needs Attention",
+      "classSnapshot": "Class Snapshot",
+      "quizGradeDistribution": "Quiz Grade Distribution",
+      "onlineAssessmentActivity": "Online Assessment Activity",
+      "last30DaysQuiz": "Last 30 days · quiz attempts submitted by students"
+    }
+  },
+  "adminDashboard": {
+    "hero": {
+      "goodMorning": "Good morning",
+      "goodAfternoon": "Good afternoon",
+      "goodEvening": "Good evening",
+      "administrator": "Administrator",
+      "allSystemsNormal": "All systems normal",
+      "subtitle": "Here's what's happening across your institution today.",
+      "teachers": "Teachers",
+      "students": "Students",
+      "modules": "Modules",
+      "live": "Live"
+    },
+    "stats": {
+      "assessments": "Assessments",
+      "pending": "Pending",
+      "approved": "Approved",
+      "assignments": "Assignments",
+      "announcements": "Announcements"
+    },
+    "heroStats": {
+      "pendingReview": "Pending Review",
+      "pendingReviewDesc": "Awaiting admin review",
+      "approved": "Approved",
+      "approvedDesc": "Marks finalised",
+      "rejected": "Rejected",
+      "rejectedDesc": "Returned to teacher",
+      "totalModules": "Total Modules",
+      "totalModulesDesc": "Across all classes"
+    }
   }
 }

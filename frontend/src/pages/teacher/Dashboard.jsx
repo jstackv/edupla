@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -77,14 +78,14 @@ function PulseRing({ color }) {
 }
 
 /* ─── Arc progress ring, now with hover breakdown tooltip ─── */
-function ArcProgress({ value, max, size = 88, stroke = 9, color = '#f97316' }) {
+function ArcProgress({ value, max, size = 88, stroke = 9, color = '#ea580c' }) {
   const r = (size - stroke * 2) / 2;
   const circ = 2 * Math.PI * r;
   const pct = Math.min(1, (value || 0) / Math.max(max || 1, 1));
   return (
     <svg width={size} height={size} style={{ transform: 'rotate(-90deg)', overflow: 'visible' }}>
       <circle cx={size/2} cy={size/2} r={r} fill="none"
-        stroke="rgba(234, 88, 12,0.1)" strokeWidth={stroke} />
+        stroke="rgba(194, 65, 12,0.1)" strokeWidth={stroke} />
       <circle cx={size/2} cy={size/2} r={r} fill="none"
         stroke={color} strokeWidth={stroke} strokeLinecap="round"
         strokeDasharray={`${pct * circ} ${circ}`}
@@ -107,7 +108,7 @@ function DonutRing({ segments, size = 96, stroke = 11 }) {
   });
   return (
     <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
-      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="rgba(234, 88, 12,0.08)" strokeWidth={stroke} />
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="rgba(194, 65, 12,0.08)" strokeWidth={stroke} />
       {slices.filter(s => s.value > 0).map((s, i) => (
         <circle key={i} cx={size/2} cy={size/2} r={r} fill="none"
           stroke={s.color} strokeWidth={stroke} strokeLinecap="round"
@@ -194,7 +195,7 @@ function SectionHeader({ title, to, linkLabel = 'All' }) {
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
       <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '0.01em' }}>{title}</h3>
       {to && (
-        <Link to={to} style={{ display: 'flex', alignItems: 'center', gap: 2, fontSize: 11, fontWeight: 600, color: '#f97316', textDecoration: 'none', opacity: 0.85 }}>
+        <Link to={to} style={{ display: 'flex', alignItems: 'center', gap: 2, fontSize: 11, fontWeight: 600, color: '#ea580c', textDecoration: 'none', opacity: 0.85 }}>
           {linkLabel} <ChevronRight size={11} />
         </Link>
       )}
@@ -208,7 +209,7 @@ function EmptyState({ icon: Icon, msg, action, actionTo }) {
     <div style={{ textAlign: 'center', padding: '28px 0', fontSize: 12, color: 'var(--text-secondary)' }}>
       <Icon size={26} style={{ margin: '0 auto 8px', opacity: 0.2, display: 'block' }} />
       <p>{msg}</p>
-      {action && <Link to={actionTo} style={{ fontSize: 11, color: '#f97316', textDecoration: 'none', fontWeight: 600, marginTop: 5, display: 'inline-block' }}>{action} →</Link>}
+      {action && <Link to={actionTo} style={{ fontSize: 11, color: '#ea580c', textDecoration: 'none', fontWeight: 600, marginTop: 5, display: 'inline-block' }}>{action} →</Link>}
     </div>
   );
 }
@@ -229,11 +230,12 @@ function ChartTooltip({ active, payload, label, unit = '' }) {
   );
 }
 
-const ACCENT = ['#f97316','#34d399','#fbbf24','#f87171','#f97316','#22d3ee'];
+const ACCENT = ['#ea580c','#34d399','#fbbf24','#f87171','#ea580c','#22d3ee'];
 
 /* ══ MAIN ══ */
 export default function TeacherDashboard() {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [analytics, setAnalytics]           = useState(null);
   const [announcements, setAnnouncements]   = useState([]);
   const [loading, setLoading]               = useState(true);
@@ -251,7 +253,7 @@ export default function TeacherDashboard() {
   }, []);
 
   const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const greeting = hour < 12 ? t('teacherDashboard.hero.goodMorning') : hour < 17 ? t('teacherDashboard.hero.goodAfternoon') : t('teacherDashboard.hero.goodEvening');
   const dayName  = new Date().toLocaleDateString('en-US', { weekday: 'long' });
   const dateStr  = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
   const firstName = displayFirstName(user?.name);
@@ -280,7 +282,7 @@ export default function TeacherDashboard() {
 
   const gradeSections = [
     { label: 'Excellent ≥75%', value: gradeData.excellent || 0, color: '#34d399' },
-    { label: 'Good ≥60%',      value: gradeData.good || 0,      color: '#f97316' },
+    { label: 'Good ≥60%',      value: gradeData.good || 0,      color: '#ea580c' },
     { label: 'Average ≥40%',   value: gradeData.average || 0,   color: '#fbbf24' },
     { label: 'Below 40%',      value: gradeData.poor || 0,      color: '#f87171' },
   ];
@@ -313,7 +315,7 @@ export default function TeacherDashboard() {
   const quizGradeData = analytics?.onlineQuizGradeDistribution || {};
   const quizGradeSections = [
     { label: 'Excellent ≥75%', value: quizGradeData.excellent || 0, color: '#34d399' },
-    { label: 'Good ≥60%',      value: quizGradeData.good || 0,      color: '#f97316' },
+    { label: 'Good ≥60%',      value: quizGradeData.good || 0,      color: '#ea580c' },
     { label: 'Average ≥40%',   value: quizGradeData.average || 0,   color: '#fbbf24' },
     { label: 'Below 40%',      value: quizGradeData.poor || 0,      color: '#f87171' },
   ];
@@ -345,9 +347,9 @@ export default function TeacherDashboard() {
   if (loading) return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '100px 0', gap: 16 }}>
       <div style={{ position: 'relative', width: 48, height: 48 }}>
-        <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '3px solid rgba(249, 115, 22,0.15)' }} />
-        <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '3px solid transparent', borderTopColor: '#f97316', animation: 'spin 0.9s linear infinite' }} />
-        <GraduationCap size={18} style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', color: '#f97316' }} />
+        <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '3px solid rgba(234, 88, 12,0.15)' }} />
+        <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '3px solid transparent', borderTopColor: '#ea580c', animation: 'spin 0.9s linear infinite' }} />
+        <GraduationCap size={18} style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', color: '#ea580c' }} />
       </div>
       <p style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500 }}>Preparing your dashboard…</p>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
@@ -367,53 +369,51 @@ export default function TeacherDashboard() {
       {/* ── Hero ── */}
       <div
         ref={heroRef}
+        className="hero-card"
         onMouseMove={onHeroMove}
         onMouseEnter={() => setHeroHov(true)}
         onMouseLeave={() => setHeroHov(false)}
         style={{
           borderRadius: 22, padding: '22px 26px',
-          background: 'linear-gradient(135deg, #2a0c03 0%, #2d2a6e 40%, #9a3412 75%, #ea580c 100%)',
-          backgroundSize: '160% 160%', animation: 'heroGradientDrift 18s ease-in-out infinite',
+          background: 'var(--hero-bg)', border: '1px solid var(--hero-border)',
           position: 'relative', overflow: 'hidden',
           opacity: visible ? 1 : 0, transform: visible ? 'translateY(0)' : 'translateY(-8px)',
           transition: 'opacity 0.45s ease, transform 0.45s ease, box-shadow 0.35s ease',
-          boxShadow: heroHov ? '0 22px 60px rgba(234, 88, 12,0.38)' : '0 16px 48px rgba(234, 88, 12,0.28)',
+          boxShadow: heroHov ? 'var(--hero-shadow), 0 0 0 1px rgba(194,65,12,0.08) inset' : 'var(--hero-shadow)',
         }}>
         {/* pointer spotlight */}
         <div style={{
           position: 'absolute', inset: 0, pointerEvents: 'none',
-          background: `radial-gradient(460px circle at ${heroPos.x}% ${heroPos.y}%, rgba(255,255,255,0.09), transparent 60%)`,
+          background: `radial-gradient(460px circle at ${heroPos.x}% ${heroPos.y}%, var(--hero-glass), transparent 60%)`,
           opacity: heroHov ? 1 : 0, transition: 'opacity 0.35s ease',
         }} />
-        {/* decorative circles, gently parallaxed */}
-        {[['-40px','-40px',200,0.05,0.1],[null,'-20px',140,0.04,-0.07],['20px',null,100,0.06,0.05]].map(([t, r, s, o, pf], i) => (
-          <div key={i} style={{
-            position: 'absolute', top: t || 'auto', right: r || 'auto', bottom: i === 2 ? '-20px' : 'auto', left: i === 2 ? '30%' : 'auto',
-            width: s, height: s, borderRadius: '50%', background: `rgba(255,255,255,${o})`, pointerEvents: 'none',
-            transform: `translate(${(heroPos.x - 50) * pf}px, ${(heroPos.y - 50) * pf}px)`, transition: 'transform 0.3s ease-out',
-          }} />
-        ))}
+        {/* single restrained brand glow */}
+        <div style={{
+          position: 'absolute', top: -40, right: -40, width: 220, height: 220, borderRadius: '50%',
+          background: 'radial-gradient(circle, var(--hero-glow), transparent 70%)', pointerEvents: 'none',
+          transform: `translate(${(heroPos.x - 50) * 0.1}px, ${(heroPos.y - 50) * 0.1}px)`, transition: 'transform 0.3s ease-out',
+        }} />
         {/* shimmer line */}
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, background: 'linear-gradient(90deg, transparent, var(--hero-glass-border), transparent)', pointerEvents: 'none' }} />
 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, justifyContent: 'space-between', position: 'relative', alignItems: 'flex-start' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
               <PulseRing color="#34d399" />
-              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase' }}>{dayName}, {dateStr}</span>
-              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>·</span>
-              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', fontWeight: 600 }}><LiveClock /></span>
+              <span style={{ fontSize: 11, color: 'var(--hero-fg-soft)', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase' }}>{dayName}, {dateStr}</span>
+              <span style={{ fontSize: 11, color: 'var(--hero-fg-dim)' }}>·</span>
+              <span style={{ fontSize: 11, color: 'var(--hero-fg-soft)', fontWeight: 600 }}><LiveClock /></span>
             </div>
             <h2 className="teacher-hero-greeting" style={{
               fontSize: 22, fontWeight: 800, marginBottom: 6, letterSpacing: '-0.02em',
-              backgroundImage: 'linear-gradient(100deg, #ffffff 30%, #fdba74 45%, #ffffff 60%)',
+              backgroundImage: 'linear-gradient(100deg, var(--hero-fg) 30%, #fb923c 45%, var(--hero-fg) 60%)',
               backgroundSize: '220% 100%', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent',
               animation: 'heroTextShine 5.5s ease-in-out infinite',
             }}>
               {greeting}, {firstName} <span style={{ display: 'inline-block', animation: 'heroWave 2.2s ease-in-out infinite', transformOrigin: '70% 70%' }}>👋</span>
             </h2>
-            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', lineHeight: 1.7 }}>
-              {c.classes || 0} classes &nbsp;·&nbsp; {c.students || 0} students &nbsp;·&nbsp; {c.modules || 0} modules
+            <p style={{ fontSize: 12, color: 'var(--hero-fg-soft)', lineHeight: 1.7 }}>
+              {t('teacherDashboard.hero.classesStudentsModules', { classes: c.classes || 0, students: c.students || 0, modules: c.modules || 0 })}
             </p>
             {trendData.length > 1 && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
@@ -422,17 +422,17 @@ export default function TeacherDashboard() {
                     <AreaChart data={trendData} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
                       <defs>
                         <linearGradient id="heroSparkFill" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#fb923c" stopOpacity={0.5} />
-                          <stop offset="100%" stopColor="#fb923c" stopOpacity={0} />
+                          <stop offset="0%" stopColor="#f97316" stopOpacity={0.5} />
+                          <stop offset="100%" stopColor="#f97316" stopOpacity={0} />
                         </linearGradient>
                       </defs>
-                      <Area type="monotone" dataKey="Recorded" stroke="#fdba74" strokeWidth={1.5}
+                      <Area type="monotone" dataKey="Recorded" stroke="#fb923c" strokeWidth={1.5}
                         fill="url(#heroSparkFill)" dot={false} isAnimationActive={false} />
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
-                <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', fontWeight: 600, letterSpacing: '0.03em' }}>
-                  {trendTotal} recorded, last 30 days
+                <span style={{ fontSize: 10, color: 'var(--hero-fg-dim)', fontWeight: 600, letterSpacing: '0.03em' }}>
+                  {t('teacherDashboard.hero.recordedLast30', { count: trendTotal })}
                 </span>
               </div>
             )}
@@ -441,18 +441,18 @@ export default function TeacherDashboard() {
           {/* hero stat pills */}
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-start' }}>
             {[
-              { label: 'Assessments',    val: totalAssess,    color: '#fb923c', icon: ClipboardList },
-              { label: 'Pending Review', val: pendingCount,   color: '#fcd34d', icon: Flame },
-              { label: 'Approved',       val: approvedCount,  color: '#6ee7b7', icon: CheckCircle2 },
-              ...(heroClassAvg !== null ? [{ label: 'Class Avg', val: heroClassAvg, suffix: '%', color: '#fb923c', icon: Trophy }] : []),
+              { label: t('teacherDashboard.hero.assessments'), val: totalAssess,    color: '#c2410c', icon: ClipboardList },
+              { label: t('teacherDashboard.hero.pendingReview'), val: pendingCount,   color: '#eab308', icon: Flame },
+              { label: t('teacherDashboard.hero.approved'), val: approvedCount,  color: '#10b981', icon: CheckCircle2 },
+              ...(heroClassAvg !== null ? [{ label: t('teacherDashboard.hero.classAvg'), val: heroClassAvg, suffix: '%', color: '#c2410c', icon: Trophy }] : []),
             ].map(({ label, val, color, icon: Icon, suffix }) => (
               <div key={label} className="hero-pill-t" style={{
                 padding: '10px 16px', borderRadius: 14, textAlign: 'center',
-                background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)',
+                background: 'var(--hero-glass)', border: '1px solid var(--hero-glass-border)',
                 backdropFilter: 'blur(12px)',
               }}>
                 <Icon size={13} style={{ color, marginBottom: 4, display: 'block', margin: '0 auto 4px' }} />
-                <p style={{ fontSize: 20, fontWeight: 800, color: '#fff', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+                <p style={{ fontSize: 20, fontWeight: 800, color: 'var(--hero-fg)', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
                   <AnimatedNumber value={val} />{suffix || ''}
                 </p>
                 <p style={{ fontSize: 10, color, marginTop: 3, fontWeight: 600, letterSpacing: '0.04em' }}>{label}</p>
@@ -465,10 +465,10 @@ export default function TeacherDashboard() {
         {totalAssess > 0 && (
           <div style={{ marginTop: 18, position: 'relative' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-              <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Approval progress</span>
-              <span style={{ fontSize: 10, color: '#6ee7b7', fontWeight: 700 }}>{approvalRate}%</span>
+              <span style={{ fontSize: 10, color: 'var(--hero-fg-dim)', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{t('teacherDashboard.hero.approvalProgress')}</span>
+              <span style={{ fontSize: 10, color: '#10b981', fontWeight: 700 }}>{approvalRate}%</span>
             </div>
-            <div style={{ height: 4, borderRadius: 4, background: 'rgba(255,255,255,0.1)', overflow: 'hidden' }}>
+            <div style={{ height: 4, borderRadius: 4, background: 'var(--hero-glass)', overflow: 'hidden' }}>
               <div style={{
                 height: '100%', borderRadius: 4,
                 background: 'linear-gradient(90deg, #6ee7b7, #34d399)',
@@ -482,7 +482,6 @@ export default function TeacherDashboard() {
       </div>
 
       <style>{`
-        @keyframes heroGradientDrift { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
         @keyframes heroTextShine { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
         @keyframes heroWave { 0%,100% { transform: rotate(0deg); } 15% { transform: rotate(16deg); } 30% { transform: rotate(-8deg); } 45% { transform: rotate(14deg); } 60% { transform: rotate(0deg); } }
         @keyframes clockBlink { 50% { opacity: 0.15; } }
@@ -500,12 +499,12 @@ export default function TeacherDashboard() {
         opacity: visible ? 1 : 0, transform: visible ? 'translateY(0)' : 'translateY(8px)',
         transition: 'opacity 0.5s ease 0.08s, transform 0.5s ease 0.08s',
       }}>
-        <StatCard icon={BookOpen}      label="Active Classes"      value={c.classes || 0}       color="#f97316" bg="rgba(249, 115, 22,0.1)" to="/teacher/classes" />
-        <StatCard icon={Users}         label="Total Students"      value={c.students || 0}      color="#34d399" bg="rgba(52,211,153,0.1)"  to="/teacher/students" />
-        <StatCard icon={Layers}        label="Modules"             value={c.modules || 0}       color="#f97316" bg="rgba(249, 115, 22,0.1)" to="/teacher/assessments-grade" sub="assigned courses" />
-        <StatCard icon={ClipboardList} label="Assessments"         value={c.assessments || 0}   color="#fbbf24" bg="rgba(251,191,36,0.1)"  to="/teacher/assessments-grade" />
-        <StatCard icon={BookMarked}    label="Documents"           value={c.documents || 0}     color="#f472b6" bg="rgba(244,114,182,0.1)" to="/teacher/documents" />
-        <StatCard icon={Timer}         label="Online Assessments"      value={c.onlineAssessments || 0} color="#ea580c" bg="rgba(234, 88, 12,0.1)" to="/teacher/assessments" sub="shared with students" />
+        <StatCard icon={BookOpen}      label={t('teacherDashboard.stats.activeClasses')} value={c.classes || 0}       color="#ea580c" bg="rgba(234, 88, 12,0.1)" to="/teacher/classes" />
+        <StatCard icon={Users}         label={t('teacherDashboard.stats.totalStudents')} value={c.students || 0}      color="#34d399" bg="rgba(52,211,153,0.1)"  to="/teacher/students" />
+        <StatCard icon={Layers}        label={t('teacherDashboard.stats.modules')} value={c.modules || 0}       color="#ea580c" bg="rgba(234, 88, 12,0.1)" to="/teacher/assessments-grade" sub={t('teacherDashboard.stats.modulesAssigned')} />
+        <StatCard icon={ClipboardList} label={t('teacherDashboard.hero.assessments')} value={c.assessments || 0}   color="#fbbf24" bg="rgba(251,191,36,0.1)"  to="/teacher/assessments-grade" />
+        <StatCard icon={BookMarked}    label={t('teacherDashboard.stats.documents')} value={c.documents || 0}     color="#f472b6" bg="rgba(244,114,182,0.1)" to="/teacher/documents" />
+        <StatCard icon={Timer}         label={t('teacherDashboard.stats.onlineAssessments')} value={c.onlineAssessments || 0} color="#c2410c" bg="rgba(194, 65, 12,0.1)" to="/teacher/assessments" sub={t('teacherDashboard.stats.sharedWithStudents')} />
       </div>
 
       {/* ── Charts Row ── */}
@@ -515,8 +514,8 @@ export default function TeacherDashboard() {
             is a recorded Mark: a manually-entered assessment mark, or an
             online quiz attempt's score once it's graded. No assignment data. */}
         <div className="card" style={{ ...cardStyle, transitionDelay: '0.12s' }}>
-          <SectionHeader title="Assessment Activity" to="/teacher/assessments-grade" />
-          <p style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: -10, marginBottom: 6, opacity: 0.7 }}>Last 30 days · marks &amp; quiz results recorded</p>
+          <SectionHeader title={t('teacherDashboard.sections.assessmentActivity')} to="/teacher/assessments-grade" />
+          <p style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: -10, marginBottom: 6, opacity: 0.7 }}>{t('teacherDashboard.sections.last30Days')}</p>
           {trendData.length === 0 ? (
             <EmptyState icon={TrendingUp} msg="No assessment activity yet" />
           ) : (
@@ -526,23 +525,23 @@ export default function TeacherDashboard() {
                   <AreaChart data={trendData} margin={{ top: 8, right: 6, left: -24, bottom: 0 }}>
                     <defs>
                       <linearGradient id="teacherTrendFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#f97316" stopOpacity={0.45} />
-                        <stop offset="100%" stopColor="#f97316" stopOpacity={0.02} />
+                        <stop offset="0%" stopColor="#ea580c" stopOpacity={0.45} />
+                        <stop offset="100%" stopColor="#ea580c" stopOpacity={0.02} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--card-border)" />
                     <XAxis dataKey="label" tick={{ fontSize: 10, fill: 'var(--text-secondary)' }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
                     <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: 'var(--text-secondary)' }} axisLine={false} tickLine={false} width={22} />
                     <Tooltip content={<ChartTooltip unit=" recorded" />} />
-                    <Area type="monotone" dataKey="Recorded" stroke="#f97316" strokeWidth={2.5}
+                    <Area type="monotone" dataKey="Recorded" stroke="#ea580c" strokeWidth={2.5}
                       fill="url(#teacherTrendFill)" dot={false}
-                      activeDot={{ r: 5, fill: '#f97316', stroke: '#fff', strokeWidth: 2 }} animationDuration={1100} />
+                      activeDot={{ r: 5, fill: '#ea580c', stroke: '#fff', strokeWidth: 2 }} animationDuration={1100} />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, alignItems: 'center' }}>
                 <span style={{ fontSize: 11, color: 'var(--text-secondary)', opacity: 0.7 }}>{trendTotal} total</span>
-                <TrendingUp size={14} style={{ color: '#f97316', opacity: 0.7 }} />
+                <TrendingUp size={14} style={{ color: '#ea580c', opacity: 0.7 }} />
               </div>
             </>
           )}
@@ -551,7 +550,7 @@ export default function TeacherDashboard() {
         {/* Grade Distribution — assessment marks + online quiz results, unified */}
         <div className="card" style={{ ...cardStyle, transitionDelay: '0.16s' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 14 }}>
-            <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Grade Distribution</h3>
+            <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>{t('teacherDashboard.sections.gradeDistribution')}</h3>
           </div>
           {gradeTotal === 0
             ? <EmptyState icon={BarChart2} msg="No graded assessments yet" />
@@ -576,7 +575,7 @@ export default function TeacherDashboard() {
                           {s.value} <span style={{ fontWeight: 400, color: 'var(--text-secondary)' }}>({Math.round((s.value / gradeTotal) * 100)}%)</span>
                         </span>
                       </div>
-                      <div style={{ height: 3, borderRadius: 3, background: 'rgba(249, 115, 22,0.1)', overflow: 'hidden' }}>
+                      <div style={{ height: 3, borderRadius: 3, background: 'rgba(234, 88, 12,0.1)', overflow: 'hidden' }}>
                         <div style={{
                           height: '100%', borderRadius: 3, background: s.color,
                           width: `${(s.value / gradeTotal) * 100}%`,
@@ -608,7 +607,7 @@ export default function TeacherDashboard() {
             <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(251,191,36,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Bell size={13} style={{ color: '#fbbf24' }} />
             </div>
-            <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>Needs Attention</p>
+            <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>{t('teacherDashboard.sections.needsAttention')}</p>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
             {[
@@ -628,21 +627,21 @@ export default function TeacherDashboard() {
         {/* Top metric */}
         <div className="card" style={{ ...cardStyle, transitionDelay: '0.32s' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10 }}>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(249, 115, 22,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Target size={13} style={{ color: '#f97316' }} />
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(234, 88, 12,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Target size={13} style={{ color: '#ea580c' }} />
             </div>
-            <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>Class Snapshot</p>
+            <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>{t('teacherDashboard.sections.classSnapshot')}</p>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
             {[
               { label: 'Avg students/class', val: c.classes ? Math.round((c.students || 0) / c.classes) : 0 },
               { label: 'Modules per class',  val: c.classes ? Math.round((c.modules || 0) / c.classes) : 0 },
             ].map(item => (
-              <div key={item.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', borderRadius: 10, background: 'rgba(249, 115, 22,0.06)', transition: 'background 0.2s' }}
-                onMouseEnter={e => e.currentTarget.style.background = 'rgba(249, 115, 22,0.12)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'rgba(249, 115, 22,0.06)'}>
+              <div key={item.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', borderRadius: 10, background: 'rgba(234, 88, 12,0.06)', transition: 'background 0.2s' }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(234, 88, 12,0.12)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'rgba(234, 88, 12,0.06)'}>
                 <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{item.label}</span>
-                <span style={{ fontSize: 14, fontWeight: 800, color: '#f97316', fontVariantNumeric: 'tabular-nums' }}>{item.val}</span>
+                <span style={{ fontSize: 14, fontWeight: 800, color: '#ea580c', fontVariantNumeric: 'tabular-nums' }}>{item.val}</span>
               </div>
             ))}
           </div>
@@ -662,11 +661,11 @@ export default function TeacherDashboard() {
                 {analytics.recentAssessments.map((a, i) => (
                   <div key={a.id || i} style={{
                     display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px', borderRadius: 12,
-                    background: 'rgba(249, 115, 22,0.04)', border: '1px solid rgba(249, 115, 22,0.08)',
+                    background: 'rgba(234, 88, 12,0.04)', border: '1px solid rgba(234, 88, 12,0.08)',
                     transition: 'background 0.18s, transform 0.18s',
                   }}
-                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(249, 115, 22,0.08)'; e.currentTarget.style.transform = 'translateX(2px)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(249, 115, 22,0.04)'; e.currentTarget.style.transform = ''; }}>
+                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(234, 88, 12,0.08)'; e.currentTarget.style.transform = 'translateX(2px)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(234, 88, 12,0.04)'; e.currentTarget.style.transform = ''; }}>
                     <div style={{ width: 30, height: 30, borderRadius: 8, background: `${ACCENT[i % ACCENT.length]}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       <span style={{ fontSize: 9, fontWeight: 800, color: ACCENT[i % ACCENT.length], letterSpacing: '0.04em' }}>{(a.type || '?').substring(0, 3).toUpperCase()}</span>
                     </div>
@@ -693,7 +692,7 @@ export default function TeacherDashboard() {
                     display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px', borderRadius: 12,
                     transition: 'background 0.15s, transform 0.15s', cursor: 'default',
                   }}
-                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(249, 115, 22,0.05)'; e.currentTarget.style.transform = 'translateX(2px)'; }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(234, 88, 12,0.05)'; e.currentTarget.style.transform = 'translateX(2px)'; }}
                     onMouseLeave={e => { e.currentTarget.style.background = ''; e.currentTarget.style.transform = ''; }}>
                     <div style={{ width: 30, height: 30, borderRadius: 8, background: `${ACCENT[i % ACCENT.length]}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       <BookMarked size={13} style={{ color: ACCENT[i % ACCENT.length] }} />
@@ -703,7 +702,7 @@ export default function TeacherDashboard() {
                       <p style={{ fontSize: 10, color: 'var(--text-secondary)', opacity: 0.75 }}>{m.category}</p>
                     </div>
                     <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                      <span style={{ fontSize: 9, padding: '2px 7px', borderRadius: 5, background: 'rgba(249, 115, 22,0.1)', color: '#f97316', fontWeight: 700 }}>{m.classCount} cls</span>
+                      <span style={{ fontSize: 9, padding: '2px 7px', borderRadius: 5, background: 'rgba(234, 88, 12,0.1)', color: '#ea580c', fontWeight: 700 }}>{m.classCount} cls</span>
                       <span style={{ fontSize: 9, padding: '2px 7px', borderRadius: 5, background: 'rgba(52,211,153,0.1)', color: '#34d399', fontWeight: 700 }}>{m.studentCount} stu</span>
                     </div>
                   </div>
@@ -731,11 +730,11 @@ export default function TeacherDashboard() {
                     'linear-gradient(135deg,#fbbf24,#f59e0b)',
                     'linear-gradient(135deg,#94a3b8,#64748b)',
                     'linear-gradient(135deg,#b45309,#92400e)',
-                    'linear-gradient(135deg,#f97316,#ea580c)',
+                    'linear-gradient(135deg,#ea580c,#c2410c)',
                     'linear-gradient(135deg,#34d399,#10b981)',
                   ];
                   const score = s.avg_score;
-                  const scoreColor = score >= 75 ? '#34d399' : score >= 60 ? '#f97316' : '#fbbf24';
+                  const scoreColor = score >= 75 ? '#34d399' : score >= 60 ? '#ea580c' : '#fbbf24';
                   return (
                     <div key={i} className="top-performer-row" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 6px', borderRadius: 10, transition: 'background 0.18s, transform 0.18s' }}>
                       <div style={{ width: 26, height: 26, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: '#fff', flexShrink: 0, background: medalColors[i] }}>
@@ -744,7 +743,7 @@ export default function TeacherDashboard() {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.name}</p>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
-                          <div style={{ flex: 1, height: 3, borderRadius: 3, background: 'rgba(249, 115, 22,0.1)', overflow: 'hidden' }}>
+                          <div style={{ flex: 1, height: 3, borderRadius: 3, background: 'rgba(234, 88, 12,0.1)', overflow: 'hidden' }}>
                             <div style={{ height: '100%', width: `${Math.round(score)}%`, borderRadius: 3, background: scoreColor, transition: `width 1s cubic-bezier(.34,1.56,.64,1) ${i * 80}ms` }} />
                           </div>
                           <span style={{ fontSize: 11, fontWeight: 800, color: scoreColor, flexShrink: 0, minWidth: 32, textAlign: 'right' }}>{Math.round(score)}%</span>
@@ -776,7 +775,7 @@ export default function TeacherDashboard() {
                       <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: 2 }}>{a.title}</p>
                       <p style={{ fontSize: 11, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: 0.8 }}>{a.content}</p>
                       {a.class_name && (
-                        <span style={{ fontSize: 9, marginTop: 5, display: 'inline-block', padding: '2px 8px', borderRadius: 5, background: 'rgba(249, 115, 22,0.1)', color: '#f97316', fontWeight: 700, letterSpacing: '0.04em' }}>
+                        <span style={{ fontSize: 9, marginTop: 5, display: 'inline-block', padding: '2px 8px', borderRadius: 5, background: 'rgba(234, 88, 12,0.1)', color: '#ea580c', fontWeight: 700, letterSpacing: '0.04em' }}>
                           {a.class_name}
                         </span>
                       )}
@@ -806,10 +805,10 @@ export default function TeacherDashboard() {
                     <BarChart data={classPerformance} layout="vertical" margin={{ top: 0, right: 16, left: 0, bottom: 0 }} barCategoryGap="28%">
                       <XAxis type="number" domain={[0, 100]} hide />
                       <YAxis type="category" dataKey="name" width={78} tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} axisLine={false} tickLine={false} />
-                      <Tooltip content={<ChartTooltip unit="%" />} cursor={{ fill: 'rgba(249, 115, 22,0.06)' }} />
+                      <Tooltip content={<ChartTooltip unit="%" />} cursor={{ fill: 'rgba(234, 88, 12,0.06)' }} />
                       <Bar dataKey="avg_score" name="Class average" radius={[0, 8, 8, 0]} animationDuration={1000} maxBarSize={16}>
                         {classPerformance.map((cl, i) => (
-                          <Cell key={cl.id || i} fill={cl.avg_score >= 75 ? '#34d399' : cl.avg_score >= 60 ? '#f97316' : cl.avg_score >= 40 ? '#fbbf24' : '#f87171'} />
+                          <Cell key={cl.id || i} fill={cl.avg_score >= 75 ? '#34d399' : cl.avg_score >= 60 ? '#ea580c' : cl.avg_score >= 40 ? '#fbbf24' : '#f87171'} />
                         ))}
                       </Bar>
                     </BarChart>
@@ -817,7 +816,7 @@ export default function TeacherDashboard() {
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}>
                 {classPerformance.map((cl, i) => {
-                  const color = cl.avg_score >= 75 ? '#34d399' : cl.avg_score >= 60 ? '#f97316' : cl.avg_score >= 40 ? '#fbbf24' : '#f87171';
+                  const color = cl.avg_score >= 75 ? '#34d399' : cl.avg_score >= 60 ? '#ea580c' : cl.avg_score >= 40 ? '#fbbf24' : '#f87171';
                   return (
                     <div key={cl.id || i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 6px' }}>
                       <div style={{ width: 26, height: 26, borderRadius: 7, flexShrink: 0, background: `${color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -828,7 +827,7 @@ export default function TeacherDashboard() {
                           <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cl.name}</span>
                           <span style={{ fontSize: 11, fontWeight: 800, color, flexShrink: 0 }}>{cl.avg_score}%</span>
                         </div>
-                        <div style={{ height: 3, borderRadius: 3, background: 'rgba(249, 115, 22,0.1)', overflow: 'hidden' }}>
+                        <div style={{ height: 3, borderRadius: 3, background: 'rgba(234, 88, 12,0.1)', overflow: 'hidden' }}>
                           <div style={{ height: '100%', width: `${cl.avg_score}%`, borderRadius: 3, background: color, transition: `width 1s cubic-bezier(.34,1.56,.64,1) ${i * 90}ms` }} />
                         </div>
                         <p style={{ fontSize: 9.5, color: 'var(--text-secondary)', opacity: 0.7, marginTop: 3 }}>{cl.students_graded} student{cl.students_graded === 1 ? '' : 's'} graded</p>
@@ -844,10 +843,10 @@ export default function TeacherDashboard() {
         {/* Online Assessment Activity */}
         <div className="card" style={{ ...cardStyle, transitionDelay: '0.56s' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 14 }}>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(234, 88, 12,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Laptop size={13} style={{ color: '#ea580c' }} />
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(194, 65, 12,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Laptop size={13} style={{ color: '#c2410c' }} />
             </div>
-            <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>Online Assessment Activity</p>
+            <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>{t('teacherDashboard.sections.onlineAssessmentActivity')}</p>
           </div>
           {!quizStats.quizAssessments
             ? <EmptyState icon={Laptop} msg="No online assessment shared yet" action="Build one" actionTo="/teacher/assessments" />
@@ -859,7 +858,7 @@ export default function TeacherDashboard() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 10 }}>
                   {[
                     { label: 'Avg Score',    val: quizStats.avgScore,        color: quizStats.avgScore >= 60 ? '#34d399' : '#fbbf24' },
-                    { label: 'Completion',   val: quizStats.completionRate,  color: '#f97316' },
+                    { label: 'Completion',   val: quizStats.completionRate,  color: '#ea580c' },
                     { label: 'Auto-submit',  val: quizStats.autoSubmitRate,  color: quizStats.autoSubmitRate > 20 ? '#f87171' : '#34d399' },
                   ].map(m => (
                     <div key={m.label} style={{ textAlign: 'center', padding: '8px 4px', borderRadius: 10, background: `${m.color}0f` }}>
@@ -873,7 +872,7 @@ export default function TeacherDashboard() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                   {[
                     { label: 'Students attempted', val: quizStats.studentsAttempted || 0, color: '#34d399', icon: Users },
-                    { label: 'Total attempts',     val: quizStats.totalAttempts || 0,     color: '#f97316', icon: ClipboardList },
+                    { label: 'Total attempts',     val: quizStats.totalAttempts || 0,     color: '#ea580c', icon: ClipboardList },
                     { label: 'Needs manual grading', val: quizStats.needsManualGrading || 0, color: '#f87171', icon: PenSquare },
                     { label: 'In progress',        val: quizStats.inProgress || 0,        color: '#fbbf24', icon: Hourglass },
                   ].map(item => (
@@ -900,7 +899,7 @@ export default function TeacherDashboard() {
             by day, independent of grading lag. */}
         <div className="card" style={{ ...cardStyle, transitionDelay: '0.6s' }}>
           <SectionHeader title="Online Quiz Trend" to="/teacher/assessments" linkLabel="Manage" />
-          <p style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: -10, marginBottom: 6, opacity: 0.7 }}>Last 30 days · quiz attempts submitted by students</p>
+          <p style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: -10, marginBottom: 6, opacity: 0.7 }}>{t('teacherDashboard.sections.last30DaysQuiz')}</p>
           {quizTrendData.length === 0 ? (
             <EmptyState icon={Timer} msg="No quiz submissions yet" />
           ) : (
@@ -910,23 +909,23 @@ export default function TeacherDashboard() {
                   <AreaChart data={quizTrendData} margin={{ top: 8, right: 6, left: -24, bottom: 0 }}>
                     <defs>
                       <linearGradient id="quizTrendFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#ea580c" stopOpacity={0.45} />
-                        <stop offset="100%" stopColor="#ea580c" stopOpacity={0.02} />
+                        <stop offset="0%" stopColor="#c2410c" stopOpacity={0.45} />
+                        <stop offset="100%" stopColor="#c2410c" stopOpacity={0.02} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--card-border)" />
                     <XAxis dataKey="label" tick={{ fontSize: 10, fill: 'var(--text-secondary)' }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
                     <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: 'var(--text-secondary)' }} axisLine={false} tickLine={false} width={22} />
                     <Tooltip content={<ChartTooltip unit=" submitted" />} />
-                    <Area type="monotone" dataKey="Submitted" stroke="#ea580c" strokeWidth={2.5}
+                    <Area type="monotone" dataKey="Submitted" stroke="#c2410c" strokeWidth={2.5}
                       fill="url(#quizTrendFill)" dot={false}
-                      activeDot={{ r: 5, fill: '#ea580c', stroke: '#fff', strokeWidth: 2 }} animationDuration={1100} />
+                      activeDot={{ r: 5, fill: '#c2410c', stroke: '#fff', strokeWidth: 2 }} animationDuration={1100} />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, alignItems: 'center' }}>
                 <span style={{ fontSize: 11, color: 'var(--text-secondary)', opacity: 0.7 }}>{quizTrendTotal} total</span>
-                <Laptop size={14} style={{ color: '#ea580c', opacity: 0.7 }} />
+                <Laptop size={14} style={{ color: '#c2410c', opacity: 0.7 }} />
               </div>
             </>
           )}
@@ -937,7 +936,7 @@ export default function TeacherDashboard() {
             see how quizzes specifically are landing. */}
         <div className="card" style={{ ...cardStyle, transitionDelay: '0.64s' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 14 }}>
-            <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Quiz Grade Distribution</h3>
+            <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>{t('teacherDashboard.sections.quizGradeDistribution')}</h3>
           </div>
           {quizGradeTotal === 0
             ? <EmptyState icon={BarChart2} msg="No graded quiz attempts yet" />
@@ -962,7 +961,7 @@ export default function TeacherDashboard() {
                           {s.value} <span style={{ fontWeight: 400, color: 'var(--text-secondary)' }}>({Math.round((s.value / quizGradeTotal) * 100)}%)</span>
                         </span>
                       </div>
-                      <div style={{ height: 3, borderRadius: 3, background: 'rgba(234, 88, 12,0.1)', overflow: 'hidden' }}>
+                      <div style={{ height: 3, borderRadius: 3, background: 'rgba(194, 65, 12,0.1)', overflow: 'hidden' }}>
                         <div style={{
                           height: '100%', borderRadius: 3, background: s.color,
                           width: `${(s.value / quizGradeTotal) * 100}%`,
@@ -987,9 +986,9 @@ export default function TeacherDashboard() {
           : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {quizPerAssessment.map((q, i) => {
-                const scoreColor = q.avgScore === null ? 'var(--text-secondary)' : q.avgScore >= 75 ? '#34d399' : q.avgScore >= 60 ? '#f97316' : q.avgScore >= 40 ? '#fbbf24' : '#f87171';
+                const scoreColor = q.avgScore === null ? 'var(--text-secondary)' : q.avgScore >= 75 ? '#34d399' : q.avgScore >= 60 ? '#ea580c' : q.avgScore >= 40 ? '#fbbf24' : '#f87171';
                 return (
-                  <div key={q.id || i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 11px', borderRadius: 12, background: 'rgba(234, 88, 12,0.04)', border: '1px solid rgba(234, 88, 12,0.08)' }}>
+                  <div key={q.id || i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 11px', borderRadius: 12, background: 'rgba(194, 65, 12,0.04)', border: '1px solid rgba(194, 65, 12,0.08)' }}>
                     <div style={{ width: 30, height: 30, borderRadius: 8, background: `${ACCENT[i % ACCENT.length]}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       <Timer size={13} style={{ color: ACCENT[i % ACCENT.length] }} />
                     </div>
@@ -997,10 +996,10 @@ export default function TeacherDashboard() {
                       <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{q.title}</p>
                       <p style={{ fontSize: 10, color: 'var(--text-secondary)', opacity: 0.75, marginBottom: 4 }}>{q.class_name} · {q.attempts} attempt{q.attempts === 1 ? '' : 's'}</p>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <div style={{ flex: 1, height: 3, borderRadius: 3, background: 'rgba(249, 115, 22,0.1)', overflow: 'hidden' }}>
-                          <div style={{ height: '100%', width: `${q.completionRate}%`, borderRadius: 3, background: '#f97316', transition: `width 1s cubic-bezier(.34,1.56,.64,1) ${i * 90}ms` }} />
+                        <div style={{ flex: 1, height: 3, borderRadius: 3, background: 'rgba(234, 88, 12,0.1)', overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${q.completionRate}%`, borderRadius: 3, background: '#ea580c', transition: `width 1s cubic-bezier(.34,1.56,.64,1) ${i * 90}ms` }} />
                         </div>
-                        <span style={{ fontSize: 9.5, fontWeight: 700, color: '#f97316', flexShrink: 0 }}>{q.studentsAttempted}/{q.eligible} done</span>
+                        <span style={{ fontSize: 9.5, fontWeight: 700, color: '#ea580c', flexShrink: 0 }}>{q.studentsAttempted}/{q.eligible} done</span>
                       </div>
                     </div>
                     <div style={{ textAlign: 'right', flexShrink: 0 }}>
@@ -1023,12 +1022,12 @@ export default function TeacherDashboard() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 9 }}>
           {[
             { label: 'New Assignment', to: '/teacher/assignments',       icon: ClipboardList, color: '#fbbf24', bg: 'rgba(251,191,36,0.1)' },
-            { label: 'Record Marks',     to: '/teacher/assessments-grade', icon: BarChart2,     color: '#f97316', bg: 'rgba(249, 115, 22,0.1)' },
-            { label: 'New Assessment',    to: '/teacher/assessments',       icon: Timer,         color: '#ea580c', bg: 'rgba(234, 88, 12,0.1)' },
+            { label: 'Record Marks',     to: '/teacher/assessments-grade', icon: BarChart2,     color: '#ea580c', bg: 'rgba(234, 88, 12,0.1)' },
+            { label: 'New Assessment',    to: '/teacher/assessments',       icon: Timer,         color: '#c2410c', bg: 'rgba(194, 65, 12,0.1)' },
             { label: 'New Document',      to: '/teacher/documents',         icon: FileText,      color: '#f472b6', bg: 'rgba(244,114,182,0.1)' },
             { label: 'Announce',       to: '/teacher/announcements',     icon: Megaphone,     color: '#22d3ee', bg: 'rgba(34,211,238,0.1)' },
             { label: 'My Classes',     to: '/teacher/classes',           icon: BookOpen,      color: '#34d399', bg: 'rgba(52,211,153,0.1)' },
-            { label: 'Groups & DMs',   to: '/teacher/groups',            icon: MessageSquare, color: '#ea580c', bg: 'rgba(234, 88, 12,0.1)' },
+            { label: 'Groups & DMs',   to: '/teacher/groups',            icon: MessageSquare, color: '#c2410c', bg: 'rgba(194, 65, 12,0.1)' },
           ].map((a) => (
             <Link key={a.to} to={a.to} style={{ textDecoration: 'none' }}>
               <div style={{
@@ -1054,7 +1053,7 @@ export default function TeacherDashboard() {
           70%  { transform: scale(2.2); opacity: 0; }
           100% { transform: scale(2.2); opacity: 0; }
         }
-        .top-performer-row:hover { background: rgba(249, 115, 22,0.06); transform: translateX(2px); }
+        .top-performer-row:hover { background: rgba(234, 88, 12,0.06); transform: translateX(2px); }
       `}</style>
     </div>
   );
@@ -1066,7 +1065,7 @@ function ApprovalRateCard({ style, approvalRate, approvedCount, totalAssess, pen
   return (
     <div className="card" style={{ ...style, position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, cursor: 'default' }}
       onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}>
-      <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6, alignSelf: 'flex-start' }}>Approval Rate</p>
+      <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6, alignSelf: 'flex-start' }}>{('teacherDashboard.sections.approvalRate')}</p>
       <div style={{ position: 'relative' }}>
         <ArcProgress value={approvedCount} max={totalAssess} size={80} stroke={8} color="#34d399" />
         <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', textAlign: 'center' }}>

@@ -17,10 +17,10 @@ const T = {
   gold: '#f59e0b',
   goldDark: '#d97706',
   goldGlass: 'rgba(245,158,11,0.10)',
-  violet: '#ea580c',
-  violetGlass: 'rgba(234, 88, 12,0.10)',
-  indigo: '#ea580c',
-  indigoGlass: 'rgba(234, 88, 12,0.10)',
+  violet: '#c2410c',
+  violetGlass: 'rgba(194, 65, 12,0.10)',
+  indigo: '#c2410c',
+  indigoGlass: 'rgba(194, 65, 12,0.10)',
   emerald: '#10b981',
   emeraldGlass: 'rgba(16,185,129,0.10)',
   sky: '#0ea5e9',
@@ -148,7 +148,7 @@ function AdminAvatar({ name, isActive, size = 40 }) {
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       fontFamily: "'Sora',sans-serif", fontWeight: 700,
       fontSize: size * 0.35, color: '#fff', letterSpacing: '-0.02em',
-      boxShadow: isActive ? `0 4px 14px rgba(234, 88, 12,0.35)` : 'none',
+      boxShadow: isActive ? `0 4px 14px rgba(194, 65, 12,0.35)` : 'none',
     }}>
       {initials(name)}
     </div>
@@ -385,28 +385,26 @@ export default function SuperAdminDashboard() {
       <div className="sa-page" style={{ maxWidth: 1200, margin: '0 auto' }}>
 
         {/* ── Hero Header ──────────────────────────────────────────────── */}
-        <div className="sa-card sa-hero" style={{
+        <div className="sa-card sa-hero hero-card" style={{
           animationDelay: '0ms',
           marginBottom: 24,
-          background: dark
-            ? 'linear-gradient(135deg, #0f0c1a 0%, #1a1035 40%, #0d1a2e 100%)'
-            : 'linear-gradient(135deg, #2a0c03 0%, #431407 40%, #7c2d12 100%)',
+          background: 'var(--hero-bg)',
           border: `1px solid ${T.gold}30`,
           borderRadius: 24,
           position: 'relative', overflow: 'hidden',
-          boxShadow: `0 20px 60px rgba(234, 88, 12,0.25)`,
+          boxShadow: 'var(--hero-shadow)',
         }}>
-          {/* Animated orbs */}
+          {/* Single restrained gold + orange glow */}
           <div style={{
             position: 'absolute', top: -60, right: -60, width: 240, height: 240,
             borderRadius: '50%', pointerEvents: 'none',
-            background: 'radial-gradient(circle, rgba(245,158,11,0.15) 0%, transparent 70%)',
+            background: 'radial-gradient(circle, rgba(245,158,11,0.1) 0%, transparent 70%)',
             animation: 'orb-drift 8s ease-in-out infinite',
           }} />
           <div style={{
             position: 'absolute', bottom: -40, left: 100, width: 180, height: 180,
             borderRadius: '50%', pointerEvents: 'none',
-            background: 'radial-gradient(circle, rgba(234, 88, 12,0.12) 0%, transparent 70%)',
+            background: 'radial-gradient(circle, var(--hero-glow) 0%, transparent 70%)',
             animation: 'orb-drift 11s ease-in-out infinite reverse',
           }} />
 
@@ -429,13 +427,13 @@ export default function SuperAdminDashboard() {
 
               <h1 className="sa-hero-title" style={{
                 fontFamily: "'Sora',sans-serif", fontWeight: 800,
-                color: '#fff', lineHeight: 1.1, marginBottom: 8,
+                color: 'var(--hero-fg)', lineHeight: 1.1, marginBottom: 8,
                 letterSpacing: '-0.02em',
               }}>
                 Welcome back,<br />
                 <span style={{ color: T.gold }}>{user?.name?.split(' ')[0] || 'Admin'}</span>
               </h1>
-              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', marginBottom: 20 }}>
+              <p style={{ fontSize: 13, color: 'var(--hero-fg-soft)', marginBottom: 20 }}>
                 Full platform oversight — manage, monitor, and control all admin workspaces from one place.
               </p>
 
@@ -455,8 +453,8 @@ export default function SuperAdminDashboard() {
                 </button>
                 <button onClick={() => load(true)} disabled={refreshing} style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-                  background: 'rgba(255,255,255,0.08)', color: '#fff',
-                  border: '1px solid rgba(255,255,255,0.15)', borderRadius: 11, padding: '9px 20px',
+                  background: 'var(--hero-glass)', color: 'var(--hero-fg)',
+                  border: '1px solid var(--hero-glass-border)', borderRadius: 11, padding: '9px 20px',
                   fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
                   fontFamily: "'Sora',sans-serif",
                   transition: 'all 0.15s',
@@ -722,7 +720,7 @@ export default function SuperAdminDashboard() {
             <div className="sa-card" style={{
               animationDelay: '360ms',
               background: dark
-                ? 'linear-gradient(135deg, #0f0c1a, #1a1035)'
+                ? 'linear-gradient(135deg, #1f120c, #2a1710)'
                 : 'linear-gradient(135deg, #fef9ee, #fff8e1)',
               border: `1px solid ${T.gold}35`,
               borderRadius: 20, padding: '1.25rem',

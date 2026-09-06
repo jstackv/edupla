@@ -10,7 +10,7 @@ const MAX_CHAT_FILE_MB = 25;
 function Avatar({ name, role, size = 'sm' }) {
   const initials = (name || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
   const gradient = role === 'teacher'
-    ? 'linear-gradient(135deg, #c2410c, #ea580c)'
+    ? 'linear-gradient(135deg, #9a3412, #c2410c)'
     : 'linear-gradient(135deg, #059669, #0d9488)';
   const dim = size === 'sm' ? 28 : size === 'md' ? 36 : 44;
   const font = size === 'sm' ? '11px' : size === 'md' ? '13px' : '15px';
@@ -88,14 +88,14 @@ function MessageBubble({ msg, isMine, isFirstInGroup, isLastInGroup }) {
         {!isMine && isFirstInGroup && (
           <div style={{
             fontSize: 11, fontWeight: 700, marginBottom: 3, marginLeft: 4,
-            color: msg.author_role === 'teacher' ? '#c2410c' : '#059669',
+            color: msg.author_role === 'teacher' ? '#9a3412' : '#059669',
             display: 'flex', alignItems: 'center', gap: 5,
           }}>
             {msg.author_name || 'Unknown'}
             {msg.author_role === 'teacher' && (
               <span style={{
                 fontSize: 9, fontWeight: 600, padding: '1px 5px',
-                borderRadius: 99, background: 'rgba(194, 65, 12,0.12)', color: '#c2410c',
+                borderRadius: 99, background: 'rgba(154, 52, 18,0.12)', color: '#9a3412',
               }}>TEACHER</span>
             )}
           </div>
@@ -279,7 +279,7 @@ export default function ChatThread({ thread, isTeacher, onSendComment, onSendMed
 
       {/* ── Header ── */}
       <div style={{
-        background: 'linear-gradient(135deg, #ea580c 0%, #c2410c 100%)',
+        background: 'linear-gradient(135deg, #c2410c 0%, #9a3412 100%)',
         borderRadius: '16px 16px 0 0',
         padding: '12px 16px',
         display: 'flex', alignItems: 'center', gap: 12,
@@ -330,8 +330,8 @@ export default function ChatThread({ thread, isTeacher, onSendComment, onSendMed
 
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 18 }}>
           <div style={{
-            maxWidth: '80%', background: 'rgba(234, 88, 12,0.08)',
-            border: '1px solid rgba(234, 88, 12,0.18)',
+            maxWidth: '80%', background: 'rgba(194, 65, 12,0.08)',
+            border: '1px solid rgba(194, 65, 12,0.18)',
             borderRadius: 14, padding: '12px 16px', textAlign: 'center',
           }}>
             <p style={{ fontSize: 13, lineHeight: 1.55, color: 'var(--text-secondary)', margin: 0 }}>
@@ -382,13 +382,13 @@ export default function ChatThread({ thread, isTeacher, onSendComment, onSendMed
           <div style={{
             flex: 1, display: 'flex', alignItems: 'center', gap: 8,
             background: 'var(--surface-100)', borderRadius: 14, padding: '6px 10px',
-            border: '1.5px solid rgba(234, 88, 12,0.25)', minWidth: 0,
+            border: '1.5px solid rgba(194, 65, 12,0.25)', minWidth: 0,
           }}>
             {filePreviewUrl ? (
               <img src={filePreviewUrl} alt="" style={{ width: 30, height: 30, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
             ) : (
-              <div style={{ width: 30, height: 30, borderRadius: 8, background: 'rgba(234, 88, 12,0.14)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <AttachmentTypeIcon mimeType={selectedFile.type} style={{ width: 15, height: 15, color: '#ea580c' }} />
+              <div style={{ width: 30, height: 30, borderRadius: 8, background: 'rgba(194, 65, 12,0.14)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <AttachmentTypeIcon mimeType={selectedFile.type} style={{ width: 15, height: 15, color: '#c2410c' }} />
               </div>
             )}
             <div style={{ minWidth: 0, flex: 1 }}>

@@ -20,9 +20,9 @@ import ImpersonateButton from '../../components/common/ImpersonateButton';
 
 // ── Design tokens ──────────────────────────────────────────────────────────
 const TOKENS = {
-  purple: '#ea580c',
-  purpleDark: '#c2410c',
-  purpleGlass: 'rgba(234, 88, 12,0.08)',
+  purple: '#c2410c',
+  purpleDark: '#9a3412',
+  purpleGlass: 'rgba(194, 65, 12,0.08)',
   sky: '#0ea5e9',
   skyGlass: 'rgba(14,165,233,0.08)',
   emerald: '#10b981',
@@ -31,8 +31,8 @@ const TOKENS = {
   amberGlass: 'rgba(245,158,11,0.08)',
   rose: '#f43f5e',
   roseGlass: 'rgba(244,63,94,0.08)',
-  violet: '#ea580c',
-  violetGlass: 'rgba(234, 88, 12,0.08)',
+  violet: '#c2410c',
+  violetGlass: 'rgba(194, 65, 12,0.08)',
 };
 
 // ── Keyframe injection ─────────────────────────────────────────────────────
@@ -54,9 +54,9 @@ const GLOBAL_STYLES = `
     100% { background-position: 400px 0; }
   }
   @keyframes pulse-ring {
-    0%   { box-shadow: 0 0 0 0 rgba(234, 88, 12,0.4); }
-    70%  { box-shadow: 0 0 0 8px rgba(234, 88, 12,0); }
-    100% { box-shadow: 0 0 0 0 rgba(234, 88, 12,0); }
+    0%   { box-shadow: 0 0 0 0 rgba(194, 65, 12,0.4); }
+    70%  { box-shadow: 0 0 0 8px rgba(194, 65, 12,0); }
+    100% { box-shadow: 0 0 0 0 rgba(194, 65, 12,0); }
   }
   @keyframes float {
     0%, 100% { transform: translateY(0px); }
@@ -75,7 +75,7 @@ const GLOBAL_STYLES = `
   }
   .hover-lift { transition: transform 0.2s ease, box-shadow 0.2s ease; }
   .hover-lift:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,0,0,0.12); }
-  .stat-card-glow:hover { box-shadow: 0 0 20px rgba(234, 88, 12,0.2); }
+  .stat-card-glow:hover { box-shadow: 0 0 20px rgba(194, 65, 12,0.2); }
   .clickable-row { cursor: pointer; transition: background 0.15s ease; }
   .clickable-row:hover { background: var(--surface-100) !important; }
 `;
@@ -127,7 +127,7 @@ function SkeletonCard() {
 function AdminAvatar({ name, isActive, size = 44, gradient }) {
   const initials = name ? name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase() : '?';
   const bg = gradient || (isActive
-    ? 'linear-gradient(135deg,#ea580c,#c2410c)'
+    ? 'linear-gradient(135deg,#c2410c,#9a3412)'
     : 'linear-gradient(135deg,#9ca3af,#6b7280)');
   return (
     <div
@@ -135,7 +135,7 @@ function AdminAvatar({ name, isActive, size = 44, gradient }) {
       style={{
         width: size, height: size,
         background: bg,
-        boxShadow: isActive ? '0 4px 14px rgba(234, 88, 12,0.35)' : 'none',
+        boxShadow: isActive ? '0 4px 14px rgba(194, 65, 12,0.35)' : 'none',
         fontSize: size * 0.33,
         fontWeight: 700,
         color: '#fff',
@@ -411,12 +411,12 @@ function EditAdminModal({ admin, onSave, onClose }) {
           background: 'var(--card-bg)', border: '1px solid var(--card-border)',
           boxShadow: '0 32px 80px rgba(0,0,0,0.3)', animation: 'modalIn 0.25s cubic-bezier(0.34,1.56,0.64,1)',
         }}>
-        <div className="h-1 w-full" style={{ background: 'linear-gradient(90deg,#ea580c,#ea580c,#ea580c)' }} />
+        <div className="h-1 w-full" style={{ background: 'linear-gradient(90deg,#c2410c,#c2410c,#c2410c)' }} />
         <div className="p-6">
           <div className="flex items-start justify-between mb-5">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
-                style={{ background: 'linear-gradient(135deg,#ea580c,#c2410c)', boxShadow: '0 4px 14px rgba(234, 88, 12,0.4)' }}>
+                style={{ background: 'linear-gradient(135deg,#c2410c,#9a3412)', boxShadow: '0 4px 14px rgba(194, 65, 12,0.4)' }}>
                 <Pencil className="w-5 h-5 text-white" />
               </div>
               <div>
@@ -431,7 +431,7 @@ function EditAdminModal({ admin, onSave, onClose }) {
 
           {/* Current admin badge */}
           <div className="flex items-center gap-3 rounded-xl p-3 mb-5"
-            style={{ background: TOKENS.purpleGlass, border: '1px solid rgba(234, 88, 12,0.15)' }}>
+            style={{ background: TOKENS.purpleGlass, border: '1px solid rgba(194, 65, 12,0.15)' }}>
             <AdminAvatar name={admin.name} isActive={admin.is_active !== false} size={36} />
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{admin.name}</p>
@@ -471,7 +471,7 @@ function EditAdminModal({ admin, onSave, onClose }) {
             </button>
             <button onClick={handleSubmit} disabled={saving}
               className="flex-1 px-4 py-2.5 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2"
-              style={{ background: 'linear-gradient(135deg,#ea580c,#c2410c)', boxShadow: '0 4px 14px rgba(234, 88, 12,0.35)', opacity: saving ? 0.7 : 1 }}>
+              style={{ background: 'linear-gradient(135deg,#c2410c,#9a3412)', boxShadow: '0 4px 14px rgba(194, 65, 12,0.35)', opacity: saving ? 0.7 : 1 }}>
               {saving ? <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : <Save className="w-4 h-4" />}
               Save Changes
             </button>
@@ -524,7 +524,7 @@ function AdminDetailPanel({ admin, onClose }) {
           animation: 'slideInRight 0.3s cubic-bezier(0.34,1.2,0.64,1)',
         }}>
         {/* Panel header with gradient accent */}
-        <div className="h-1 w-full flex-shrink-0" style={{ background: isActive ? 'linear-gradient(90deg,#ea580c,#ea580c,#ec4899)' : '#9ca3af' }} />
+        <div className="h-1 w-full flex-shrink-0" style={{ background: isActive ? 'linear-gradient(90deg,#c2410c,#c2410c,#ec4899)' : '#9ca3af' }} />
 
         <div className="flex items-start justify-between p-5 border-b flex-shrink-0" style={{ borderColor: 'var(--card-border)' }}>
           <div className="flex items-center gap-3">
@@ -562,7 +562,7 @@ function AdminDetailPanel({ admin, onClose }) {
               <button key={t.id} onClick={() => setTab(t.id)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
                 style={tab === t.id
-                  ? { background: 'linear-gradient(135deg,#ea580c,#c2410c)', color: '#fff', boxShadow: '0 2px 8px rgba(234, 88, 12,0.35)' }
+                  ? { background: 'linear-gradient(135deg,#c2410c,#9a3412)', color: '#fff', boxShadow: '0 2px 8px rgba(194, 65, 12,0.35)' }
                   : { color: 'var(--text-secondary)', background: 'transparent' }}>
                 <t.icon className="w-3 h-3" />{t.label}
                 {count != null && (
@@ -672,7 +672,7 @@ function AdminDetailPanel({ admin, onClose }) {
                           return (
                             <div key={t.id} className="flex items-center gap-3">
                               <AdminAvatar name={t.name} isActive={t.is_active !== false} size={28}
-                                gradient={t.is_active !== false ? 'linear-gradient(135deg,#ea580c,#ea580c)' : undefined} />
+                                gradient={t.is_active !== false ? 'linear-gradient(135deg,#c2410c,#c2410c)' : undefined} />
                               <div className="flex-1 min-w-0">
                                 <div className="flex justify-between mb-1">
                                   <span className="text-xs font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{t.name}</span>
@@ -722,7 +722,7 @@ function AdminDetailPanel({ admin, onClose }) {
                       <div key={t.id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-surface-100 transition-colors"
                         style={{ border: '1px solid var(--card-border)', animationDelay: `${i * 40}ms` }}>
                         <AdminAvatar name={t.name} isActive={t.is_active !== false} size={36}
-                          gradient={t.is_active !== false ? 'linear-gradient(135deg,#ea580c,#ea580c)' : undefined} />
+                          gradient={t.is_active !== false ? 'linear-gradient(135deg,#c2410c,#c2410c)' : undefined} />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{t.name}</p>
@@ -1157,12 +1157,12 @@ function CreateAdminModal({ onClose, onCreate }) {
           boxShadow: '0 32px 80px rgba(0,0,0,0.3)',
           animation: 'modalIn 0.25s cubic-bezier(0.34,1.56,0.64,1)',
         }}>
-        <div className="h-1 w-full" style={{ background: 'linear-gradient(90deg,#ea580c,#ea580c,#ec4899)' }} />
+        <div className="h-1 w-full" style={{ background: 'linear-gradient(90deg,#c2410c,#c2410c,#ec4899)' }} />
         <div className="p-6">
           <div className="flex items-center justify-between mb-5">
             <div className="flex items-center gap-3">
               <div className="w-11 h-11 rounded-2xl flex items-center justify-center"
-                style={{ background: 'linear-gradient(135deg,#ea580c,#c2410c)', boxShadow: '0 4px 14px rgba(234, 88, 12,0.4)' }}>
+                style={{ background: 'linear-gradient(135deg,#c2410c,#9a3412)', boxShadow: '0 4px 14px rgba(194, 65, 12,0.4)' }}>
                 <UserPlus className="w-5 h-5 text-white" />
               </div>
               <div>
@@ -1375,7 +1375,7 @@ export default function ManageAdmins() {
           <div>
             <div className="flex items-center gap-2.5 mb-1">
               <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-                style={{ background: 'linear-gradient(135deg,#ea580c,#c2410c)', boxShadow: '0 4px 14px rgba(234, 88, 12,0.35)' }}>
+                style={{ background: 'linear-gradient(135deg,#c2410c,#9a3412)', boxShadow: '0 4px 14px rgba(194, 65, 12,0.35)' }}>
                 <Shield className="w-4.5 h-4.5 text-white" />
               </div>
               <h1 className="font-display font-bold text-2xl" style={{ color: 'var(--text-primary)' }}>
@@ -1403,7 +1403,7 @@ export default function ManageAdmins() {
                 <button key={mode} onClick={() => setViewMode(mode)}
                   className="w-8 h-8 flex items-center justify-center transition-all"
                   style={viewMode === mode
-                    ? { background: 'linear-gradient(135deg,#ea580c,#c2410c)', color: '#fff' }
+                    ? { background: 'linear-gradient(135deg,#c2410c,#9a3412)', color: '#fff' }
                     : { color: 'var(--text-secondary)' }}>
                   <Icon className="w-3.5 h-3.5" />
                 </button>
@@ -1427,10 +1427,10 @@ export default function ManageAdmins() {
         {!loading && <SummaryBar admins={admins} allStats={allStats} />}
 
         {/* ── Info card ───────────────────────────────────────────────────── */}
-        <div className="card" style={{ background: TOKENS.purpleGlass, borderColor: 'rgba(234, 88, 12,0.2)' }}>
+        <div className="card" style={{ background: TOKENS.purpleGlass, borderColor: 'rgba(194, 65, 12,0.2)' }}>
           <div className="flex gap-3 items-start">
             <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
-              style={{ background: 'rgba(234, 88, 12,0.15)' }}>
+              style={{ background: 'rgba(194, 65, 12,0.15)' }}>
               <Network className="w-4 h-4" style={{ color: TOKENS.purple }} />
             </div>
             <div className="flex-1">
@@ -1475,7 +1475,7 @@ export default function ManageAdmins() {
               <button key={f.id} onClick={() => setFilter(f.id)}
                 className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
                 style={filter === f.id
-                  ? { background: 'linear-gradient(135deg,#ea580c,#c2410c)', color: '#fff', boxShadow: '0 2px 8px rgba(234, 88, 12,0.35)' }
+                  ? { background: 'linear-gradient(135deg,#c2410c,#9a3412)', color: '#fff', boxShadow: '0 2px 8px rgba(194, 65, 12,0.35)' }
                   : { color: 'var(--text-secondary)' }}>
                 {f.label}
               </button>

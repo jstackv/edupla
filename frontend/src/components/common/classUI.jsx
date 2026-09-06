@@ -3,10 +3,10 @@
 // import from the other (avoids a circular import between the page and
 // the modal it renders).
 
-export const LEVEL_COLORS = ['#3b82f6', '#10b981', '#ea580c', '#f59e0b', '#ec4899', '#06b6d4', '#ea580c', '#64748b'];
-export const TRADE_COLORS = ['#f59e0b', '#06b6d4', '#ec4899', '#ea580c', '#ea580c', '#10b981', '#3b82f6', '#ea580c'];
-export const LEVEL_BG    = ['#dbeafe', '#d1fae5', '#fed7aa', '#fef3c7', '#fce7f3', '#cffafe', '#fed7aa', '#f1f5f9'];
-export const TRADE_BG    = ['#fef3c7', '#cffafe', '#fce7f3', '#fed7aa', '#fed7aa', '#d1fae5', '#dbeafe', '#fed7aa'];
+export const LEVEL_COLORS = ['#3b82f6', '#10b981', '#c2410c', '#f59e0b', '#ec4899', '#06b6d4', '#c2410c', '#64748b'];
+export const TRADE_COLORS = ['#f59e0b', '#06b6d4', '#ec4899', '#c2410c', '#c2410c', '#10b981', '#3b82f6', '#c2410c'];
+export const LEVEL_BG    = ['#dbeafe', '#d1fae5', '#fdba74', '#fef3c7', '#fce7f3', '#cffafe', '#fdba74', '#f1f5f9'];
+export const TRADE_BG    = ['#fef3c7', '#cffafe', '#fce7f3', '#fdba74', '#fdba74', '#d1fae5', '#dbeafe', '#fdba74'];
 
 export const getLevelMeta = (levels, value) => {
   const idx = levels.findIndex(l => l.value === value);
@@ -20,8 +20,8 @@ export const getTradeMeta = (trades, value) => {
 };
 
 const AVATAR_COLORS = [
-  ['#ea580c','#9a3412'], ['#0ea5e9','#0284c7'], ['#10b981','#059669'],
-  ['#f59e0b','#d97706'], ['#ec4899','#db2777'], ['#f97316','#c2410c'],
+  ['#c2410c','#7c2d12'], ['#0ea5e9','#0284c7'], ['#10b981','#059669'],
+  ['#f59e0b','#d97706'], ['#ec4899','#db2777'], ['#ea580c','#9a3412'],
 ];
 export function getAvatarColors(name) {
   return AVATAR_COLORS[(name?.charCodeAt(0) || 0) % AVATAR_COLORS.length];

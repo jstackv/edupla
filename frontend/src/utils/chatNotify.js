@@ -81,7 +81,7 @@ export function onPendingChatTarget(callback) {
    messaging screens. Works from ANY page since it only needs the
    react-hot-toast <Toaster/> mounted once in App.jsx.
 ══════════════════════════════════════════════════════════════════════ */
-export function showChatToast({ name = 'Someone', preview = '', isVoice = false, kind = null, accent = '#ea580c', accent2 = '#c2410c', onClick }) {
+export function showChatToast({ name = 'Someone', preview = '', isVoice = false, kind = null, accent = '#c2410c', accent2 = '#9a3412', onClick }) {
   // `kind` supersedes the legacy `isVoice` boolean once callers pass it —
   // 'voice' | 'image' | 'file' | null (plain text).
   const effectiveKind = kind || (isVoice ? 'voice' : null);
@@ -95,8 +95,8 @@ export function showChatToast({ name = 'Someone', preview = '', isVoice = false,
       padding: '14px 16px',
       borderRadius: 18,
       background: 'var(--card-bg, #ffffff)',
-      border: '1px solid rgba(234, 88, 12,0.18)',
-      boxShadow: '0 18px 46px rgba(15,17,23,0.22), 0 0 0 1px rgba(234, 88, 12,0.05)',
+      border: '1px solid rgba(194, 65, 12,0.18)',
+      boxShadow: '0 18px 46px rgba(15,17,23,0.22), 0 0 0 1px rgba(194, 65, 12,0.05)',
       cursor: onClick ? 'pointer' : 'default',
       opacity: t.visible ? 1 : 0,
       transform: t.visible ? 'translateY(0) scale(1)' : 'translateY(-8px) scale(0.96)',

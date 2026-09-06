@@ -17,10 +17,10 @@ import {
 
 /* ── Constants ── */
 
-const LEVEL_COLORS = ['#3b82f6', '#10b981', '#ea580c', '#f59e0b', '#ec4899', '#06b6d4', '#ea580c', '#64748b'];
-const TRADE_COLORS = ['#f59e0b', '#06b6d4', '#ec4899', '#ea580c', '#ea580c', '#10b981', '#3b82f6', '#ea580c'];
-const LEVEL_BG    = ['#dbeafe', '#d1fae5', '#fed7aa', '#fef3c7', '#fce7f3', '#cffafe', '#fed7aa', '#f1f5f9'];
-const TRADE_BG    = ['#fef3c7', '#cffafe', '#fce7f3', '#fed7aa', '#fed7aa', '#d1fae5', '#dbeafe', '#fed7aa'];
+const LEVEL_COLORS = ['#3b82f6', '#10b981', '#c2410c', '#f59e0b', '#ec4899', '#06b6d4', '#c2410c', '#64748b'];
+const TRADE_COLORS = ['#f59e0b', '#06b6d4', '#ec4899', '#c2410c', '#c2410c', '#10b981', '#3b82f6', '#c2410c'];
+const LEVEL_BG    = ['#dbeafe', '#d1fae5', '#fdba74', '#fef3c7', '#fce7f3', '#cffafe', '#fdba74', '#f1f5f9'];
+const TRADE_BG    = ['#fef3c7', '#cffafe', '#fce7f3', '#fdba74', '#fdba74', '#d1fae5', '#dbeafe', '#fdba74'];
 
 /* ── Status Badge ── */
 function StatusBadge({ is_active }) {
@@ -37,8 +37,8 @@ function StatusBadge({ is_active }) {
 
 
 const AVATAR_COLORS = [
-  ['#10b981','#059669'], ['#ea580c','#9a3412'], ['#0ea5e9','#0284c7'],
-  ['#f59e0b','#d97706'], ['#ec4899','#db2777'], ['#ea580c','#c2410c'],
+  ['#10b981','#059669'], ['#c2410c','#7c2d12'], ['#0ea5e9','#0284c7'],
+  ['#f59e0b','#d97706'], ['#ec4899','#db2777'], ['#c2410c','#9a3412'],
 ];
 function getAvatarColors(name) {
   return AVATAR_COLORS[(name?.charCodeAt(0) || 0) % AVATAR_COLORS.length];
@@ -94,7 +94,7 @@ function StatStrip({ students, levels = [], trades = [] }) {
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10 }}>
       {[
         { icon: GraduationCap, label: 'Total Students', value: students.length,    color: '#10b981', bg: '#ecfdf5' },
-        { icon: BookOpen,      label: 'Enrolled',       value: withClasses,        color: '#ea580c', bg: '#ffedd5' },
+        { icon: BookOpen,      label: 'Enrolled',       value: withClasses,        color: '#c2410c', bg: '#fed7aa' },
         { icon: Layers,        label: 'Trades Active',  value: Object.values(byTrade).filter(Boolean).length, color: '#0ea5e9', bg: '#f0f9ff' },
         { icon: Award,         label: 'Top Trade',      value: topTrade?.[0] || '—', color: '#f59e0b', bg: '#fffbeb', isText: true },
       ].map(({ icon: Icon, label, value, color, bg, isText }) => (
@@ -141,8 +141,8 @@ function StudentCard({ student: s, levels = [], trades = [], onEdit, onDelete, o
           <div style={{ display: 'flex', gap: 3, opacity: hovered ? 1 : 0, transition: 'opacity 0.18s' }}>
             {isSuperAdmin && <ImpersonateButton userId={s.id} name={s.name} />}
             <button onClick={() => onResetPassword(s)} title="Reset password"
-              style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#ffedd5', display: 'flex', transition: 'background 0.15s' }}>
-              <KeyRound size={13} style={{ color: '#ea580c' }} />
+              style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#fed7aa', display: 'flex', transition: 'background 0.15s' }}>
+              <KeyRound size={13} style={{ color: '#c2410c' }} />
             </button>
             <button onClick={() => onEdit(s)}
               style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: 'var(--surface-100)', display: 'flex', transition: 'background 0.15s' }}>
@@ -244,8 +244,8 @@ function StudentRow({ student: s, levels = [], trades = [], onEdit, onDelete, on
         <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end', opacity: hovered ? 1 : 0.3, transition: 'opacity 0.15s' }}>
           {isSuperAdmin && <ImpersonateButton userId={s.id} name={s.name} />}
           <button onClick={() => onResetPassword(s)} title="Reset password"
-            style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#ffedd5', display: 'flex' }}>
-            <KeyRound size={13} style={{ color: '#ea580c' }} />
+            style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#fed7aa', display: 'flex' }}>
+            <KeyRound size={13} style={{ color: '#c2410c' }} />
           </button>
           <button onClick={() => onEdit(s)}
             style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: 'var(--surface-100)', display: 'flex' }}>
@@ -421,31 +421,29 @@ export default function AdminStudents() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
       {/* ── Hero Banner ── */}
-      <div style={{
+      <div className="hero-card" style={{
         borderRadius: 20, padding: '22px 26px', position: 'relative', overflow: 'hidden',
-        background: 'linear-gradient(135deg, #052e16 0%, #064e3b 45%, #065f46 100%)',
-        boxShadow: '0 8px 32px rgba(16,185,129,0.2)',
+        background: 'var(--hero-bg)', border: '1px solid var(--hero-border)',
+        boxShadow: 'var(--hero-shadow)',
       }}>
-        <div style={{ position: 'absolute', top: -50, right: -30, width: 200, height: 200, borderRadius: '50%', background: 'rgba(16,185,129,0.07)', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', bottom: -20, right: 200, width: 90, height: 90, borderRadius: '50%', background: 'rgba(234, 88, 12,0.1)', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', top: 30, right: 100, width: 50, height: 50, borderRadius: '50%', background: 'rgba(52,211,153,0.12)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', top: -50, right: -30, width: 200, height: 200, borderRadius: '50%', background: 'var(--hero-glow)', pointerEvents: 'none' }} />
 
         <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 200 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-              <div style={{ padding: '4px 10px', borderRadius: 99, background: 'rgba(52,211,153,0.2)', border: '1px solid rgba(52,211,153,0.3)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                <GraduationCap size={11} style={{ color: '#6ee7b7' }} />
-                <span style={{ fontSize: 10, fontWeight: 700, color: '#6ee7b7', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Student Registry</span>
+              <div style={{ padding: '4px 10px', borderRadius: 99, background: 'rgba(16,185,129,0.14)', border: '1px solid rgba(16,185,129,0.25)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                <GraduationCap size={11} style={{ color: '#10b981' }} />
+                <span style={{ fontSize: 10, fontWeight: 700, color: '#10b981', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Student Registry</span>
               </div>
-              <div style={{ padding: '3px 8px', borderRadius: 99, background: 'rgba(52,211,153,0.15)', border: '1px solid rgba(52,211,153,0.25)', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <div style={{ padding: '3px 8px', borderRadius: 99, background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.22)', display: 'flex', alignItems: 'center', gap: 4 }}>
                 <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#34d399', animation: 'pulse 2s infinite' }} />
-                <span style={{ fontSize: 10, fontWeight: 600, color: '#a7f3d0' }}>{total} enrolled</span>
+                <span style={{ fontSize: 10, fontWeight: 600, color: '#10b981' }}>{total} enrolled</span>
               </div>
             </div>
-            <h1 style={{ fontSize: 22, fontWeight: 800, color: '#fff', marginBottom: 5, lineHeight: 1.2 }}>
+            <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--hero-fg)', marginBottom: 5, lineHeight: 1.2 }}>
               🎓 Students
             </h1>
-            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', maxWidth: 380, lineHeight: 1.6 }}>
+            <p style={{ fontSize: 13, color: 'var(--hero-fg-soft)', maxWidth: 380, lineHeight: 1.6 }}>
               Manage student accounts, track class enrollments, and monitor progress across all programs.
             </p>
           </div>
@@ -454,17 +452,17 @@ export default function AdminStudents() {
         </div>
 
         {/* Action strip */}
-        <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end' }}>
+        <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid var(--hero-glass-border)', display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end' }}>
           <button
             onClick={() => openModal()}
             style={{
               marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6,
               padding: '7px 16px', borderRadius: 10, border: 'none', cursor: 'pointer',
-              background: 'rgba(255,255,255,0.12)', color: '#fff',
-              fontSize: 12, fontWeight: 700, transition: 'background 0.15s',
+              background: 'linear-gradient(135deg, #c2410c, #9a3412)', color: '#fff',
+              fontSize: 12, fontWeight: 700, transition: 'filter 0.15s',
             }}
-            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
-            onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}
+            onMouseEnter={e => e.currentTarget.style.filter = 'brightness(1.12)'}
+            onMouseLeave={e => e.currentTarget.style.filter = 'none'}
           >
             <Plus size={14} /> New Student
           </button>

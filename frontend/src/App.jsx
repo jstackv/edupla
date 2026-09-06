@@ -133,14 +133,14 @@ const LoadingScreen = () => {
 
         .edupla-loader-ring {
           position: absolute; inset: -12px; border-radius: 9999px;
-          background: conic-gradient(from 0deg, transparent 0deg, rgba(234, 88, 12,0.7) 55deg, transparent 130deg, transparent 360deg);
+          background: conic-gradient(from 0deg, transparent 0deg, rgba(194, 65, 12,0.7) 55deg, transparent 130deg, transparent 360deg);
           -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px));
           mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px));
           animation: edupla-loader-ringspin 3.2s linear infinite;
         }
         .edupla-loader-ring.indigo {
           inset: -20px;
-          background: conic-gradient(from 200deg, transparent 0deg, rgba(234, 88, 12,0.75) 45deg, transparent 110deg, transparent 360deg);
+          background: conic-gradient(from 200deg, transparent 0deg, rgba(194, 65, 12,0.75) 45deg, transparent 110deg, transparent 360deg);
           animation: edupla-loader-ringspin-rev 4.6s linear infinite;
         }
         .edupla-loader-ring.slate {
@@ -153,13 +153,13 @@ const LoadingScreen = () => {
         }
         .edupla-loader-orbit-dot {
           position: absolute; top: -3px; left: 50%; width: 6px; height: 6px; margin-left: -3px;
-          border-radius: 9999px; background: radial-gradient(circle, #FDE9C7 0%, #ea580c 60%, transparent 100%);
-          box-shadow: 0 0 8px 2px rgba(234, 88, 12,0.65);
+          border-radius: 9999px; background: radial-gradient(circle, #FDE9C7 0%, #c2410c 60%, transparent 100%);
+          box-shadow: 0 0 8px 2px rgba(194, 65, 12,0.65);
         }
 
         .edupla-loader-badge-glow {
           position: absolute; inset: -34px; border-radius: 9999px; z-index: -1;
-          background: radial-gradient(circle, rgba(234, 88, 12,0.22), rgba(234, 88, 12,0.10) 55%, transparent 75%);
+          background: radial-gradient(circle, rgba(194, 65, 12,0.22), rgba(194, 65, 12,0.10) 55%, transparent 75%);
           filter: blur(6px);
           animation: edupla-loader-glowpulse 3.2s ease-in-out infinite;
         }
@@ -167,14 +167,14 @@ const LoadingScreen = () => {
         .edupla-loader-content { animation: edupla-loader-fadeup 0.5s ease both; }
 
         .edupla-loader-label {
-          background: linear-gradient(90deg, var(--text-muted, #64748b) 0%, #9a3412 22%, #ea580c 40%, #ea580c 60%, #fb923c 78%, var(--text-muted, #64748b) 100%);
+          background: linear-gradient(90deg, var(--text-muted, #64748b) 0%, #7c2d12 22%, #c2410c 40%, #c2410c 60%, #f97316 78%, var(--text-muted, #64748b) 100%);
           background-size: 220% auto;
           -webkit-background-clip: text; background-clip: text; color: transparent;
           animation: edupla-loader-shimmer 3s linear infinite;
         }
-        .edupla-loader-dot { animation: edupla-loader-dot 1.4s ease-in-out infinite; color: #ea580c; }
-        .edupla-loader-dot:nth-child(2) { animation-delay: 0.2s; color: #ea580c; }
-        .edupla-loader-dot:nth-child(3) { animation-delay: 0.4s; color: #ea580c; }
+        .edupla-loader-dot { animation: edupla-loader-dot 1.4s ease-in-out infinite; color: #c2410c; }
+        .edupla-loader-dot:nth-child(2) { animation-delay: 0.2s; color: #c2410c; }
+        .edupla-loader-dot:nth-child(3) { animation-delay: 0.4s; color: #c2410c; }
 
         .edupla-loader-track {
           width: 168px; height: 3px; border-radius: 999px; margin: 16px auto 0;
@@ -182,7 +182,7 @@ const LoadingScreen = () => {
         }
         .edupla-loader-bar {
           position: absolute; top: 0; bottom: 0; left: -45%; width: 45%; border-radius: 999px;
-          background: linear-gradient(90deg, transparent, #9a3412, #ea580c, #ea580c, transparent);
+          background: linear-gradient(90deg, transparent, #7c2d12, #c2410c, #c2410c, transparent);
           animation: edupla-loader-slide 1.7s ease-in-out infinite;
         }
 
@@ -197,12 +197,12 @@ const LoadingScreen = () => {
       <div
         aria-hidden="true"
         className="edupla-loader-blob"
-        style={{ position: 'absolute', width: 480, height: 480, borderRadius: '50%', top: '-10%', left: '-8%', background: 'radial-gradient(circle,rgba(154, 52, 18,0.22),transparent)', filter: 'blur(90px)' }}
+        style={{ position: 'absolute', width: 480, height: 480, borderRadius: '50%', top: '-10%', left: '-8%', background: 'radial-gradient(circle,rgba(124, 45, 18,0.22),transparent)', filter: 'blur(90px)' }}
       />
       <div
         aria-hidden="true"
         className="edupla-loader-blob b2"
-        style={{ position: 'absolute', width: 420, height: 420, borderRadius: '50%', bottom: '-12%', right: '-6%', background: 'radial-gradient(circle,rgba(234, 88, 12,0.16),transparent)', filter: 'blur(80px)' }}
+        style={{ position: 'absolute', width: 420, height: 420, borderRadius: '50%', bottom: '-12%', right: '-6%', background: 'radial-gradient(circle,rgba(194, 65, 12,0.16),transparent)', filter: 'blur(80px)' }}
       />
       <div
         aria-hidden="true"

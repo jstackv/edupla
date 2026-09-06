@@ -33,15 +33,15 @@ function getAccentForType(type) {
   const accents = {
     pdf: '#ef4444',
     image: '#ec4899',
-    video: '#ea580c',
+    video: '#c2410c',
     audio: '#06b6d4',
     text: '#10b981',
     word: '#3b82f6',
     excel: '#059669',
-    powerpoint: '#ea580c',
-    other: '#ea580c',
+    powerpoint: '#c2410c',
+    other: '#c2410c',
   };
-  return accents[type] || '#ea580c';
+  return accents[type] || '#c2410c';
 }
 
 function getTypeBadge(type, name) {
@@ -116,7 +116,7 @@ export default function ViewerPage() {
           <AlertTriangle size={48} color="#f59e0b" style={{ margin: '0 auto 16px' }} />
           <h2 style={{ fontWeight: 700, fontSize: 20, marginBottom: 8 }}>No document specified</h2>
           <p style={{ color: tm, fontSize: 14 }}>This viewer requires a document URL parameter.</p>
-          <button onClick={() => window.close()} style={{ marginTop: 20, padding: '10px 20px', borderRadius: 10, background: '#ea580c', color: 'white', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 14 }}>
+          <button onClick={() => window.close()} style={{ marginTop: 20, padding: '10px 20px', borderRadius: 10, background: '#c2410c', color: 'white', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 14 }}>
             Close Tab
           </button>
         </div>
@@ -187,7 +187,7 @@ export default function ViewerPage() {
           {/* Download button */}
           <button
             onClick={handleDownload}
-            style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px', borderRadius: 10, background: 'linear-gradient(135deg,#3b5bdb,#7048e8)', color: 'white', fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer', boxShadow: '0 3px 10px rgba(234, 88, 12,0.35)' }}
+            style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px', borderRadius: 10, background: 'linear-gradient(135deg,#3b5bdb,#7048e8)', color: 'white', fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer', boxShadow: '0 3px 10px rgba(194, 65, 12,0.35)' }}
           >
             <Download size={14} /> Download
           </button>
@@ -306,7 +306,7 @@ export default function ViewerPage() {
               <p style={{ fontSize: 14, color: tm, marginBottom: 20 }}>{error}</p>
               <button
                 onClick={handleDownload}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 10, background: '#ea580c', color: 'white', fontWeight: 700, fontSize: 14, border: 'none', cursor: 'pointer' }}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 10, background: '#c2410c', color: 'white', fontWeight: 700, fontSize: 14, border: 'none', cursor: 'pointer' }}
               >
                 <Download size={14} /> Try Download Instead
               </button>

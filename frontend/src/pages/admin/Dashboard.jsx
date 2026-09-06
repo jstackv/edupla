@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -28,7 +29,7 @@ function useCountUp(target, trigger, duration = 1200) {
 }
 
 /* ── Sparkline ── */
-function Sparkline({ data = [], color = '#ea580c', height = 36 }) {
+function Sparkline({ data = [], color = '#c2410c', height = 36 }) {
   if (!data.length) return null;
   const max = Math.max(...data, 1);
   const min = Math.min(...data);
@@ -56,7 +57,7 @@ function Sparkline({ data = [], color = '#ea580c', height = 36 }) {
 }
 
 /* ── Radial ring ── */
-function RadialRing({ pct = 0, color = '#ea580c', size = 52, stroke = 5 }) {
+function RadialRing({ pct = 0, color = '#c2410c', size = 52, stroke = 5 }) {
   const r = (size - stroke * 2) / 2;
   const circ = 2 * Math.PI * r;
   const offset = circ - (pct / 100) * circ;
@@ -98,8 +99,8 @@ function DonutChart({ segments, size = 130 }) {
 
 /* ── Avatar ── */
 const AVATAR_COLORS = [
-  ['#ea580c','#9a3412'], ['#0ea5e9','#0284c7'], ['#10b981','#059669'],
-  ['#f59e0b','#d97706'], ['#ec4899','#db2777'], ['#ea580c','#c2410c'],
+  ['#c2410c','#7c2d12'], ['#0ea5e9','#0284c7'], ['#10b981','#059669'],
+  ['#f59e0b','#d97706'], ['#ec4899','#db2777'], ['#c2410c','#9a3412'],
 ];
 function Avatar({ name, size = 36 }) {
   const [from, to] = AVATAR_COLORS[(name?.charCodeAt(0) || 0) % AVATAR_COLORS.length];
@@ -157,7 +158,7 @@ function HeroStat({ icon: Icon, label, value, color, bg, trend, sparkData, to })
 }
 
 /* ── Mini bar chart ── */
-function MiniBarChart({ data = [], color = '#ea580c' }) {
+function MiniBarChart({ data = [], color = '#c2410c' }) {
   if (!data.length) return <p style={{ fontSize:12, color:'var(--text-secondary)', textAlign:'center', padding:'16px 0' }}>No submission data yet</p>;
   const max = Math.max(...data.map(d => d.count), 1);
   return (
@@ -188,6 +189,7 @@ function StatusBadge({ status }) {
 /* ══ MAIN ══ */
 export default function AdminDashboard() {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [stats, setStats] = useState(null);
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -195,7 +197,7 @@ export default function AdminDashboard() {
   const [activeModuleTab, setActiveModuleTab] = useState('modules');
 
   const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const greeting = hour < 12 ? t('adminDashboard.hero.goodMorning') : hour < 17 ? t('adminDashboard.hero.goodAfternoon') : t('adminDashboard.hero.goodEvening');
   const greetIcon = hour < 12 ? '🌅' : hour < 17 ? '☀️' : '🌙';
 
   useEffect(() => {
@@ -211,7 +213,7 @@ export default function AdminDashboard() {
   if (loading) return (
     <div style={{ display:'flex', alignItems:'center', justifyContent:'center', padding:'80px 0' }}>
       <div style={{ textAlign:'center' }}>
-        <div style={{ width:44, height:44, borderRadius:'50%', border:'3px solid var(--surface-100)', borderTopColor:'#ea580c', animation:'spin 0.8s linear infinite', margin:'0 auto 12px' }} />
+        <div style={{ width:44, height:44, borderRadius:'50%', border:'3px solid var(--surface-100)', borderTopColor:'#c2410c', animation:'spin 0.8s linear infinite', margin:'0 auto 12px' }} />
         <p style={{ fontSize:13, color:'var(--text-secondary)' }}>Loading dashboard…</p>
       </div>
     </div>
@@ -226,19 +228,19 @@ export default function AdminDashboard() {
   const sparkModules  = Array(9).fill(0).map((_,i)=>i).concat([analytics?.modules?.total||0]);
 
   const heroStats = [
-    { icon:Users,         label:'Total Teachers',  value:counts.teachers||0,                color:'#ea580c', bg:'#ffedd5', trend:12,   sparkData:sparkTeachers, to:'/admin/teachers' },
+    { icon:Users,         label:'Total Teachers',  value:counts.teachers||0,                color:'#c2410c', bg:'#fed7aa', trend:12,   sparkData:sparkTeachers, to:'/admin/teachers' },
     { icon:GraduationCap, label:'Total Students',  value:counts.students||0,                color:'#10b981', bg:'#ecfdf5', trend:8,    sparkData:sparkStudents, to:'/admin/students' },
     { icon:BookOpen,      label:'Active Classes',  value:counts.classes||0,                 color:'#0ea5e9', bg:'#f0f9ff', trend:5,    sparkData:sparkClasses,  to:'/admin/classes'  },
-    { icon:Layers,        label:'Modules',         value:analytics?.modules?.total||0,      color:'#ea580c', bg:'#ffedd5', trend:null, sparkData:sparkModules,  to:'/admin/classes'  },
+    { icon:Layers,        label:'Modules',         value:analytics?.modules?.total||0,      color:'#c2410c', bg:'#fed7aa', trend:null, sparkData:sparkModules,  to:'/admin/classes'  },
     { icon:ClipboardList, label:'Assessments',     value:analytics?.assessments?.total||0,  color:'#f59e0b', bg:'#fffbeb', trend:null, sparkData:null,          to:'/admin/classes'  },
     { icon:FileText,      label:'Assignments',     value:counts.assignments||0,             color:'#ef4444', bg:'#fef2f2', trend:null, sparkData:null,          to:'/admin/classes'  },
   ];
 
   const donutSegments = [
-    { label:'Teachers',    value:counts.teachers||1,    color:'#ea580c' },
+    { label:'Teachers',    value:counts.teachers||1,    color:'#c2410c' },
     { label:'Students',    value:counts.students||1,    color:'#10b981' },
     { label:'Classes',     value:counts.classes||1,     color:'#0ea5e9' },
-    { label:'Modules',     value:analytics?.modules?.total||1, color:'#ea580c' },
+    { label:'Modules',     value:analytics?.modules?.total||1, color:'#c2410c' },
   ];
   const donutTotal = donutSegments.reduce((a,s) => a+s.value, 0);
 
@@ -246,7 +248,7 @@ export default function AdminDashboard() {
   const markDist = analytics?.assessments?.markDistribution || {};
   const markSegments = [
     { label:'Excellent (≥75%)', value:markDist.excellent||0, color:'#10b981' },
-    { label:'Good (≥60%)',      value:markDist.good||0,      color:'#ea580c' },
+    { label:'Good (≥60%)',      value:markDist.good||0,      color:'#c2410c' },
     { label:'Average (≥40%)',   value:markDist.average||0,   color:'#f59e0b' },
     { label:'Below (<40%)',     value:markDist.poor||0,       color:'#ef4444' },
   ];
@@ -262,54 +264,53 @@ export default function AdminDashboard() {
     <div style={{ display:'flex', flexDirection:'column', gap:18 }}>
 
       {/* ── Hero Banner ── */}
-      <div style={{ borderRadius:20, padding:'22px 26px', position:'relative', overflow:'hidden', background:'linear-gradient(135deg, #2a0c03 0%, #7c2d12 50%, #c2410c 100%)', boxShadow:'0 8px 32px rgba(234, 88, 12,0.35)' }}>
-        <div style={{ position:'absolute', top:-40, right:-40, width:180, height:180, borderRadius:'50%', background:'rgba(255,255,255,0.04)', pointerEvents:'none' }} />
-        <div style={{ position:'absolute', bottom:-30, right:130, width:100, height:100, borderRadius:'50%', background:'rgba(234, 88, 12,0.15)', pointerEvents:'none' }} />
+      <div className="hero-card" style={{ borderRadius:20, padding:'22px 26px', position:'relative', overflow:'hidden', background:'var(--hero-bg)', border:'1px solid var(--hero-border)', boxShadow:'var(--hero-shadow)' }}>
+        <div style={{ position:'absolute', top:-40, right:-40, width:200, height:200, borderRadius:'50%', background:'var(--hero-glow)', pointerEvents:'none' }} />
         <div style={{ position:'relative', display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:16, flexWrap:'wrap' }}>
           <div style={{ flex:1, minWidth:200 }}>
             <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
-              <div style={{ padding:'4px 10px', borderRadius:99, background:'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.15)', display:'flex', alignItems:'center', gap:5 }}>
-                <Shield size={11} style={{ color:'#fb923c' }} />
-                <span style={{ fontSize:10, fontWeight:700, color:'#fb923c', letterSpacing:'0.08em', textTransform:'uppercase' }}>Administrator</span>
+              <div style={{ padding:'4px 10px', borderRadius:99, background:'var(--hero-glass)', border:'1px solid var(--hero-glass-border)', display:'flex', alignItems:'center', gap:5 }}>
+                <Shield size={11} style={{ color:'#c2410c' }} />
+                <span style={{ fontSize:10, fontWeight:700, color:'#c2410c', letterSpacing:'0.08em', textTransform:'uppercase' }}>{t('adminDashboard.hero.administrator')}</span>
               </div>
-              <div style={{ padding:'3px 8px', borderRadius:99, background:'rgba(16,185,129,0.2)', border:'1px solid rgba(16,185,129,0.3)', display:'flex', alignItems:'center', gap:4 }}>
+              <div style={{ padding:'3px 8px', borderRadius:99, background:'rgba(16,185,129,0.14)', border:'1px solid rgba(16,185,129,0.25)', display:'flex', alignItems:'center', gap:4 }}>
                 <div style={{ width:5, height:5, borderRadius:'50%', background:'#34d399', animation:'pulse 2s infinite' }} />
-                <span style={{ fontSize:10, fontWeight:600, color:'#6ee7b7' }}>All systems normal</span>
+                <span style={{ fontSize:10, fontWeight:600, color:'#10b981' }}>{t('adminDashboard.hero.allSystemsNormal')}</span>
               </div>
             </div>
-            <h1 style={{ fontSize:22, fontWeight:800, color:'#fff', marginBottom:5, lineHeight:1.2 }}>
+            <h1 style={{ fontSize:22, fontWeight:800, color:'var(--hero-fg)', marginBottom:5, lineHeight:1.2 }}>
               {greetIcon} {greeting}, {user?.name?.split(' ')[0]}!
             </h1>
-            <p style={{ fontSize:13, color:'rgba(255,255,255,0.6)', maxWidth:360, lineHeight:1.6 }}>
-              Here's what's happening across your institution today.
+            <p style={{ fontSize:13, color:'var(--hero-fg-soft)', maxWidth:360, lineHeight:1.6 }}>
+              {t('adminDashboard.hero.subtitle')}
             </p>
           </div>
           <div style={{ display:'flex', gap:12, flexWrap:'wrap' }}>
             {[
-              { label:'Teachers', val:counts.teachers||0, color:'#fb923c', icon:Users },
-              { label:'Students', val:counts.students||0, color:'#6ee7b7', icon:GraduationCap },
-              { label:'Modules',  val:analytics?.modules?.total||0, color:'#fb923c', icon:Layers },
+              { label:t('adminDashboard.hero.teachers'), val:counts.teachers||0, color:'#c2410c', icon:Users },
+              { label:t('adminDashboard.hero.students'), val:counts.students||0, color:'#10b981', icon:GraduationCap },
+              { label:t('adminDashboard.hero.modules'), val:analytics?.modules?.total||0, color:'#c2410c', icon:Layers },
             ].map(({ label, val, color, icon:Ic }) => (
-              <div key={label} style={{ textAlign:'center', padding:'10px 14px', borderRadius:14, background:'rgba(255,255,255,0.08)', border:'1px solid rgba(255,255,255,0.12)', minWidth:68 }}>
+              <div key={label} style={{ textAlign:'center', padding:'10px 14px', borderRadius:14, background:'var(--hero-glass)', border:'1px solid var(--hero-glass-border)', minWidth:68 }}>
                 <Ic size={13} style={{ color, margin:'0 auto 4px', display:'block' }} />
-                <p style={{ fontSize:20, fontWeight:800, color:'#fff', lineHeight:1 }}>{val}</p>
-                <p style={{ fontSize:10, color:'rgba(255,255,255,0.5)', marginTop:2 }}>{label}</p>
+                <p style={{ fontSize:20, fontWeight:800, color:'var(--hero-fg)', lineHeight:1 }}>{val}</p>
+                <p style={{ fontSize:10, color:'var(--hero-fg-dim)', marginTop:2 }}>{label}</p>
               </div>
             ))}
           </div>
         </div>
-        <div style={{ marginTop:18, paddingTop:14, borderTop:'1px solid rgba(255,255,255,0.1)', display:'flex', gap:20, flexWrap:'wrap' }}>
+        <div style={{ marginTop:18, paddingTop:14, borderTop:'1px solid var(--hero-glass-border)', display:'flex', gap:20, flexWrap:'wrap' }}>
           {[
-            { label:'Assessments',  val:analytics?.assessments?.total||0,               icon:ClipboardList, color:'#fcd34d' },
-            { label:'Pending',      val:statusMap.submitted||0,                          icon:Activity,     color:'#fca5a5' },
-            { label:'Approved',     val:statusMap.approved||0,                           icon:CheckCircle2, color:'#6ee7b7' },
-            { label:'Assignments',  val:counts.assignments||0,                           icon:FileText,     color:'#7dd3fc' },
-            { label:'Announcements',val:counts.announcements||0,                        icon:Megaphone,    color:'#f9a8d4' },
+            { label:t('adminDashboard.stats.assessments'), val:analytics?.assessments?.total||0,               icon:ClipboardList, color:'#eab308' },
+            { label:t('adminDashboard.stats.pending'), val:statusMap.submitted||0,                          icon:Activity,     color:'#f87171' },
+            { label:t('adminDashboard.stats.approved'), val:statusMap.approved||0,                           icon:CheckCircle2, color:'#10b981' },
+            { label:t('adminDashboard.stats.assignments'), val:counts.assignments||0,                           icon:FileText,     color:'#0ea5e9' },
+            { label:t('adminDashboard.stats.announcements'), val:counts.announcements||0,                        icon:Megaphone,    color:'#ec4899' },
           ].map(({ label, val, icon:Ic, color }) => (
             <div key={label} style={{ display:'flex', alignItems:'center', gap:7 }}>
               <Ic size={12} style={{ color, opacity:0.9 }} />
-              <span style={{ fontSize:12, color:'rgba(255,255,255,0.5)' }}>{label}</span>
-              <span style={{ fontSize:13, fontWeight:700, color:'#fff' }}>{val}</span>
+              <span style={{ fontSize:12, color:'var(--hero-fg-dim)' }}>{label}</span>
+              <span style={{ fontSize:13, fontWeight:700, color:'var(--hero-fg)' }}>{val}</span>
             </div>
           ))}
         </div>
@@ -363,7 +364,7 @@ export default function AdminDashboard() {
                           </div>
                           <div style={{ display:'flex', gap:5, flexShrink:0 }}>
                             {classRow && <>
-                              <span style={{ fontSize:11, padding:'2px 7px', borderRadius:6, background:'#ffedd5', color:'#c2410c', fontWeight:600 }}>{classRow.class_count}cls</span>
+                              <span style={{ fontSize:11, padding:'2px 7px', borderRadius:6, background:'#fed7aa', color:'#9a3412', fontWeight:600 }}>{classRow.class_count}cls</span>
                               <span style={{ fontSize:11, padding:'2px 7px', borderRadius:6, background:'#ecfdf5', color:'#059669', fontWeight:600 }}>{classRow.student_count}stu</span>
                             </>}
                             <span style={{ fontSize:10, color:'var(--text-secondary)', padding:'2px 0' }}>
@@ -376,7 +377,7 @@ export default function AdminDashboard() {
                   </div>
               }
               <div style={{ marginTop:10, paddingTop:10, borderTop:'1px solid var(--card-border)' }}>
-                <Link to="/admin/teachers" style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, fontWeight:600, color:'#ea580c', textDecoration:'none' }}>
+                <Link to="/admin/teachers" style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, fontWeight:600, color:'#c2410c', textDecoration:'none' }}>
                   View all teachers <ArrowUpRight size={13} />
                 </Link>
               </div>
@@ -398,7 +399,7 @@ export default function AdminDashboard() {
                           <p style={{ fontSize:12, fontWeight:600, color:'var(--text-primary)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{s.name}</p>
                           <div style={{ display:'flex', gap:3, marginTop:3, flexWrap:'wrap' }}>
                             {s.level && <span style={{ fontSize:10, padding:'1px 6px', borderRadius:5, background:'#dbeafe', color:'#1d4ed8', fontWeight:600 }}>{s.level}</span>}
-                            {s.trade && <span style={{ fontSize:10, padding:'1px 6px', borderRadius:5, background:'#fed7aa', color:'#9a3412', fontWeight:600 }}>{s.trade}</span>}
+                            {s.trade && <span style={{ fontSize:10, padding:'1px 6px', borderRadius:5, background:'#fdba74', color:'#7c2d12', fontWeight:600 }}>{s.trade}</span>}
                           </div>
                         </div>
                       </div>
@@ -406,7 +407,7 @@ export default function AdminDashboard() {
                   </div>
               }
               <div style={{ marginTop:10, paddingTop:10, borderTop:'1px solid var(--card-border)' }}>
-                <Link to="/admin/students" style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, fontWeight:600, color:'#ea580c', textDecoration:'none' }}>
+                <Link to="/admin/students" style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, fontWeight:600, color:'#c2410c', textDecoration:'none' }}>
                   View all students <ArrowUpRight size={13} />
                 </Link>
               </div>
@@ -469,8 +470,8 @@ export default function AdminDashboard() {
                 <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:12 }}>
                   {categoryData.map((c,i) => (
                     <span key={i} style={{ fontSize:10, padding:'3px 8px', borderRadius:99, fontWeight:700,
-                      background:['#ffedd5','#ecfdf5','#fffbeb','#ffedd5'][i%4],
-                      color:['#c2410c','#059669','#d97706','#c2410c'][i%4] }}>
+                      background:['#fed7aa','#ecfdf5','#fffbeb','#fed7aa'][i%4],
+                      color:['#9a3412','#059669','#d97706','#9a3412'][i%4] }}>
                       {c._id || 'Other'}: {c.count}
                     </span>
                   ))}
@@ -484,8 +485,8 @@ export default function AdminDashboard() {
                     <div key={m.id||i} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 10px', borderRadius:10, transition:'background 0.15s' }}
                       onMouseEnter={e=>e.currentTarget.style.background='var(--surface-100)'}
                       onMouseLeave={e=>e.currentTarget.style.background=''}>
-                      <div style={{ width:32, height:32, borderRadius:9, background:'#ffedd5', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                        <BookMarked size={14} style={{ color:'#ea580c' }} />
+                      <div style={{ width:32, height:32, borderRadius:9, background:'#fed7aa', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                        <BookMarked size={14} style={{ color:'#c2410c' }} />
                       </div>
                       <div style={{ flex:1, minWidth:0 }}>
                         <p style={{ fontSize:12, fontWeight:600, color:'var(--text-primary)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{m.name}</p>
@@ -587,7 +588,7 @@ export default function AdminDashboard() {
           {analytics?.submissionTrend?.length > 0 && (
             <div style={{ marginTop:16, paddingTop:14, borderTop:'1px solid var(--card-border)' }}>
               <p style={{ fontSize:11, fontWeight:600, color:'var(--text-secondary)', marginBottom:8 }}>Assignment Submissions (30 days)</p>
-              <MiniBarChart data={analytics.submissionTrend} color="#ea580c" />
+              <MiniBarChart data={analytics.submissionTrend} color="#c2410c" />
             </div>
           )}
         </div>
@@ -600,7 +601,7 @@ export default function AdminDashboard() {
         <div className="card">
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
             <h3 style={{ fontSize:14, fontWeight:700, color:'var(--text-primary)' }}>Class Performance</h3>
-            <Link to="/admin/classes" style={{ display:'flex', alignItems:'center', gap:2, fontSize:11, fontWeight:600, color:'#ea580c', textDecoration:'none' }}>
+            <Link to="/admin/classes" style={{ display:'flex', alignItems:'center', gap:2, fontSize:11, fontWeight:600, color:'#c2410c', textDecoration:'none' }}>
               All <ChevronRight size={12} />
             </Link>
           </div>
@@ -610,7 +611,7 @@ export default function AdminDashboard() {
                 {stats.classesByTeacher.slice(0,5).map((row,i) => {
                   const max = Math.max(...stats.classesByTeacher.map(r=>r.student_count),1);
                   const pct = Math.round((row.student_count/max)*100);
-                  const colors = ['#ea580c','#10b981','#0ea5e9','#f59e0b','#ec4899'];
+                  const colors = ['#c2410c','#10b981','#0ea5e9','#f59e0b','#ec4899'];
                   const c = colors[i%colors.length];
                   return (
                     <div key={i}>
@@ -637,15 +638,15 @@ export default function AdminDashboard() {
             <h3 style={{ fontSize:14, fontWeight:700, color:'var(--text-primary)' }}>Assessment Workflow</h3>
             <div style={{ display:'flex', alignItems:'center', gap:4, padding:'3px 8px', borderRadius:99, background:'#ecfdf5' }}>
               <Activity size={10} style={{ color:'#10b981' }} />
-              <span style={{ fontSize:10, fontWeight:600, color:'#10b981' }}>Live</span>
+              <span style={{ fontSize:10, fontWeight:600, color:'#10b981' }}>{t('adminDashboard.hero.live')}</span>
             </div>
           </div>
           <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
             {[
-              { label:'Pending Review', val:statusMap.submitted||0, color:'#f59e0b', bg:'#fffbeb', icon:ClipboardList, desc:'Awaiting admin review' },
-              { label:'Approved',       val:statusMap.approved||0,  color:'#10b981', bg:'#ecfdf5', icon:CheckCircle2,  desc:'Marks finalised' },
-              { label:'Rejected',       val:statusMap.rejected||0,  color:'#ef4444', bg:'#fef2f2', icon:Activity,      desc:'Returned to teacher' },
-              { label:'Total Modules',  val:analytics?.modules?.total||0, color:'#ea580c', bg:'#ffedd5', icon:Layers, desc:'Across all classes' },
+              { label:t('adminDashboard.heroStats.pendingReview'), val:statusMap.submitted||0, color:'#f59e0b', bg:'#fffbeb', icon:ClipboardList, desc:t('adminDashboard.heroStats.pendingReviewDesc') },
+              { label:t('adminDashboard.heroStats.approved'),       val:statusMap.approved||0,  color:'#10b981', bg:'#ecfdf5', icon:CheckCircle2,  desc:t('adminDashboard.heroStats.approvedDesc') },
+              { label:t('adminDashboard.heroStats.rejected'),       val:statusMap.rejected||0,  color:'#ef4444', bg:'#fef2f2', icon:Activity,      desc:t('adminDashboard.heroStats.rejectedDesc') },
+              { label:t('adminDashboard.heroStats.totalModules'),  val:analytics?.modules?.total||0, color:'#c2410c', bg:'#fed7aa', icon:Layers, desc:t('adminDashboard.heroStats.totalModulesDesc') },
             ].map(({ label, val, color, bg, icon:Ic, desc }) => (
               <div key={label} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 10px', borderRadius:10, background:bg }}>
                 <div style={{ width:32, height:32, borderRadius:9, background:`${color}22`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
@@ -670,7 +671,7 @@ export default function AdminDashboard() {
           <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
             {[
               { label:'System Uptime',   pct:99, color:'#10b981' },
-              { label:'Storage Used',    pct:43, color:'#ea580c' },
+              { label:'Storage Used',    pct:43, color:'#c2410c' },
               { label:'Active Sessions', pct:72, color:'#0ea5e9' },
             ].map(({ label, pct, color }) => (
               <div key={label} style={{ display:'flex', alignItems:'center', gap:12 }}>
@@ -691,7 +692,7 @@ export default function AdminDashboard() {
           <div style={{ marginTop:16, paddingTop:14, borderTop:'1px solid var(--card-border)', display:'flex', flexDirection:'column', gap:5 }}>
             <p style={{ fontSize:10, fontWeight:700, color:'var(--text-secondary)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:3 }}>Quick Actions</p>
             {[
-              { label:'Manage Teachers', to:'/admin/teachers', icon:Users,         color:'#ea580c' },
+              { label:'Manage Teachers', to:'/admin/teachers', icon:Users,         color:'#c2410c' },
               { label:'Manage Students', to:'/admin/students', icon:GraduationCap, color:'#10b981' },
               { label:'View Classes',    to:'/admin/classes',  icon:BookOpen,       color:'#0ea5e9' },
             ].map(({ label, to, icon:Ic, color }) => (

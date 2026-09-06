@@ -29,7 +29,7 @@ const ALL_MODULE_CATEGORIES = ['Complementary modules', 'General modules', 'Spec
 const ASSESSMENT_TYPES = [
   { key: 'FA', label: 'Formative Assessment',     short: 'FA', color: '#3b82f6' },
   { key: 'IA', label: 'Integrated Assessment',    short: 'IA', color: '#10b981' },
-  { key: 'CA', label: 'Comprehensive Assessment', short: 'CA', color: '#ea580c' },
+  { key: 'CA', label: 'Comprehensive Assessment', short: 'CA', color: '#c2410c' },
 ];
 
 // Synthetic bucket id for courses with no teacher_id assigned yet (Course.teacher_id
@@ -54,8 +54,8 @@ const DEFAULT_REPORT_CONFIG = {
   managerName: 'School Manager',
   managerTitle: 'School Principal',
   footerNote: "Module Weight = Module's learning hours = Credit × 10. Passing Line: 70% for Specific modules; 50% for General and Complementary modules. Module Annual Average: (Average of Integrated A + Average of Comprehensive A) / number of assessed terms.",
-  primaryColor: '#ea580c',
-  accentColor:  '#9a3412',
+  primaryColor: '#c2410c',
+  accentColor:  '#7c2d12',
   termLabel:    '2nd TERM',
   academicYear: `${CURRENT_YEAR}-${CURRENT_YEAR + 1}`,
   republic:  'REPUBLIC OF RWANDA',
@@ -131,7 +131,7 @@ function GradeBadge({ grade }) {
     grade === 'A+' || grade === 'A' ? '#10b981'
     : grade === 'B' ? '#3b82f6'
     : grade === 'C' ? '#f59e0b'
-    : grade === 'D' ? '#ea580c'
+    : grade === 'D' ? '#c2410c'
     : grade === 'F' ? '#ef4444'
     : '#9ca3af';
   return (
@@ -285,9 +285,9 @@ async function persistReportConfig(cfg) {
 /* ─────────── Category helpers ─────────── */
 function catBadge(cat) {
   const colors = {
-    'Complementary modules':   { bg: '#f9731618', border: '#f9731630', text: '#ea580c', dot: '#ea580c' },
+    'Complementary modules':   { bg: '#f9731618', border: '#f9731630', text: '#c2410c', dot: '#c2410c' },
     'General modules':         { bg: '#06563018', border: '#06563030', text: '#065f46', dot: '#065f46' },
-    'Specific modules':        { bg: '#7c2d1218', border: '#7c2d1230', text: '#431407', dot: '#431407' },
+    'Specific modules':        { bg: '#7c2d1218', border: '#7c2d1230', text: '#2a0c03', dot: '#2a0c03' },
     'Elective Non Examinable': { bg: '#4a044e18', border: '#4a044e30', text: '#4a044e', dot: '#4a044e' },
   };
   return colors[cat] || colors['Complementary modules'];
@@ -323,15 +323,15 @@ function MultiClassPicker({ classes, selectedIds, onChange, dark }) {
               <span key={id} style={{
                 display: 'inline-flex', alignItems: 'center', gap: 5,
                 padding: '4px 10px', borderRadius: 20,
-                background: 'rgba(234, 88, 12,0.10)', border: '1px solid rgba(234, 88, 12,0.30)',
-                fontSize: 12, fontWeight: 700, color: '#ea580c',
+                background: 'rgba(194, 65, 12,0.10)', border: '1px solid rgba(194, 65, 12,0.30)',
+                fontSize: 12, fontWeight: 700, color: '#c2410c',
               }}>
                 <School size={11} />
                 {cls.name}
                 <button
                   type="button"
                   onClick={() => remove(id)}
-                  style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '0 0 0 2px', color: '#ea580c', display: 'flex', alignItems: 'center', lineHeight: 1 }}
+                  style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '0 0 0 2px', color: '#c2410c', display: 'flex', alignItems: 'center', lineHeight: 1 }}
                   title={`Remove ${cls.name}`}
                 >
                   <X size={11} />
@@ -419,11 +419,11 @@ function StudentSearchBox({
     <div ref={wrapRef} style={{ position: 'relative' }}>
       <div style={{
         display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', borderRadius: 10,
-        border: `1.5px solid ${open ? '#ea580c' : (dark ? '#333333' : '#d1d5db')}`,
+        border: `1.5px solid ${open ? '#c2410c' : (dark ? '#333333' : '#d1d5db')}`,
         background: disabled ? (dark ? '#161a24' : '#f1f5f9') : (dark ? '#1f1f1f' : '#f9fafb'),
-        boxShadow: open ? '0 0 0 3px rgba(234, 88, 12,0.12)' : 'none', transition: 'all 0.15s',
+        boxShadow: open ? '0 0 0 3px rgba(194, 65, 12,0.12)' : 'none', transition: 'all 0.15s',
       }}>
-        <Search size={13} color={open ? '#ea580c' : (dark ? '#7b839a' : '#9ca3af')} style={{ flexShrink: 0 }} />
+        <Search size={13} color={open ? '#c2410c' : (dark ? '#7b839a' : '#9ca3af')} style={{ flexShrink: 0 }} />
         <input
           ref={inputRef}
           disabled={disabled}
@@ -456,7 +456,7 @@ function StudentSearchBox({
             {showAllOption && (
               <div
                 onClick={() => { onSelectAll?.(); setOpen(false); setQuery(''); }}
-                style={{ padding: '8px 10px', cursor: 'pointer', fontSize: 12.5, fontWeight: 700, color: '#ea580c', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 7 }}
+                style={{ padding: '8px 10px', cursor: 'pointer', fontSize: 12.5, fontWeight: 700, color: '#c2410c', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 7 }}
                 onMouseEnter={e => e.currentTarget.style.background = dark ? '#1d2233' : '#f0f4f8'}
                 onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
               >
@@ -475,19 +475,19 @@ function StudentSearchBox({
                   key={id}
                   onClick={() => pick(id)}
                   onMouseEnter={e => { e.currentTarget.style.background = dark ? '#1d2233' : '#f0f4f8'; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = isSel ? 'rgba(234, 88, 12,0.08)' : 'transparent'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = isSel ? 'rgba(194, 65, 12,0.08)' : 'transparent'; }}
                   style={{
                     padding: '8px 10px', cursor: 'pointer', fontSize: 13, borderRadius: 8,
-                    fontWeight: isSel ? 800 : 500, color: isSel ? '#ea580c' : (dark ? '#e2e8f0' : '#404040'),
-                    background: isSel ? 'rgba(234, 88, 12,0.08)' : 'transparent',
+                    fontWeight: isSel ? 800 : 500, color: isSel ? '#c2410c' : (dark ? '#e2e8f0' : '#404040'),
+                    background: isSel ? 'rgba(194, 65, 12,0.08)' : 'transparent',
                     display: 'flex', alignItems: 'center', gap: 8,
                   }}
                 >
-                  <div style={{ width: 20, height: 20, borderRadius: '50%', background: isSel ? '#ea580c' : (dark ? '#333333' : '#e5e7eb'), display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <div style={{ width: 20, height: 20, borderRadius: '50%', background: isSel ? '#c2410c' : (dark ? '#333333' : '#e5e7eb'), display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <User2 size={11} color={isSel ? '#fff' : (dark ? '#7b839a' : '#9ca3af')} />
                   </div>
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</span>
-                  {isSel && <CheckCircle2 size={13} color="#ea580c" style={{ marginLeft: 'auto', flexShrink: 0 }} />}
+                  {isSel && <CheckCircle2 size={13} color="#c2410c" style={{ marginLeft: 'auto', flexShrink: 0 }} />}
                 </div>
               );
             })}
@@ -551,8 +551,8 @@ function LogoUploader({ value, onUploaded, onRemove, dark }) {
       style={{
         display: 'flex', alignItems: 'center', gap: 14, padding: 14, borderRadius: 12,
         cursor: uploading ? 'wait' : 'pointer',
-        border: `2px dashed ${dragOver ? '#ea580c' : (dark ? '#333333' : '#d1d5db')}`,
-        background: dragOver ? (dark ? 'rgba(234, 88, 12,0.15)' : 'rgba(234, 88, 12,0.05)') : (dark ? '#1f1f1f' : '#f9fafb'),
+        border: `2px dashed ${dragOver ? '#c2410c' : (dark ? '#333333' : '#d1d5db')}`,
+        background: dragOver ? (dark ? 'rgba(194, 65, 12,0.15)' : 'rgba(194, 65, 12,0.05)') : (dark ? '#1f1f1f' : '#f9fafb'),
         transition: 'border-color 0.15s, background 0.15s',
       }}
     >
@@ -648,7 +648,7 @@ function ReportConfigPanel({ config, onChange, dark, scopeYear = '' }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={cardSt}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg,#ea580c,#9a3412)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg,#c2410c,#7c2d12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Globe size={15} color="#fff" />
           </div>
           <div>
@@ -674,7 +674,7 @@ function ReportConfigPanel({ config, onChange, dark, scopeYear = '' }) {
                     type="button"
                     onClick={() => setDraft(d => ({ ...d, academicYear: scopeYear }))}
                     title={`Set to "${scopeYear}", the year currently selected at the top of the page`}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 3, border: 'none', background: 'none', color: '#ea580c', fontSize: 10, fontWeight: 700, textTransform: 'none', letterSpacing: 0, cursor: 'pointer', padding: 0 }}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 3, border: 'none', background: 'none', color: '#c2410c', fontSize: 10, fontWeight: 700, textTransform: 'none', letterSpacing: 0, cursor: 'pointer', padding: 0 }}
                   >
                     <RefreshCw size={10} /> Use {scopeYear}
                   </button>
@@ -742,9 +742,9 @@ function ReportConfigPanel({ config, onChange, dark, scopeYear = '' }) {
       <button onClick={handleSave} disabled={saving} style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
         padding: '12px 24px', borderRadius: 12, border: 'none',
-        background: saved ? 'linear-gradient(135deg,#10b981,#059669)' : 'linear-gradient(135deg,#ea580c,#9a3412)',
+        background: saved ? 'linear-gradient(135deg,#10b981,#059669)' : 'linear-gradient(135deg,#c2410c,#7c2d12)',
         color: '#fff', fontSize: 14, fontWeight: 700, cursor: saving ? 'wait' : 'pointer',
-        boxShadow: '0 4px 20px rgba(234, 88, 12,0.35)', transition: 'all 0.3s', opacity: saving ? 0.75 : 1,
+        boxShadow: '0 4px 20px rgba(194, 65, 12,0.35)', transition: 'all 0.3s', opacity: saving ? 0.75 : 1,
       }}>
         {saved ? <CheckCircle2 size={16} /> : <Save size={16} />}
         {saving ? 'Saving…' : saved ? 'Saved Successfully!' : 'Save Report Configuration'}
@@ -1612,9 +1612,9 @@ export default function AdminAssessments() {
   const filterSelect = (active) => ({
     padding: '7px 10px', borderRadius: 8, fontSize: 12, fontWeight: 600,
     cursor: 'pointer', outline: 'none', minWidth: 160,
-    border: `1px solid ${active ? '#ea580c' : (dark ? '#333333' : '#e5e7eb')}`,
-    background: active ? 'rgba(234, 88, 12,0.08)' : (dark ? '#1f1f1f' : '#f9fafb'),
-    color: active ? '#ea580c' : (dark ? '#e2e8f0' : '#404040'),
+    border: `1px solid ${active ? '#c2410c' : (dark ? '#333333' : '#e5e7eb')}`,
+    background: active ? 'rgba(194, 65, 12,0.08)' : (dark ? '#1f1f1f' : '#f9fafb'),
+    color: active ? '#c2410c' : (dark ? '#e2e8f0' : '#404040'),
   });
 
   return (
@@ -1627,7 +1627,7 @@ export default function AdminAssessments() {
           body       { background: white !important; }
           .print-area{ padding: 0 !important; }
         }
-        .course-card:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(234, 88, 12,0.18) !important; }
+        .course-card:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(194, 65, 12,0.18) !important; }
         .course-card       { transition: all 0.2s ease; }
         .assess-tabbar { scrollbar-width: none; -ms-overflow-style: none; }
         .assess-tabbar::-webkit-scrollbar { display: none; }
@@ -1636,13 +1636,13 @@ export default function AdminAssessments() {
         .assess-tab-btn {
           transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
         }
-        .assess-tab-btn:hover  { background: rgba(234, 88, 12,0.07); color: #ea580c; }
+        .assess-tab-btn:hover  { background: rgba(194, 65, 12,0.07); color: #c2410c; }
         .assess-tab-btn:active { transform: scale(0.97); }
-        .assess-tab-btn:focus-visible { outline: none; box-shadow: 0 0 0 2px rgba(234, 88, 12,0.35); }
+        .assess-tab-btn:focus-visible { outline: none; box-shadow: 0 0 0 2px rgba(194, 65, 12,0.35); }
         .assess-tab-icon { transition: transform 0.25s cubic-bezier(.22,1,.36,1); }
         .assess-tab-btn:hover .assess-tab-icon { transform: scale(1.15) rotate(-6deg); }
         .assess-tab-indicator {
-          box-shadow: 0 1px 6px rgba(234, 88, 12,0.4);
+          box-shadow: 0 1px 6px rgba(194, 65, 12,0.4);
           transition: transform 0.35s cubic-bezier(.22,1,.36,1), width 0.35s cubic-bezier(.22,1,.36,1);
         }
         @media (max-width: 640px) {
@@ -1656,7 +1656,7 @@ export default function AdminAssessments() {
         }
         .rt-card:hover  { transform: translateY(-3px); }
         .rt-card:active { transform: translateY(-1px) scale(0.99); }
-        .rt-card:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(234, 88, 12,0.32), 0 6px 18px rgba(234, 88, 12,0.18); }
+        .rt-card:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(194, 65, 12,0.32), 0 6px 18px rgba(194, 65, 12,0.18); }
         .rt-card:hover .rt-icon { transform: scale(1.08) rotate(-4deg); }
         .rt-icon { transition: transform 0.28s cubic-bezier(.22,1,.36,1); }
         @keyframes rtCheckPop {
@@ -1671,15 +1671,15 @@ export default function AdminAssessments() {
           transition: border-color 0.18s ease, box-shadow 0.18s ease;
         }
         .filter-select:hover  { border-color: #94a3b8 !important; }
-        .filter-select:focus  { border-color: #ea580c !important; box-shadow: 0 0 0 3px rgba(234, 88, 12,0.14); outline: none; }
+        .filter-select:focus  { border-color: #c2410c !important; box-shadow: 0 0 0 3px rgba(194, 65, 12,0.14); outline: none; }
 
         /* ── Reports tab action buttons ── */
         .btn-print { transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, color 0.18s ease; }
-        .btn-print:hover  { border-color: #ea580c !important; color: #ea580c !important; transform: translateY(-2px); box-shadow: 0 6px 16px rgba(234, 88, 12,0.14); }
+        .btn-print:hover  { border-color: #c2410c !important; color: #c2410c !important; transform: translateY(-2px); box-shadow: 0 6px 16px rgba(194, 65, 12,0.14); }
         .btn-print:active { transform: translateY(0); }
 
         .btn-export-pdf { position: relative; overflow: hidden; transition: transform 0.18s ease, box-shadow 0.18s ease; }
-        .btn-export-pdf:hover  { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(234, 88, 12,0.4) !important; }
+        .btn-export-pdf:hover  { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(194, 65, 12,0.4) !important; }
         .btn-export-pdf:active { transform: translateY(0) scale(0.98); }
         .btn-export-pdf::after {
           content: ''; position: absolute; top: 0; left: -60%; width: 40%; height: 100%;
@@ -1707,8 +1707,8 @@ export default function AdminAssessments() {
         .msub-crumb-bar {
           display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 18px;
           padding: 8px 10px; border-radius: 13px;
-          background: color-mix(in srgb, #ea580c 5%, var(--card-bg));
-          border: 1px solid color-mix(in srgb, #ea580c 14%, var(--card-border));
+          background: color-mix(in srgb, #c2410c 5%, var(--card-bg));
+          border: 1px solid color-mix(in srgb, #c2410c 14%, var(--card-border));
         }
         .msub-crumb-btn {
           display: flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 9px; cursor: pointer;
@@ -1716,11 +1716,11 @@ export default function AdminAssessments() {
           font-size: 12.5px; font-weight: 700;
           transition: background 0.18s ease, color 0.18s ease, transform 0.15s ease, border-color 0.18s ease;
         }
-        .msub-crumb-btn:hover:not(:disabled) { transform: translateY(-1px); background: color-mix(in srgb, #ea580c 8%, transparent); }
+        .msub-crumb-btn:hover:not(:disabled) { transform: translateY(-1px); background: color-mix(in srgb, #c2410c 8%, transparent); }
         .msub-crumb-btn:active:not(:disabled) { transform: translateY(0) scale(0.98); }
         .msub-crumb-btn--active {
-          color: #ea580c; background: color-mix(in srgb, #ea580c 12%, transparent);
-          border-color: color-mix(in srgb, #ea580c 30%, transparent);
+          color: #c2410c; background: color-mix(in srgb, #c2410c 12%, transparent);
+          border-color: color-mix(in srgb, #c2410c 30%, transparent);
         }
         .msub-crumb-sep { color: var(--text-secondary); opacity: 0.55; flex-shrink: 0; }
         .msub-refresh-btn {
@@ -1729,7 +1729,7 @@ export default function AdminAssessments() {
           font-size: 12px; font-weight: 700; cursor: pointer;
           transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
         }
-        .msub-refresh-btn:hover { background: color-mix(in srgb, #ea580c 8%, transparent); color: #ea580c; border-color: color-mix(in srgb, #ea580c 30%, transparent); }
+        .msub-refresh-btn:hover { background: color-mix(in srgb, #c2410c 8%, transparent); color: #c2410c; border-color: color-mix(in srgb, #c2410c 30%, transparent); }
 
         .msub-pending-chip {
           position: absolute; top: 12px; right: 14px; z-index: 2;
@@ -1784,12 +1784,12 @@ export default function AdminAssessments() {
         }
         .subm-action-icon--reject { border: 1.5px solid rgba(239,68,68,0.45); }
         .subm-action-btn--approve {
-          background: linear-gradient(135deg, #ea580c, #9a3412);
+          background: linear-gradient(135deg, #c2410c, #7c2d12);
           color: #fff;
-          box-shadow: 0 6px 18px rgba(234, 88, 12,0.35);
+          box-shadow: 0 6px 18px rgba(194, 65, 12,0.35);
         }
         .subm-action-btn--approve:not(:disabled):hover {
-          box-shadow: 0 12px 28px rgba(234, 88, 12,0.5);
+          box-shadow: 0 12px 28px rgba(194, 65, 12,0.5);
           filter: brightness(1.08);
         }
         .subm-action-icon--approve { border: 1.5px solid rgba(255,255,255,0.55); }
@@ -1800,13 +1800,13 @@ export default function AdminAssessments() {
           transition: transform 0.22s cubic-bezier(.22,1,.36,1), box-shadow 0.22s ease, border-color 0.22s ease;
         }
         .ay-year-card:hover { transform: translateY(-3px); box-shadow: 0 14px 30px rgba(0,0,0,0.22); }
-        .ay-year-card--active { box-shadow: 0 10px 28px rgba(234, 88, 12,0.16); }
+        .ay-year-card--active { box-shadow: 0 10px 28px rgba(194, 65, 12,0.16); }
         .ay-icon-btn { transition: transform 0.16s cubic-bezier(.22,1,.36,1), box-shadow 0.16s ease, background 0.16s ease, color 0.16s ease; }
         .ay-icon-btn:not(:disabled):hover { transform: translateY(-1px); }
         .ay-icon-btn:not(:disabled):active { transform: translateY(0) scale(0.95); }
         .ay-icon-btn:disabled { cursor: default; opacity: 0.5; }
         .ay-new-btn { position: relative; overflow: hidden; transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease; }
-        .ay-new-btn:hover  { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(234, 88, 12,0.45) !important; filter: brightness(1.06); }
+        .ay-new-btn:hover  { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(194, 65, 12,0.45) !important; filter: brightness(1.06); }
         .ay-new-btn:active { transform: translateY(0) scale(0.98); }
         .ay-new-btn::after {
           content: ''; position: absolute; top: 0; left: -60%; width: 40%; height: 100%;
@@ -1819,7 +1819,7 @@ export default function AdminAssessments() {
         @keyframes ayPop { 0% { opacity: 0; transform: scale(0.5); } 60% { opacity: 1; transform: scale(1.15); } 100% { transform: scale(1); } }
         .ay-format-ok { animation: ayPop 0.32s cubic-bezier(.34,1.56,.64,1); }
         .ay-modal-input { transition: border-color 0.18s ease, box-shadow 0.18s ease; }
-        .ay-modal-input:focus { border-color: #ea580c !important; box-shadow: 0 0 0 4px rgba(234, 88, 12,0.15); outline: none; }
+        .ay-modal-input:focus { border-color: #c2410c !important; box-shadow: 0 0 0 4px rgba(194, 65, 12,0.15); outline: none; }
 
         /* ── Term open/closed toggle switch ──
            Each term gets its own little glass capsule with a lock/unlock
@@ -1836,10 +1836,10 @@ export default function AdminAssessments() {
         }
         .ay-term-switch-card:hover { transform: translateY(-1px); }
         .ay-term-switch-card--open {
-          border-color: rgba(234, 88, 12,0.35);
-          background: ${dark ? 'linear-gradient(135deg, rgba(234, 88, 12,0.14), rgba(234, 88, 12,0.03))' : 'linear-gradient(135deg, #ffedd5, #f9fafb)'};
+          border-color: rgba(194, 65, 12,0.35);
+          background: ${dark ? 'linear-gradient(135deg, rgba(194, 65, 12,0.14), rgba(194, 65, 12,0.03))' : 'linear-gradient(135deg, #fed7aa, #f9fafb)'};
         }
-        .ay-term-switch-card--open:hover { box-shadow: 0 8px 18px rgba(234, 88, 12,0.18); }
+        .ay-term-switch-card--open:hover { box-shadow: 0 8px 18px rgba(194, 65, 12,0.18); }
         .ay-term-switch-card--closed {
           border-color: rgba(220,38,38,0.28);
           background: ${dark ? 'linear-gradient(135deg, rgba(220,38,38,0.10), rgba(220,38,38,0.02))' : 'linear-gradient(135deg, #fef2f2, #f9fafb)'};
@@ -1851,7 +1851,7 @@ export default function AdminAssessments() {
           width: 18px; height: 18px; border-radius: 999px; flex-shrink: 0;
           transition: background 0.2s ease, color 0.2s ease, transform 0.25s cubic-bezier(.34,1.56,.64,1);
         }
-        .ay-term-switch-card--open .ay-term-switch-icon { background: rgba(234, 88, 12,0.16); color: #ea580c; }
+        .ay-term-switch-card--open .ay-term-switch-icon { background: rgba(194, 65, 12,0.16); color: #c2410c; }
         .ay-term-switch-card--closed .ay-term-switch-icon { background: rgba(220,38,38,0.14); color: #dc2626; transform: rotate(-8deg); }
         .ay-term-switch-label {
           font-size: 11.5px; font-weight: 800; letter-spacing: 0.01em;
@@ -1865,14 +1865,14 @@ export default function AdminAssessments() {
           background: ${dark ? '#333333' : '#d1d5db'};
           transition: background 0.28s ease, box-shadow 0.28s ease;
         }
-        .ay-term-switch-track:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(234, 88, 12,0.35); }
+        .ay-term-switch-track:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(194, 65, 12,0.35); }
         .ay-term-switch-track--on {
-          background: linear-gradient(135deg, #ea580c, #9a3412);
-          box-shadow: 0 0 0 1px rgba(234, 88, 12,0.25), 0 2px 8px rgba(234, 88, 12,0.4);
+          background: linear-gradient(135deg, #c2410c, #7c2d12);
+          box-shadow: 0 0 0 1px rgba(194, 65, 12,0.25), 0 2px 8px rgba(194, 65, 12,0.4);
         }
         .ay-term-switch-track--on::after {
           content: ''; position: absolute; inset: -3px; border-radius: 999px;
-          border: 1.5px solid rgba(234, 88, 12,0.55); opacity: 0.7;
+          border: 1.5px solid rgba(194, 65, 12,0.55); opacity: 0.7;
           animation: aySwitchGlow 2.2s ease-out infinite;
         }
         .ay-term-switch-track--busy { cursor: default; opacity: 0.75; }
@@ -1883,7 +1883,7 @@ export default function AdminAssessments() {
           background: #fff; display: flex; align-items: center; justify-content: center;
           box-shadow: 0 1px 3px rgba(0,0,0,0.35);
           transition: transform 0.32s cubic-bezier(.34,1.56,.64,1), width 0.18s ease;
-          color: #ea580c;
+          color: #c2410c;
         }
         .ay-term-switch-track--on .ay-term-switch-thumb { transform: translateX(17px); }
         .ay-term-switch-spin { animation: spin 0.7s linear infinite; }
@@ -1899,7 +1899,7 @@ export default function AdminAssessments() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-              <div style={{ width: 40, height: 40, borderRadius: 12, background: 'linear-gradient(135deg,#ea580c,#9a3412)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: 40, height: 40, borderRadius: 12, background: 'linear-gradient(135deg,#c2410c,#7c2d12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <GraduationCap size={20} color="#fff" />
               </div>
               <h1 className="assess-page-title" style={{ fontSize: 22, fontWeight: 800, color: dark ? '#f1f5f9' : '#131313', margin: 0, fontFamily: "'Sora',sans-serif" }}>
@@ -1913,8 +1913,8 @@ export default function AdminAssessments() {
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <ScopeSelectorCard
               icon={Calendar}
-              colorFrom="#ea580c"
-              colorTo="#9a3412"
+              colorFrom="#c2410c"
+              colorTo="#7c2d12"
               value={submissionYearFilter}
               displayValue={submissionYearFilter || 'All Years'}
               onChange={val => setSubmissionYearFilter(val)}
@@ -1936,8 +1936,8 @@ export default function AdminAssessments() {
               options={[{ value: '', label: 'All Terms' }, ...TERMS.map(t => ({ value: t, label: t }))]}
             />
             {[
-              { label: 'Courses',     val: courses.length,     color: '#ea580c' },
-              { label: 'Assessments', val: scopedAssessmentsCount, color: '#ea580c' },
+              { label: 'Courses',     val: courses.length,     color: '#c2410c' },
+              { label: 'Assessments', val: scopedAssessmentsCount, color: '#c2410c' },
               { label: 'Students',    val: students.length,    color: '#10b981' },
             ].map(s => (
               <div key={s.label} style={{ padding: '8px 16px', borderRadius: 12, background: s.color + '18', border: '1px solid ' + s.color + '33', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -1960,10 +1960,10 @@ export default function AdminAssessments() {
                 display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px',
                 border: 'none', borderRadius: '10px 10px 0 0', flexShrink: 0, whiteSpace: 'nowrap',
                 background: tab === key ? (dark ? '#1d2235' : '#fff') : 'transparent',
-                color: tab === key ? '#ea580c' : (dark ? '#7b839a' : '#6b7280'),
+                color: tab === key ? '#c2410c' : (dark ? '#7b839a' : '#6b7280'),
                 fontWeight: tab === key ? 700 : 500, fontSize: 13, cursor: 'pointer',
                 marginBottom: -2, position: 'relative',
-                boxShadow: tab === key ? '0 -2px 10px rgba(234, 88, 12,0.08)' : 'none',
+                boxShadow: tab === key ? '0 -2px 10px rgba(194, 65, 12,0.08)' : 'none',
               }}
             >
               <Icon size={14} className="assess-tab-icon" />
@@ -1972,7 +1972,7 @@ export default function AdminAssessments() {
           ))}
           <div className="assess-tab-indicator" style={{
             position: 'absolute', bottom: -2, height: 2.5, borderRadius: 2,
-            background: 'linear-gradient(90deg,#ea580c,#9a3412)',
+            background: 'linear-gradient(90deg,#c2410c,#7c2d12)',
             transform: `translateX(${tabIndicator.left}px)`, width: tabIndicator.width,
           }} />
         </div>
@@ -2017,8 +2017,8 @@ export default function AdminAssessments() {
               </button>
             )}
             {hasActiveCourseFilter && (
-              <div style={{ alignSelf: 'flex-end', padding: '7px 12px', borderRadius: 8, background: 'rgba(234, 88, 12,0.08)', border: '1px solid rgba(234, 88, 12,0.2)' }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: '#ea580c' }}>{filteredCourses.length} module{filteredCourses.length !== 1 ? 's' : ''} found</span>
+              <div style={{ alignSelf: 'flex-end', padding: '7px 12px', borderRadius: 8, background: 'rgba(194, 65, 12,0.08)', border: '1px solid rgba(194, 65, 12,0.2)' }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: '#c2410c' }}>{filteredCourses.length} module{filteredCourses.length !== 1 ? 's' : ''} found</span>
               </div>
             )}
 
@@ -2031,14 +2031,14 @@ export default function AdminAssessments() {
                 <button key={v.key} title={v.title} onClick={() => setCourseView(v.key)} style={{
                   width: 28, height: 28, borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 14,
                   background: courseView === v.key ? (dark ? '#333333' : '#fff') : 'transparent',
-                  color: courseView === v.key ? '#ea580c' : (dark ? '#7b839a' : '#9ca3af'),
+                  color: courseView === v.key ? '#c2410c' : (dark ? '#7b839a' : '#9ca3af'),
                   boxShadow: courseView === v.key ? '0 1px 4px rgba(0,0,0,0.12)' : 'none',
                   transition: 'all 0.15s',
                 }}>{v.icon}</button>
               ))}
             </div>
 
-            <button onClick={openCreateCourse} style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 7, padding: '8px 20px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg,#ea580c,#9a3412)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 16px rgba(234, 88, 12,0.4)', alignSelf: 'flex-end' }}>
+            <button onClick={openCreateCourse} style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 7, padding: '8px 20px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg,#c2410c,#7c2d12)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 16px rgba(194, 65, 12,0.4)', alignSelf: 'flex-end' }}>
               <Plus size={14} /> Add Module
             </button>
           </div>
@@ -2060,12 +2060,12 @@ export default function AdminAssessments() {
 
           {loading ? (
             <div style={{ textAlign: 'center', padding: 80 }}>
-              <div style={{ width: 44, height: 44, borderRadius: '50%', border: '3px solid #ea580c', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', margin: '0 auto 14px' }} />
+              <div style={{ width: 44, height: 44, borderRadius: '50%', border: '3px solid #c2410c', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', margin: '0 auto 14px' }} />
               <p style={{ color: dark ? '#7b839a' : '#9ca3af', fontSize: 13 }}>Loading modules…</p>
             </div>
           ) : filteredCourses.length === 0 ? (
             <div style={{ ...card, textAlign: 'center', padding: 70 }}>
-              <div style={{ width: 70, height: 70, borderRadius: 20, background: 'linear-gradient(135deg,#ea580c,#9a3412)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
+              <div style={{ width: 70, height: 70, borderRadius: 20, background: 'linear-gradient(135deg,#c2410c,#7c2d12)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
                 <BookOpen size={30} color="#fff" />
               </div>
               <p style={{ color: dark ? '#e8ecf4' : '#131313', fontWeight: 800, fontSize: 17, margin: '0 0 6px' }}>
@@ -2075,7 +2075,7 @@ export default function AdminAssessments() {
                 {hasActiveCourseFilter ? 'Try adjusting the class, teacher or type filters above.' : 'Add TVET modules to assign teachers and track assessments.'}
               </p>
               {!hasActiveCourseFilter && (
-                <button onClick={openCreateCourse} style={{ padding: '9px 20px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#ea580c,#9a3412)', color: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+                <button onClick={openCreateCourse} style={{ padding: '9px 20px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#c2410c,#7c2d12)', color: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
                   <Plus size={13} style={{ marginRight: 6, verticalAlign: 'middle' }} />Add Your First Module
                 </button>
               )}
@@ -2134,7 +2134,7 @@ export default function AdminAssessments() {
                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center' }}>
                                           <span style={{ marginRight: 2 }}>Classes:</span>
                                           {classNames.map((n, i) => (
-                                            <span key={i} style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 5, background: 'rgba(234, 88, 12,0.08)', border: '1px solid rgba(234, 88, 12,0.2)', color: '#ea580c' }}>{n}</span>
+                                            <span key={i} style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 5, background: 'rgba(194, 65, 12,0.08)', border: '1px solid rgba(194, 65, 12,0.2)', color: '#c2410c' }}>{n}</span>
                                           ))}
                                         </div>
                                       )}
@@ -2182,7 +2182,7 @@ export default function AdminAssessments() {
                                     : (
                                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                                         {classNames.map((n, idx) => (
-                                          <span key={idx} style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 6, background: 'rgba(234, 88, 12,0.08)', border: '1px solid rgba(234, 88, 12,0.2)', color: '#ea580c', whiteSpace: 'nowrap' }}>{n}</span>
+                                          <span key={idx} style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 6, background: 'rgba(194, 65, 12,0.08)', border: '1px solid rgba(194, 65, 12,0.2)', color: '#c2410c', whiteSpace: 'nowrap' }}>{n}</span>
                                         ))}
                                       </div>
                                     )}
@@ -2221,15 +2221,15 @@ export default function AdminAssessments() {
         <div className="no-print" style={{ animation: 'fadeUp 0.3s ease' }}>
 
           {/* ── Header banner: intro + live stats + New Academic Year CTA ── */}
-          <div style={{
+          <div className="hero-card" style={{
             position: 'relative', overflow: 'hidden', marginBottom: 22, borderRadius: 20, padding: 24,
-            background: dark ? 'linear-gradient(135deg,#1b1f33,#141726 60%,#181c30)' : 'linear-gradient(135deg,#eef0ff,#f7f8ff 60%,#ffedd5)',
-            border: `1px solid ${dark ? '#2a2f4a' : '#e0e4ff'}`,
+            background: 'var(--hero-bg)',
+            border: '1px solid var(--hero-border)',
           }}>
-            <div style={{ position: 'absolute', top: -50, right: -40, width: 220, height: 220, borderRadius: '50%', background: 'radial-gradient(circle, rgba(234, 88, 12,0.18), transparent 70%)', pointerEvents: 'none' }} />
+            <div style={{ position: 'absolute', top: -50, right: -40, width: 220, height: 220, borderRadius: '50%', background: 'var(--hero-glow)', pointerEvents: 'none' }} />
             <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 18, flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                <div style={{ width: 54, height: 54, borderRadius: 16, background: 'linear-gradient(135deg,#ea580c,#9a3412)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 10px 24px rgba(234, 88, 12,0.4)' }}>
+                <div style={{ width: 54, height: 54, borderRadius: 16, background: 'linear-gradient(135deg,#c2410c,#7c2d12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 10px 24px rgba(194, 65, 12,0.4)' }}>
                   <Calendar size={24} color="#fff" />
                 </div>
                 <div>
@@ -2243,8 +2243,8 @@ export default function AdminAssessments() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                 {/* Live stats */}
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <div style={{ padding: '8px 14px', borderRadius: 12, background: dark ? 'rgba(234, 88, 12,0.12)' : '#fff', border: `1px solid ${dark ? '#2a2f4a' : '#e0e4ff'}`, textAlign: 'center', minWidth: 64 }}>
-                    <div style={{ fontSize: 18, fontWeight: 800, color: '#ea580c', lineHeight: 1.1 }}>{academicYears.length}</div>
+                  <div style={{ padding: '8px 14px', borderRadius: 12, background: dark ? 'rgba(194, 65, 12,0.12)' : '#fff', border: `1px solid ${dark ? '#4a2818' : '#fdba74'}`, textAlign: 'center', minWidth: 64 }}>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: '#c2410c', lineHeight: 1.1 }}>{academicYears.length}</div>
                     <div style={{ fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: dark ? '#7b839a' : '#9ca3af' }}>Years</div>
                   </div>
                   <div style={{ padding: '8px 14px', borderRadius: 12, background: dark ? 'rgba(16,185,129,0.1)' : '#fff', border: `1px solid ${dark ? '#1f3a34' : '#d1fae5'}`, textAlign: 'center', minWidth: 90 }}>
@@ -2266,8 +2266,8 @@ export default function AdminAssessments() {
                   onClick={() => setShowYearModal(true)}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 8, padding: '12px 20px', borderRadius: 13, border: 'none',
-                    background: 'linear-gradient(135deg,#ea580c,#9a3412)', color: '#fff', fontSize: 13.5, fontWeight: 800,
-                    cursor: 'pointer', boxShadow: '0 8px 22px rgba(234, 88, 12,0.4)',
+                    background: 'linear-gradient(135deg,#c2410c,#7c2d12)', color: '#fff', fontSize: 13.5, fontWeight: 800,
+                    cursor: 'pointer', boxShadow: '0 8px 22px rgba(194, 65, 12,0.4)',
                   }}
                 >
                   <span style={{ width: 22, height: 22, borderRadius: 7, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -2294,7 +2294,7 @@ export default function AdminAssessments() {
             </div>
           ) : academicYears.length === 0 ? (
             <div style={{ ...card, textAlign: 'center', padding: 60 }}>
-              <div style={{ width: 64, height: 64, borderRadius: 20, background: 'linear-gradient(135deg,#ea580c,#9a3412)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <div style={{ width: 64, height: 64, borderRadius: 20, background: 'linear-gradient(135deg,#c2410c,#7c2d12)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
                 <Calendar size={28} color="#fff" />
               </div>
               <p style={{ color: dark ? '#e8ecf4' : '#131313', fontWeight: 800, fontSize: 16, margin: '0 0 6px' }}>No academic years yet</p>
@@ -2302,7 +2302,7 @@ export default function AdminAssessments() {
               <button
                 className="ay-new-btn"
                 onClick={() => setShowYearModal(true)}
-                style={{ padding: '10px 22px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg,#ea580c,#9a3412)', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer', boxShadow: '0 8px 20px rgba(234, 88, 12,0.35)' }}
+                style={{ padding: '10px 22px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg,#c2410c,#7c2d12)', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer', boxShadow: '0 8px 20px rgba(194, 65, 12,0.35)' }}
               >
                 <Plus size={14} style={{ verticalAlign: 'middle', marginRight: 6 }} />New Academic Year
               </button>
@@ -2318,30 +2318,30 @@ export default function AdminAssessments() {
                     className={`ay-year-card${y.is_active ? ' ay-year-card--active' : ''}`}
                     style={{
                       padding: 18, borderRadius: 16,
-                      border: `1.5px solid ${y.is_active ? '#ea580c' : (dark ? '#333333' : '#e5e7eb')}`,
+                      border: `1.5px solid ${y.is_active ? '#c2410c' : (dark ? '#333333' : '#e5e7eb')}`,
                       background: y.is_active
-                        ? (dark ? 'linear-gradient(160deg,rgba(234, 88, 12,0.14),rgba(234, 88, 12,0.03))' : 'linear-gradient(160deg,#eef0ff,#fff)')
+                        ? (dark ? 'linear-gradient(160deg,rgba(194, 65, 12,0.14),rgba(194, 65, 12,0.03))' : 'linear-gradient(160deg,#eef0ff,#fff)')
                         : (dark ? '#171717' : '#fff'),
                     }}
                   >
                     {y.is_active && (
-                      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg,#ea580c,#f97316,#ea580c)' }} />
+                      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg,#c2410c,#ea580c,#c2410c)' }} />
                     )}
 
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, marginBottom: 14 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
                         <div style={{
                           width: 40, height: 40, borderRadius: 12, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          background: y.is_active ? 'linear-gradient(135deg,#ea580c,#9a3412)' : (dark ? '#1f1f1f' : '#f3f4f6'),
+                          background: y.is_active ? 'linear-gradient(135deg,#c2410c,#7c2d12)' : (dark ? '#1f1f1f' : '#f3f4f6'),
                         }}>
                           <Calendar size={17} color={y.is_active ? '#fff' : (dark ? '#7b839a' : '#9ca3af')} />
                         </div>
                         <div>
                           <div style={{ fontSize: 16, fontWeight: 800, color: dark ? '#f1f5f9' : '#131313' }}>{y.name}</div>
                           {y.is_active ? (
-                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 2, padding: '2px 8px', borderRadius: 999, background: 'rgba(234, 88, 12,0.15)' }}>
-                              <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#ea580c' }} />
-                              <span style={{ fontSize: 10, fontWeight: 800, color: '#ea580c', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Current / Active</span>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 2, padding: '2px 8px', borderRadius: 999, background: 'rgba(194, 65, 12,0.15)' }}>
+                              <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#c2410c' }} />
+                              <span style={{ fontSize: 10, fontWeight: 800, color: '#c2410c', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Current / Active</span>
                             </div>
                           ) : (
                             <div style={{ fontSize: 11, color: dark ? '#7b839a' : '#9ca3af', marginTop: 2 }}>
@@ -2357,7 +2357,7 @@ export default function AdminAssessments() {
                             className="ay-icon-btn"
                             onClick={() => activateAcademicYear(y.id || y._id, y.name)}
                             title={`Set ${y.name} as the active academic year`}
-                            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 9, border: 'none', background: '#ea580c', color: '#fff', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', boxShadow: '0 3px 10px rgba(234, 88, 12,0.35)' }}
+                            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 9, border: 'none', background: '#c2410c', color: '#fff', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', boxShadow: '0 3px 10px rgba(194, 65, 12,0.35)' }}
                           >
                             <CheckCircle2 size={13} /> Set Active
                           </button>
@@ -2444,7 +2444,7 @@ export default function AdminAssessments() {
                   boxShadow: '0 40px 90px rgba(6,10,20,0.5)', animation: 'ayModalIn 0.22s cubic-bezier(.22,1,.36,1)',
                 }}>
                   {/* Gradient header */}
-                  <div style={{ position: 'relative', overflow: 'hidden', padding: '26px 28px 22px', background: 'linear-gradient(135deg,#9a3412,#ea580c 60%,#f97316)' }}>
+                  <div style={{ position: 'relative', overflow: 'hidden', padding: '26px 28px 22px', background: 'linear-gradient(135deg,#7c2d12,#c2410c 60%,#ea580c)' }}>
                     <div style={{ position: 'absolute', top: -30, right: -30, width: 140, height: 140, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,0.16), transparent 70%)' }} />
                     <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 13 }}>
                       <div style={{ width: 44, height: 44, borderRadius: 13, background: 'rgba(255,255,255,0.16)', border: '1px solid rgba(255,255,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, backdropFilter: 'blur(6px)' }}>
@@ -2492,7 +2492,7 @@ export default function AdminAssessments() {
                     </p>
 
                     <div style={{ marginTop: 18, padding: '12px 14px', borderRadius: 12, background: dark ? '#1f1f1f' : '#f0f9ff', border: `1px solid ${dark ? '#333333' : '#bae6fd'}`, display: 'flex', gap: 9, alignItems: 'flex-start' }}>
-                      <Sparkles size={14} color="#ea580c" style={{ flexShrink: 0, marginTop: 1 }} />
+                      <Sparkles size={14} color="#c2410c" style={{ flexShrink: 0, marginTop: 1 }} />
                       <p style={{ margin: 0, fontSize: 11.5, color: dark ? '#9aa2c0' : '#0369a1', lineHeight: 1.6 }}>
                         New years start with every term open and inactive — nothing changes for teachers until you set it active.
                       </p>
@@ -2511,11 +2511,11 @@ export default function AdminAssessments() {
                         disabled={!formatOk || duplicate || academicYearBusy}
                         style={{
                           flex: 2, padding: '12px', borderRadius: 12, border: 'none',
-                          background: (!formatOk || duplicate || academicYearBusy) ? (dark ? '#333333' : '#e5e7eb') : 'linear-gradient(135deg,#ea580c,#9a3412)',
+                          background: (!formatOk || duplicate || academicYearBusy) ? (dark ? '#333333' : '#e5e7eb') : 'linear-gradient(135deg,#c2410c,#7c2d12)',
                           color: (!formatOk || duplicate || academicYearBusy) ? (dark ? '#4a5568' : '#9ca3af') : '#fff',
                           fontSize: 13, fontWeight: 800,
                           cursor: (!formatOk || duplicate || academicYearBusy) ? 'not-allowed' : 'pointer',
-                          boxShadow: (!formatOk || duplicate || academicYearBusy) ? 'none' : '0 8px 20px rgba(234, 88, 12,0.4)',
+                          boxShadow: (!formatOk || duplicate || academicYearBusy) ? 'none' : '0 8px 20px rgba(194, 65, 12,0.4)',
                           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
                         }}
                       >
@@ -2641,10 +2641,10 @@ export default function AdminAssessments() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                         <div style={{
                           width: 44, height: 44, borderRadius: '50%', flexShrink: 0,
-                          background: t.unassigned ? (dark ? '#2a2818' : '#fef3c7') : 'linear-gradient(135deg,#ea580c,#9a3412)',
+                          background: t.unassigned ? (dark ? '#2a2818' : '#fef3c7') : 'linear-gradient(135deg,#c2410c,#7c2d12)',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           color: t.unassigned ? '#f59e0b' : '#fff', fontWeight: 800, fontSize: 14,
-                          boxShadow: t.unassigned ? 'none' : '0 6px 16px color-mix(in srgb, #ea580c 40%, transparent)',
+                          boxShadow: t.unassigned ? 'none' : '0 6px 16px color-mix(in srgb, #c2410c 40%, transparent)',
                           transition: 'transform 0.3s cubic-bezier(.34,1.56,.64,1)',
                         }}>
                           {t.unassigned ? <Users size={18} /> : initials(t.name)}
@@ -2699,9 +2699,9 @@ export default function AdminAssessments() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                           <div style={{
                             width: 44, height: 44, borderRadius: 14, flexShrink: 0,
-                            background: 'linear-gradient(135deg,#ea580c,#9a3412)', display: 'flex',
+                            background: 'linear-gradient(135deg,#c2410c,#7c2d12)', display: 'flex',
                             alignItems: 'center', justifyContent: 'center', color: '#fff',
-                            boxShadow: '0 6px 16px color-mix(in srgb, #ea580c 40%, transparent)',
+                            boxShadow: '0 6px 16px color-mix(in srgb, #c2410c 40%, transparent)',
                           }}>
                             <BookOpen size={19} />
                           </div>
@@ -2758,7 +2758,7 @@ export default function AdminAssessments() {
                   <div style={{ padding: '22px 26px 0', position: 'sticky', top: 0, background: dark ? '#171717' : '#fff', zIndex: 2 }}>
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <div style={{ width: 42, height: 42, borderRadius: 13, flexShrink: 0, background: 'linear-gradient(135deg,#ea580c,#9a3412)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+                        <div style={{ width: 42, height: 42, borderRadius: 13, flexShrink: 0, background: 'linear-gradient(135deg,#c2410c,#7c2d12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
                           <BookOpen size={18} />
                         </div>
                         <div>
@@ -2814,7 +2814,7 @@ export default function AdminAssessments() {
                       </div>
                     ) : (!viewingSubmission || viewingSubmissionLoading || (viewingSubmission.assessment?._id || viewingSubmission.assessment?.id) !== primary?._id) ? (
                       <div style={{ textAlign: 'center', padding: '48px 20px' }}>
-                        <div style={{ width: 36, height: 36, borderRadius: '50%', border: '3px solid #ea580c', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
+                        <div style={{ width: 36, height: 36, borderRadius: '50%', border: '3px solid #c2410c', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
                         <p style={{ color: dark ? '#7b839a' : '#9ca3af' }}>Loading submission…</p>
                       </div>
                     ) : (() => {
@@ -2862,7 +2862,7 @@ export default function AdminAssessments() {
                                         {label}
                                         {key && (
                                           submissionSortKey === key
-                                            ? (submissionSortDir === 'desc' ? <ChevronDown size={12} color="#ea580c" /> : <ChevronRight size={12} color="#ea580c" style={{ transform: 'rotate(-90deg)' }} />)
+                                            ? (submissionSortDir === 'desc' ? <ChevronDown size={12} color="#c2410c" /> : <ChevronRight size={12} color="#c2410c" style={{ transform: 'rotate(-90deg)' }} />)
                                             : <ChevronDown size={12} style={{ opacity: 0.25 }} />
                                         )}
                                       </span>
@@ -2949,7 +2949,7 @@ export default function AdminAssessments() {
         <div style={{ animation: 'fadeUp 0.3s ease' }}>
           <div className="no-print" style={{ ...card, marginBottom: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
-              <div style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg,#ea580c,#9a3412)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <div style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg,#c2410c,#7c2d12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <Sparkles size={16} color="#fff" />
               </div>
               <div>
@@ -2965,20 +2965,20 @@ export default function AdminAssessments() {
               ].map(({ key, label, icon: Icon, desc }) => (
                 <button key={key} className="rt-card" onClick={() => { setReportType(key); setReportData(null); }} style={{
                   display: 'flex', alignItems: 'center', gap: 10, padding: '13px 18px', borderRadius: 12, cursor: 'pointer',
-                  border: `2px solid ${reportType === key ? '#ea580c' : (dark ? '#333333' : '#e5e7eb')}`,
-                  background: reportType === key ? 'rgba(234, 88, 12,0.08)' : (dark ? '#1f1f1f' : '#f9fafb'),
-                  boxShadow: reportType === key ? '0 4px 14px rgba(234, 88, 12,0.15)' : 'none',
+                  border: `2px solid ${reportType === key ? '#c2410c' : (dark ? '#333333' : '#e5e7eb')}`,
+                  background: reportType === key ? 'rgba(194, 65, 12,0.08)' : (dark ? '#1f1f1f' : '#f9fafb'),
+                  boxShadow: reportType === key ? '0 4px 14px rgba(194, 65, 12,0.15)' : 'none',
                   flex: 1, minWidth: 170,
                 }}>
-                  <div className="rt-icon" style={{ width: 38, height: 38, borderRadius: 10, background: reportType === key ? 'linear-gradient(135deg,#ea580c,#9a3412)' : (dark ? '#333333' : '#e5e7eb'), display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <div className="rt-icon" style={{ width: 38, height: 38, borderRadius: 10, background: reportType === key ? 'linear-gradient(135deg,#c2410c,#7c2d12)' : (dark ? '#333333' : '#e5e7eb'), display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <Icon size={18} color={reportType === key ? '#fff' : (dark ? '#7b839a' : '#9ca3af')} />
                   </div>
                   <div style={{ textAlign: 'left' }}>
-                    <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: reportType === key ? '#ea580c' : (dark ? '#e8ecf4' : '#131313') }}>{label}</p>
+                    <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: reportType === key ? '#c2410c' : (dark ? '#e8ecf4' : '#131313') }}>{label}</p>
                     <p style={{ margin: 0, fontSize: 11, color: dark ? '#7b839a' : '#9ca3af' }}>{desc}</p>
                   </div>
                   {reportType === key && (
-                    <div className="rt-check" style={{ position: 'absolute', top: -7, right: -7, width: 20, height: 20, borderRadius: '50%', background: 'linear-gradient(135deg,#ea580c,#9a3412)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(234, 88, 12,0.5)', border: `2px solid ${dark ? '#171717' : '#fff'}` }}>
+                    <div className="rt-check" style={{ position: 'absolute', top: -7, right: -7, width: 20, height: 20, borderRadius: '50%', background: 'linear-gradient(135deg,#c2410c,#7c2d12)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(194, 65, 12,0.5)', border: `2px solid ${dark ? '#171717' : '#fff'}` }}>
                       <CheckCircle2 size={12} color="#fff" />
                     </div>
                   )}
@@ -3054,9 +3054,9 @@ export default function AdminAssessments() {
                             {reportFilter.studentIds.map(id => {
                               const st = students.find(s => (s._id || s.id) === id);
                               return st ? (
-                                <span key={id} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 6, background: 'rgba(234, 88, 12,0.12)', border: '1px solid rgba(234, 88, 12,0.25)', fontSize: 11, color: '#ea580c', fontWeight: 600 }}>
+                                <span key={id} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 6, background: 'rgba(194, 65, 12,0.12)', border: '1px solid rgba(194, 65, 12,0.25)', fontSize: 11, color: '#c2410c', fontWeight: 600 }}>
                                   {st.name}
-                                  <button onClick={() => setReportFilter(f => ({ ...f, studentIds: f.studentIds.filter(x => x !== id) }))} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0, color: '#ea580c' }}>×</button>
+                                  <button onClick={() => setReportFilter(f => ({ ...f, studentIds: f.studentIds.filter(x => x !== id) }))} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 0, color: '#c2410c' }}>×</button>
                                 </span>
                               ) : null;
                             })}
@@ -3074,9 +3074,9 @@ export default function AdminAssessments() {
                         "which term, in which year" for the whole page. ── */}
                     <div style={{
                       display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', borderRadius: 12,
-                      background: dark ? 'rgba(234, 88, 12,0.08)' : '#f5f6ff', border: `1px solid ${dark ? 'rgba(234, 88, 12,0.25)' : '#e0e4ff'}`,
+                      background: dark ? 'rgba(194, 65, 12,0.08)' : '#fff4ea', border: `1px solid ${dark ? 'rgba(194, 65, 12,0.25)' : '#e0e4ff'}`,
                     }}>
-                      <div style={{ width: 30, height: 30, borderRadius: 9, background: 'linear-gradient(135deg,#ea580c,#9a3412)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <div style={{ width: 30, height: 30, borderRadius: 9, background: 'linear-gradient(135deg,#c2410c,#7c2d12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         <Clock size={14} color="#fff" />
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
@@ -3100,9 +3100,9 @@ export default function AdminAssessments() {
 
             <div style={{ marginTop: 18, paddingTop: 16, borderTop: `1px solid ${dark ? '#262626' : '#f1f5f9'}`, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
               {reportLoading && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderRadius: 10, background: 'rgba(234, 88, 12,0.08)', border: '1px solid rgba(234, 88, 12,0.2)' }}>
-                  <div style={{ width: 14, height: 14, border: '2px solid rgba(234, 88, 12,0.4)', borderTopColor: '#ea580c', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-                  <span style={{ fontSize: 12, color: '#ea580c', fontWeight: 600 }}>Generating report…</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderRadius: 10, background: 'rgba(194, 65, 12,0.08)', border: '1px solid rgba(194, 65, 12,0.2)' }}>
+                  <div style={{ width: 14, height: 14, border: '2px solid rgba(194, 65, 12,0.4)', borderTopColor: '#c2410c', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                  <span style={{ fontSize: 12, color: '#c2410c', fontWeight: 600 }}>Generating report…</span>
                 </div>
               )}
               {reportData && !reportLoading && (
@@ -3114,7 +3114,7 @@ export default function AdminAssessments() {
                   <button className="btn-print" onClick={() => window.print()} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 10, border: `1.5px solid ${dark ? '#333333' : '#cbd5e1'}`, background: dark ? '#1f1f1f' : '#fff', color: dark ? '#e2e8f0' : '#404040', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
                     <Printer size={14} /> Print Report
                   </button>
-                  <button className="btn-export-pdf" onClick={handleExportPdf} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#ea580c,#9a3412)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 14px rgba(234, 88, 12,0.3)' }}>
+                  <button className="btn-export-pdf" onClick={handleExportPdf} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#c2410c,#7c2d12)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 14px rgba(194, 65, 12,0.3)' }}>
                     <Download size={14} /> Export as PDF
                   </button>
                   <button className="btn-clear" onClick={() => setReportData(null)} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 10, border: `1px solid ${dark ? '#333333' : '#e5e7eb'}`, background: 'transparent', color: dark ? '#7b839a' : '#9ca3af', fontSize: 13, cursor: 'pointer' }}>
@@ -3138,7 +3138,7 @@ export default function AdminAssessments() {
         <div className="no-print" style={{ animation: 'fadeUp 0.3s ease' }}>
           <div style={{ ...card, marginBottom: 20, background: 'linear-gradient(135deg,#f9731610,#c2410c08)', borderColor: '#f9731625' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              <div style={{ width: 52, height: 52, borderRadius: 16, background: 'linear-gradient(135deg,#ea580c,#9a3412)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <div style={{ width: 52, height: 52, borderRadius: 16, background: 'linear-gradient(135deg,#c2410c,#7c2d12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <Settings size={24} color="#fff" />
               </div>
               <div>
@@ -3155,8 +3155,8 @@ export default function AdminAssessments() {
             <div style={{ position: isMobile ? 'static' : 'sticky', top: 20 }}>
               <div style={{ ...card, marginBottom: 12 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
-                  <Eye size={14} color="#ea580c" />
-                  <span style={{ fontSize: 12, fontWeight: 700, color: '#ea580c', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Live Preview</span>
+                  <Eye size={14} color="#c2410c" />
+                  <span style={{ fontSize: 12, fontWeight: 700, color: '#c2410c', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Live Preview</span>
                 </div>
                 <ReportHeaderPreview config={reportConfig} />
               </div>
@@ -3176,7 +3176,7 @@ export default function AdminAssessments() {
           <div style={{ width: 560, maxWidth: '100%', borderRadius: 22, background: dark ? '#171717' : '#fff', border: `1px solid ${dark ? '#1e2535' : '#e5e7eb'}`, padding: isMobile ? 18 : 30, boxShadow: '0 32px 80px rgba(0,0,0,0.4)', maxHeight: '90vh', overflowY: 'auto' }}>
             {/* Modal header */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 22 }}>
-              <div style={{ width: 42, height: 42, borderRadius: 12, background: 'linear-gradient(135deg,#ea580c,#9a3412)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: 42, height: 42, borderRadius: 12, background: 'linear-gradient(135deg,#c2410c,#7c2d12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <BookOpen size={18} color="#fff" />
               </div>
               <div style={{ flex: 1 }}>
@@ -3242,7 +3242,7 @@ export default function AdminAssessments() {
                 <label style={{ ...labelStyle, marginBottom: 6 }}>
                   Assign to Classes
                   {courseForm.class_ids.length > 0 && (
-                    <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: 'rgba(234, 88, 12,0.10)', color: '#ea580c', border: '1px solid rgba(234, 88, 12,0.25)' }}>
+                    <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: 'rgba(194, 65, 12,0.10)', color: '#c2410c', border: '1px solid rgba(194, 65, 12,0.25)' }}>
                       {courseForm.class_ids.length} selected
                     </span>
                   )}
@@ -3276,9 +3276,9 @@ export default function AdminAssessments() {
 
             {/* Summary badge when multiple classes selected */}
             {courseForm.class_ids.length > 1 && (
-              <div style={{ marginTop: 14, padding: '10px 14px', borderRadius: 10, background: 'rgba(234, 88, 12,0.06)', border: '1px solid rgba(234, 88, 12,0.18)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <CheckCircle2 size={14} color="#ea580c" />
-                <span style={{ fontSize: 12, color: '#ea580c', fontWeight: 600 }}>
+              <div style={{ marginTop: 14, padding: '10px 14px', borderRadius: 10, background: 'rgba(194, 65, 12,0.06)', border: '1px solid rgba(194, 65, 12,0.18)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <CheckCircle2 size={14} color="#c2410c" />
+                <span style={{ fontSize: 12, color: '#c2410c', fontWeight: 600 }}>
                   This module will be assigned to {courseForm.class_ids.length} classes at once.
                 </span>
               </div>
@@ -3287,7 +3287,7 @@ export default function AdminAssessments() {
             {/* Actions */}
             <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
               <button onClick={() => setShowCourseModal(false)} style={{ flex: 1, padding: '11px', borderRadius: 10, border: `1px solid ${dark ? '#333333' : '#e5e7eb'}`, background: dark ? '#1f1f1f' : '#f9fafb', color: dark ? '#94a3b8' : '#6b7280', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
-              <button onClick={saveCourse} style={{ flex: 2, padding: '11px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#ea580c,#9a3412)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 14px rgba(234, 88, 12,0.35)' }}>
+              <button onClick={saveCourse} style={{ flex: 2, padding: '11px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#c2410c,#7c2d12)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 14px rgba(194, 65, 12,0.35)' }}>
                 {editingCourse ? 'Save Changes' : 'Create Module'}
               </button>
             </div>
@@ -3328,7 +3328,7 @@ export default function AdminAssessments() {
    REPORT HEADER PREVIEW
 ══════════════════════════════════════════════════════════ */
 function ReportHeaderPreview({ config }) {
-  const pc = config.primaryColor || '#ea580c';
+  const pc = config.primaryColor || '#c2410c';
   return (
     <div style={{ fontFamily: 'Arial, sans-serif', fontSize: 8, color: '#1a1a2e', border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
       <div style={{ padding: '6px 10px', background: '#f8f9fa', borderBottom: '1px solid #dee2e6', display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 6, alignItems: 'start' }}>
@@ -3568,7 +3568,7 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
   const isAnnualView  = !selectedTerm;
   const selTermIdx    = selectedTerm ? TERMS.indexOf(selectedTerm) : null;
   const termShortLabel = (t) => (TERMS.indexOf(t) === 0 ? '1ST TERM' : TERMS.indexOf(t) === 1 ? '2ND TERM' : '3RD TERM');
-  const pc = config?.primaryColor || '#ea580c';
+  const pc = config?.primaryColor || '#c2410c';
   const reportDate = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
 
   const courseMap = new Map();
@@ -4022,11 +4022,11 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
                   <td style={{ ...cell, fontSize: fz(6) }} />
                   <td style={{ ...cell, fontSize: fz(6) }} />
                   <td style={{ ...cell, fontSize: fz(6) }} />
-                  <td style={{ ...hCell, fontSize: fz(6), color: tr_ ? '#ea580c' : '#9ca3af' }}>{posLabel}</td>
+                  <td style={{ ...hCell, fontSize: fz(6), color: tr_ ? '#c2410c' : '#9ca3af' }}>{posLabel}</td>
                 </Fragment>
               );
             })}
-            <td colSpan={3} style={{ ...hCell, background: '#b0c8dc', fontSize: fz(7), fontWeight: 900, color: finalRankEntry?.rank ? '#ea580c' : '#9ca3af' }}>
+            <td colSpan={3} style={{ ...hCell, background: '#b0c8dc', fontSize: fz(7), fontWeight: 900, color: finalRankEntry?.rank ? '#c2410c' : '#9ca3af' }}>
               {finalRankEntry?.rank ? `${finalRankEntry.rank}/${finalRankEntry.total}` : '—'}
             </td>
           </tr>

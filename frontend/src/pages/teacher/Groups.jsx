@@ -56,8 +56,8 @@ function timeAgo(ts) {
 }
 
 const COLORS = [
-  ['#ea580c','#c2410c'], ['#059669','#0d9488'], ['#d97706','#b45309'],
-  ['#dc2626','#b91c1c'], ['#c2410c','#9a3412'], ['#0284c7','#0369a1'],
+  ['#c2410c','#9a3412'], ['#059669','#0d9488'], ['#d97706','#b45309'],
+  ['#dc2626','#b91c1c'], ['#9a3412','#7c2d12'], ['#0284c7','#0369a1'],
 ];
 function groupColor(id) {
   const idx = id ? parseInt(String(id).slice(-2), 16) % COLORS.length : 0;
@@ -66,7 +66,7 @@ function groupColor(id) {
 
 /* Distinct per-student accent so received bubbles from different students
    never look interchangeable with each other or with "mine"/teacher bubbles. */
-const STUDENT_BUBBLE_COLORS = ['#0ea5e9', '#059669', '#d97706', '#db2777', '#ea580c', '#e11d48', '#0891b2', '#65a30d'];
+const STUDENT_BUBBLE_COLORS = ['#0ea5e9', '#059669', '#d97706', '#db2777', '#c2410c', '#e11d48', '#0891b2', '#65a30d'];
 function studentColor(seed) {
   const s = String(seed || '');
   let hash = 0;
@@ -113,7 +113,7 @@ function OwnerBadge({ isOwner }) {
     </span>
   );
   return (
-    <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ background: 'rgba(234, 88, 12,0.12)', color: '#ea580c' }}>
+    <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ background: 'rgba(194, 65, 12,0.12)', color: '#c2410c' }}>
       <Crown className="w-2.5 h-2.5" /> Your group
     </span>
   );
@@ -261,7 +261,7 @@ function CreateGroupPanel({ onClose, onCreated }) {
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between px-5 py-4 flex-shrink-0"
-        style={{ background: 'linear-gradient(135deg, #431407 0%, #7c2d12 40%, #9a3412 100%)' }}>
+        style={{ background: 'linear-gradient(135deg, #2a0c03 0%, #431407 40%, #7c2d12 100%)' }}>
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
             <Users className="w-4 h-4 text-white" />
@@ -300,7 +300,7 @@ function CreateGroupPanel({ onClose, onCreated }) {
               <label className="text-[11px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-secondary)' }}>Students *</label>
               {students.length > 0 && (
                 <button onClick={() => { if (selected.size === selectableStudents.length) { setSelected(new Set()); setTeamLeaderId(''); } else setSelected(new Set(selectableStudents.map(s => s.id))); }}
-                  className="text-xs font-semibold" style={{ color: '#ea580c' }}>
+                  className="text-xs font-semibold" style={{ color: '#c2410c' }}>
                   {selected.size === selectableStudents.length && selectableStudents.length > 0 ? 'Deselect all' : 'Select all'}
                 </button>
               )}
@@ -321,11 +321,11 @@ function CreateGroupPanel({ onClose, onCreated }) {
                   const elsewhere = busyElsewhere.get(s.id);
                   return (
                     <label key={s.id} className={`flex items-center gap-3 px-3 py-2.5 transition-all ${elsewhere ? 'cursor-not-allowed opacity-55' : 'cursor-pointer hover:opacity-80'}`}
-                      style={{ borderBottom: '1px solid var(--card-border)', background: selected.has(s.id) ? 'rgba(234, 88, 12,0.07)' : undefined }}>
+                      style={{ borderBottom: '1px solid var(--card-border)', background: selected.has(s.id) ? 'rgba(194, 65, 12,0.07)' : undefined }}>
                       <div className="relative flex-shrink-0">
                         <input type="checkbox" checked={selected.has(s.id)} disabled={!!elsewhere} onChange={() => toggleStudent(s.id)} className="sr-only" />
                         <div className="w-[18px] h-[18px] rounded-[5px] flex items-center justify-center transition-all"
-                          style={{ background: selected.has(s.id) ? 'linear-gradient(135deg, #ea580c, #c2410c)' : 'transparent', border: selected.has(s.id) ? 'none' : '1.5px solid var(--card-border)' }}>
+                          style={{ background: selected.has(s.id) ? 'linear-gradient(135deg, #c2410c, #9a3412)' : 'transparent', border: selected.has(s.id) ? 'none' : '1.5px solid var(--card-border)' }}>
                           {selected.has(s.id) && <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>}
                         </div>
                       </div>
@@ -344,7 +344,7 @@ function CreateGroupPanel({ onClose, onCreated }) {
                 })}
               </div>
             )}
-            {selected.size > 0 && <p className="text-xs mt-2 font-semibold" style={{ color: '#ea580c' }}>{selected.size} selected</p>}
+            {selected.size > 0 && <p className="text-xs mt-2 font-semibold" style={{ color: '#c2410c' }}>{selected.size} selected</p>}
           </div>
         )}
 
@@ -372,7 +372,7 @@ function CreateGroupPanel({ onClose, onCreated }) {
         <button onClick={handleSubmit}
           disabled={saving || !form.name || !form.classId || selected.size === 0 || !teamLeaderId}
           className="w-full py-2.5 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 transition-all disabled:opacity-40 active:scale-95"
-          style={{ background: 'linear-gradient(135deg, #ea580c, #c2410c)' }}>
+          style={{ background: 'linear-gradient(135deg, #c2410c, #9a3412)' }}>
           {saving && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
           Create Group
         </button>
@@ -384,7 +384,7 @@ function CreateGroupPanel({ onClose, onCreated }) {
 /* ── Voice note playback bubble (teacher view) — waveform + seek, more
    polished than the plain progress-bar it replaces: glowing play control,
    click-to-seek animated bars, tabular-nums duration. ─────────────────── */
-function TeacherVoiceBubble({ url, duration, isMine, accent = '#ea580c' }) {
+function TeacherVoiceBubble({ url, duration, isMine, accent = '#c2410c' }) {
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const audioRef = useRef(null);
@@ -478,7 +478,7 @@ function MembersModal({ group, onClose }) {
     >
       <div onClick={e => e.stopPropagation()} className="fast-modal-sheet" style={{ maxWidth: 400 }}>
         {/* Header */}
-        <div style={{ background: 'linear-gradient(135deg, #431407 0%, #7c2d12 40%, #9a3412 100%)', padding: '18px 20px' }}>
+        <div style={{ background: 'linear-gradient(135deg, #2a0c03 0%, #431407 40%, #7c2d12 100%)', padding: '18px 20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: '#fff', fontSize: 13 }}>
@@ -537,7 +537,7 @@ function MembersModal({ group, onClose }) {
                   className="member-dm-btn"
                   style={{
                     width: 30, height: 30, borderRadius: '50%', flexShrink: 0, border: 'none', cursor: 'pointer',
-                    background: 'rgba(194, 65, 12,0.12)', color: '#c2410c',
+                    background: 'rgba(154, 52, 18,0.12)', color: '#9a3412',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     transition: 'transform 160ms ease, background 160ms ease, box-shadow 160ms ease',
                   }}>
@@ -552,19 +552,19 @@ function MembersModal({ group, onClose }) {
             <div style={{
               display: 'flex', alignItems: 'center', gap: 12,
               padding: '10px 12px', borderRadius: 14, marginBottom: 6,
-              background: 'rgba(234, 88, 12,0.06)',
-              border: '1.5px solid rgba(234, 88, 12,0.2)',
+              background: 'rgba(194, 65, 12,0.06)',
+              border: '1.5px solid rgba(194, 65, 12,0.2)',
               animation: 'teacherMemberSlideIn 260ms ease both',
               animationDelay: `${members.length * 40}ms`,
             }}>
-              <div style={{ width: 42, height: 42, borderRadius: '50%', flexShrink: 0, background: 'linear-gradient(135deg, #ea580c, #c2410c)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 15, boxShadow: '0 4px 14px rgba(234, 88, 12,0.4)' }}>
+              <div style={{ width: 42, height: 42, borderRadius: '50%', flexShrink: 0, background: 'linear-gradient(135deg, #c2410c, #9a3412)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 15, boxShadow: '0 4px 14px rgba(194, 65, 12,0.4)' }}>
                 {group.teacher_name[0].toUpperCase()}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--text-primary)' }}>{group.teacher_name}</div>
-                <div style={{ fontSize: 11, fontWeight: 600, color: '#ea580c', marginTop: 2 }}>{group.is_owner ? 'You · Teacher' : 'Teacher (owner)'}</div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#c2410c', marginTop: 2 }}>{group.is_owner ? 'You · Teacher' : 'Teacher (owner)'}</div>
               </div>
-              <div style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20, background: 'rgba(234, 88, 12,0.12)', color: '#ea580c' }}>T</div>
+              <div style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20, background: 'rgba(194, 65, 12,0.12)', color: '#c2410c' }}>T</div>
             </div>
           )}
         </div>
@@ -576,9 +576,9 @@ function MembersModal({ group, onClose }) {
           to   { opacity: 1; transform: translateX(0); }
         }
         .member-dm-btn:hover {
-          background: rgba(194, 65, 12,0.22) !important;
+          background: rgba(154, 52, 18,0.22) !important;
           transform: scale(1.08);
-          box-shadow: 0 3px 10px rgba(194, 65, 12,0.3);
+          box-shadow: 0 3px 10px rgba(154, 52, 18,0.3);
         }
         .member-dm-btn:active { transform: scale(0.94); }
       `}</style>
@@ -687,7 +687,7 @@ function ManageMembersModal({ group, onClose, onChanged }) {
       <div onClick={e => e.stopPropagation()} className="fast-modal-sheet" style={{ maxWidth: 460, maxHeight: 'min(88vh, calc(100vh - 64px))' }}>
         <div style={{ height: 4, background: `linear-gradient(90deg, ${a}, ${b})`, flexShrink: 0 }} />
         {/* Header */}
-        <div style={{ background: 'linear-gradient(135deg, #431407 0%, #7c2d12 40%, #9a3412 100%)', padding: '18px 20px' }}>
+        <div style={{ background: 'linear-gradient(135deg, #2a0c03 0%, #431407 40%, #7c2d12 100%)', padding: '18px 20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1286,7 +1286,7 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onEnded, onMembersCh
       {/* Hidden file pickers for shared photos/files */}
       <input ref={fileInputRef} type="file" onChange={handleFilePick} style={{ display: 'none' }} />
       <input ref={imageInputRef} type="file" accept="image/*" onChange={handleFilePick} style={{ display: 'none' }} />
-      <div className="tg-viewer-header" style={{ background: 'linear-gradient(135deg, #431407 0%, #7c2d12 40%, #9a3412 100%)', borderRadius: '16px 16px 0 0', padding: '12px 16px', flexShrink: 0 }}>
+      <div className="tg-viewer-header" style={{ background: 'linear-gradient(135deg, #2a0c03 0%, #431407 40%, #7c2d12 100%)', borderRadius: '16px 16px 0 0', padding: '12px 16px', flexShrink: 0 }}>
         <div className="tg-header-row" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#fff', fontSize: 14, flexShrink: 0 }}>
             {(group.name || 'G').slice(0, 2).toUpperCase()}
@@ -1387,14 +1387,14 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onEnded, onMembersCh
             </div>
           );
           const isTeacherMsg = item.author_role === 'teacher';
-          const senderAccent = item.isMine ? null : isTeacherMsg ? '#c2410c' : studentColor(item.author_id || item.author_name);
+          const senderAccent = item.isMine ? null : isTeacherMsg ? '#9a3412' : studentColor(item.author_id || item.author_name);
           const bubbleBg = item.isMine
             ? `linear-gradient(135deg, ${a}, ${b})`
-            : isTeacherMsg ? 'linear-gradient(135deg, #c2410c, #9a3412)'
+            : isTeacherMsg ? 'linear-gradient(135deg, #9a3412, #7c2d12)'
             : `linear-gradient(135deg, ${senderAccent}17, ${senderAccent}0a)`;
           const bubbleColor = item.isMine || isTeacherMsg ? '#fff' : 'var(--text-primary)';
           const bubbleShadow = item.isMine ? `0 3px 12px -3px ${a}55`
-            : isTeacherMsg ? '0 3px 12px -3px rgba(194, 65, 12,0.4)'
+            : isTeacherMsg ? '0 3px 12px -3px rgba(154, 52, 18,0.4)'
             : `0 1px 6px -2px ${senderAccent}30`;
           const bubbleBorder = !item.isMine && !isTeacherMsg ? `1px solid ${senderAccent}2a` : 'none';
           const bubbleBorderLeft = !item.isMine && !isTeacherMsg && item.message_type !== 'image' ? `3px solid ${senderAccent}` : undefined;
@@ -1412,8 +1412,8 @@ function GroupViewer({ group, myId, onClose, onMessageSent, onEnded, onMembersCh
               <div style={{ maxWidth: '72%' }}>
                 {item.isFirst && !item.isMine && (
                   <div className="flex items-center gap-1.5 mb-1 ml-1">
-                    <span className="text-[11px] font-bold" style={{ color: isTeacherMsg ? '#c2410c' : 'var(--text-secondary)' }}>{item.author_name}</span>
-                    {isTeacherMsg && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: 'rgba(194, 65, 12,0.12)', color: '#c2410c' }}>Teacher</span>}
+                    <span className="text-[11px] font-bold" style={{ color: isTeacherMsg ? '#9a3412' : 'var(--text-secondary)' }}>{item.author_name}</span>
+                    {isTeacherMsg && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: 'rgba(154, 52, 18,0.12)', color: '#9a3412' }}>Teacher</span>}
                   </div>
                 )}
                 <div style={{
@@ -1919,7 +1919,7 @@ function LeaderDmPanel({ groupId, myId, peerName, onClose }) {
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', animation: 'fastModalBackdropIn 0.12s ease both' }}>
       <div className="w-full flex flex-col rounded-2xl overflow-hidden shadow-2xl" style={{ maxWidth: 440, height: '70vh', background: 'var(--card-bg)', animation: 'fastModalSheetIn 0.18s cubic-bezier(0.34,1.56,0.64,1) both' }}>
-        <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0" style={{ background: 'linear-gradient(135deg, #431407 0%, #7c2d12 40%, #9a3412 100%)' }}>
+        <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0" style={{ background: 'linear-gradient(135deg, #2a0c03 0%, #431407 40%, #7c2d12 100%)' }}>
           <div className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0" style={{ background: 'rgba(255,255,255,0.2)' }}>
             {displayName[0]?.toUpperCase() || '?'}
           </div>
@@ -1962,17 +1962,17 @@ function LeaderDmPanel({ groupId, myId, peerName, onClose }) {
                 )}
                 <div style={{ maxWidth: '78%' }}>
                   <div style={{
-                    background: isMedia ? 'transparent' : (isMine ? 'linear-gradient(135deg, #ea580c, #c2410c)' : 'linear-gradient(135deg, #f59e0b1f, #d977060f)'),
+                    background: isMedia ? 'transparent' : (isMine ? 'linear-gradient(135deg, #c2410c, #9a3412)' : 'linear-gradient(135deg, #f59e0b1f, #d977060f)'),
                     color: isMine ? '#fff' : 'var(--text-primary)',
                     padding: isMedia ? 0 : '8px 12px',
                     borderRadius: isMine ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
                     fontSize: 13.5, lineHeight: 1.45, wordBreak: 'break-word',
-                    boxShadow: isMedia ? 'none' : (isMine ? '0 3px 12px -3px rgba(234, 88, 12,0.5)' : '0 1px 6px -2px rgba(217,119,6,0.28)'),
+                    boxShadow: isMedia ? 'none' : (isMine ? '0 3px 12px -3px rgba(194, 65, 12,0.5)' : '0 1px 6px -2px rgba(217,119,6,0.28)'),
                     border: isMedia ? 'none' : (isMine ? 'none' : '1px solid rgba(217,119,6,0.18)'),
                     borderLeft: isMedia ? undefined : (isMine ? undefined : '3px solid #d97706'),
                   }}>
                     {m.message_type === 'voice'
-                      ? <TeacherVoiceBubble url={m.voice_url} duration={m.voice_duration} isMine={isMine} accent={isMine ? '#ea580c' : '#d97706'} />
+                      ? <TeacherVoiceBubble url={m.voice_url} duration={m.voice_duration} isMine={isMine} accent={isMine ? '#c2410c' : '#d97706'} />
                       : m.message_type === 'image'
                       ? <ChatImageBubble url={m.file_url} name={m.file_name} mimeType={m.mime_type} />
                       : m.message_type === 'file'
@@ -2004,7 +2004,7 @@ function LeaderDmPanel({ groupId, myId, peerName, onClose }) {
                 <img src={filePreviewUrl} alt="" style={{ width: 30, height: 30, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
               ) : (
                 <div style={{ width: 30, height: 30, borderRadius: 8, background: '#f9731620', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <AttachmentTypeIcon mimeType={selectedFile.type} style={{ width: 15, height: 15, color: '#ea580c' }} />
+                  <AttachmentTypeIcon mimeType={selectedFile.type} style={{ width: 15, height: 15, color: '#c2410c' }} />
                 </div>
               )}
               <div style={{ minWidth: 0, flex: 1 }}>
@@ -2012,14 +2012,14 @@ function LeaderDmPanel({ groupId, myId, peerName, onClose }) {
                 <div style={{ fontSize: 10.5, color: 'var(--text-secondary)' }}>{fmtFileSize(selectedFile.size)}</div>
               </div>
             </div>
-            <button onClick={sendFile} disabled={uploadingFile} style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'linear-gradient(135deg, #ea580c, #c2410c)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, opacity: uploadingFile ? 0.6 : 1 }}>
+            <button onClick={sendFile} disabled={uploadingFile} style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'linear-gradient(135deg, #c2410c, #9a3412)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, opacity: uploadingFile ? 0.6 : 1 }}>
               {uploadingFile ? <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> : <Send style={{ width: 16, height: 16 }} />}
             </button>
           </div>
         ) : recording ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderTop: '1px solid var(--card-border)', padding: '10px 14px', background: 'var(--card-bg)', flexShrink: 0 }}>
             <button onClick={cancelVoiceNote} title="Cancel" className="tg-voice-cancel-btn"><X style={{ width: 16, height: 16 }} /></button>
-            <div className="tg-rec-panel tg-rec-panel-live" style={{ '--tg-rec-accent': '#ea580c', '--tg-rec-accent-2': '#c2410c' }}>
+            <div className="tg-rec-panel tg-rec-panel-live" style={{ '--tg-rec-accent': '#c2410c', '--tg-rec-accent-2': '#9a3412' }}>
               <div className="tg-rec-dot-wrap">
                 <span className="tg-rec-dot-ring" />
                 <span className="tg-rec-dot" />
@@ -2031,7 +2031,7 @@ function LeaderDmPanel({ groupId, myId, peerName, onClose }) {
                 ))}
               </div>
             </div>
-            <button onClick={stopAndSend} title="Send" className="tg-voice-send-btn" style={{ background: 'linear-gradient(135deg, #ea580c, #c2410c)' }}>
+            <button onClick={stopAndSend} title="Send" className="tg-voice-send-btn" style={{ background: 'linear-gradient(135deg, #c2410c, #9a3412)' }}>
               <Send style={{ width: 16, height: 16 }} />
             </button>
           </div>
@@ -2044,15 +2044,15 @@ function LeaderDmPanel({ groupId, myId, peerName, onClose }) {
             <div className="tg-rec-panel" style={{ border: '1.5px solid #f9731640' }}>
               <button onClick={toggleAudioPreview} title={audioPlaying ? 'Pause' : 'Play'}
                 className={`tg-voice-play-btn${audioPlaying ? ' tg-voice-play-btn-active' : ''}`}
-                style={{ width: 28, height: 28, background: '#f9731620', color: '#ea580c', flexShrink: 0 }}>
+                style={{ width: 28, height: 28, background: '#f9731620', color: '#c2410c', flexShrink: 0 }}>
                 {audioPlaying ? <Pause style={{ width: 12, height: 12 }} fill="currentColor" /> : <Play style={{ width: 12, height: 12, marginLeft: 1 }} fill="currentColor" />}
               </button>
               <Waveform bars={previewBars} progress={audioDuration ? Math.min(previewTime / audioDuration, 1) : 0}
-                color="#ea580c" mutedColor="#f9731630" playing={audioPlaying} />
-              <span className="tg-rec-time" style={{ color: '#ea580c' }}>{fmtDuration(audioPlaying ? previewTime : audioDuration)}</span>
+                color="#c2410c" mutedColor="#f9731630" playing={audioPlaying} />
+              <span className="tg-rec-time" style={{ color: '#c2410c' }}>{fmtDuration(audioPlaying ? previewTime : audioDuration)}</span>
             </div>
             <button onClick={sendVoiceNote} disabled={posting} title="Send" className="tg-voice-send-btn"
-              style={{ background: 'linear-gradient(135deg, #ea580c, #c2410c)', opacity: posting ? 0.6 : 1 }}>
+              style={{ background: 'linear-gradient(135deg, #c2410c, #9a3412)', opacity: posting ? 0.6 : 1 }}>
               {posting ? <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> : <Send style={{ width: 16, height: 16 }} />}
             </button>
           </div>
@@ -2081,13 +2081,13 @@ function LeaderDmPanel({ groupId, myId, peerName, onClose }) {
             {text.trim() ? (
               <button onClick={handleSend} disabled={!text.trim() || posting}
                 className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-all active:scale-95 disabled:opacity-40"
-                style={{ background: 'linear-gradient(135deg, #ea580c, #c2410c)' }}>
+                style={{ background: 'linear-gradient(135deg, #c2410c, #9a3412)' }}>
                 <Send className="w-4 h-4 text-white" />
               </button>
             ) : (
               <button onClick={startRecording} title="Record a voice note"
                 className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-all active:scale-95"
-                style={{ background: 'linear-gradient(135deg, #ea580c, #c2410c)' }}>
+                style={{ background: 'linear-gradient(135deg, #c2410c, #9a3412)' }}>
                 <Mic className="w-4 h-4 text-white" />
               </button>
             )}
@@ -2161,15 +2161,15 @@ function OpenCollaborationPanel() {
         .oc-mesh {
           position: absolute; inset: 0 0 auto 0; height: 190px; pointer-events: none; z-index: 0;
           background:
-            radial-gradient(420px 220px at 8% -20%, rgba(234, 88, 12,0.30), transparent 62%),
-            radial-gradient(360px 200px at 92% -10%, rgba(194, 65, 12,0.22), transparent 60%),
-            radial-gradient(300px 160px at 50% 100%, rgba(194, 65, 12,0.14), transparent 65%);
+            radial-gradient(420px 220px at 8% -20%, rgba(194, 65, 12,0.30), transparent 62%),
+            radial-gradient(360px 200px at 92% -10%, rgba(154, 52, 18,0.22), transparent 60%),
+            radial-gradient(300px 160px at 50% 100%, rgba(154, 52, 18,0.14), transparent 65%);
         }
         .dark .oc-mesh {
           background:
-            radial-gradient(420px 220px at 8% -20%, rgba(234, 88, 12,0.38), transparent 62%),
-            radial-gradient(360px 200px at 92% -10%, rgba(194, 65, 12,0.30), transparent 60%),
-            radial-gradient(300px 160px at 50% 100%, rgba(194, 65, 12,0.20), transparent 65%);
+            radial-gradient(420px 220px at 8% -20%, rgba(194, 65, 12,0.38), transparent 62%),
+            radial-gradient(360px 200px at 92% -10%, rgba(154, 52, 18,0.30), transparent 60%),
+            radial-gradient(300px 160px at 50% 100%, rgba(154, 52, 18,0.20), transparent 65%);
         }
 
         .oc-header { position: relative; z-index: 1; padding: 22px 22px 16px; }
@@ -2178,12 +2178,12 @@ function OpenCollaborationPanel() {
         .oc-hero-icon {
           position: relative; flex-shrink: 0; width: 46px; height: 46px; border-radius: 15px;
           display: flex; align-items: center; justify-content: center; color: #fff;
-          background: linear-gradient(135deg, #ea580c, #9a3412);
-          box-shadow: 0 8px 20px -6px rgba(194, 65, 12,0.55);
+          background: linear-gradient(135deg, #c2410c, #7c2d12);
+          box-shadow: 0 8px 20px -6px rgba(154, 52, 18,0.55);
         }
         .oc-hero-icon-ring {
           position: absolute; inset: -5px; border-radius: 18px;
-          border: 1.5px solid rgba(249, 115, 22,0.5);
+          border: 1.5px solid rgba(234, 88, 12,0.5);
           animation: ocRingPing 2.4s cubic-bezier(0.2,0.65,0.4,1) infinite;
         }
         @keyframes ocRingPing { 0% { transform: scale(0.9); opacity: 0.9; } 100% { transform: scale(1.3); opacity: 0; } }
@@ -2195,24 +2195,24 @@ function OpenCollaborationPanel() {
           flex-shrink: 0; display: flex; align-items: center; gap: 6px;
           font-size: 11px; font-weight: 800; letter-spacing: 0.01em;
           padding: 6px 11px; border-radius: 999px; margin-top: 2px;
-          color: #ffedd5; background: linear-gradient(135deg, #ea580c, #c2410c);
-          box-shadow: 0 4px 14px -4px rgba(194, 65, 12,0.55);
+          color: #fed7aa; background: linear-gradient(135deg, #c2410c, #9a3412);
+          box-shadow: 0 4px 14px -4px rgba(154, 52, 18,0.55);
         }
-        .oc-live-count-dot { width: 6px; height: 6px; border-radius: 50%; background: #fdba74; animation: ocDotPulse 1.4s ease-in-out infinite; }
+        .oc-live-count-dot { width: 6px; height: 6px; border-radius: 50%; background: #fb923c; animation: ocDotPulse 1.4s ease-in-out infinite; }
         @keyframes ocDotPulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.45; transform: scale(0.8); } }
 
         .oc-info-card {
           display: flex; gap: 10px; align-items: flex-start;
           padding: 13px 15px; border-radius: 14px; font-size: 12.5px; line-height: 1.55;
           color: var(--text-secondary);
-          background: linear-gradient(135deg, rgba(234, 88, 12,0.09), rgba(194, 65, 12,0.05));
-          border: 1px solid rgba(234, 88, 12,0.18);
+          background: linear-gradient(135deg, rgba(194, 65, 12,0.09), rgba(154, 52, 18,0.05));
+          border: 1px solid rgba(194, 65, 12,0.18);
         }
-        .oc-info-card strong { color: #ea580c; font-weight: 800; }
+        .oc-info-card strong { color: #c2410c; font-weight: 800; }
         .oc-info-icon {
           flex-shrink: 0; width: 24px; height: 24px; border-radius: 8px; margin-top: 1px;
           display: flex; align-items: center; justify-content: center;
-          background: rgba(234, 88, 12,0.16); color: #ea580c;
+          background: rgba(194, 65, 12,0.16); color: #c2410c;
         }
 
         .oc-list { position: relative; z-index: 1; padding: 6px 14px 14px; }
@@ -2228,11 +2228,11 @@ function OpenCollaborationPanel() {
           animation: ocRowIn 0.35s cubic-bezier(0.22,1,0.36,1) both;
         }
         @keyframes ocRowIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-        .oc-row:hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--card-border) 40%, #ea580c); }
+        .oc-row:hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--card-border) 40%, #c2410c); }
         .oc-row-live {
-          border-color: rgba(234, 88, 12,0.35);
-          background: linear-gradient(135deg, rgba(234, 88, 12,0.08), rgba(194, 65, 12,0.03));
-          box-shadow: 0 10px 26px -14px rgba(194, 65, 12,0.55);
+          border-color: rgba(194, 65, 12,0.35);
+          background: linear-gradient(135deg, rgba(194, 65, 12,0.08), rgba(154, 52, 18,0.03));
+          box-shadow: 0 10px 26px -14px rgba(154, 52, 18,0.55);
         }
 
         /* Avatar — a fine 2px ring via box-shadow, not a stacked layer,
@@ -2249,18 +2249,18 @@ function OpenCollaborationPanel() {
         }
         .oc-avatar-live {
           color: #fff;
-          background: linear-gradient(160deg, #7178f5, #9a3412);
-          box-shadow: 0 0 0 2px rgba(249, 115, 22,0.55), 0 0 0 4.5px rgba(234, 88, 12,0.14), 0 3px 10px -3px rgba(154, 52, 18,0.7);
+          background: linear-gradient(160deg, #7178f5, #7c2d12);
+          box-shadow: 0 0 0 2px rgba(234, 88, 12,0.55), 0 0 0 4.5px rgba(194, 65, 12,0.14), 0 3px 10px -3px rgba(124, 45, 18,0.7);
         }
 
         .oc-row-body { flex: 1; min-width: 0; }
         .oc-row-name { font-weight: 700; font-size: 13.5px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .oc-status-line { display: flex; align-items: center; gap: 6px; margin-top: 3px; }
         .oc-status-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
-        .oc-status-dot-live { background: #f97316; box-shadow: 0 0 0 3px rgba(234, 88, 12,0.18); animation: ocDotPulse 1.4s ease-in-out infinite; }
+        .oc-status-dot-live { background: #ea580c; box-shadow: 0 0 0 3px rgba(194, 65, 12,0.18); animation: ocDotPulse 1.4s ease-in-out infinite; }
         .oc-status-dot-off { background: color-mix(in srgb, var(--text-secondary) 45%, transparent); }
         .oc-status-text { font-size: 11px; font-weight: 700; }
-        .oc-status-text-live { color: #ea580c; }
+        .oc-status-text-live { color: #c2410c; }
         .oc-status-text-off { color: var(--text-secondary); opacity: 0.75; }
         .oc-opened-at { font-size: 10.5px; color: var(--text-secondary); opacity: 0.6; margin-top: 1px; }
 
@@ -2273,8 +2273,8 @@ function OpenCollaborationPanel() {
           transition: background 0.25s ease, box-shadow 0.25s ease;
         }
         .oc-switch-on {
-          background: linear-gradient(135deg, #ea580c, #c2410c);
-          box-shadow: 0 0 0 4px rgba(234, 88, 12,0.15), 0 4px 12px -3px rgba(194, 65, 12,0.6);
+          background: linear-gradient(135deg, #c2410c, #9a3412);
+          box-shadow: 0 0 0 4px rgba(194, 65, 12,0.15), 0 4px 12px -3px rgba(154, 52, 18,0.6);
         }
         .oc-switch:disabled { opacity: 0.6; cursor: default; }
         .oc-switch-knob {
@@ -2286,7 +2286,7 @@ function OpenCollaborationPanel() {
         .oc-switch-on .oc-switch-knob { transform: translateX(20px); }
         .oc-switch-spinner {
           width: 11px; height: 11px; border-radius: 50%;
-          border: 2px solid rgba(234, 88, 12,0.25); border-top-color: #ea580c;
+          border: 2px solid rgba(194, 65, 12,0.25); border-top-color: #c2410c;
           animation: spin 0.7s linear infinite;
         }
 
@@ -2304,8 +2304,8 @@ function OpenCollaborationPanel() {
         .oc-empty-icon {
           width: 60px; height: 60px; border-radius: 18px; margin-bottom: 14px;
           display: flex; align-items: center; justify-content: center;
-          background: linear-gradient(135deg, rgba(234, 88, 12,0.14), rgba(194, 65, 12,0.08));
-          color: #ea580c;
+          background: linear-gradient(135deg, rgba(194, 65, 12,0.14), rgba(154, 52, 18,0.08));
+          color: #c2410c;
         }
         .oc-empty-title { font-weight: 800; font-size: 14px; color: var(--text-primary); margin-bottom: 3px; }
         .oc-empty-sub { font-size: 12.5px; color: var(--text-secondary); max-width: 220px; }
@@ -2559,14 +2559,14 @@ export default function TeacherGroups() {
         .tg-page input:not([type="checkbox"]):not([type="radio"]):focus,
         .tg-page select:focus,
         .tg-page textarea:focus {
-          border-color: #ea580c !important;
-          box-shadow: 0 0 0 3.5px rgba(234, 88, 12,0.15);
+          border-color: #c2410c !important;
+          box-shadow: 0 0 0 3.5px rgba(194, 65, 12,0.15);
         }
 
         /* Keyboard accessibility: visible focus-ring on interactive elements */
         .tg-page button:focus-visible,
         .tg-page a:focus-visible {
-          outline: 2px solid #ea580c;
+          outline: 2px solid #c2410c;
           outline-offset: 2px;
           border-radius: 6px;
         }
@@ -2574,9 +2574,9 @@ export default function TeacherGroups() {
         /* ── Send button micro-interaction ───────────────────────── */
         .tg-page .send-btn {
           transition: transform 0.15s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.15s ease, opacity 0.15s ease;
-          box-shadow: 0 3px 10px -3px rgba(234, 88, 12,0.5);
+          box-shadow: 0 3px 10px -3px rgba(194, 65, 12,0.5);
         }
-        .tg-page .send-btn:hover:not(:disabled) { transform: scale(1.08); box-shadow: 0 5px 16px -4px rgba(234, 88, 12,0.6); }
+        .tg-page .send-btn:hover:not(:disabled) { transform: scale(1.08); box-shadow: 0 5px 16px -4px rgba(194, 65, 12,0.6); }
         .tg-page .send-btn:active:not(:disabled) { transform: scale(0.94); }
 
         /* ── Collaboration rows ───────────────────────────────────── */
@@ -2596,8 +2596,8 @@ export default function TeacherGroups() {
         .tg-chat-wallpaper {
           background-color: var(--page-bg);
           background-image:
-            radial-gradient(560px 280px at 12% -8%, rgba(234, 88, 12,0.11), transparent 62%),
-            radial-gradient(480px 260px at 108% 8%, rgba(194, 65, 12,0.10), transparent 62%),
+            radial-gradient(560px 280px at 12% -8%, rgba(194, 65, 12,0.11), transparent 62%),
+            radial-gradient(480px 260px at 108% 8%, rgba(154, 52, 18,0.10), transparent 62%),
             radial-gradient(440px 240px at 50% 118%, rgba(219,39,119,0.07), transparent 62%),
             radial-gradient(320px 200px at 85% 85%, rgba(217,119,6,0.06), transparent 65%),
             url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23f97316' fill-opacity='0.035'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
@@ -2605,8 +2605,8 @@ export default function TeacherGroups() {
         }
         .dark .tg-chat-wallpaper {
           background-image:
-            radial-gradient(560px 280px at 12% -8%, rgba(234, 88, 12,0.20), transparent 62%),
-            radial-gradient(480px 260px at 108% 8%, rgba(194, 65, 12,0.18), transparent 62%),
+            radial-gradient(560px 280px at 12% -8%, rgba(194, 65, 12,0.20), transparent 62%),
+            radial-gradient(480px 260px at 108% 8%, rgba(154, 52, 18,0.18), transparent 62%),
             radial-gradient(440px 240px at 50% 118%, rgba(219,39,119,0.13), transparent 62%),
             radial-gradient(320px 200px at 85% 85%, rgba(217,119,6,0.11), transparent 65%),
             url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
@@ -2638,8 +2638,8 @@ export default function TeacherGroups() {
            rec dot, and a slow gradient shimmer sweeping the live bars. */
         .tg-rec-panel {
           position: relative;
-          --tg-rec-accent: #c2410c;
-          --tg-rec-accent-2: #9a3412;
+          --tg-rec-accent: #9a3412;
+          --tg-rec-accent-2: #7c2d12;
           flex: 1; display: flex; align-items: center; gap: 9px;
           background: var(--surface-100); border-radius: 22px; padding: 8px 15px;
           border: 1.5px solid color-mix(in srgb, var(--tg-rec-accent) 32%, transparent);
@@ -2724,7 +2724,7 @@ export default function TeacherGroups() {
         style={{ background: 'var(--card-bg)', borderRadius: 20, overflow: 'hidden', border: '1px solid var(--card-border)' }}>
 
         {/* Header */}
-        <div className="flex-shrink-0" style={{ background: 'linear-gradient(135deg, #7c2d12 0%, #431407 100%)', padding: '18px 16px 0' }}>
+        <div className="flex-shrink-0" style={{ background: 'linear-gradient(135deg, #431407 0%, #2a0c03 100%)', padding: '18px 16px 0' }}>
           <div className="flex items-center justify-between mb-1">
             <h2 className="text-white font-bold text-lg flex items-center gap-2">
               <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center"><Users className="w-4 h-4" /></div>
@@ -2748,7 +2748,7 @@ export default function TeacherGroups() {
               data-active={tab === 'groups'}
               className="tg-tab-btn flex-1 text-xs font-bold px-2 py-1.5 rounded-lg"
               style={tab === 'groups'
-                ? { background: 'white', color: '#7c2d12', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }
+                ? { background: 'white', color: '#431407', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }
                 : { color: 'rgba(255,255,255,0.75)' }}>
               My Groups
             </button>
@@ -2774,7 +2774,7 @@ export default function TeacherGroups() {
                 <button key={c.id} onClick={() => setFilterClass(c.id)}
                   data-active={filterClass === c.id}
                   className="tg-filter-chip flex-shrink-0 text-xs px-3 py-1.5 rounded-full font-semibold whitespace-nowrap"
-                  style={filterClass === c.id ? { background: 'linear-gradient(135deg, #7c2d12, #431407)', color: 'white' } : { background: 'var(--surface-100)', color: 'var(--text-secondary)' }}>
+                  style={filterClass === c.id ? { background: 'linear-gradient(135deg, #431407, #2a0c03)', color: 'white' } : { background: 'var(--surface-100)', color: 'var(--text-secondary)' }}>
                   {c.name}
                 </button>
               ))}
@@ -2787,13 +2787,13 @@ export default function TeacherGroups() {
               ) : groups.length === 0 ? (
                 <div className="tg-empty-state flex flex-col items-center justify-center py-20 px-6 text-center">
                   <div className="w-16 h-16 rounded-2xl mb-4 flex items-center justify-center" style={{ background: 'rgba(55,48,163,0.08)' }}>
-                    <Users className="w-8 h-8" style={{ color: '#7c2d12', opacity: 0.5 }} />
+                    <Users className="w-8 h-8" style={{ color: '#431407', opacity: 0.5 }} />
                   </div>
                   <p className="font-bold mb-1" style={{ color: 'var(--text-primary)' }}>No groups yet</p>
                   <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>Create a group to let students collaborate.</p>
                   <button onClick={() => setCreateMode(true)}
                     className="tg-pill-btn flex items-center gap-1.5 text-sm font-bold px-4 py-2 rounded-xl text-white"
-                    style={{ background: 'linear-gradient(135deg, #7c2d12, #431407)' }}>
+                    style={{ background: 'linear-gradient(135deg, #431407, #2a0c03)' }}>
                     <Plus className="w-4 h-4" /> New Group
                   </button>
                 </div>
@@ -2828,7 +2828,7 @@ export default function TeacherGroups() {
           style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
           <div className="tg-empty-state text-center px-8">
             <div className="w-20 h-20 rounded-2xl mx-auto mb-5 flex items-center justify-center" style={{ background: 'rgba(55,48,163,0.08)' }}>
-              <Users className="w-10 h-10" style={{ color: '#7c2d12', opacity: 0.6 }} />
+              <Users className="w-10 h-10" style={{ color: '#431407', opacity: 0.6 }} />
             </div>
             <h3 className="font-bold text-xl mb-2" style={{ color: 'var(--text-primary)' }}>Group Discussions</h3>
             <p className="text-sm mb-6 max-w-xs mx-auto" style={{ color: 'var(--text-secondary)' }}>
@@ -2838,7 +2838,7 @@ export default function TeacherGroups() {
             {tab === 'groups' && (
               <button onClick={() => setCreateMode(true)}
                 className="tg-pill-btn inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white"
-                style={{ background: 'linear-gradient(135deg, #7c2d12, #431407)' }}>
+                style={{ background: 'linear-gradient(135deg, #431407, #2a0c03)' }}>
                 <Plus className="w-4 h-4" /> Create First Group
               </button>
             )}

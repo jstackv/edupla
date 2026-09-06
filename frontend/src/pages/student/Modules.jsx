@@ -12,12 +12,12 @@ import {
    the --modx-accent CSS variable, so the grid reads as color-coded at a
    glance instead of a flat list of identical tiles. */
 const CATEGORY_META = {
-  'Specific modules':        { accent: '#ea580c', icon: Target,  short: 'Specific' },
+  'Specific modules':        { accent: '#c2410c', icon: Target,  short: 'Specific' },
   'General modules':         { accent: '#0ea5e9', icon: Globe2,  short: 'General' },
   'Complementary modules':   { accent: '#10b981', icon: Puzzle,  short: 'Complementary' },
   'Elective Non Examinable': { accent: '#f59e0b', icon: Compass, short: 'Elective' },
 };
-const DEFAULT_META = { accent: '#ea580c', icon: LibraryBig, short: 'Module' };
+const DEFAULT_META = { accent: '#c2410c', icon: LibraryBig, short: 'Module' };
 const getMeta = (category) => CATEGORY_META[category] || DEFAULT_META;
 
 const PIN_KEY = 'edupla_pinned_modules';
@@ -149,7 +149,7 @@ export default function StudentModules() {
                 <h2 className="font-display font-extrabold text-xl leading-tight" style={{ letterSpacing: '-0.02em' }}>
                   Your Modules
                 </h2>
-                <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.65)' }}>
+                <p className="text-xs mt-0.5 modx-hero-sub">
                   Everything you're studying this term, and who's teaching it
                 </p>
               </div>
@@ -158,32 +158,32 @@ export default function StudentModules() {
 
           <div className="flex flex-wrap gap-2.5">
             <div className="modx-hero-stat" style={{ animationDelay: '60ms' }}>
-              <Layers3 className="w-4 h-4" style={{ color: 'rgba(255,255,255,0.75)' }} />
+              <Layers3 className="w-4 h-4 modx-hero-stat-icon" />
               <div>
                 <div className="modx-hero-stat-num">{modules.length}</div>
-                <div className="text-[10px] uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.6)' }}>Modules</div>
+                <div className="text-[10px] uppercase tracking-wider modx-hero-stat-label">Modules</div>
               </div>
             </div>
             <div className="modx-hero-stat" style={{ animationDelay: '120ms' }}>
-              <GraduationCap className="w-4 h-4" style={{ color: 'rgba(255,255,255,0.75)' }} />
+              <GraduationCap className="w-4 h-4 modx-hero-stat-icon" />
               <div>
                 <div className="modx-hero-stat-num">{teacherCount}</div>
-                <div className="text-[10px] uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.6)' }}>Teachers</div>
+                <div className="text-[10px] uppercase tracking-wider modx-hero-stat-label">Teachers</div>
               </div>
             </div>
             <div className="modx-hero-stat" style={{ animationDelay: '180ms' }}>
-              <BookMarked className="w-4 h-4" style={{ color: 'rgba(255,255,255,0.75)' }} />
+              <BookMarked className="w-4 h-4 modx-hero-stat-icon" />
               <div>
                 <div className="modx-hero-stat-num">{categories.length}</div>
-                <div className="text-[10px] uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.6)' }}>Categories</div>
+                <div className="text-[10px] uppercase tracking-wider modx-hero-stat-label">Categories</div>
               </div>
             </div>
             {pinned.size > 0 && (
               <div className="modx-hero-stat" style={{ animationDelay: '240ms' }}>
-                <Star className="w-4 h-4" style={{ color: 'rgba(255,255,255,0.75)' }} />
+                <Star className="w-4 h-4 modx-hero-stat-icon" />
                 <div>
                   <div className="modx-hero-stat-num">{pinned.size}</div>
-                  <div className="text-[10px] uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.6)' }}>Pinned</div>
+                  <div className="text-[10px] uppercase tracking-wider modx-hero-stat-label">Pinned</div>
                 </div>
               </div>
             )}
@@ -213,7 +213,7 @@ export default function StudentModules() {
           <div className="modx-filter-row">
             <button
               className={`modx-filter-pill ${activeCategory === 'all' ? 'modx-filter-active' : ''}`}
-              style={{ '--modx-accent': '#ea580c' }}
+              style={{ '--modx-accent': '#c2410c' }}
               onClick={() => setActiveCategory('all')}
             >
               <span className="modx-filter-dot" />All

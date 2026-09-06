@@ -42,12 +42,12 @@ const GLOBAL_CSS = `
     100% { transform: scale(1) rotate(0deg); opacity: 1; }
   }
   @keyframes bp3-card-breathe {
-    0%,100% { box-shadow: 0 30px 80px rgba(0,0,0,0.55), 0 0 0 rgba(234, 88, 12,0); }
-    50%     { box-shadow: 0 34px 90px rgba(0,0,0,0.55), 0 0 46px rgba(234, 88, 12,0.10); }
+    0%,100% { box-shadow: 0 30px 80px rgba(0,0,0,0.55), 0 0 0 rgba(194, 65, 12,0); }
+    50%     { box-shadow: 0 34px 90px rgba(0,0,0,0.55), 0 0 46px rgba(194, 65, 12,0.10); }
   }
   @keyframes bp3-card-breathe-light {
-    0%,100% { box-shadow: 0 30px 70px rgba(234, 88, 12,0.14), 0 0 0 rgba(234, 88, 12,0); }
-    50%     { box-shadow: 0 34px 80px rgba(234, 88, 12,0.18), 0 0 40px rgba(234, 88, 12,0.08); }
+    0%,100% { box-shadow: 0 30px 70px rgba(194, 65, 12,0.14), 0 0 0 rgba(194, 65, 12,0); }
+    50%     { box-shadow: 0 34px 80px rgba(194, 65, 12,0.18), 0 0 40px rgba(194, 65, 12,0.08); }
   }
   @keyframes bp3-stagger-in {
     from { opacity: 0; transform: translateY(8px); }
@@ -67,10 +67,10 @@ const GLOBAL_CSS = `
   .bp-spin { animation: bp-spin 1s linear infinite; }
 
   .bp-input { transition: border-color .2s, box-shadow .2s, background .2s; }
-  .bp-input:focus { border-color: #ea580c !important; box-shadow: 0 0 0 3px rgba(234, 88, 12,0.15); }
+  .bp-input:focus { border-color: #c2410c !important; box-shadow: 0 0 0 3px rgba(194, 65, 12,0.15); }
 
   .bp-pay-btn { transition: transform .2s, box-shadow .2s, filter .2s; }
-  .bp-pay-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 10px 24px rgba(234, 88, 12,0.35); filter: brightness(1.05); }
+  .bp-pay-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 10px 24px rgba(194, 65, 12,0.35); filter: brightness(1.05); }
   .bp-pay-btn:active:not(:disabled) { transform: translateY(0); }
 
   .bp-copy-btn { transition: background .15s, transform .1s; }
@@ -81,9 +81,9 @@ const GLOBAL_CSS = `
   .bp2-orb { position: absolute; border-radius: 50%; pointer-events: none; filter: blur(2px); animation: bp-orb 8s ease-in-out infinite; }
 
   .bp2-progress-track { display:flex; align-items:center; gap:6px; }
-  .bp2-progress-dot { height: 5px; border-radius: 3px; flex: 1; background: rgba(234, 88, 12,0.16); transition: background .3s; position: relative; overflow: hidden; }
-  .bp2-progress-dot.active { background: linear-gradient(90deg,#ea580c,#ea580c); }
-  .bp2-progress-dot.done { background: #ea580c; }
+  .bp2-progress-dot { height: 5px; border-radius: 3px; flex: 1; background: rgba(194, 65, 12,0.16); transition: background .3s; position: relative; overflow: hidden; }
+  .bp2-progress-dot.active { background: linear-gradient(90deg,#c2410c,#c2410c); }
+  .bp2-progress-dot.done { background: #c2410c; }
 
   .bp2-plan-card { position: relative; cursor: pointer; text-align: left; border-radius: 18px; transition: transform .18s cubic-bezier(0.16,1,0.3,1); animation: bp2-pop-in .4s cubic-bezier(0.16,1,0.3,1) both; }
   .bp2-plan-card:hover { transform: translateY(-3px); }
@@ -101,7 +101,7 @@ const GLOBAL_CSS = `
   .bp2-shimmer-btn::after { content: ''; position: absolute; top: 0; bottom: 0; width: 40%; background: linear-gradient(115deg, transparent, rgba(255,255,255,0.35), transparent); animation: bp2-shimmer 2.6s ease-in-out infinite; }
 
   .bp2-copy-field { transition: transform .15s, border-color .15s, box-shadow .15s; }
-  .bp2-copy-field:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(234, 88, 12,0.14); }
+  .bp2-copy-field:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(194, 65, 12,0.14); }
 
   .bp2-badge-glow { animation: bp2-glow-pulse 2.4s ease-in-out infinite; }
 
@@ -134,13 +134,13 @@ const GLOBAL_CSS = `
   .bp3-ghost-btn:hover .bp3-refresh-icon { transform: rotate(180deg); }
 
   .bp3-signout-btn { transition: color .18s, gap .18s; }
-  .bp3-signout-btn:hover { color: #ea580c !important; gap: 9px; }
+  .bp3-signout-btn:hover { color: #c2410c !important; gap: 9px; }
 
   .bp3-meta-row { display: flex; align-items: center; justify-content: center; gap: 6px; transition: transform .18s; }
   .bp3-meta-row:hover { transform: translateY(-1px); }
 
   .bp3-cta-btn { position: relative; overflow: hidden; }
-  .bp3-cta-btn:hover:not(:disabled) { transform: translateY(-2px) !important; box-shadow: 0 14px 34px rgba(234, 88, 12,0.4) !important; }
+  .bp3-cta-btn:hover:not(:disabled) { transform: translateY(-2px) !important; box-shadow: 0 14px 34px rgba(194, 65, 12,0.4) !important; }
   .bp3-cta-icon { transition: transform .25s cubic-bezier(0.34,1.56,0.64,1); }
   .bp3-cta-btn:hover .bp3-cta-icon { transform: translateX(3px); }
 
@@ -150,10 +150,10 @@ const GLOBAL_CSS = `
 
 // Alternating duotone accents per plan card — indigo / orange / violet-mix
 const PLAN_THEMES = [
-  { icon: Zap, grad: 'linear-gradient(135deg,#ea580c,#9a3412)', glow: 'linear-gradient(135deg,#ea580c,#f97316,#9a3412)', accent: '#ea580c' },
-  { icon: Star, grad: 'linear-gradient(135deg,#ea580c,#c2410c)', glow: 'linear-gradient(135deg,#ea580c,#f97316,#c2410c)', accent: '#ea580c' },
-  { icon: Crown, grad: 'linear-gradient(135deg,#ea580c,#ea580c)', glow: 'linear-gradient(135deg,#ea580c,#f97316,#ea580c)', accent: '#ea580c' },
-  { icon: Sparkles, grad: 'linear-gradient(135deg,#ea580c,#ea580c)', glow: 'linear-gradient(135deg,#ea580c,#f97316,#ea580c)', accent: '#ea580c' },
+  { icon: Zap, grad: 'linear-gradient(135deg,#c2410c,#7c2d12)', glow: 'linear-gradient(135deg,#c2410c,#ea580c,#7c2d12)', accent: '#c2410c' },
+  { icon: Star, grad: 'linear-gradient(135deg,#c2410c,#9a3412)', glow: 'linear-gradient(135deg,#c2410c,#ea580c,#9a3412)', accent: '#c2410c' },
+  { icon: Crown, grad: 'linear-gradient(135deg,#c2410c,#c2410c)', glow: 'linear-gradient(135deg,#c2410c,#ea580c,#c2410c)', accent: '#c2410c' },
+  { icon: Sparkles, grad: 'linear-gradient(135deg,#c2410c,#c2410c)', glow: 'linear-gradient(135deg,#c2410c,#ea580c,#c2410c)', accent: '#c2410c' },
 ];
 
 function formatDate(d) {
@@ -175,7 +175,7 @@ function formatMoney(amount, currency) {
 }
 
 // ── Copy-to-clipboard chip, used inside the payee instructions step ──────
-function CopyField({ icon: Icon, label, value, dark, accent = '#ea580c' }) {
+function CopyField({ icon: Icon, label, value, dark, accent = '#c2410c' }) {
   const [copied, setCopied] = useState(false);
   const doCopy = async () => {
     try {
@@ -278,7 +278,7 @@ function PaymentModal({ dark, onClose, onSubmitted }) {
       <div className="bp-modal bp2-shell" style={{
         width: '100%', maxWidth: 430, maxHeight: '88vh', overflowY: 'auto',
         background: dark ? '#131313' : '#fff',
-        border: `1px solid ${dark ? 'rgba(255,255,255,0.08)' : 'rgba(234, 88, 12,0.14)'}`,
+        border: `1px solid ${dark ? 'rgba(255,255,255,0.08)' : 'rgba(194, 65, 12,0.14)'}`,
         boxShadow: '0 30px 90px rgba(0,0,0,0.4)',
       }}>
         {/* header */}
@@ -286,13 +286,13 @@ function PaymentModal({ dark, onClose, onSubmitted }) {
           position: 'relative', overflow: 'hidden',
           padding: '1.5rem 1.75rem 1.1rem',
           background: dark
-            ? 'linear-gradient(135deg, rgba(234, 88, 12,0.14), rgba(234, 88, 12,0.08))'
-            : 'linear-gradient(135deg, rgba(234, 88, 12,0.08), rgba(234, 88, 12,0.05))',
-          borderBottom: `1px solid ${dark ? 'rgba(255,255,255,0.06)' : 'rgba(234, 88, 12,0.12)'}`,
+            ? 'linear-gradient(135deg, rgba(194, 65, 12,0.14), rgba(194, 65, 12,0.08))'
+            : 'linear-gradient(135deg, rgba(194, 65, 12,0.08), rgba(194, 65, 12,0.05))',
+          borderBottom: `1px solid ${dark ? 'rgba(255,255,255,0.06)' : 'rgba(194, 65, 12,0.12)'}`,
         }}>
           <div className="bp2-orb" style={{
             width: 130, height: 130, top: -50, right: -40,
-            background: 'radial-gradient(circle, rgba(234, 88, 12,0.28) 0%, transparent 70%)',
+            background: 'radial-gradient(circle, rgba(194, 65, 12,0.28) 0%, transparent 70%)',
           }} />
           <div style={{ position: 'relative', zIndex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
@@ -307,7 +307,7 @@ function PaymentModal({ dark, onClose, onSubmitted }) {
                   </button>
                 )}
                 <div>
-                  <p style={{ fontSize: 10, fontWeight: 700, color: '#ea580c', margin: 0, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  <p style={{ fontSize: 10, fontWeight: 700, color: '#c2410c', margin: 0, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                     {step === 'plans' ? 'Step 1 of 2' : 'Step 2 of 2'}
                   </p>
                   <h2 style={{ fontFamily: "'Sora',sans-serif", fontWeight: 800, fontSize: 17, color: dark ? '#f1f5f9' : '#2a0c03', margin: '2px 0 0' }}>
@@ -333,7 +333,7 @@ function PaymentModal({ dark, onClose, onSubmitted }) {
         <div style={{ padding: '1.5rem 1.75rem 1.75rem' }}>
           {loading ? (
             <div style={{ padding: '34px 0', textAlign: 'center' }}>
-              <Loader2 size={22} className="bp-spin" color="#ea580c" style={{ margin: '0 auto 10px' }} />
+              <Loader2 size={22} className="bp-spin" color="#c2410c" style={{ margin: '0 auto 10px' }} />
               <p style={{ fontSize: 12.5, color: dark ? '#94a3b8' : '#64748b', margin: 0 }}>Loading plans…</p>
             </div>
           ) : step === 'plans' ? (
@@ -372,8 +372,8 @@ function PaymentModal({ dark, onClose, onSubmitted }) {
                             <p style={{ fontSize: 14.5, fontWeight: 800, color: dark ? '#f1f5f9' : '#2a0c03', margin: 0 }}>{plan.name}</p>
                             {isPopular && (
                               <span className="bp2-badge-glow" style={{
-                                fontSize: 9, fontWeight: 800, color: '#ea580c',
-                                background: 'rgba(234, 88, 12,0.12)', padding: '2px 6px', borderRadius: 999,
+                                fontSize: 9, fontWeight: 800, color: '#c2410c',
+                                background: 'rgba(194, 65, 12,0.12)', padding: '2px 6px', borderRadius: 999,
                                 textTransform: 'uppercase', letterSpacing: '0.03em', flexShrink: 0,
                               }}>
                                 Popular
@@ -398,8 +398,8 @@ function PaymentModal({ dark, onClose, onSubmitted }) {
             <div>
               <div style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                background: 'linear-gradient(135deg, rgba(234, 88, 12,0.1), rgba(234, 88, 12,0.06))',
-                border: '1px solid rgba(234, 88, 12,0.22)', borderRadius: 14, padding: '13px 16px', marginBottom: 20,
+                background: 'linear-gradient(135deg, rgba(194, 65, 12,0.1), rgba(194, 65, 12,0.06))',
+                border: '1px solid rgba(194, 65, 12,0.22)', borderRadius: 14, padding: '13px 16px', marginBottom: 20,
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <div style={{
@@ -418,7 +418,7 @@ function PaymentModal({ dark, onClose, onSubmitted }) {
 
               <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
-                  <div className="bp2-step-num" style={{ background: '#ea580c', color: '#fff' }}>1</div>
+                  <div className="bp2-step-num" style={{ background: '#c2410c', color: '#fff' }}>1</div>
                   <div style={{ width: 1.5, flex: 1, background: dark ? 'rgba(255,255,255,0.1)' : '#e9e3fb', margin: '4px 0' }} />
                 </div>
                 <div style={{ paddingBottom: 14 }}>
@@ -426,8 +426,8 @@ function PaymentModal({ dark, onClose, onSubmitted }) {
                     Send the exact amount via MTN Mobile Money
                   </p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <CopyField icon={User} label="Recipient name" value={payee.name} dark={dark} accent="#ea580c" />
-                    <CopyField icon={PhoneCall} label="MoMo number" value={payee.phone} dark={dark} accent="#ea580c" />
+                    <CopyField icon={User} label="Recipient name" value={payee.name} dark={dark} accent="#c2410c" />
+                    <CopyField icon={PhoneCall} label="MoMo number" value={payee.phone} dark={dark} accent="#c2410c" />
                   </div>
                 </div>
               </div>
@@ -435,8 +435,8 @@ function PaymentModal({ dark, onClose, onSubmitted }) {
               <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
                   <div className="bp2-step-num" style={{
-                    background: dark ? 'rgba(255,255,255,0.08)' : 'rgba(234, 88, 12,0.1)',
-                    color: '#ea580c', border: '1.5px solid #ea580c',
+                    background: dark ? 'rgba(255,255,255,0.08)' : 'rgba(194, 65, 12,0.1)',
+                    color: '#c2410c', border: '1.5px solid #c2410c',
                   }}>2</div>
                 </div>
                 <div style={{ flex: 1 }}>
@@ -475,7 +475,7 @@ function PaymentModal({ dark, onClose, onSubmitted }) {
 
               <button onClick={submitClaim} disabled={submitting} className="bp-pay-btn bp2-shimmer-btn" style={{
                 width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-                background: 'linear-gradient(135deg,#ea580c,#ea580c)', color: '#fff',
+                background: 'linear-gradient(135deg,#c2410c,#c2410c)', color: '#fff',
                 border: 'none', borderRadius: 13, padding: '13px 14px', cursor: 'pointer',
                 fontSize: 13.5, fontWeight: 700, opacity: submitting ? 0.75 : 1,
               }}>
@@ -528,12 +528,12 @@ export default function Billing() {
       }}>
         <div style={{
           position: 'absolute', top: '-8%', right: '-6%', width: 320, height: 320, borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(234, 88, 12,0.16) 0%, transparent 70%)',
+          background: 'radial-gradient(circle, rgba(194, 65, 12,0.16) 0%, transparent 70%)',
           animation: 'bp-orb 9s ease-in-out infinite', pointerEvents: 'none',
         }} />
         <div style={{
           position: 'absolute', bottom: '-10%', left: '-8%', width: 280, height: 280, borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(234, 88, 12,0.14) 0%, transparent 70%)',
+          background: 'radial-gradient(circle, rgba(194, 65, 12,0.14) 0%, transparent 70%)',
           animation: 'bp-orb 12s ease-in-out infinite reverse', pointerEvents: 'none',
         }} />
 
@@ -549,7 +549,7 @@ export default function Billing() {
         <div className={`bp-fade ${dark ? 'bp3-card-dark' : 'bp3-card-light'}`} style={{
           position: 'relative', zIndex: 1, width: '100%', maxWidth: 460,
           background: dark ? 'rgba(17,24,39,0.85)' : 'rgba(255,255,255,0.94)',
-          border: `1px solid ${dark ? 'rgba(255,255,255,0.08)' : 'rgba(234, 88, 12,0.14)'}`,
+          border: `1px solid ${dark ? 'rgba(255,255,255,0.08)' : 'rgba(194, 65, 12,0.14)'}`,
           borderRadius: 28, padding: '2.5rem 2.25rem',
           backdropFilter: 'blur(10px)',
           textAlign: 'center',
@@ -558,9 +558,9 @@ export default function Billing() {
           <div className="bp3-stagger-1" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 26 }}>
             <div style={{
               width: 30, height: 30, borderRadius: 9, flexShrink: 0,
-              background: 'linear-gradient(135deg,#ea580c,#9a3412)',
+              background: 'linear-gradient(135deg,#c2410c,#7c2d12)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 6px 16px rgba(234, 88, 12,0.35)',
+              boxShadow: '0 6px 16px rgba(194, 65, 12,0.35)',
             }}>
               <GraduationCap size={16} color="#fff" />
             </div>
@@ -572,22 +572,22 @@ export default function Billing() {
           {pendingManual ? (
             <>
               <div className="bp3-stagger-1" style={{
-                width: 'fit-content', margin: '0 auto', color: '#ea580c',
+                width: 'fit-content', margin: '0 auto', color: '#c2410c',
               }}>
                 <div className="bp3-status-pill" style={{
-                  background: dark ? 'rgba(234, 88, 12,0.12)' : 'rgba(234, 88, 12,0.09)',
-                  border: '1px solid rgba(234, 88, 12,0.28)', color: '#ea580c',
+                  background: dark ? 'rgba(194, 65, 12,0.12)' : 'rgba(194, 65, 12,0.09)',
+                  border: '1px solid rgba(194, 65, 12,0.28)', color: '#c2410c',
                 }}>
                   <Hourglass size={11} className="bp-pulse" /> Awaiting review
                 </div>
               </div>
 
-              <div className="bp3-icon-wrap bp3-stagger-2" style={{ color: '#ea580c' }}>
+              <div className="bp3-icon-wrap bp3-stagger-2" style={{ color: '#c2410c' }}>
                 <div className="bp3-icon-ring" />
                 <div className="bp3-icon-ring r2" />
                 <div className="bp3-icon-core" style={{
-                  background: 'linear-gradient(135deg,#ea580c,#c2410c)',
-                  boxShadow: '0 10px 30px rgba(234, 88, 12,0.35)',
+                  background: 'linear-gradient(135deg,#c2410c,#9a3412)',
+                  boxShadow: '0 10px 30px rgba(194, 65, 12,0.35)',
                 }}>
                   <Hourglass size={26} color="#fff" style={{ position: 'relative', zIndex: 1 }} />
                 </div>
@@ -598,7 +598,7 @@ export default function Billing() {
               </h1>
               <p className="bp3-stagger-3" style={{ fontSize: 13.5, color: dark ? '#94a3b8' : '#64748b', margin: '0 0 20px', lineHeight: 1.65, maxWidth: 340, marginLeft: 'auto', marginRight: 'auto' }}>
                 We've recorded your <strong style={{ color: dark ? '#f1f5f9' : '#2a0c03' }}>{pendingManual.plan_name}</strong> payment claim of{' '}
-                <strong style={{ color: '#ea580c' }}>{formatMoney(pendingManual.amount, pendingManual.currency)}</strong>. Access resumes automatically the moment an Edupla administrator confirms receipt.
+                <strong style={{ color: '#c2410c' }}>{formatMoney(pendingManual.amount, pendingManual.currency)}</strong>. Access resumes automatically the moment an Edupla administrator confirms receipt.
               </p>
 
               <div className="bp3-stagger-3 bp3-meta-row" style={{
@@ -607,8 +607,8 @@ export default function Billing() {
                 border: `1px solid ${dark ? 'rgba(255,255,255,0.08)' : '#f1d9c5'}`,
                 width: 'fit-content', marginLeft: 'auto', marginRight: 'auto',
               }}>
-                <div className="bp3-timeline-dot" style={{ color: '#ea580c' }}>
-                  <CalendarClock size={13} color="#ea580c" style={{ position: 'relative', zIndex: 1 }} />
+                <div className="bp3-timeline-dot" style={{ color: '#c2410c' }}>
+                  <CalendarClock size={13} color="#c2410c" style={{ position: 'relative', zIndex: 1 }} />
                 </div>
                 <span style={{ fontSize: 11.5, color: dark ? '#94a3b8' : '#92552f', fontWeight: 600 }}>
                   Submitted {formatDate(pendingManual.submitted_at)}
@@ -633,25 +633,25 @@ export default function Billing() {
                 <div className="bp3-status-pill" style={{
                   background: isLocked && !isPayableLock
                     ? (dark ? 'rgba(239,68,68,0.12)' : 'rgba(239,68,68,0.08)')
-                    : (dark ? 'rgba(234, 88, 12,0.12)' : 'rgba(234, 88, 12,0.09)'),
-                  border: `1px solid ${isLocked && !isPayableLock ? 'rgba(239,68,68,0.28)' : 'rgba(234, 88, 12,0.28)'}`,
-                  color: isLocked && !isPayableLock ? '#ef4444' : '#ea580c',
+                    : (dark ? 'rgba(194, 65, 12,0.12)' : 'rgba(194, 65, 12,0.09)'),
+                  border: `1px solid ${isLocked && !isPayableLock ? 'rgba(239,68,68,0.28)' : 'rgba(194, 65, 12,0.28)'}`,
+                  color: isLocked && !isPayableLock ? '#ef4444' : '#c2410c',
                 }}>
                   {isLocked && !isPayableLock ? <Lock size={11} /> : <Clock size={11} />}
                   {isLocked ? (isPayableLock ? 'Action needed' : 'Locked') : isPayer ? 'Trial ended' : 'Access paused'}
                 </div>
               </div>
 
-              <div className="bp3-icon-wrap bp3-stagger-2" style={{ color: isLocked && !isPayableLock ? '#ef4444' : '#ea580c' }}>
+              <div className="bp3-icon-wrap bp3-stagger-2" style={{ color: isLocked && !isPayableLock ? '#ef4444' : '#c2410c' }}>
                 <div className="bp3-icon-ring" />
                 <div className="bp3-icon-ring r2" />
                 <div className="bp3-icon-core" style={{
                   background: isLocked && !isPayableLock
                     ? 'linear-gradient(135deg,#ef4444,#dc2626)'
-                    : 'linear-gradient(135deg,#ea580c,#c2410c)',
+                    : 'linear-gradient(135deg,#c2410c,#9a3412)',
                   boxShadow: isLocked && !isPayableLock
                     ? '0 10px 30px rgba(239,68,68,0.35)'
-                    : '0 10px 30px rgba(234, 88, 12,0.35)',
+                    : '0 10px 30px rgba(194, 65, 12,0.35)',
                 }}>
                   {isLocked && !isPayableLock
                     ? <ShieldCheck size={26} color="#fff" style={{ position: 'relative', zIndex: 1 }} />
@@ -678,10 +678,10 @@ export default function Billing() {
                 <button onClick={() => setPayModalOpen(true)} className="bp-pay-btn bp2-shimmer-btn bp3-cta-btn bp3-stagger-4" style={{
                   width: '100%',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                  background: 'linear-gradient(135deg,#ea580c,#c2410c)', color: '#fff',
+                  background: 'linear-gradient(135deg,#c2410c,#9a3412)', color: '#fff',
                   border: 'none', borderRadius: 13, padding: '14px 14px', cursor: 'pointer',
                   fontSize: 14, fontWeight: 700, marginBottom: 6,
-                  boxShadow: '0 8px 24px rgba(234, 88, 12,0.28)',
+                  boxShadow: '0 8px 24px rgba(194, 65, 12,0.28)',
                 }}>
                   <CreditCard size={16} /> Process Payment <ArrowRight size={15} className="bp3-cta-icon" />
                 </button>

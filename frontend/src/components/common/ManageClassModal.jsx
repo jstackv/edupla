@@ -15,7 +15,7 @@ import {
 // so this modal only needs Overview / Move / Danger Zone.
 const TABS = [
   { key: 'overview', label: 'Overview', icon: LayoutDashboard, accent: '#0ea5e9' },
-  { key: 'move', label: 'Move Students', icon: ArrowRightLeft, accent: '#ea580c' },
+  { key: 'move', label: 'Move Students', icon: ArrowRightLeft, accent: '#c2410c' },
   { key: 'danger', label: 'Danger Zone', icon: ShieldAlert, accent: '#ef4444' },
 ];
 
@@ -155,7 +155,7 @@ export default function ManageClassModal({
   // Same fixed class-card accent as the Classes grid/list — not a per-name
   // hash color, so it doesn't collide across classes that share a first
   // letter (L3/L4/L5/...) and stays visually consistent with those cards.
-  const avatarFrom = cls ? '#0f766e' : '#ea580c';
+  const avatarFrom = cls ? '#0f766e' : '#c2410c';
 
   const filteredStudents = useMemo(() => students.filter(s =>
     !search || s.name?.toLowerCase().includes(search.toLowerCase()) || s.email?.toLowerCase().includes(search.toLowerCase())
@@ -274,7 +274,7 @@ export default function ManageClassModal({
                 >
                   <Icon size={13} style={{ transition: 'transform 0.18s ease', transform: active ? 'scale(1.08)' : 'scale(1)' }} /> {label}
                   {key === 'move' && selected.size > 0 && (
-                    <span className="mcm-count-badge" style={{ background: '#ea580c' }}>{selected.size}</span>
+                    <span className="mcm-count-badge" style={{ background: '#c2410c' }}>{selected.size}</span>
                   )}
                 </button>
               );
@@ -296,7 +296,7 @@ export default function ManageClassModal({
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
                 {[
                   { icon: GraduationCap, label: 'Students', value: cls.student_count || 0, color: '#10b981', bg: '#ecfdf5' },
-                  { icon: Award, label: 'RTQF Level', value: cls.level || '—', color: '#ea580c', bg: '#fed7aa' },
+                  { icon: Award, label: 'RTQF Level', value: cls.level || '—', color: '#c2410c', bg: '#fdba74' },
                   { icon: BookOpen, label: 'Trade', value: cls.trade || '—', color: '#f59e0b', bg: '#fffbeb' },
                   { icon: Calendar, label: 'Created', value: cls.created_at ? new Date(cls.created_at).toLocaleDateString() : '—', color: '#0ea5e9', bg: '#f0f9ff' },
                 ].map(({ icon: Icon, label, value, color, bg }, i) => (
@@ -368,8 +368,8 @@ export default function ManageClassModal({
                 <div key={targetClassId} className="mcm-flow-chip" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 12, background: 'var(--surface-50)', border: '1px solid var(--card-border)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
                     <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{cls.name}</span>
-                    <ArrowRight size={14} className="mcm-arrow-nudge" style={{ color: '#ea580c' }} />
-                    <span style={{ fontSize: 12, fontWeight: 700, color: '#ea580c' }}>{targetClass?.name}</span>
+                    <ArrowRight size={14} className="mcm-arrow-nudge" style={{ color: '#c2410c' }} />
+                    <span style={{ fontSize: 12, fontWeight: 700, color: '#c2410c' }}>{targetClass?.name}</span>
                   </div>
                 </div>
               )}
@@ -380,7 +380,7 @@ export default function ManageClassModal({
                     Students in {cls.name} ({search ? `${filteredStudents.length} of ${students.length}` : students.length})
                   </span>
                   {filteredStudents.length > 0 && (
-                    <button onClick={toggleAllFiltered} style={{ fontSize: 11, fontWeight: 600, color: '#ea580c', background: 'none', border: 'none', cursor: 'pointer' }}>
+                    <button onClick={toggleAllFiltered} style={{ fontSize: 11, fontWeight: 600, color: '#c2410c', background: 'none', border: 'none', cursor: 'pointer' }}>
                       {allFilteredSelected ? 'Unselect all' : 'Select all'}
                     </button>
                   )}
@@ -415,7 +415,7 @@ export default function ManageClassModal({
                         style={{ animationDelay: `${Math.min(i, 12) * 20}ms` }}
                       >
                         <span className="mcm-check" data-selected={isSel}>
-                          {isSel ? <CheckSquare size={16} style={{ color: '#f97316' }} /> : <Square size={16} style={{ color: 'var(--text-secondary)' }} />}
+                          {isSel ? <CheckSquare size={16} style={{ color: '#ea580c' }} /> : <Square size={16} style={{ color: 'var(--text-secondary)' }} />}
                         </span>
                         <Avatar name={s.name} size={28} />
                         <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</span>
@@ -544,7 +544,7 @@ export default function ManageClassModal({
                         <p style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.name}</p>
                         <p style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{t.email}</p>
                       </div>
-                      {isSel ? <Check size={16} style={{ color: '#f97316', flexShrink: 0 }} /> : null}
+                      {isSel ? <Check size={16} style={{ color: '#ea580c', flexShrink: 0 }} /> : null}
                     </div>
                   );
                 })}
@@ -598,7 +598,7 @@ export default function ManageClassModal({
                       data-selected={isSel}
                     >
                       <span className="mcm-check" data-selected={isSel}>
-                        {isSel ? <CheckSquare size={16} style={{ color: '#f97316' }} /> : <Square size={16} style={{ color: 'var(--text-secondary)' }} />}
+                        {isSel ? <CheckSquare size={16} style={{ color: '#ea580c' }} /> : <Square size={16} style={{ color: 'var(--text-secondary)' }} />}
                       </span>
                       <Avatar name={t.name} size={28} />
                       <div style={{ flex: 1, minWidth: 0 }}>
@@ -610,7 +610,7 @@ export default function ManageClassModal({
                 })}
           </div>
           {coTeachSelected.size > 0 && (
-            <p style={{ fontSize: 11, color: '#ea580c' }}>{coTeachSelected.size} teacher{coTeachSelected.size !== 1 ? 's' : ''} selected</p>
+            <p style={{ fontSize: 11, color: '#c2410c' }}>{coTeachSelected.size} teacher{coTeachSelected.size !== 1 ? 's' : ''} selected</p>
           )}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, paddingTop: 4 }}>
             <button onClick={() => setCoTeachModal(false)} className="btn-secondary">Cancel</button>
@@ -704,10 +704,10 @@ export default function ManageClassModal({
           animation: mcmFadeUp 0.22s cubic-bezier(0.16,1,0.3,1) both;
           transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
         }
-        .mcm-student-row:hover { background: rgba(234, 88, 12,0.08); transform: translateX(2px); }
+        .mcm-student-row:hover { background: rgba(194, 65, 12,0.08); transform: translateX(2px); }
         .mcm-student-row[data-selected="true"] {
-          background: rgba(234, 88, 12,0.16);
-          border-color: rgba(234, 88, 12,0.45);
+          background: rgba(194, 65, 12,0.16);
+          border-color: rgba(194, 65, 12,0.45);
         }
         .mcm-check[data-selected="true"] { animation: mcmPop 0.2s cubic-bezier(0.34,1.56,0.64,1) both; }
 
@@ -742,10 +742,10 @@ export default function ManageClassModal({
         .mcm-btn-lift:focus-visible,
         .mcm-student-row:focus-visible {
           outline: none;
-          box-shadow: 0 0 0 3px color-mix(in srgb, #ea580c 35%, transparent);
+          box-shadow: 0 0 0 3px color-mix(in srgb, #c2410c 35%, transparent);
         }
         .mcm-tab-btn:focus-visible { border-radius: 8px; }
-        .mcm-student-row:focus-visible { border-color: color-mix(in srgb, #ea580c 45%, var(--card-border)); }
+        .mcm-student-row:focus-visible { border-color: color-mix(in srgb, #c2410c 45%, var(--card-border)); }
 
         .mcm-tab-btn { position: relative; }
         .mcm-tab-btn:hover { background: color-mix(in srgb, currentColor 8%, transparent); }

@@ -13,16 +13,16 @@ module.exports = {
         // on pages that hadn't been hand-converted yet) resolve to the
         // same dark-orange brand as the rest of the app instead of indigo.
         primary: {
-          50:  '#ffedd5',
-          100: '#fed7aa',
-          200: '#fdba74',
-          300: '#fb923c',
-          400: '#f97316',
-          500: '#ea580c',
-          600: '#c2410c',
-          700: '#9a3412',
-          800: '#7c2d12',
-          900: '#431407',
+          50:  '#fed7aa',
+          100: '#fdba74',
+          200: '#fb923c',
+          300: '#f97316',
+          400: '#ea580c',
+          500: '#c2410c',
+          600: '#9a3412',
+          700: '#7c2d12',
+          800: '#431407',
+          900: '#2a0c03',
         },
       },
       borderRadius: {

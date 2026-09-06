@@ -1,37 +1,37 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
   <defs>
-    <!-- Slate -> deep charcoal badge base -->
+    <!-- Rich dark-orange badge base, deep brownish-black corner to warm ember corner -->
     <linearGradient id="bg" x1="1" y1="0" x2="30" y2="32" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#475569"/>
-      <stop offset="0.35" stop-color="#1E293B"/>
-      <stop offset="0.7" stop-color="#0F172A"/>
-      <stop offset="1" stop-color="#04070C"/>
+      <stop offset="0" stop-color="#7c2d12"/>
+      <stop offset="0.4" stop-color="#5a1f0c"/>
+      <stop offset="0.75" stop-color="#3a1408"/>
+      <stop offset="1" stop-color="#1f0d05"/>
     </linearGradient>
 
     <!-- Glass highlight, upper-left -->
     <radialGradient id="glow" cx="10" cy="7" r="20" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.5"/>
-      <stop offset="0.5" stop-color="#FFFFFF" stop-opacity="0.08"/>
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.55"/>
+      <stop offset="0.5" stop-color="#FFFFFF" stop-opacity="0.09"/>
       <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
     </radialGradient>
 
-    <!-- Depth vignette, lower-right, teal-tinted -->
-    <radialGradient id="vignette" cx="25" cy="27" r="17" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#0F766E" stop-opacity="0.45"/>
-      <stop offset="1" stop-color="#0F766E" stop-opacity="0"/>
+    <!-- Depth vignette, lower-right — deep warm-black instead of teal -->
+    <radialGradient id="vignette" cx="26" cy="28" r="18" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0f0602" stop-opacity="0.6"/>
+      <stop offset="1" stop-color="#0f0602" stop-opacity="0"/>
     </radialGradient>
 
     <!-- Prism shard crossing the badge -->
     <linearGradient id="shard" x1="0" y1="20" x2="20" y2="0" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#FFFFFF" stop-opacity="0"/>
-      <stop offset="0.55" stop-color="#FFFFFF" stop-opacity="0.16"/>
+      <stop offset="0.55" stop-color="#FFFFFF" stop-opacity="0.18"/>
       <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
     </linearGradient>
 
-    <!-- Monogram fill: warm white into pale teal -->
+    <!-- Monogram fill: warm white into soft peach -->
     <linearGradient id="glyph" x1="7" y1="7" x2="24" y2="25" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#FFFFFF"/>
-      <stop offset="1" stop-color="#CCFBF1"/>
+      <stop offset="1" stop-color="#FFE1C7"/>
     </linearGradient>
 
     <!-- Thin inner rim light on the glyph's spine -->
@@ -40,17 +40,17 @@
       <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
     </linearGradient>
 
-    <!-- Dark-orange spark accent -->
+    <!-- Bright ember spark accent — the pop of light against the darker badge -->
     <linearGradient id="ember" x1="19.6" y1="6.2" x2="26.8" y2="13.4" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#FDBA74"/>
       <stop offset="0.45" stop-color="#F97316"/>
-      <stop offset="1" stop-color="#9A3412"/>
+      <stop offset="1" stop-color="#C2410C"/>
     </linearGradient>
 
-    <!-- Ascending progress path, teal -> orange -->
+    <!-- Ascending progress path, warm gold -> ember -->
     <linearGradient id="path" x1="9" y1="22" x2="23" y2="10" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#2DD4BF" stop-opacity="0"/>
-      <stop offset="0.5" stop-color="#5EEAD4" stop-opacity="0.85"/>
+      <stop offset="0" stop-color="#FDE68A" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#FBBF24" stop-opacity="0.85"/>
       <stop offset="1" stop-color="#FDBA74" stop-opacity="0.95"/>
     </linearGradient>
 
@@ -59,11 +59,11 @@
     </clipPath>
 
     <filter id="softShadow" x="-40%" y="-40%" width="180%" height="180%">
-      <feDropShadow dx="0" dy="0.9" stdDeviation="1" flood-color="#04070C" flood-opacity="0.45"/>
+      <feDropShadow dx="0" dy="0.9" stdDeviation="1" flood-color="#1f0d05" flood-opacity="0.5"/>
     </filter>
 
     <filter id="badgeLift" x="-40%" y="-40%" width="180%" height="180%">
-      <feDropShadow dx="0" dy="1.2" stdDeviation="1.4" flood-color="#04070C" flood-opacity="0.45"/>
+      <feDropShadow dx="0" dy="1.2" stdDeviation="1.4" flood-color="#1f0d05" flood-opacity="0.5"/>
     </filter>
   </defs>
 
@@ -76,7 +76,7 @@
       <!-- Prism facet shard, top-left corner -->
       <path d="M0 13 L13 0 L20 0 L0 20 Z" fill="url(#shard)"/>
       <!-- Fine inner border for a crisp, premium edge -->
-      <rect x="0.6" y="0.6" width="30.8" height="30.8" rx="8.5" fill="none" stroke="#F97316" stroke-opacity="0.22" stroke-width="0.9"/>
+      <rect x="0.6" y="0.6" width="30.8" height="30.8" rx="8.5" fill="none" stroke="#FB923C" stroke-opacity="0.32" stroke-width="0.9"/>
     </g>
 
     <!-- Ascending progress path from the monogram's base to the spark -->
@@ -94,10 +94,10 @@
     </g>
 
     <!-- Four-point sparkle: the achievement / insight mark at the growth
-         path's peak, now a dark-orange ember with a teal spark centre -->
+         path's peak — an ember spark with a warm gold glint centre -->
     <g filter="url(#softShadow)">
       <path d="M23.1 6.5 L24.15 9.05 L26.7 10.1 L24.15 11.15 L23.1 13.7 L22.05 11.15 L19.5 10.1 L22.05 9.05 Z" fill="url(#ember)"/>
-      <circle cx="23.1" cy="10.1" r="0.5" fill="#2DD4BF"/>
+      <circle cx="23.1" cy="10.1" r="0.5" fill="#FDE68A"/>
     </g>
   </g>
 </svg>

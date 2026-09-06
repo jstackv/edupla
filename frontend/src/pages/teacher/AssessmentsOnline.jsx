@@ -51,8 +51,8 @@ import {
 
 const TERMS = ['Term 1', 'Term 2', 'Term 3'];
 const ASSESSMENT_TYPES = [
-  { key: 'FA', label: 'Formative Assessment', color: '#ea580c', icon: FileEdit },
-  { key: 'IA', label: 'Integrated Assessment', color: '#ea580c', icon: Layers },
+  { key: 'FA', label: 'Formative Assessment', color: '#c2410c', icon: FileEdit },
+  { key: 'IA', label: 'Integrated Assessment', color: '#c2410c', icon: Layers },
   { key: 'CA', label: 'Comprehensive Assessment', color: '#f59e0b', icon: Award },
 ];
 
@@ -74,7 +74,7 @@ function AssessmentOverviewStrip({ assessments }) {
   if (total === 0) return null;
 
   const items = [
-    { label: 'Assessments', value: total, color: '#ea580c', icon: ClipboardCheck },
+    { label: 'Assessments', value: total, color: '#c2410c', icon: ClipboardCheck },
     { label: 'Shared', value: shared, color: '#10b981', icon: Share2 },
     { label: 'Drafts', value: draft, color: '#9ca3af', icon: FileEdit },
     { label: 'Marks recorded', value: marked, color: '#f59e0b', icon: Award },
@@ -228,12 +228,12 @@ function AssessmentCard({ a, i, onQuestions, onShare, onAddAttempt, onEdit, onDe
         </div>
 
         <div className="flex items-center gap-2 flex-wrap text-xs relative">
-          <span className="assessment-stat-badge" style={{ '--stat-color': '#ea580c' }}>
+          <span className="assessment-stat-badge" style={{ '--stat-color': '#c2410c' }}>
             <Scale className="w-3.5 h-3.5" />
             {hasQuestions ? `${a.max_marks} / ${a.course_id?.total_marks || 100} MW` : `Awaiting questions (MW ${a.course_id?.total_marks || 100})`}
           </span>
           {a.is_shared && (
-            <span className="assessment-stat-badge" style={{ '--stat-color': '#ea580c' }}>
+            <span className="assessment-stat-badge" style={{ '--stat-color': '#c2410c' }}>
               <Users className="w-3.5 h-3.5" /> {a.max_attempts} attempt{a.max_attempts > 1 ? 's' : ''}
             </span>
           )}
@@ -344,7 +344,7 @@ function AssessmentFormModal({ course, cls, editing, existingAssessments, active
     <Modal
       isOpen={true} onClose={onClose}
       title={editing ? 'Edit Assessment' : 'Create Assessment'}
-      icon={ClipboardCheck} accent="#ea580c" accent2="#ea580c"
+      icon={ClipboardCheck} accent="#c2410c" accent2="#c2410c"
     >
       <div className="space-y-4">
         <p className="text-sm flex items-center gap-1.5" style={{ color: 'var(--text-secondary)' }}>
@@ -382,7 +382,7 @@ function AssessmentFormModal({ course, cls, editing, existingAssessments, active
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <div className="qm-field-group" style={{ '--qm-accent': '#ea580c' }}>
+          <div className="qm-field-group" style={{ '--qm-accent': '#c2410c' }}>
             <label className="text-xs font-semibold mb-1.5 flex items-center gap-1.5" style={{ color: 'var(--text-secondary)' }}>
               <span className="qm-field-icon-wrap"><Clock className="w-3.5 h-3.5" /></span> Term
             </label>
@@ -393,7 +393,7 @@ function AssessmentFormModal({ course, cls, editing, existingAssessments, active
               })}
             </select>
           </div>
-          <div className="qm-field-group" style={{ '--qm-accent': '#ea580c' }}>
+          <div className="qm-field-group" style={{ '--qm-accent': '#c2410c' }}>
             <label className="text-xs font-semibold mb-1.5 flex items-center gap-1.5" style={{ color: 'var(--text-secondary)' }}>
               <span className="qm-field-icon-wrap"><CalendarRange className="w-3.5 h-3.5" /></span> Academic year
             </label>
@@ -407,7 +407,7 @@ function AssessmentFormModal({ course, cls, editing, existingAssessments, active
           </div>
         </div>
 
-        <div className="qm-field-group" style={{ '--qm-accent': '#ea580c' }}>
+        <div className="qm-field-group" style={{ '--qm-accent': '#c2410c' }}>
           <label className="text-xs font-semibold mb-1.5 flex items-center gap-1.5" style={{ color: 'var(--text-secondary)' }}>
             <span className="qm-field-icon-wrap"><PenSquare className="w-3.5 h-3.5" /></span> Title
           </label>
@@ -418,7 +418,7 @@ function AssessmentFormModal({ course, cls, editing, existingAssessments, active
             className="chat-form-field qm-field w-full text-sm"
           />
           {!editing && siblingCount > 0 && (
-            <p className="text-xs mt-1 flex items-center gap-1" style={{ color: '#ea580c' }}>
+            <p className="text-xs mt-1 flex items-center gap-1" style={{ color: '#c2410c' }}>
               <Sparkles className="w-3.5 h-3.5" />
               You already have {siblingCount} {typeLabel.toLowerCase()}{siblingCount > 1 ? 's' : ''} in {term} — leave blank to auto-name this "{suggestedTitle}".
             </p>
@@ -587,7 +587,7 @@ export default function AssessmentsOnline() {
         <div
           title="Set by your School Manager — you can't change this"
           className="hidden sm:flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg flex-shrink-0"
-          style={{ color: '#ea580c', background: 'rgba(234, 88, 12,0.1)', border: '1px solid rgba(234, 88, 12,0.25)' }}
+          style={{ color: '#c2410c', background: 'rgba(194, 65, 12,0.1)', border: '1px solid rgba(194, 65, 12,0.25)' }}
         >
           <CalendarRange className="w-3.5 h-3.5" /> {activeYear?.name || '—'}
         </div>
@@ -596,17 +596,17 @@ export default function AssessmentsOnline() {
       {/* Breadcrumb */}
       <div className="flex items-center gap-1.5 text-sm mb-6 flex-wrap">
         <button onClick={() => { setSelectedClass(null); setSelectedCourse(null); }}
-          className="font-semibold transition-colors duration-150" style={{ color: selectedClass ? 'var(--text-secondary)' : '#ea580c' }}>Classes</button>
+          className="font-semibold transition-colors duration-150" style={{ color: selectedClass ? 'var(--text-secondary)' : '#c2410c' }}>Classes</button>
         {selectedClass && (
           <>
             <ChevronRight className="w-3.5 h-3.5" style={{ color: 'var(--text-secondary)' }} />
-            <button onClick={() => setSelectedCourse(null)} className="font-semibold transition-colors duration-150" style={{ color: selectedCourse ? 'var(--text-secondary)' : '#ea580c' }}>{selectedClass.name}</button>
+            <button onClick={() => setSelectedCourse(null)} className="font-semibold transition-colors duration-150" style={{ color: selectedCourse ? 'var(--text-secondary)' : '#c2410c' }}>{selectedClass.name}</button>
           </>
         )}
         {selectedCourse && (
           <>
             <ChevronRight className="w-3.5 h-3.5" style={{ color: 'var(--text-secondary)' }} />
-            <span className="font-semibold" style={{ color: '#ea580c' }}>{selectedCourse.name}</span>
+            <span className="font-semibold" style={{ color: '#c2410c' }}>{selectedCourse.name}</span>
           </>
         )}
       </div>

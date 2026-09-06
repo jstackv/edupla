@@ -29,7 +29,7 @@ function StrengthBar({ password }) {
 }
 
 /* ── toggle switch ──────────────────────────────────── */
-function Toggle({ checked, onChange, color = '#ea580c' }) {
+function Toggle({ checked, onChange, color = '#c2410c' }) {
   return (
     <button
       onClick={() => onChange(!checked)}
@@ -54,7 +54,7 @@ function Toggle({ checked, onChange, color = '#ea580c' }) {
 ══════════════════════════════════════════════════════ */
 function AdminSettings({ user, dark, toggleTheme }) {
   const { t } = useTranslation();
-  const accentColor = user?.is_super_admin ? '#ea580c' : '#ea580c';
+  const accentColor = user?.is_super_admin ? '#c2410c' : '#c2410c';
   const [form, setForm] = useState({ currentPassword:'', newPassword:'', confirmPassword:'' });
   const [show, setShow] = useState({ cur:false, new_:false, conf:false });
   const [saving, setSaving] = useState(false);
@@ -162,7 +162,7 @@ function AdminSettings({ user, dark, toggleTheme }) {
           {[
             { key:'system',   label:t('settingsPage.systemAlerts'),    desc:t('settingsPage.systemAlertsDesc'), color:'#ef4444' },
             { key:'security', label:t('settingsPage.securityEvents'),  desc:t('settingsPage.securityEventsDesc'),      color:'#f59e0b' },
-            { key:'updates',  label:t('settingsPage.productUpdates'),  desc:t('settingsPage.productUpdatesDesc'),   color:'#ea580c' },
+            { key:'updates',  label:t('settingsPage.productUpdates'),  desc:t('settingsPage.productUpdatesDesc'),   color:'#c2410c' },
           ].map(({ key, label, desc, color }) => (
             <div key={key} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 0', borderBottom:`1px solid ${dark?'#1e2535':'#f1f5f9'}` }}>
               <div>
@@ -218,7 +218,7 @@ function AdminSettings({ user, dark, toggleTheme }) {
             <button type="submit" disabled={saving} style={{
               display:'inline-flex', alignItems:'center', gap:8,
               padding:'11px 24px', borderRadius:12, border:'none',
-              background:`linear-gradient(135deg,${accentColor},${user?.is_super_admin?'#9a3412':'#9a3412'})`,
+              background:`linear-gradient(135deg,${accentColor},${user?.is_super_admin?'#7c2d12':'#7c2d12'})`,
               color:'#fff', fontSize:13.5, fontWeight:600, cursor:'pointer',
               boxShadow:`0 4px 14px ${accentColor}40`, fontFamily:"'DM Sans',sans-serif",
               transition:'all 0.15s',
@@ -289,7 +289,7 @@ function TeacherSettings({ dark, toggleTheme }) {
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=DM+Sans:wght@400;500;600&display=swap');
         .ts-card { border-radius:18px; background:${dark?'#171717':'#fff'}; border:1px solid ${dark?'#1e2535':'#e5e7eb'}; overflow:hidden; margin-bottom:14px; }
         .ts-field { width:100%; padding:11px 14px; border-radius:11px; font-size:13.5px; outline:none; transition:all 0.15s; background:${dark?'#0f0f0f':'#f9fafb'}; border:1.5px solid ${dark?'#1e2535':'#e5e7eb'}; color:${dark?'#e2e8f0':'#131313'}; font-family:'DM Sans',sans-serif; }
-        .ts-field:focus { border-color:#ea580c; box-shadow:0 0 0 3px rgba(234, 88, 12,0.15); }
+        .ts-field:focus { border-color:#c2410c; box-shadow:0 0 0 3px rgba(194, 65, 12,0.15); }
         .ts-row { display:flex; justify-content:space-between; align-items:center; padding:14px 22px; border-bottom:1px solid ${dark?'#1e2535':'#f1f5f9'}; }
       `}</style>
 
@@ -301,14 +301,14 @@ function TeacherSettings({ dark, toggleTheme }) {
       {/* Appearance */}
       <div className="ts-card">
         <div style={{ display:'flex', alignItems:'center', gap:12, padding:'18px 22px 14px', borderBottom:`1px solid ${dark?'#1e2535':'#f1f5f9'}` }}>
-          <div style={{ width:34, height:34, borderRadius:9, background:'rgba(234, 88, 12,0.12)', display:'flex', alignItems:'center', justifyContent:'center' }}>
-            <Palette size={16} color="#ea580c" />
+          <div style={{ width:34, height:34, borderRadius:9, background:'rgba(194, 65, 12,0.12)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <Palette size={16} color="#c2410c" />
           </div>
           <p style={{ margin:0, fontSize:14, fontWeight:700, color:dark?'#e2e8f0':'#131313', fontFamily:"'Playfair Display',serif" }}>{t('settingsPage.appearance')}</p>
         </div>
         <div className="ts-row">
           <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-            {dark ? <Moon size={18} color="#ea580c" /> : <Sun size={18} color="#f59e0b" />}
+            {dark ? <Moon size={18} color="#c2410c" /> : <Sun size={18} color="#f59e0b" />}
             <div>
               <p style={{ margin:0, fontSize:13.5, fontWeight:600, color:dark?'#e2e8f0':'#131313' }}>{dark?t('settingsPage.darkMode'):t('settingsPage.lightMode')}</p>
               <p style={{ margin:0, fontSize:12, color:dark?'#64748b':'#9ca3af' }}>{t('settingsPage.toggleTheme')}</p>
@@ -321,13 +321,13 @@ function TeacherSettings({ dark, toggleTheme }) {
       {/* Language */}
       <div className="ts-card">
         <div style={{ display:'flex', alignItems:'center', gap:12, padding:'18px 22px 14px', borderBottom:`1px solid ${dark?'#1e2535':'#f1f5f9'}` }}>
-          <div style={{ width:34, height:34, borderRadius:9, background:'rgba(234, 88, 12,0.12)', display:'flex', alignItems:'center', justifyContent:'center' }}>
-            <Globe size={16} color="#ea580c" />
+          <div style={{ width:34, height:34, borderRadius:9, background:'rgba(194, 65, 12,0.12)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <Globe size={16} color="#c2410c" />
           </div>
           <p style={{ margin:0, fontSize:14, fontWeight:700, color:dark?'#e2e8f0':'#131313', fontFamily:"'Playfair Display',serif" }}>{t('settingsPage.language')}</p>
         </div>
         <div style={{ padding:'16px 22px 20px' }}>
-          <LanguageOptionsGrid dark={dark} accentColor="#ea580c" />
+          <LanguageOptionsGrid dark={dark} accentColor="#c2410c" />
         </div>
       </div>
 
@@ -386,7 +386,7 @@ function TeacherSettings({ dark, toggleTheme }) {
                 </div>
               ))}
             </div>
-            <button type="submit" disabled={saving} style={{ display:'inline-flex', alignItems:'center', gap:7, padding:'10px 22px', borderRadius:11, border:'none', background:'linear-gradient(135deg,#ea580c,#9a3412)', color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer', boxShadow:'0 4px 14px rgba(234, 88, 12,0.35)', fontFamily:"'DM Sans',sans-serif" }}>
+            <button type="submit" disabled={saving} style={{ display:'inline-flex', alignItems:'center', gap:7, padding:'10px 22px', borderRadius:11, border:'none', background:'linear-gradient(135deg,#c2410c,#7c2d12)', color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer', boxShadow:'0 4px 14px rgba(194, 65, 12,0.35)', fontFamily:"'DM Sans',sans-serif" }}>
               {saving ? <div style={{ width:14,height:14,border:'2px solid rgba(255,255,255,0.4)',borderTopColor:'#fff',borderRadius:'50%',animation:'spin 0.7s linear infinite' }} /> : <Shield size={14}/>}
               {saving ? t('settingsPage.updating') : t('settingsPage.updatePassword')}
             </button>
@@ -439,7 +439,7 @@ function StudentSettings({ dark, toggleTheme }) {
       {/* Appearance */}
       <div className="ss-card" style={{ padding:22 }}>
         <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:16 }}>
-          <div style={{ width:40, height:40, borderRadius:12, background:'linear-gradient(135deg,#ea580c,#ea580c)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <div style={{ width:40, height:40, borderRadius:12, background:'linear-gradient(135deg,#c2410c,#c2410c)', display:'flex', alignItems:'center', justifyContent:'center' }}>
             {dark ? <Moon size={18} color="#fff" /> : <Sun size={18} color="#fff" />}
           </div>
           <div>
@@ -447,7 +447,7 @@ function StudentSettings({ dark, toggleTheme }) {
             <p style={{ margin:0, fontSize:12, color:dark?'#64748b':'#9ca3af' }}>{t('settingsPage.pickYourVibe')}</p>
           </div>
           <div style={{ marginLeft:'auto' }}>
-            <Toggle checked={dark} onChange={toggleTheme} color="#ea580c" />
+            <Toggle checked={dark} onChange={toggleTheme} color="#c2410c" />
           </div>
         </div>
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
@@ -457,11 +457,11 @@ function StudentSettings({ dark, toggleTheme }) {
           ].map(({ id, label, desc, active }) => (
             <div key={id} onClick={() => { if (!active) toggleTheme(); }} style={{
               padding:'14px', borderRadius:14, cursor:'pointer',
-              border:`2px solid ${active?'#ea580c':(dark?'#1e2535':'#e5e7eb')}`,
-              background: active ? 'rgba(234, 88, 12,0.08)' : (dark?'#0f0f0f':'#f9fafb'),
+              border:`2px solid ${active?'#c2410c':(dark?'#1e2535':'#e5e7eb')}`,
+              background: active ? 'rgba(194, 65, 12,0.08)' : (dark?'#0f0f0f':'#f9fafb'),
               transition:'all 0.15s', position:'relative',
             }}>
-              {active && <div style={{ position:'absolute', top:8, right:8, width:18, height:18, borderRadius:'50%', background:'#ea580c', display:'flex', alignItems:'center', justifyContent:'center' }}><Check size={10} color="#fff" /></div>}
+              {active && <div style={{ position:'absolute', top:8, right:8, width:18, height:18, borderRadius:'50%', background:'#c2410c', display:'flex', alignItems:'center', justifyContent:'center' }}><Check size={10} color="#fff" /></div>}
               <p style={{ margin:'0 0 3px', fontSize:14, fontWeight:800, color:dark?'#e2e8f0':'#0f172a', fontFamily:"'Nunito',sans-serif" }}>{label}</p>
               <p style={{ margin:0, fontSize:11.5, color:dark?'#64748b':'#9ca3af' }}>{desc}</p>
             </div>
@@ -472,7 +472,7 @@ function StudentSettings({ dark, toggleTheme }) {
       {/* Language */}
       <div className="ss-card" style={{ padding:22 }}>
         <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:16 }}>
-          <div style={{ width:40, height:40, borderRadius:12, background:'linear-gradient(135deg,#ea580c,#ea580c)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <div style={{ width:40, height:40, borderRadius:12, background:'linear-gradient(135deg,#c2410c,#c2410c)', display:'flex', alignItems:'center', justifyContent:'center' }}>
             <Globe size={18} color="#fff" />
           </div>
           <div>
@@ -480,7 +480,7 @@ function StudentSettings({ dark, toggleTheme }) {
             <p style={{ margin:0, fontSize:12, color:dark?'#64748b':'#9ca3af' }}>{t('settingsPage.languageDesc')}</p>
           </div>
         </div>
-        <LanguageOptionsGrid dark={dark} accentColor="#ea580c" />
+        <LanguageOptionsGrid dark={dark} accentColor="#c2410c" />
       </div>
 
       {/* Notifications */}
@@ -495,7 +495,7 @@ function StudentSettings({ dark, toggleTheme }) {
           </div>
         </div>
         {[
-          { key:'assignments',   label:t('settingsPage.assignmentsAlert'),     desc:t('settingsPage.assignmentsAlertDesc'), color:'#ea580c' },
+          { key:'assignments',   label:t('settingsPage.assignmentsAlert'),     desc:t('settingsPage.assignmentsAlertDesc'), color:'#c2410c' },
           { key:'announcements', label:t('settingsPage.announcementsAlert'),   desc:t('settingsPage.announcementsAlertDesc'),       color:'#10b981' },
           { key:'documents',     label:t('settingsPage.documentsAlert'),   desc:t('settingsPage.documentsAlertDesc'),      color:'#f59e0b' },
         ].map(({ key, label, desc, color }) => (

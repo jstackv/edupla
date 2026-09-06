@@ -19,7 +19,7 @@ const EMPTY = { sector: '', trade: '', qualificationTitle: '', rtqfLevel: '' };
 
 /* ── deterministic accent per row, same gradient set Teachers.jsx uses ── */
 const ROW_COLORS = [
-  ['#ea580c','#9a3412'], ['#ea580c','#c2410c'], ['#0ea5e9','#0284c7'],
+  ['#c2410c','#7c2d12'], ['#c2410c','#9a3412'], ['#0ea5e9','#0284c7'],
   ['#10b981','#059669'], ['#f59e0b','#d97706'], ['#ec4899','#db2777'],
 ];
 function getRowColors(seed) {
@@ -69,7 +69,7 @@ function EditModal({ open, row, onSave, onClose }) {
       <div className="card" style={{ width: '100%', maxWidth: 480, padding: 0, overflow: 'hidden', animation: 'slideUp 0.22s cubic-bezier(0.34,1.56,0.64,1)' }}>
         <div style={{ padding: '20px 22px 18px', borderBottom: '1px solid var(--card-border)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
           <div>
-            <p style={{ fontSize: 10, fontWeight: 700, color: '#ea580c', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 5 }}>Edit Program</p>
+            <p style={{ fontSize: 10, fontWeight: 700, color: '#c2410c', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 5 }}>Edit Program</p>
             <p style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1.3, maxWidth: 360 }}>{row.trade}</p>
           </div>
           <button onClick={onClose} style={{ padding: 6, borderRadius: 8, border: 'none', cursor: 'pointer', background: 'var(--surface-100)', display: 'flex', flexShrink: 0, marginLeft: 12 }}>
@@ -177,7 +177,7 @@ function StatStrip({ rows }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10 }}>
       {[
-        { icon: BookOpen,      label: 'Programs',     value: rows.length,        color: '#ea580c', bg: '#ffedd5' },
+        { icon: BookOpen,      label: 'Programs',     value: rows.length,        color: '#c2410c', bg: '#fed7aa' },
         { icon: GraduationCap, label: 'Sectors',      value: sectors.length,     color: '#0ea5e9', bg: '#f0f9ff' },
         { icon: Award,         label: 'RTQF Levels',  value: levels.length,      color: '#10b981', bg: '#ecfdf5' },
         { icon: Sparkles,      label: 'Top Sector',   value: topSector?.s || '—', color: '#f59e0b', bg: '#fffbeb', isText: true },
@@ -260,31 +260,29 @@ export default function AdminSettings() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
       {/* ── Hero Banner — same gradient/structure family as Teachers.jsx ── */}
-      <div style={{
+      <div className="hero-card" style={{
         borderRadius: 20, padding: '22px 26px', position: 'relative', overflow: 'hidden',
-        background: 'linear-gradient(135deg, #2a0c03 0%, #7c2d12 45%, #c2410c 100%)',
-        boxShadow: '0 8px 32px rgba(234, 88, 12,0.28)',
+        background: 'var(--hero-bg)', border: '1px solid var(--hero-border)',
+        boxShadow: 'var(--hero-shadow)',
       }}>
-        <div style={{ position: 'absolute', top: -50, right: -30, width: 200, height: 200, borderRadius: '50%', background: 'rgba(234, 88, 12,0.08)', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', bottom: -20, right: 220, width: 90, height: 90, borderRadius: '50%', background: 'rgba(234, 88, 12,0.12)', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', top: 20, right: 90, width: 55, height: 55, borderRadius: '50%', background: 'rgba(249, 115, 22,0.1)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', top: -50, right: -30, width: 200, height: 200, borderRadius: '50%', background: 'var(--hero-glow)', pointerEvents: 'none' }} />
 
         <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 200 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-              <div style={{ padding: '4px 10px', borderRadius: 99, background: 'rgba(249, 115, 22,0.2)', border: '1px solid rgba(249, 115, 22,0.3)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                <GraduationCap size={11} style={{ color: '#fb923c' }} />
-                <span style={{ fontSize: 10, fontWeight: 700, color: '#fb923c', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Admin</span>
+              <div style={{ padding: '4px 10px', borderRadius: 99, background: 'rgba(194, 65, 12,0.12)', border: '1px solid rgba(194, 65, 12,0.25)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                <GraduationCap size={11} style={{ color: '#c2410c' }} />
+                <span style={{ fontSize: 10, fontWeight: 700, color: '#c2410c', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Admin</span>
               </div>
-              <div style={{ padding: '3px 8px', borderRadius: 99, background: 'rgba(249, 115, 22,0.15)', border: '1px solid rgba(249, 115, 22,0.25)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#f97316', animation: 'pulse 2s infinite' }} />
-                <span style={{ fontSize: 10, fontWeight: 600, color: '#fb923c' }}>{rows.length} configured</span>
+              <div style={{ padding: '3px 8px', borderRadius: 99, background: 'rgba(194, 65, 12,0.1)', border: '1px solid rgba(194, 65, 12,0.22)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#c2410c', animation: 'pulse 2s infinite' }} />
+                <span style={{ fontSize: 10, fontWeight: 600, color: '#c2410c' }}>{rows.length} configured</span>
               </div>
             </div>
-            <h1 style={{ fontSize: 22, fontWeight: 800, color: '#fff', marginBottom: 5, lineHeight: 1.2 }}>
+            <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--hero-fg)', marginBottom: 5, lineHeight: 1.2 }}>
               🎓 TVET Program Settings
             </h1>
-            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', maxWidth: 420, lineHeight: 1.6 }}>
+            <p style={{ fontSize: 13, color: 'var(--hero-fg-soft)', maxWidth: 420, lineHeight: 1.6 }}>
               Configure sectors, trades, qualification titles and RTQF levels — used across classes, student profiles and assessment reports.
             </p>
           </div>
@@ -297,22 +295,22 @@ export default function AdminSettings() {
             ].map(({ label, value, icon: Ic }) => (
               <div key={label} style={{
                 textAlign: 'center', padding: '10px 16px', borderRadius: 14,
-                background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', minWidth: 68,
+                background: 'var(--hero-glass)', border: '1px solid var(--hero-glass-border)', minWidth: 68,
               }}>
-                <Ic size={13} style={{ color: '#fb923c', margin: '0 auto 4px', display: 'block' }} />
-                <p style={{ fontSize: 18, fontWeight: 800, color: '#fff', lineHeight: 1 }}>{value}</p>
-                <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', marginTop: 3 }}>{label}</p>
+                <Ic size={13} style={{ color: '#c2410c', margin: '0 auto 4px', display: 'block' }} />
+                <p style={{ fontSize: 18, fontWeight: 800, color: 'var(--hero-fg)', lineHeight: 1 }}>{value}</p>
+                <p style={{ fontSize: 10, color: 'var(--hero-fg-dim)', marginTop: 3 }}>{label}</p>
               </div>
             ))}
           </div>
         </div>
 
         {/* Bottom strip — breadcrumb */}
-        <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid var(--hero-glass-border)', display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
           {['Dashboard', 'Admin', 'Program Settings'].map((c, i, a) => (
             <span key={c} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 11, fontWeight: i === a.length - 1 ? 700 : 400, color: i === a.length - 1 ? '#fff' : 'rgba(255,255,255,0.4)' }}>{c}</span>
-              {i < a.length - 1 && <ChevronRight size={9} style={{ color: 'rgba(255,255,255,0.25)' }} />}
+              <span style={{ fontSize: 11, fontWeight: i === a.length - 1 ? 700 : 400, color: i === a.length - 1 ? 'var(--hero-fg)' : 'var(--hero-fg-dim)' }}>{c}</span>
+              {i < a.length - 1 && <ChevronRight size={9} style={{ color: 'var(--hero-fg-dim)' }} />}
             </span>
           ))}
         </div>
@@ -374,14 +372,14 @@ export default function AdminSettings() {
       {loading ? (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 0' }}>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ width: 44, height: 44, borderRadius: '50%', border: '3px solid var(--surface-100)', borderTopColor: '#ea580c', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
+            <div style={{ width: 44, height: 44, borderRadius: '50%', border: '3px solid var(--surface-100)', borderTopColor: '#c2410c', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
             <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Loading programs…</p>
           </div>
         </div>
       ) : filtered.length === 0 ? (
         <div className="card" style={{ textAlign: 'center', padding: '60px 24px' }}>
-          <div style={{ width: 64, height: 64, borderRadius: 20, background: '#ffedd5', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-            <GraduationCap size={28} style={{ color: '#ea580c' }} />
+          <div style={{ width: 64, height: 64, borderRadius: 20, background: '#fed7aa', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+            <GraduationCap size={28} style={{ color: '#c2410c' }} />
           </div>
           <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>
             {search ? `No results for "${search}"` : 'No programs configured yet'}

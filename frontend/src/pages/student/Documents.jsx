@@ -35,13 +35,13 @@ const FILE_TYPE_CONFIG = {
   docx: { bg: '#dbeafe', text: '#2563eb', darkBg: 'rgba(37,99,235,0.18)',  label: 'DOCX', icon: '📝' },
   xls:  { bg: '#d1fae5', text: '#059669', darkBg: 'rgba(5,150,105,0.18)', label: 'XLS',  icon: '📊' },
   xlsx: { bg: '#d1fae5', text: '#059669', darkBg: 'rgba(5,150,105,0.18)', label: 'XLSX', icon: '📊' },
-  ppt:  { bg: '#fed7aa', text: '#c2410c', darkBg: 'rgba(194, 65, 12,0.18)', label: 'PPT',  icon: '📽' },
-  pptx: { bg: '#fed7aa', text: '#c2410c', darkBg: 'rgba(194, 65, 12,0.18)', label: 'PPTX', icon: '📽' },
+  ppt:  { bg: '#fdba74', text: '#9a3412', darkBg: 'rgba(154, 52, 18,0.18)', label: 'PPT',  icon: '📽' },
+  pptx: { bg: '#fdba74', text: '#9a3412', darkBg: 'rgba(154, 52, 18,0.18)', label: 'PPTX', icon: '📽' },
   png:  { bg: '#fce7f3', text: '#db2777', darkBg: 'rgba(219,39,119,0.18)',label: 'IMG',  icon: '🖼' },
   jpg:  { bg: '#fce7f3', text: '#db2777', darkBg: 'rgba(219,39,119,0.18)',label: 'IMG',  icon: '🖼' },
   jpeg: { bg: '#fce7f3', text: '#db2777', darkBg: 'rgba(219,39,119,0.18)',label: 'IMG',  icon: '🖼' },
   txt:  { bg: '#f1f5f9', text: '#475569', darkBg: 'rgba(71,85,105,0.18)', label: 'TXT',  icon: '📃' },
-  mp4:  { bg: '#fed7aa', text: '#c2410c', darkBg: 'rgba(194, 65, 12,0.18)',label: 'VID',  icon: '🎬' },
+  mp4:  { bg: '#fdba74', text: '#9a3412', darkBg: 'rgba(154, 52, 18,0.18)',label: 'VID',  icon: '🎬' },
   mp3:  { bg: '#cffafe', text: '#0891b2', darkBg: 'rgba(8,145,178,0.18)', label: 'AUD',  icon: '🎵' },
 };
 function getFileConfig(name) {
@@ -51,13 +51,13 @@ function getFileConfig(name) {
 
 /* ── Module color palette ── */
 const MOD_COLORS = [
-  { accent: '#ea580c', light: 'rgba(234, 88, 12,0.1)',  label: '#ea580c' },
+  { accent: '#c2410c', light: 'rgba(194, 65, 12,0.1)',  label: '#c2410c' },
   { accent: '#10b981', light: 'rgba(16,185,129,0.1)',  label: '#10b981' },
   { accent: '#f59e0b', light: 'rgba(245,158,11,0.1)',  label: '#f59e0b' },
   { accent: '#ef4444', light: 'rgba(239,68,68,0.1)',   label: '#ef4444' },
-  { accent: '#ea580c', light: 'rgba(234, 88, 12,0.1)',  label: '#ea580c' },
+  { accent: '#c2410c', light: 'rgba(194, 65, 12,0.1)',  label: '#c2410c' },
   { accent: '#06b6d4', light: 'rgba(6,182,212,0.1)',   label: '#06b6d4' },
-  { accent: '#ea580c', light: 'rgba(234, 88, 12,0.1)',  label: '#ea580c' },
+  { accent: '#c2410c', light: 'rgba(194, 65, 12,0.1)',  label: '#c2410c' },
   { accent: '#ec4899', light: 'rgba(236,72,153,0.1)',  label: '#ec4899' },
 ];
 const modColor = (i) => MOD_COLORS[i % MOD_COLORS.length];
@@ -294,7 +294,7 @@ function SearchBar({ value, onChange, placeholder }) {
   const [focused, setFocused] = useState(false);
   return (
     <div style={{ position: 'relative' }}>
-      <Search style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', width: 16, height: 16, color: focused ? '#ea580c' : 'var(--text-secondary)', opacity: 0.6, transition: 'color 0.2s' }} />
+      <Search style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', width: 16, height: 16, color: focused ? '#c2410c' : 'var(--text-secondary)', opacity: 0.6, transition: 'color 0.2s' }} />
       <input value={value} onChange={e => onChange(e.target.value)}
         onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
         placeholder={placeholder}
@@ -303,9 +303,9 @@ function SearchBar({ value, onChange, placeholder }) {
           paddingTop: 11, paddingBottom: 11,
           borderRadius: 14, fontSize: 13, outline: 'none',
           background: 'var(--card-bg)',
-          border: `1.5px solid ${focused ? '#ea580c' : 'var(--card-border)'}`,
+          border: `1.5px solid ${focused ? '#c2410c' : 'var(--card-border)'}`,
           color: 'var(--text-primary)',
-          boxShadow: focused ? '0 0 0 3px rgba(234, 88, 12,0.12)' : 'none',
+          boxShadow: focused ? '0 0 0 3px rgba(194, 65, 12,0.12)' : 'none',
           transition: 'border-color 0.2s, box-shadow 0.2s',
         }} />
       {value && (
@@ -347,7 +347,7 @@ function StatsBar({ docs }) {
 }
 
 /* ── Empty state ── */
-function EmptyState({ icon: Icon, title, subtitle, color = '#ea580c' }) {
+function EmptyState({ icon: Icon, title, subtitle, color = '#c2410c' }) {
   return (
     <div style={{ textAlign: 'center', padding: '56px 0' }}>
       <div style={{ width: 64, height: 64, borderRadius: 20, background: color + '15', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
@@ -360,11 +360,11 @@ function EmptyState({ icon: Icon, title, subtitle, color = '#ea580c' }) {
 }
 
 /* ── Spinner ── */
-function Spinner({ color = '#ea580c' }) {
+function Spinner({ color = '#c2410c' }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 0', gap: 14 }}>
       <div style={{ position: 'relative', width: 40, height: 40 }}>
-        <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '3px solid rgba(234, 88, 12,0.12)' }} />
+        <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '3px solid rgba(194, 65, 12,0.12)' }} />
         <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '3px solid transparent', borderTopColor: color, animation: 'spin 0.8s linear infinite' }} />
       </div>
       <p style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500 }}>Loading…</p>
@@ -546,7 +546,7 @@ export default function StudentDocuments() {
             </p>
           </div>
           {modules.length > 0 && (
-            <span style={{ fontSize: 12, fontWeight: 700, padding: '5px 12px', borderRadius: 10, background: 'rgba(234, 88, 12,0.1)', color: '#ea580c' }}>
+            <span style={{ fontSize: 12, fontWeight: 700, padding: '5px 12px', borderRadius: 10, background: 'rgba(194, 65, 12,0.1)', color: '#c2410c' }}>
               {modules.length} module{modules.length !== 1 ? 's' : ''}
             </span>
           )}

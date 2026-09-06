@@ -30,12 +30,12 @@ function DeadlineBadge({ deadline }) {
 const MODULE_COLORS = [
   { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-700 dark:text-blue-300', dot: '#3b82f6' },
   { bg: 'bg-emerald-100 dark:bg-emerald-900/30', text: 'text-emerald-700 dark:text-emerald-300', dot: '#10b981' },
-  { bg: 'bg-orange-100 dark:bg-orange-900/30', text: 'text-orange-700 dark:text-orange-300', dot: '#ea580c' },
+  { bg: 'bg-orange-100 dark:bg-orange-900/30', text: 'text-orange-700 dark:text-orange-300', dot: '#c2410c' },
   { bg: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-700 dark:text-amber-300', dot: '#f59e0b' },
   { bg: 'bg-rose-100 dark:bg-rose-900/30', text: 'text-rose-700 dark:text-rose-300', dot: '#f43f5e' },
   { bg: 'bg-cyan-100 dark:bg-cyan-900/30', text: 'text-cyan-700 dark:text-cyan-300', dot: '#06b6d4' },
-  { bg: 'bg-orange-100 dark:bg-orange-900/30', text: 'text-orange-700 dark:text-orange-300', dot: '#ea580c' },
-  { bg: 'bg-orange-100 dark:bg-orange-900/30', text: 'text-orange-700 dark:text-orange-300', dot: '#ea580c' },
+  { bg: 'bg-orange-100 dark:bg-orange-900/30', text: 'text-orange-700 dark:text-orange-300', dot: '#c2410c' },
+  { bg: 'bg-orange-100 dark:bg-orange-900/30', text: 'text-orange-700 dark:text-orange-300', dot: '#c2410c' },
 ];
 function moduleColor(idx) { return MODULE_COLORS[idx % MODULE_COLORS.length]; }
 
@@ -103,10 +103,10 @@ function GradesReportModal({ assignment, onClose }) {
           .meta { color: #666; font-size: 13px; margin-bottom: 20px; }
           .stats { display: flex; gap: 24px; margin-bottom: 20px; }
           .stat { background: #f5f5f5; padding: 12px 20px; border-radius: 8px; }
-          .stat-val { font-size: 22px; font-weight: bold; color: #ea580c; }
+          .stat-val { font-size: 22px; font-weight: bold; color: #c2410c; }
           .stat-lbl { font-size: 12px; color: #666; }
           table { width: 100%; border-collapse: collapse; font-size: 13px; }
-          th { background: #ea580c; color: white; padding: 8px 12px; text-align: left; }
+          th { background: #c2410c; color: white; padding: 8px 12px; text-align: left; }
           td { padding: 8px 12px; border-bottom: 1px solid #eee; }
           tr:nth-child(even) td { background: #f9f9f9; }
           .score-high { color: #059669; font-weight: bold; }
@@ -351,10 +351,10 @@ function SubmissionsModal({ assignment, onClose }) {
           .meta { color: #666; font-size: 13px; margin-bottom: 20px; }
           .stats { display: flex; gap: 24px; margin-bottom: 20px; }
           .stat { background: #f5f5f5; padding: 12px 20px; border-radius: 8px; }
-          .stat-val { font-size: 22px; font-weight: bold; color: #ea580c; }
+          .stat-val { font-size: 22px; font-weight: bold; color: #c2410c; }
           .stat-lbl { font-size: 12px; color: #666; }
           table { width: 100%; border-collapse: collapse; font-size: 13px; }
-          th { background: #ea580c; color: white; padding: 8px 12px; text-align: left; }
+          th { background: #c2410c; color: white; padding: 8px 12px; text-align: left; }
           td { padding: 8px 12px; border-bottom: 1px solid #eee; }
           tr:nth-child(even) td { background: #f9f9f9; }
           .status-submitted { color: #059669; font-weight: bold; }
@@ -485,7 +485,7 @@ function SubmissionsModal({ assignment, onClose }) {
                             <button
                               onClick={() => handleDownload(row)}
                               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium flex-1 justify-center transition-colors"
-                              style={{ background: '#ea580c', color: '#fff', border: 'none' }}
+                              style={{ background: '#c2410c', color: '#fff', border: 'none' }}
                               title="Download submission"
                             >
                               <Download className="w-3.5 h-3.5" /> Download

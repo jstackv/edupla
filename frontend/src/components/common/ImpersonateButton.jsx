@@ -58,14 +58,14 @@ export default function ImpersonateButton({ userId, name, size = 13, style = {} 
       title={`Log in as ${name || 'this user'} (new tab)`}
       style={{
         padding: '5px 7px', borderRadius: 8, border: 'none', cursor: loading ? 'default' : 'pointer',
-        background: '#fed7aa', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: '#fdba74', display: 'flex', alignItems: 'center', justifyContent: 'center',
         opacity: loading ? 0.6 : 1,
         ...style,
       }}
     >
       {loading
-        ? <Loader2 size={size} className="animate-spin" style={{ color: '#c2410c' }} />
-        : <UserCog size={size} style={{ color: '#c2410c' }} />}
+        ? <Loader2 size={size} className="animate-spin" style={{ color: '#9a3412' }} />
+        : <UserCog size={size} style={{ color: '#9a3412' }} />}
     </button>
   );
 }

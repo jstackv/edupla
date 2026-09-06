@@ -16,7 +16,7 @@ function timeAgo(dateStr) {
 }
 
 const TYPE_META = {
-  info:    { icon: Info,          color: '#ea580c', bg: 'rgba(234, 88, 12,0.1)'  },
+  info:    { icon: Info,          color: '#c2410c', bg: 'rgba(194, 65, 12,0.1)'  },
   success: { icon: CheckCircle,   color: '#10b981', bg: 'rgba(16,185,129,0.1)'  },
   warning: { icon: AlertTriangle, color: '#f59e0b', bg: 'rgba(245,158,11,0.1)'  },
   error:   { icon: XCircle,       color: '#ef4444', bg: 'rgba(239,68,68,0.1)'   },
@@ -82,14 +82,14 @@ function NotifRow({ n, dark, onMarkRead, onOpen }) {
       style={{
         display: 'flex', gap: 12, padding: '12px 16px',
         background: unread
-          ? (dark ? 'rgba(234, 88, 12,0.06)' : 'rgba(234, 88, 12,0.04)')
+          ? (dark ? 'rgba(194, 65, 12,0.06)' : 'rgba(194, 65, 12,0.04)')
           : 'transparent',
         borderBottom: `1px solid ${dark ? '#1e2535' : '#f1f5f9'}`,
         cursor: (unread || hasTarget) ? 'pointer' : 'default',
         transition: 'background 0.15s',
       }}
-      onMouseEnter={e => { if (unread || hasTarget) e.currentTarget.style.background = dark ? 'rgba(234, 88, 12,0.1)' : 'rgba(234, 88, 12,0.07)'; }}
-      onMouseLeave={e => { if (unread || hasTarget) e.currentTarget.style.background = unread ? (dark ? 'rgba(234, 88, 12,0.06)' : 'rgba(234, 88, 12,0.04)') : 'transparent'; }}
+      onMouseEnter={e => { if (unread || hasTarget) e.currentTarget.style.background = dark ? 'rgba(194, 65, 12,0.1)' : 'rgba(194, 65, 12,0.07)'; }}
+      onMouseLeave={e => { if (unread || hasTarget) e.currentTarget.style.background = unread ? (dark ? 'rgba(194, 65, 12,0.06)' : 'rgba(194, 65, 12,0.04)') : 'transparent'; }}
     >
       {/* icon */}
       <div style={{
@@ -113,8 +113,8 @@ function NotifRow({ n, dark, onMarkRead, onOpen }) {
           {unread && (
             <div style={{
               width: 7, height: 7, borderRadius: '50%',
-              background: '#ea580c', flexShrink: 0, marginTop: 4,
-              boxShadow: '0 0 6px rgba(234, 88, 12,0.6)',
+              background: '#c2410c', flexShrink: 0, marginTop: 4,
+              boxShadow: '0 0 6px rgba(194, 65, 12,0.6)',
             }} />
           )}
         </div>
@@ -261,14 +261,14 @@ export default function NotificationPanel({ dark }) {
         style={{
           width: 32, height: 32, borderRadius: 9, cursor: 'pointer',
           background: open ? (dark ? '#1d2235' : '#f3f4f6') : (dark ? '#181c27' : '#f9fafb'),
-          border: `1px solid ${open ? '#ea580c' : (dark ? '#262626' : '#e5e7eb')}`,
+          border: `1px solid ${open ? '#c2410c' : (dark ? '#262626' : '#e5e7eb')}`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           position: 'relative', transition: 'background 0.15s, border-color 0.15s',
         }}
         onMouseEnter={e => {
           if (!open) {
             e.currentTarget.style.background = dark ? '#1d2235' : '#f3f4f6';
-            e.currentTarget.style.borderColor = '#ea580c';
+            e.currentTarget.style.borderColor = '#c2410c';
           }
         }}
         onMouseLeave={e => {
@@ -283,7 +283,7 @@ export default function NotificationPanel({ dark }) {
           <div style={{
             position: 'absolute', top: 4, right: 4,
             minWidth: 14, height: 14, borderRadius: 7,
-            background: '#ea580c',
+            background: '#c2410c',
             border: `1.5px solid ${dark ? '#171717' : '#ffffff'}`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             animation: 'edupla-pulse 2s infinite',
@@ -324,7 +324,7 @@ export default function NotificationPanel({ dark }) {
             flexShrink: 0,
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Bell size={15} color={dark ? '#f97316' : '#ea580c'} />
+              <Bell size={15} color={dark ? '#ea580c' : '#c2410c'} />
               <span style={{
                 fontSize: 13.5, fontWeight: 700,
                 color: dark ? '#e2e8f0' : '#131313',
@@ -336,8 +336,8 @@ export default function NotificationPanel({ dark }) {
                 <span style={{
                   fontSize: 10, fontWeight: 700,
                   padding: '1px 7px', borderRadius: 10,
-                  background: 'rgba(234, 88, 12,0.15)',
-                  color: '#ea580c',
+                  background: 'rgba(194, 65, 12,0.15)',
+                  color: '#c2410c',
                 }}>
                   {unreadCount} new
                 </span>
@@ -410,7 +410,7 @@ export default function NotificationPanel({ dark }) {
                 <div style={{
                   width: 28, height: 28, margin: '0 auto 10px',
                   border: `2px solid ${dark ? '#333333' : '#e5e7eb'}`,
-                  borderTopColor: '#ea580c', borderRadius: '50%',
+                  borderTopColor: '#c2410c', borderRadius: '50%',
                   animation: 'spin 0.8s linear infinite',
                 }} />
                 <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
@@ -447,7 +447,7 @@ export default function NotificationPanel({ dark }) {
                       style={{
                         padding: '7px 18px', borderRadius: 8, border: 'none',
                         background: dark ? '#1e2535' : '#f1f5f9',
-                        color: dark ? '#f97316' : '#ea580c',
+                        color: dark ? '#ea580c' : '#c2410c',
                         fontSize: 12, fontWeight: 600, cursor: 'pointer',
                         transition: 'background 0.15s',
                         opacity: loading ? 0.6 : 1,

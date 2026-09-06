@@ -209,7 +209,7 @@ export default function DisciplineMarks() {
       ) : !sheet ? null : (
         <div style={{ borderRadius: 18, border: '1px solid var(--card-border)', background: 'var(--card-bg)', overflow: 'hidden' }}>
           <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--card-border)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <div style={{ width: 34, height: 34, borderRadius: 10, background: 'linear-gradient(135deg,#ea580c,#9a3412)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <div style={{ width: 34, height: 34, borderRadius: 10, background: 'linear-gradient(135deg,#c2410c,#7c2d12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <School size={16} color="#fff" />
             </div>
             <span style={{ fontWeight: 800, fontSize: 15, color: 'var(--text-primary)' }}>{sheet.class.name}</span>
@@ -222,7 +222,7 @@ export default function DisciplineMarks() {
               <div style={{ flex: 1, height: 6, borderRadius: 999, background: 'var(--surface-100)', overflow: 'hidden' }}>
                 <div style={{
                   height: '100%', width: `${progressPct}%`, borderRadius: 999,
-                  background: progressPct === 100 ? 'linear-gradient(90deg,#10b981,#059669)' : 'linear-gradient(90deg,#f97316,#ea580c)',
+                  background: progressPct === 100 ? 'linear-gradient(90deg,#10b981,#059669)' : 'linear-gradient(90deg,#ea580c,#c2410c)',
                   transition: 'width 0.4s cubic-bezier(0.34,1.56,0.64,1)',
                 }} />
               </div>
@@ -239,7 +239,7 @@ export default function DisciplineMarks() {
               return (
                 <div key={s.student_id} className="aop-roster-row" style={{ '--i': i }}>
                   <div style={{
-                    width: 34, height: 34, borderRadius: 10, flexShrink: 0, background: 'linear-gradient(135deg,#f97316,#c2410c)',
+                    width: 34, height: 34, borderRadius: 10, flexShrink: 0, background: 'linear-gradient(135deg,#ea580c,#9a3412)',
                     color: '#fff', fontSize: 12, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}>
                     {initials(s.name)}
