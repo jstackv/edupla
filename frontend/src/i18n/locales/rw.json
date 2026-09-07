@@ -14,7 +14,9 @@
     "email": "Imeli",
     "password": "Ijambobanga",
     "back": "Gusubira inyuma",
-    "or": "cyangwa"
+    "or": "cyangwa",
+    "active": "Arakora",
+    "inactive": "Ntakora"
   },
   "nav": {
     "dashboard": "Imbonerahamwe",
@@ -674,6 +676,305 @@
       "rejectedDesc": "Byasubijwe umwarimu",
       "totalModules": "Modire zose",
       "totalModulesDesc": "Ku mashuri yose"
+    }
+  },
+  "studentModules": {
+    "title": "Modire zawe",
+    "subtitle": "Ibyo wiga byose muri iki gihembwe, n'abakwigisha",
+    "modules": "Modire",
+    "teachers": "Abarimu",
+    "categories": "Ibyiciro",
+    "pinned": "Byashyizweho akamenyetso",
+    "searchPlaceholder": "Shakisha modire cyangwa umwarimu…",
+    "all": "Byose",
+    "categorySpecific": "Bwite",
+    "categoryGeneral": "Rusange",
+    "categoryComplementary": "Byuzuzanya",
+    "categoryElective": "Bitorwa",
+    "categoryModule": "Modire",
+    "sortName": "Tondeka: Izina",
+    "sortTeacher": "Tondeka: Umwarimu",
+    "sortCategory": "Tondeka: Icyiciro",
+    "gridView": "Kureba mu mbariro",
+    "listView": "Kureba mu rutonde",
+    "noModulesYet": "Nta modire irahari",
+    "noModulesDesc": "Umuyobozi wawe ntararonderamo modire ishuri ryawe.",
+    "noMatches": "Nta bihuye",
+    "noMatchesDesc": "Gerageza ijambo rindi cyangwa ikindi cyiciro.",
+    "pinModule": "Shyiraho akamenyetso",
+    "unpinModule": "Kuraho akamenyetso",
+    "taughtBy": "Yigishwa na ",
+    "noTeacherAssigned": "Nta mwarimu warahabwa",
+    "copyEmail": "Koporora imeyili",
+    "copyTeacherEmail": "Koporora imeyili y'umwarimu"
+  },
+  "adminTeachers": {
+    "statStrip": {
+      "totalTeachers": "Abarimu bose",
+      "teachingClasses": "Amashuri yigishwa",
+      "withStudents": "Bafite abanyeshuri",
+      "topTeacher": "Umwarimu utanga umusanzu mwinshi"
+    },
+    "status": {
+      "active": "Arakora",
+      "inactive": "Ntakora"
+    },
+    "card": {
+      "classes": "Amashuri",
+      "students": "Abanyeshuri",
+      "teacherBadge": "Umwarimu",
+      "resetPassword": "Hindura ijambobanga",
+      "deactivate": "Hagarika",
+      "activate": "Kora"
+    },
+    "toolbar": {
+      "searchPlaceholder": "Shakisha izina cyangwa imeyili…",
+      "newTeacher": "Umwarimu mushya"
+    },
+    "states": {
+      "loading": "Gutangiza abarimu…",
+      "noTeachersYet": "Nta mwarimu urahari",
+      "noTeachersDesc": "Kora konti ya mbere y'umwarimu kugira ngo utangire."
+    },
+    "table": {
+      "teacher": "Umwarimu",
+      "contact": "Aho bahurira",
+      "classes": "Amashuri",
+      "students": "Abanyeshuri",
+      "joined": "Yinjiye",
+      "actions": "Ibikorwa"
+    },
+    "modal": {
+      "editTitle": "Hindura umwarimu",
+      "createTitle": "Kora umwarimu mushya",
+      "teacherCreated": "Umwarimu yakozwe!",
+      "shareCredentials": "Sangira aya makuru y'ifashayinjira n'umwarimu.",
+      "email": "Imeyili",
+      "defaultPassword": "Ijambobanga risanzwe",
+      "noEmailYet": "Nta meyili irahari",
+      "sharedPasswordNoticeSuccess": "Abarimu bose bafite ijambobanga risanzwe rimwe. Umwarimu agomba kurihindura amaze kwinjira bwa mbere.",
+      "close": "Funga",
+      "addAnother": "Ongeraho undi",
+      "fullName": "Amazina yombi *",
+      "fullNamePlaceholder": "Amazina y'umwarimu",
+      "emailLabel": "Imeyili *",
+      "emailPlaceholder": "umwarimu@ishuri.edu",
+      "phone": "Telefoni",
+      "phonePlaceholder": "+250 xxx xxx xxx",
+      "sharedPasswordNoticeForm": "Abarimu bose bafite ijambobanga risanzwe rimwe. Umwarimu agomba kurihindura amaze kwinjira bwa mbere.",
+      "cancel": "Hagarika",
+      "updateTeacher": "Vugurura umwarimu",
+      "createTeacher": "Kora umwarimu"
+    },
+    "confirm": {
+      "deleteTitle": "Siba umwarimu",
+      "deleteMessage": "Gusiba \"{{name}}\"? Amashuri ye azasigara kandi ashobora guhabwa undi mwarimu.",
+      "deleteConfirm": "Siba",
+      "deactivateTitle": "Hagarika umwarimu",
+      "activateTitle": "Kora umwarimu",
+      "deactivateMessage": "Hagarika \"{{name}}\"? Azabura uburenganzira bwo kwinjira muri EDUPLA ako kanya.",
+      "activateMessage": "Kora \"{{name}}\"? Azongera kubona uburenganzira bwuzuye muri EDUPLA.",
+      "deactivateConfirm": "Hagarika",
+      "activateConfirm": "Kora"
+    }
+  },
+  "adminStudents": {
+    "hero": {
+      "registry": "Urutonde rw'Abanyeshuri",
+      "enrolled": "{{count}} biyandikishije",
+      "title": "🎓 Abanyeshuri",
+      "subtitle": "Genzura konti z'abanyeshuri, kurikirana kwiyandikisha mu mashuri, no gukurikirana iterambere muri gahunda zose.",
+      "newStudent": "Umunyeshuri mushya"
+    },
+    "statStrip": {
+      "totalStudents": "Abanyeshuri bose",
+      "enrolled": "Biyandikishije",
+      "tradesActive": "Imyuga ikora",
+      "topTrade": "Umwuga ukunzwe"
+    },
+    "status": {
+      "active": "Arakora",
+      "inactive": "Ntakora"
+    },
+    "card": {
+      "resetPassword": "Hindura ijambobanga",
+      "deactivate": "Hagarika",
+      "activate": "Kora",
+      "class_one": "ishuri",
+      "class_other": "amashuri"
+    },
+    "toolbar": {
+      "searchPlaceholder": "Shakisha izina cyangwa imeyili…",
+      "filters": "Muyunguruzi",
+      "clearAll": "Siba byose",
+      "filterBy": "Yungurura ukurikije:",
+      "class": "Ishuri",
+      "allClasses": "Amashuri yose"
+    },
+    "states": {
+      "loading": "Gutangiza abanyeshuri…",
+      "noStudentsFound": "Nta munyeshuri wabonetse",
+      "tryAdjusting": "Gerageza guhindura ishakisha cyangwa muyunguruzi.",
+      "addFirstStudent": "Ongeraho umunyeshuri wa mbere kugira ngo utangire.",
+      "addStudent": "Ongeraho umunyeshuri"
+    },
+    "table": {
+      "student": "Umunyeshuri",
+      "levelTrade": "Urwego / Umwuga",
+      "classes": "Amashuri",
+      "year": "Umwaka",
+      "joined": "Yinjiye",
+      "actions": "Ibikorwa"
+    },
+    "modal": {
+      "editTitle": "Hindura umunyeshuri",
+      "createTitle": "Umunyeshuri mushya",
+      "studentCreated": "Umunyeshuri yakozwe!",
+      "shareCredentials": "Sangira aya makuru y'ifashayinjira n'umunyeshuri.",
+      "email": "Imeyili",
+      "defaultPassword": "Ijambobanga risanzwe",
+      "close": "Funga",
+      "addAnother": "Ongeraho undi",
+      "fullName": "Amazina yombi *",
+      "fullNamePlaceholder": "Izina ry'umunyeshuri",
+      "emailLabel": "Imeyili *",
+      "emailPlaceholder": "umunyeshuri@ishuri.edu",
+      "intakeYear": "Umwaka wo kwinjira",
+      "selectYear": "Hitamo umwaka…",
+      "class": "Ishuri",
+      "enrollInClass": "Andikisha mu ishuri",
+      "selected": "byatoranyijwe",
+      "editingClassNote": "Umunyeshuri ashobora kwiyandikisha mu ishuri rimwe gusa. Shyiraho akamenyetso ku rindi shuri kugira ngo umukure ku iryo arimo.",
+      "current": "(iriho ubu)",
+      "noClassesAvailable": "Nta shuri rihari.",
+      "tvetAutoTitle": "Amakuru ya TVET yahawe mu buryo bwikora",
+      "from": "Biva mu",
+      "level": "Urwego: ",
+      "trade": "Umwuga: ",
+      "cancel": "Hagarika",
+      "updateStudent": "Vugurura umunyeshuri",
+      "createStudent": "Kora umunyeshuri"
+    },
+    "confirm": {
+      "deactivateTitle": "Hagarika umunyeshuri",
+      "activateTitle": "Kora umunyeshuri",
+      "deactivateMessage": "Hagarika \"{{name}}\"? Azabura uburenganzira bwo kwinjira muri EDUPLA ako kanya.",
+      "activateMessage": "Kora \"{{name}}\"? Azongera kubona uburenganzira bwuzuye muri EDUPLA.",
+      "deactivateConfirm": "Hagarika",
+      "activateConfirm": "Kora",
+      "deleteTitle": "Siba umunyeshuri",
+      "deleteMessage": "Gusiba \"{{name}}\"? Ibyo yatanze n'amakuru ye nabyo bizasibwa.",
+      "deleteConfirm": "Siba"
+    }
+  },
+  "adminClasses": {
+    "statStrip": {
+      "totalClasses": "Amashuri yose",
+      "totalStudents": "Abanyeshuri bose",
+      "tradesActive": "Imyuga ikora",
+      "topTrade": "Umwuga ukunzwe"
+    },
+    "card": {
+      "classTeacher": "Umwarimu w'ishuri",
+      "unassigned": "⚠ Ntabwo yahawe",
+      "linked": "Bihujwe",
+      "students": "Abanyeshuri",
+      "student_one": "umunyeshuri",
+      "student_other": "abanyeshuri",
+      "editClassInfo": "Hindura amakuru y'ishuri",
+      "manage": "Genzura",
+      "needsBoth": "Rikeneye umwarimu w'ishuri n'umunyeshuri nibura umwe kugira ngo rikore.",
+      "needsTeacher": "Rikeneye umwarimu w'ishuri kugira ngo rikore.",
+      "needsStudent": "Rikeneye nibura umunyeshuri umwe wiyandikishije kugira ngo rikore.",
+      "manuallyDeactivated": "Ryahagaritswe n'umuyobozi.",
+      "enroll": "Andikisha",
+      "students2": "Abanyeshuri",
+      "edit": "Hindura",
+      "delete": "Siba"
+    },
+    "toolbar": {
+      "searchPlaceholder": "Shakisha ishuri cyangwa umwarimu…",
+      "newClass": "Ishuri rishya"
+    },
+    "states": {
+      "loading": "Gutangiza amashuri…",
+      "noClassesFound": "Nta ishuri ryabonetse",
+      "createClass": "Kora ishuri"
+    },
+    "modal": {
+      "editTitle": "Hindura ishuri",
+      "createTitle": "Kora ishuri rishya",
+      "className": "Izina ry'ishuri *",
+      "classNamePlaceholder": "urugero: Iterambere rya Web L3",
+      "description": "Ibisobanuro",
+      "descriptionPlaceholder": "Ibisobanuro bigufi by'ishuri…",
+      "rtqfLevel": "Urwego rwa RTQF",
+      "none": "Ntabwo",
+      "noRtqfYet": "Nta rwego rwa RTQF rurahari — ongeraho gahunda mu igenamiterere ry'umuyobozi mbere.",
+      "trade": "Umwuga",
+      "noTradesYet": "Nta myuga irahari — ongeraho gahunda mu igenamiterere ry'umuyobozi mbere.",
+      "tvetProgram": "Gahunda ya TVET / Impamyabushobozi",
+      "noneNotLinked": "Ntabwo — ntibihuye na gahunda",
+      "noProgramsYet": "Nta gahunda irahari — ongeraho imwe mu igenamiterere ry'umuyobozi kugira ngo uzuze uru rutonde.",
+      "programHint": "Icyiciro, izina ry'impamyabushobozi, n'urwego rwa RTQF biva kuri iyi gahunda bizagaragara ku raporo z'abanyeshuri b'iri shuri.",
+      "teacherAssignNote": "Umwarimu w'ishuri n'abandi barimu bahabwa nyuma, biva muri Genzura Ishuri ku ikarita y'iri shuri — ishuri rikora gusa iyo rifite umwarimu w'ishuri n'umunyeshuri nibura umwe wiyandikishije.",
+      "cancel": "Hagarika",
+      "updateClass": "Vugurura ishuri",
+      "createClass": "Kora ishuri"
+    },
+    "enrollModal": {
+      "title": "Andikisha Umunyeshuri — {{name}}",
+      "studentEnrolled": "Umunyeshuri yiyandikishije!",
+      "shareCredentials": "Sangira aya makuru y'ifashayinjira n'umunyeshuri. Yiyandikishije muri {{name}}.",
+      "email": "Imeyili",
+      "defaultPassword": "Ijambobanga risanzwe",
+      "close": "Funga",
+      "enrollAnother": "Andikisha undi",
+      "infoNote": "Uyu munyeshuri azandikwa akiyandikisha ako kanya muri {{name}}. Kubera ko umunyeshuri ashobora kuba mu ishuri rimwe gusa, nta rutonde rw'amashuri hano — byamaze gufatwa umwanzuro.",
+      "fullName": "Amazina yombi *",
+      "fullNamePlaceholder": "Izina ry'umunyeshuri",
+      "emailLabel": "Imeyili *",
+      "emailPlaceholder": "umunyeshuri@ishuri.edu",
+      "intakeYear": "Umwaka wo kwinjira",
+      "selectYear": "Hitamo umwaka…",
+      "cancel": "Hagarika",
+      "enrollStudent": "Andikisha umunyeshuri"
+    },
+    "confirm": {
+      "deactivateTitle": "Hagarika ishuri",
+      "activateTitle": "Kora ishuri",
+      "deactivateMessage": "Hagarika \"{{name}}\"? Abanyeshuri bazabura uburenganzira bwo kubona imirimo n'inyandiko z'iri shuri.",
+      "activateMessage": "Kora \"{{name}}\"? Abanyeshuri bazongera kubona uburenganzira bw'iri shuri.",
+      "deactivateConfirm": "Hagarika",
+      "activateConfirm": "Kora",
+      "deleteTitle": "Siba ishuri",
+      "deleteMessage": "Gusiba \"{{name}}\"? Imirimo n'inyandiko zose z'iri shuri nazo zizasibwa.",
+      "deleteConfirm": "Siba"
+    },
+    "hero": {
+      "classManagement": "Igenzura ry'amashuri",
+      "active": "{{count}} akora",
+      "title": "📚 Amashuri",
+      "subtitle": "Kora kandi ugenzure amashuri, uhe abarimu, kandi ukurikirane kwiyandikisha kw'abanyeshuri muri gahunda zose."
+    },
+    "filterBy": "Yungurura ukurikije:",
+    "level": "Urwego",
+    "trade": "Umwuga",
+    "table": {
+      "class": "Ishuri",
+      "tags": "Ibimenyetso",
+      "teacher": "Umwarimu",
+      "students": "Abanyeshuri"
+    },
+    "studentsModal": {
+      "title": "Abanyeshuri — {{name}}",
+      "noStudentsEnrolled": "Nta munyeshuri wiyandikishije",
+      "addStudentsDesc": "Ongeraho abanyeshuri muri iri shuri kugira ngo utangire.",
+      "enrollAStudent": "Andikisha umunyeshuri",
+      "studentsEnrolled_one": "Umunyeshuri {{count}} wiyandikishije",
+      "studentsEnrolled_other": "Abanyeshuri {{count}} biyandikishije",
+      "enrollStudent": "Andikisha umunyeshuri",
+      "close": "Funga"
     }
   }
 }

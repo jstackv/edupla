@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import {
@@ -16,6 +17,15 @@ const CATEGORY_META = {
   'General modules':         { accent: '#0ea5e9', icon: Globe2,  short: 'General' },
   'Complementary modules':   { accent: '#10b981', icon: Puzzle,  short: 'Complementary' },
   'Elective Non Examinable': { accent: '#f59e0b', icon: Compass, short: 'Elective' },
+};
+// Maps a category to its studentModules.* translation key, since
+// CATEGORY_META is a module-level constant (outside the component) and
+// can't call the t() hook directly.
+const CATEGORY_LABEL_KEY = {
+  'Specific modules':        'categorySpecific',
+  'General modules':         'categoryGeneral',
+  'Complementary modules':   'categoryComplementary',
+  'Elective Non Examinable': 'categoryElective',
 };
 const DEFAULT_META = { accent: '#c2410c', icon: LibraryBig, short: 'Module' };
 const getMeta = (category) => CATEGORY_META[category] || DEFAULT_META;
@@ -36,9 +46,9 @@ const getInitials = (name) => {
 };
 
 const SORT_OPTIONS = [
-  { value: 'name',     label: 'Sort: Name' },
-  { value: 'teacher',  label: 'Sort: Teacher' },
-  { value: 'category', label: 'Sort: Category' },
+  { value: 'name',     labelKey: 'sortName' },
+  { value: 'teacher',  labelKey: 'sortTeacher' },
+  { value: 'category', labelKey: 'sortCategory' },
 ];
 
 function SkeletonGrid() {
@@ -63,6 +73,8 @@ function SkeletonGrid() {
 }
 
 export default function StudentModules() {
+  const { t } = useTranslation();
+  const catLabel = (cat) => t('studentModules.' + (CATEGORY_LABEL_KEY[cat] || 'categoryModule'));
   const [modules, setModules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
@@ -147,10 +159,10 @@ export default function StudentModules() {
               </div>
               <div>
                 <h2 className="font-display font-extrabold text-xl leading-tight" style={{ letterSpacing: '-0.02em' }}>
-                  Your Modules
+                  {t('studentModules.title')}
                 </h2>
                 <p className="text-xs mt-0.5 modx-hero-sub">
-                  Everything you're studying this term, and who's teaching it
+                  {t('studentModules.subtitle')}
                 </p>
               </div>
             </div>
@@ -161,21 +173,21 @@ export default function StudentModules() {
               <Layers3 className="w-4 h-4 modx-hero-stat-icon" />
               <div>
                 <div className="modx-hero-stat-num">{modules.length}</div>
-                <div className="text-[10px] uppercase tracking-wider modx-hero-stat-label">Modules</div>
+                <div className="text-[10px] uppercase tracking-wider modx-hero-stat-label">{t('studentModules.modules')}</div>
               </div>
             </div>
             <div className="modx-hero-stat" style={{ animationDelay: '120ms' }}>
               <GraduationCap className="w-4 h-4 modx-hero-stat-icon" />
               <div>
                 <div className="modx-hero-stat-num">{teacherCount}</div>
-                <div className="text-[10px] uppercase tracking-wider modx-hero-stat-label">Teachers</div>
+                <div className="text-[10px] uppercase tracking-wider modx-hero-stat-label">{t('studentModules.teachers')}</div>
               </div>
             </div>
             <div className="modx-hero-stat" style={{ animationDelay: '180ms' }}>
               <BookMarked className="w-4 h-4 modx-hero-stat-icon" />
               <div>
                 <div className="modx-hero-stat-num">{categories.length}</div>
-                <div className="text-[10px] uppercase tracking-wider modx-hero-stat-label">Categories</div>
+                <div className="text-[10px] uppercase tracking-wider modx-hero-stat-label">{t('studentModules.categories')}</div>
               </div>
             </div>
             {pinned.size > 0 && (
@@ -183,7 +195,7 @@ export default function StudentModules() {
                 <Star className="w-4 h-4 modx-hero-stat-icon" />
                 <div>
                   <div className="modx-hero-stat-num">{pinned.size}</div>
-                  <div className="text-[10px] uppercase tracking-wider modx-hero-stat-label">Pinned</div>
+                  <div className="text-[10px] uppercase tracking-wider modx-hero-stat-label">{t('studentModules.pinned')}</div>
                 </div>
               </div>
             )}
@@ -200,7 +212,7 @@ export default function StudentModules() {
               type="text"
               value={query}
               onChange={e => setQuery(e.target.value)}
-              placeholder="Search modules or teachers…"
+              placeholder={t('studentModules.searchPlaceholder')}
               className="modx-search-input"
             />
             {query && (
@@ -216,7 +228,7 @@ export default function StudentModules() {
               style={{ '--modx-accent': '#c2410c' }}
               onClick={() => setActiveCategory('all')}
             >
-              <span className="modx-filter-dot" />All
+              <span className="modx-filter-dot" />{t('studentModules.all')}
             </button>
             {categories.map(cat => {
               const meta = getMeta(cat);
@@ -227,7 +239,7 @@ export default function StudentModules() {
                   style={{ '--modx-accent': meta.accent }}
                   onClick={() => setActiveCategory(cat)}
                 >
-                  <span className="modx-filter-dot" />{meta.short}
+                  <span className="modx-filter-dot" />{catLabel(cat)}
                 </button>
               );
             })}
@@ -235,7 +247,7 @@ export default function StudentModules() {
 
           <div className="modx-select-wrap">
             <select className="modx-select" value={sortBy} onChange={e => setSortBy(e.target.value)}>
-              {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{t('studentModules.' + o.labelKey)}</option>)}
             </select>
             <ChevronDown className="w-3.5 h-3.5 modx-select-chevron" />
           </div>
@@ -243,14 +255,14 @@ export default function StudentModules() {
           <div className="modx-view-toggle">
             <button
               className={`modx-view-btn ${viewMode === 'grid' ? 'modx-view-active' : ''}`}
-              title="Grid view"
+              title={t('studentModules.gridView')}
               onClick={() => setViewMode('grid')}
             >
               <LayoutGrid className="w-4 h-4" />
             </button>
             <button
               className={`modx-view-btn ${viewMode === 'list' ? 'modx-view-active' : ''}`}
-              title="List view"
+              title={t('studentModules.listView')}
               onClick={() => setViewMode('list')}
             >
               <Rows3 className="w-4 h-4" />
@@ -265,16 +277,16 @@ export default function StudentModules() {
           <div className="modx-empty-icon">
             <LibraryBig className="w-7 h-7" />
           </div>
-          <p className="font-display font-bold mb-1" style={{ color: 'var(--text-primary)' }}>No modules yet</p>
-          <p className="text-sm text-muted">Your admin hasn't assigned any modules to your class yet.</p>
+          <p className="font-display font-bold mb-1" style={{ color: 'var(--text-primary)' }}>{t('studentModules.noModulesYet')}</p>
+          <p className="text-sm text-muted">{t('studentModules.noModulesDesc')}</p>
         </div>
       ) : filtered.length === 0 ? (
         <div className="modx-empty">
           <div className="modx-empty-icon">
             <Search className="w-6 h-6" />
           </div>
-          <p className="font-display font-bold mb-1" style={{ color: 'var(--text-primary)' }}>No matches</p>
-          <p className="text-sm text-muted">Try a different search term or category.</p>
+          <p className="font-display font-bold mb-1" style={{ color: 'var(--text-primary)' }}>{t('studentModules.noMatches')}</p>
+          <p className="text-sm text-muted">{t('studentModules.noMatchesDesc')}</p>
         </div>
       ) : viewMode === 'grid' ? (
         <div className="modx-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -288,11 +300,11 @@ export default function StudentModules() {
                 className={`modx-card ${isPinned ? 'modx-is-pinned' : ''}`}
                 style={{ '--modx-accent': meta.accent, '--i': i }}
               >
-                {isPinned && <span className="modx-pinned-ribbon">Pinned</span>}
+                {isPinned && <span className="modx-pinned-ribbon">{t('studentModules.pinned')}</span>}
                 <button
                   type="button"
                   className={`modx-pin-btn ${isPinned ? 'modx-pinned' : ''}`}
-                  title={isPinned ? 'Unpin module' : 'Pin module'}
+                  title={isPinned ? t('studentModules.unpinModule') : t('studentModules.pinModule')}
                   onClick={() => togglePin(mod.id)}
                 >
                   <Star className="w-3.5 h-3.5" fill={isPinned ? 'currentColor' : 'none'} />
@@ -315,7 +327,7 @@ export default function StudentModules() {
                 <div className="flex flex-wrap items-center gap-1.5 mb-1">
                   {mod.category && (
                     <span className="modx-cat-pill">
-                      <Icon className="w-3 h-3" />{meta.short}
+                      <Icon className="w-3 h-3" />{catLabel(mod.category)}
                     </span>
                   )}
                   {mod.code && (
@@ -332,7 +344,7 @@ export default function StudentModules() {
                     <>
                       <div className="modx-avatar">{getInitials(mod.teacher_name)}</div>
                       <div className="text-xs min-w-0 flex-1">
-                        <span className="text-muted">Taught by </span>
+                        <span className="text-muted">{t('studentModules.taughtBy')}</span>
                         <span className="font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{mod.teacher_name}</span>
                         {mod.teacher_email && (
                           <a href={`mailto:${mod.teacher_email}`} className="modx-email-row block truncate">
@@ -344,7 +356,7 @@ export default function StudentModules() {
                         <button
                           type="button"
                           className={`modx-copy-btn ${copiedId === mod.id ? 'modx-copied' : ''}`}
-                          title="Copy email"
+                          title={t('studentModules.copyEmail')}
                           onClick={() => copyEmail(mod.teacher_email, mod.id)}
                         >
                           {copiedId === mod.id ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
@@ -352,7 +364,7 @@ export default function StudentModules() {
                       )}
                     </>
                   ) : (
-                    <span className="text-xs text-muted italic">No teacher assigned yet</span>
+                    <span className="text-xs text-muted italic">{t('studentModules.noTeacherAssigned')}</span>
                   )}
                 </div>
 
@@ -382,7 +394,7 @@ export default function StudentModules() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <h3 className="font-display font-bold text-sm truncate" style={{ color: 'var(--text-primary)' }}>{mod.name}</h3>
-                    {mod.category && <span className="modx-cat-pill flex-shrink-0"><Icon className="w-3 h-3" />{meta.short}</span>}
+                    {mod.category && <span className="modx-cat-pill flex-shrink-0"><Icon className="w-3 h-3" />{catLabel(mod.category)}</span>}
                     {mod.code && <span className="modx-class-chip flex-shrink-0"><Hash className="w-3 h-3" />{mod.code}</span>}
                   </div>
                   {mod.teacher_name && (
@@ -397,7 +409,7 @@ export default function StudentModules() {
                   <button
                     type="button"
                     className={`modx-copy-btn ${copiedId === mod.id ? 'modx-copied' : ''}`}
-                    title="Copy teacher email"
+                    title={t('studentModules.copyTeacherEmail')}
                     onClick={() => copyEmail(mod.teacher_email, mod.id)}
                     style={{ margin: 0 }}
                   >
@@ -408,7 +420,7 @@ export default function StudentModules() {
                 <button
                   type="button"
                   className={`modx-pin-btn ${isPinned ? 'modx-pinned' : ''}`}
-                  title={isPinned ? 'Unpin module' : 'Pin module'}
+                  title={isPinned ? t('studentModules.unpinModule') : t('studentModules.pinModule')}
                   onClick={() => togglePin(mod.id)}
                   style={{ position: 'static', opacity: 1, transform: 'none' }}
                 >

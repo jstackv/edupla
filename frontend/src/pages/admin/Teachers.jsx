@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
@@ -42,6 +43,7 @@ function Avatar({ name, size = 36 }) {
 
 /* ── Stat strip ── */
 function StatStrip({ teachers }) {
+  const { t: tr } = useTranslation();
   const withClasses  = teachers.filter(t => (t.class_count || 0) > 0).length;
   const withStudents = teachers.filter(t => (t.student_count || 0) > 0).length;
   const topTeacher   = [...teachers].sort((a, b) => (b.student_count || 0) - (a.student_count || 0))[0];
@@ -49,10 +51,10 @@ function StatStrip({ teachers }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10 }}>
       {[
-        { icon: Users,         label: 'Total Teachers',    value: teachers.length,    color: '#c2410c', bg: '#fed7aa' },
-        { icon: BookOpen,      label: 'Teaching Classes',  value: withClasses,        color: '#0ea5e9', bg: '#f0f9ff' },
-        { icon: GraduationCap, label: 'With Students',     value: withStudents,       color: '#10b981', bg: '#ecfdf5' },
-        { icon: Award,         label: 'Top Teacher',       value: topTeacher?.name?.split(' ')[0] || '—', color: '#f59e0b', bg: '#fffbeb', isText: true },
+        { icon: Users,         label: tr('adminTeachers.statStrip.totalTeachers'),    value: teachers.length,    color: '#c2410c', bg: '#fed7aa' },
+        { icon: BookOpen,      label: tr('adminTeachers.statStrip.teachingClasses'),  value: withClasses,        color: '#0ea5e9', bg: '#f0f9ff' },
+        { icon: GraduationCap, label: tr('adminTeachers.statStrip.withStudents'),     value: withStudents,       color: '#10b981', bg: '#ecfdf5' },
+        { icon: Award,         label: tr('adminTeachers.statStrip.topTeacher'),       value: topTeacher?.name?.split(' ')[0] || '—', color: '#f59e0b', bg: '#fffbeb', isText: true },
       ].map(({ icon: Icon, label, value, color, bg, isText }) => (
         <div key={label} className="card" style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ width: 36, height: 36, borderRadius: 10, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -70,19 +72,21 @@ function StatStrip({ teachers }) {
 
 /* ── Status Badge ── */
 function StatusBadge({ is_active }) {
+  const { t: tr } = useTranslation();
   return (
     <span style={{
       fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6, letterSpacing: 0.3,
       background: is_active !== false ? '#ecfdf5' : '#fef2f2',
       color: is_active !== false ? '#059669' : '#ef4444',
     }}>
-      {is_active !== false ? 'Active' : 'Inactive'}
+      {is_active !== false ? tr('adminTeachers.status.active') : tr('adminTeachers.status.inactive')}
     </span>
   );
 }
 
 /* ── Teacher Card (grid) ── */
 function TeacherCard({ teacher: t, onEdit, onDelete, onToggle, onResetPassword, isSuperAdmin, animDelay = 0 }) {
+  const { t: tr } = useTranslation();
   const [hovered, setHovered] = useState(false);
   const [from, to] = getAvatarColors(t.name);
 
@@ -109,7 +113,7 @@ function TeacherCard({ teacher: t, onEdit, onDelete, onToggle, onResetPassword, 
           <Avatar name={t.name} size={48} />
           <div style={{ display: 'flex', gap: 3, opacity: hovered ? 1 : 0, transition: 'opacity 0.18s' }}>
             {isSuperAdmin && <ImpersonateButton userId={t.id} name={t.name} />}
-            <button onClick={() => onResetPassword(t)} title="Reset password"
+            <button onClick={() => onResetPassword(t)} title={tr('adminTeachers.card.resetPassword')}
               style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#fed7aa', display: 'flex' }}>
               <KeyRound size={13} style={{ color: '#c2410c' }} />
             </button>
@@ -122,7 +126,7 @@ function TeacherCard({ teacher: t, onEdit, onDelete, onToggle, onResetPassword, 
               <Trash2 size={13} style={{ color: '#ef4444' }} />
             </button>
             {isSuperAdmin && (
-              <button onClick={() => onToggle(t)} title={t.is_active !== false ? 'Deactivate' : 'Activate'}
+              <button onClick={() => onToggle(t)} title={t.is_active !== false ? tr('adminTeachers.card.deactivate') : tr('adminTeachers.card.activate')}
                 style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: t.is_active !== false ? '#fef3c7' : '#ecfdf5', display: 'flex' }}>
                 {t.is_active !== false ? <ToggleRight size={13} style={{ color: '#d97706' }} /> : <ToggleLeft size={13} style={{ color: '#10b981' }} />}
               </button>
@@ -151,8 +155,8 @@ function TeacherCard({ teacher: t, onEdit, onDelete, onToggle, onResetPassword, 
           display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14,
         }}>
           {[
-            { icon: BookOpen, label: 'Classes', value: t.class_count || 0, color: '#c2410c', bg: '#fed7aa' },
-            { icon: GraduationCap, label: 'Students', value: t.student_count || 0, color: '#10b981', bg: '#ecfdf5' },
+            { icon: BookOpen, label: tr('adminTeachers.card.classes'), value: t.class_count || 0, color: '#c2410c', bg: '#fed7aa' },
+            { icon: GraduationCap, label: tr('adminTeachers.card.students'), value: t.student_count || 0, color: '#10b981', bg: '#ecfdf5' },
           ].map(({ icon: Icon, label, value, color, bg }) => (
             <div key={label} style={{ padding: '8px 10px', borderRadius: 10, background: bg, display: 'flex', alignItems: 'center', gap: 8 }}>
               <Icon size={13} style={{ color, flexShrink: 0 }} />
@@ -172,7 +176,7 @@ function TeacherCard({ teacher: t, onEdit, onDelete, onToggle, onResetPassword, 
             background: `${from}14`, fontSize: 10, fontWeight: 600, color: from,
           }}>
             <Shield size={10} />
-            Teacher
+            {tr('adminTeachers.card.teacherBadge')}
           </div>
           <StatusBadge is_active={t.is_active} />
           <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>
@@ -186,6 +190,7 @@ function TeacherCard({ teacher: t, onEdit, onDelete, onToggle, onResetPassword, 
 
 /* ── Teacher Row (table) ── */
 function TeacherRow({ teacher: t, onEdit, onDelete, onToggle, onResetPassword, isSuperAdmin, animDelay = 0 }) {
+  const { t: tr } = useTranslation();
   const [hovered, setHovered] = useState(false);
   const [from] = getAvatarColors(t.name);
 
@@ -245,7 +250,7 @@ function TeacherRow({ teacher: t, onEdit, onDelete, onToggle, onResetPassword, i
       <td style={{ padding: '10px 16px', textAlign: 'right' }}>
         <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end', opacity: hovered ? 1 : 0.3, transition: 'opacity 0.15s' }}>
           {isSuperAdmin && <ImpersonateButton userId={t.id} name={t.name} />}
-          <button onClick={() => onResetPassword(t)} title="Reset password"
+          <button onClick={() => onResetPassword(t)} title={tr('adminTeachers.card.resetPassword')}
             style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#fed7aa', display: 'flex' }}>
             <KeyRound size={13} style={{ color: '#c2410c' }} />
           </button>
@@ -258,7 +263,7 @@ function TeacherRow({ teacher: t, onEdit, onDelete, onToggle, onResetPassword, i
             <Trash2 size={13} style={{ color: '#ef4444' }} />
           </button>
           {isSuperAdmin && (
-            <button onClick={() => onToggle(t)} title={t.is_active !== false ? 'Deactivate' : 'Activate'}
+            <button onClick={() => onToggle(t)} title={t.is_active !== false ? tr('adminTeachers.card.deactivate') : tr('adminTeachers.card.activate')}
               style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: t.is_active !== false ? '#fef3c7' : '#ecfdf5', display: 'flex' }}>
               {t.is_active !== false ? <ToggleRight size={13} style={{ color: '#d97706' }} /> : <ToggleLeft size={13} style={{ color: '#10b981' }} />}
             </button>
@@ -271,6 +276,7 @@ function TeacherRow({ teacher: t, onEdit, onDelete, onToggle, onResetPassword, i
 
 /* ══ MAIN ══ */
 export default function AdminTeachers() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const isSuperAdmin = !!user?.is_super_admin;
   const [teachers, setTeachers] = useState([]);
@@ -443,7 +449,7 @@ export default function AdminTeachers() {
             onMouseEnter={e => e.currentTarget.style.filter = 'brightness(1.12)'}
             onMouseLeave={e => e.currentTarget.style.filter = 'none'}
           >
-            <Plus size={14} /> New Teacher
+            <Plus size={14} /> {t('adminTeachers.toolbar.newTeacher')}
           </button>
         </div>
       </div>
@@ -460,7 +466,7 @@ export default function AdminTeachers() {
             onChange={e => { setSearch(e.target.value); setPage(1); }}
             className="input-field"
             style={{ paddingLeft: 34 }}
-            placeholder="Search by name or email…"
+            placeholder={t('adminTeachers.toolbar.searchPlaceholder')}
           />
         </div>
 
@@ -484,7 +490,7 @@ export default function AdminTeachers() {
         </div>
 
         <button onClick={() => openModal()} className="btn-primary" style={{ whiteSpace: 'nowrap' }}>
-          <Plus size={14} /> New Teacher
+          <Plus size={14} /> {t('adminTeachers.toolbar.newTeacher')}
         </button>
       </div>
 
@@ -493,7 +499,7 @@ export default function AdminTeachers() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 0' }}>
           <div style={{ textAlign: 'center' }}>
             <div style={{ width: 44, height: 44, borderRadius: '50%', border: '3px solid var(--surface-100)', borderTopColor: '#c2410c', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
-            <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Loading teachers…</p>
+            <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{t('adminTeachers.states.loading')}</p>
           </div>
         </div>
       ) : teachers.length === 0 ? (
@@ -501,10 +507,10 @@ export default function AdminTeachers() {
           <div style={{ width: 64, height: 64, borderRadius: 20, background: '#fed7aa', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
             <Users size={28} style={{ color: '#c2410c' }} />
           </div>
-          <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>No teachers yet</p>
-          <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20 }}>Create the first teacher account to get started.</p>
+          <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>{t('adminTeachers.states.noTeachersYet')}</p>
+          <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20 }}>{t('adminTeachers.states.noTeachersDesc')}</p>
           <button onClick={() => openModal()} className="btn-primary" style={{ margin: '0 auto' }}>
-            <Plus size={14} /> New Teacher
+            <Plus size={14} /> {t('adminTeachers.toolbar.newTeacher')}
           </button>
         </div>
       ) : viewMode === 'grid' ? (
@@ -519,9 +525,9 @@ export default function AdminTeachers() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: 'var(--surface-50)', borderBottom: '1px solid var(--card-border)' }}>
-                {['Teacher', 'Contact', 'Classes', 'Students', 'Joined', 'Actions'].map(h => (
+                {[t('adminTeachers.table.teacher'), t('adminTeachers.table.contact'), t('adminTeachers.table.classes'), t('adminTeachers.table.students'), t('adminTeachers.table.joined'), t('adminTeachers.table.actions')].map((h, idx) => (
                   <th key={h} style={{
-                    padding: '10px 16px', textAlign: h === 'Actions' ? 'right' : 'left',
+                    padding: '10px 16px', textAlign: idx === 5 ? 'right' : 'left',
                     fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)',
                     textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap',
                   }}>{h}</th>
@@ -541,7 +547,7 @@ export default function AdminTeachers() {
       {total > 12 && <Pagination page={page} totalPages={Math.ceil(total / 12)} onPageChange={setPage} />}
 
       {/* ── Modal ── */}
-      <Modal isOpen={modal} onClose={() => { setModal(false); setDefaultPassword(''); }} title={editing ? 'Edit Teacher' : 'Create New Teacher'}>
+      <Modal isOpen={modal} onClose={() => { setModal(false); setDefaultPassword(''); }} title={editing ? t('adminTeachers.modal.editTitle') : t('adminTeachers.modal.createTitle')}>
 
         {/* Success screen */}
         {defaultPassword ? (
@@ -550,18 +556,18 @@ export default function AdminTeachers() {
               <div style={{ width: 56, height: 56, borderRadius: 18, background: '#fed7aa', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
                 <CheckCircle2 size={28} style={{ color: '#c2410c' }} />
               </div>
-              <p style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 4 }}>Teacher Created!</p>
-              <p style={{ fontSize: 12, color: 'var(--text-secondary)', textAlign: 'center' }}>Share these login credentials with the teacher.</p>
+              <p style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 4 }}>{t('adminTeachers.modal.teacherCreated')}</p>
+              <p style={{ fontSize: 12, color: 'var(--text-secondary)', textAlign: 'center' }}>{t('adminTeachers.modal.shareCredentials')}</p>
             </div>
 
             <div style={{ borderRadius: 14, border: '1px solid var(--surface-100)', background: 'transparent', overflow: 'hidden' }}>
               {[
-                { label: 'Email', value: form.email, secret: false },
-                { label: 'Default Password', value: defaultPassword, secret: true },
+                { label: t('adminTeachers.modal.email'), value: form.email, secret: false },
+                { label: t('adminTeachers.modal.defaultPassword'), value: defaultPassword, secret: true },
               ].map(({ label, value, secret }) => (
                 <div key={label} style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '12px 16px', borderBottom: label === 'Email' ? '1px solid var(--surface-100)' : 'none',
+                  padding: '12px 16px', borderBottom: label === t('adminTeachers.modal.email') ? '1px solid var(--surface-100)' : 'none',
                 }}>
                   <div>
                     <p style={{ fontSize: 10, fontWeight: 600, color: '#6b7280', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</p>
@@ -588,14 +594,14 @@ export default function AdminTeachers() {
             <div style={{ padding: '10px 14px', borderRadius: 10, background: 'var(--surface-100)', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
               <Shield size={14} style={{ color: '#c2410c', flexShrink: 0, marginTop: 1 }} />
               <p style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                All teachers share a default password. The teacher should change it after their first login.
+                {t('adminTeachers.modal.sharedPasswordNoticeSuccess')}
               </p>
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-              <button onClick={() => { setModal(false); setDefaultPassword(''); setForm({ name: '', email: '', phone: '' }); }} className="btn-secondary">Close</button>
+              <button onClick={() => { setModal(false); setDefaultPassword(''); setForm({ name: '', email: '', phone: '' }); }} className="btn-secondary">{t('adminTeachers.modal.close')}</button>
               <button onClick={() => { setDefaultPassword(''); setForm({ name: '', email: '', phone: '' }); setEditing(null); }} className="btn-primary">
-                <Plus size={14} /> Add Another
+                <Plus size={14} /> {t('adminTeachers.modal.addAnother')}
               </button>
             </div>
           </div>
@@ -608,41 +614,41 @@ export default function AdminTeachers() {
                 <Avatar name={form.name} size={40} />
                 <div>
                   <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>{form.name}</p>
-                  <p style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{form.email || 'No email yet'}</p>
+                  <p style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{form.email || t('adminTeachers.modal.noEmailYet')}</p>
                 </div>
               </div>
             )}
 
             <div>
-              <label className="label">Full Name *</label>
+              <label className="label">{t('adminTeachers.modal.fullName')}</label>
               <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                className="input-field" placeholder="Teacher full name" required />
+                className="input-field" placeholder={t('adminTeachers.modal.fullNamePlaceholder')} required />
             </div>
             <div>
-              <label className="label">Email *</label>
+              <label className="label">{t('adminTeachers.modal.emailLabel')}</label>
               <input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                className="input-field" placeholder="teacher@school.edu" required />
+                className="input-field" placeholder={t('adminTeachers.modal.emailPlaceholder')} required />
             </div>
             <div>
-              <label className="label">Phone</label>
+              <label className="label">{t('adminTeachers.modal.phone')}</label>
               <input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
-                className="input-field" placeholder="+250 xxx xxx xxx" />
+                className="input-field" placeholder={t('adminTeachers.modal.phonePlaceholder')} />
             </div>
 
             {!editing && (
               <div style={{ padding: '10px 14px', borderRadius: 10, background: 'var(--surface-100)', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                 <Shield size={14} style={{ color: '#c2410c', flexShrink: 0, marginTop: 1 }} />
                 <p style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                  All teachers share the same default password. The teacher should change it after first login.
+                  {t('adminTeachers.modal.sharedPasswordNoticeForm')}
                 </p>
               </div>
             )}
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, paddingTop: 4 }}>
-              <button type="button" onClick={() => setModal(false)} className="btn-secondary">Cancel</button>
+              <button type="button" onClick={() => setModal(false)} className="btn-secondary">{t('adminTeachers.modal.cancel')}</button>
               <button type="submit" disabled={saving} className="btn-primary">
                 {saving && <div style={{ width: 14, height: 14, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />}
-                {editing ? 'Update Teacher' : 'Create Teacher'}
+                {editing ? t('adminTeachers.modal.updateTeacher') : t('adminTeachers.modal.createTeacher')}
               </button>
             </div>
           </form>
@@ -652,18 +658,18 @@ export default function AdminTeachers() {
       <ConfirmDialog
         isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete} loading={deleting}
-        title="Delete Teacher"
-        message={`Delete "${deleteTarget?.name}"? Their classes will remain and can be reassigned to another teacher.`}
-        confirmText="Delete" variant="danger"
+        title={t('adminTeachers.confirm.deleteTitle')}
+        message={t('adminTeachers.confirm.deleteMessage', { name: deleteTarget?.name })}
+        confirmText={t('adminTeachers.confirm.deleteConfirm')} variant="danger"
       />
       <ConfirmDialog
         isOpen={!!toggleTarget} onClose={() => setToggleTarget(null)}
         onConfirm={handleToggleConfirm} loading={toggling}
-        title={toggleTarget?.is_active !== false ? 'Deactivate Teacher' : 'Activate Teacher'}
+        title={toggleTarget?.is_active !== false ? t('adminTeachers.confirm.deactivateTitle') : t('adminTeachers.confirm.activateTitle')}
         message={toggleTarget?.is_active !== false
-          ? `Deactivate "${toggleTarget?.name}"? They will lose access to EDUPLA immediately.`
-          : `Activate "${toggleTarget?.name}"? They will regain full access to EDUPLA.`}
-        confirmText={toggleTarget?.is_active !== false ? 'Deactivate' : 'Activate'}
+          ? t('adminTeachers.confirm.deactivateMessage', { name: toggleTarget?.name })
+          : t('adminTeachers.confirm.activateMessage', { name: toggleTarget?.name })}
+        confirmText={toggleTarget?.is_active !== false ? t('adminTeachers.confirm.deactivateConfirm') : t('adminTeachers.confirm.activateConfirm')}
         variant="danger"
       />
 

@@ -14,7 +14,9 @@
     "email": "E-mail",
     "password": "Mot de passe",
     "back": "Retour",
-    "or": "ou"
+    "or": "ou",
+    "active": "Actif",
+    "inactive": "Inactif"
   },
   "nav": {
     "dashboard": "Tableau de bord",
@@ -674,6 +676,305 @@
       "rejectedDesc": "Retournées à l'enseignant",
       "totalModules": "Total des modules",
       "totalModulesDesc": "Toutes classes confondues"
+    }
+  },
+  "studentModules": {
+    "title": "Vos modules",
+    "subtitle": "Tout ce que vous étudiez ce trimestre, et qui l'enseigne",
+    "modules": "Modules",
+    "teachers": "Enseignants",
+    "categories": "Catégories",
+    "pinned": "Épinglés",
+    "searchPlaceholder": "Rechercher un module ou un enseignant…",
+    "all": "Tous",
+    "categorySpecific": "Spécifique",
+    "categoryGeneral": "Général",
+    "categoryComplementary": "Complémentaire",
+    "categoryElective": "Optionnel",
+    "categoryModule": "Module",
+    "sortName": "Trier : Nom",
+    "sortTeacher": "Trier : Enseignant",
+    "sortCategory": "Trier : Catégorie",
+    "gridView": "Vue grille",
+    "listView": "Vue liste",
+    "noModulesYet": "Aucun module pour l'instant",
+    "noModulesDesc": "Votre administrateur n'a pas encore assigné de module à votre classe.",
+    "noMatches": "Aucun résultat",
+    "noMatchesDesc": "Essayez un autre terme de recherche ou une autre catégorie.",
+    "pinModule": "Épingler le module",
+    "unpinModule": "Désépingler le module",
+    "taughtBy": "Enseigné par ",
+    "noTeacherAssigned": "Aucun enseignant assigné pour l'instant",
+    "copyEmail": "Copier l'email",
+    "copyTeacherEmail": "Copier l'email de l'enseignant"
+  },
+  "adminTeachers": {
+    "statStrip": {
+      "totalTeachers": "Total enseignants",
+      "teachingClasses": "Classes enseignées",
+      "withStudents": "Avec élèves",
+      "topTeacher": "Meilleur enseignant"
+    },
+    "status": {
+      "active": "Actif",
+      "inactive": "Inactif"
+    },
+    "card": {
+      "classes": "Classes",
+      "students": "Élèves",
+      "teacherBadge": "Enseignant",
+      "resetPassword": "Réinitialiser le mot de passe",
+      "deactivate": "Désactiver",
+      "activate": "Activer"
+    },
+    "toolbar": {
+      "searchPlaceholder": "Rechercher par nom ou email…",
+      "newTeacher": "Nouvel enseignant"
+    },
+    "states": {
+      "loading": "Chargement des enseignants…",
+      "noTeachersYet": "Aucun enseignant pour l'instant",
+      "noTeachersDesc": "Créez le premier compte enseignant pour commencer."
+    },
+    "table": {
+      "teacher": "Enseignant",
+      "contact": "Contact",
+      "classes": "Classes",
+      "students": "Élèves",
+      "joined": "Inscrit le",
+      "actions": "Actions"
+    },
+    "modal": {
+      "editTitle": "Modifier l'enseignant",
+      "createTitle": "Créer un nouvel enseignant",
+      "teacherCreated": "Enseignant créé !",
+      "shareCredentials": "Partagez ces identifiants de connexion avec l'enseignant.",
+      "email": "Email",
+      "defaultPassword": "Mot de passe par défaut",
+      "noEmailYet": "Pas encore d'email",
+      "sharedPasswordNoticeSuccess": "Tous les enseignants partagent un mot de passe par défaut. L'enseignant doit le changer après sa première connexion.",
+      "close": "Fermer",
+      "addAnother": "Ajouter un autre",
+      "fullName": "Nom complet *",
+      "fullNamePlaceholder": "Nom complet de l'enseignant",
+      "emailLabel": "Email *",
+      "emailPlaceholder": "enseignant@ecole.edu",
+      "phone": "Téléphone",
+      "phonePlaceholder": "+250 xxx xxx xxx",
+      "sharedPasswordNoticeForm": "Tous les enseignants partagent le même mot de passe par défaut. L'enseignant doit le changer après sa première connexion.",
+      "cancel": "Annuler",
+      "updateTeacher": "Mettre à jour",
+      "createTeacher": "Créer l'enseignant"
+    },
+    "confirm": {
+      "deleteTitle": "Supprimer l'enseignant",
+      "deleteMessage": "Supprimer « {{name}} » ? Ses classes seront conservées et pourront être réassignées à un autre enseignant.",
+      "deleteConfirm": "Supprimer",
+      "deactivateTitle": "Désactiver l'enseignant",
+      "activateTitle": "Activer l'enseignant",
+      "deactivateMessage": "Désactiver « {{name}} » ? Il/elle perdra immédiatement l'accès à EDUPLA.",
+      "activateMessage": "Activer « {{name}} » ? Il/elle retrouvera un accès complet à EDUPLA.",
+      "deactivateConfirm": "Désactiver",
+      "activateConfirm": "Activer"
+    }
+  },
+  "adminStudents": {
+    "hero": {
+      "registry": "Registre des élèves",
+      "enrolled": "{{count}} inscrits",
+      "title": "🎓 Élèves",
+      "subtitle": "Gérez les comptes élèves, suivez les inscriptions aux classes et le suivi des progrès sur tous les programmes.",
+      "newStudent": "Nouvel élève"
+    },
+    "statStrip": {
+      "totalStudents": "Total élèves",
+      "enrolled": "Inscrits",
+      "tradesActive": "Filières actives",
+      "topTrade": "Filière principale"
+    },
+    "status": {
+      "active": "Actif",
+      "inactive": "Inactif"
+    },
+    "card": {
+      "resetPassword": "Réinitialiser le mot de passe",
+      "deactivate": "Désactiver",
+      "activate": "Activer",
+      "class_one": "classe",
+      "class_other": "classes"
+    },
+    "toolbar": {
+      "searchPlaceholder": "Rechercher par nom ou email…",
+      "filters": "Filtres",
+      "clearAll": "Tout effacer",
+      "filterBy": "Filtrer par :",
+      "class": "Classe",
+      "allClasses": "Toutes les classes"
+    },
+    "states": {
+      "loading": "Chargement des élèves…",
+      "noStudentsFound": "Aucun élève trouvé",
+      "tryAdjusting": "Essayez d'ajuster votre recherche ou vos filtres.",
+      "addFirstStudent": "Ajoutez votre premier élève pour commencer.",
+      "addStudent": "Ajouter un élève"
+    },
+    "table": {
+      "student": "Élève",
+      "levelTrade": "Niveau / Filière",
+      "classes": "Classes",
+      "year": "Année",
+      "joined": "Inscrit le",
+      "actions": "Actions"
+    },
+    "modal": {
+      "editTitle": "Modifier l'élève",
+      "createTitle": "Nouvel élève",
+      "studentCreated": "Élève créé !",
+      "shareCredentials": "Partagez ces identifiants de connexion avec l'élève.",
+      "email": "Email",
+      "defaultPassword": "Mot de passe par défaut",
+      "close": "Fermer",
+      "addAnother": "Ajouter un autre",
+      "fullName": "Nom complet *",
+      "fullNamePlaceholder": "Nom de l'élève",
+      "emailLabel": "Email *",
+      "emailPlaceholder": "eleve@ecole.edu",
+      "intakeYear": "Année d'admission",
+      "selectYear": "Choisir une année…",
+      "class": "Classe",
+      "enrollInClass": "Inscrire dans une classe",
+      "selected": "sélectionnée",
+      "editingClassNote": "Un élève ne peut être inscrit que dans une seule classe. Cochez une autre classe pour l'en retirer.",
+      "current": "(actuelle)",
+      "noClassesAvailable": "Aucune classe disponible.",
+      "tvetAutoTitle": "Infos TVET assignées automatiquement",
+      "from": "Depuis",
+      "level": "Niveau : ",
+      "trade": "Filière : ",
+      "cancel": "Annuler",
+      "updateStudent": "Mettre à jour",
+      "createStudent": "Créer l'élève"
+    },
+    "confirm": {
+      "deactivateTitle": "Désactiver l'élève",
+      "activateTitle": "Activer l'élève",
+      "deactivateMessage": "Désactiver « {{name}} » ? Il/elle perdra immédiatement l'accès à EDUPLA.",
+      "activateMessage": "Activer « {{name}} » ? Il/elle retrouvera un accès complet à EDUPLA.",
+      "deactivateConfirm": "Désactiver",
+      "activateConfirm": "Activer",
+      "deleteTitle": "Supprimer l'élève",
+      "deleteMessage": "Supprimer « {{name}} » ? Ses soumissions et dossiers seront également supprimés.",
+      "deleteConfirm": "Supprimer"
+    }
+  },
+  "adminClasses": {
+    "statStrip": {
+      "totalClasses": "Total classes",
+      "totalStudents": "Total élèves",
+      "tradesActive": "Filières actives",
+      "topTrade": "Filière principale"
+    },
+    "card": {
+      "classTeacher": "Enseignant titulaire",
+      "unassigned": "⚠ Non assigné",
+      "linked": "Lié",
+      "students": "Élèves",
+      "student_one": "élève",
+      "student_other": "élèves",
+      "editClassInfo": "Modifier la classe",
+      "manage": "Gérer",
+      "needsBoth": "Nécessite un enseignant titulaire et au moins un élève pour devenir active.",
+      "needsTeacher": "Nécessite un enseignant titulaire assigné pour devenir active.",
+      "needsStudent": "Nécessite au moins un élève inscrit pour devenir active.",
+      "manuallyDeactivated": "Désactivée manuellement par un administrateur.",
+      "enroll": "Inscrire",
+      "students2": "Élèves",
+      "edit": "Modifier",
+      "delete": "Supprimer"
+    },
+    "toolbar": {
+      "searchPlaceholder": "Rechercher une classe ou un enseignant…",
+      "newClass": "Nouvelle classe"
+    },
+    "states": {
+      "loading": "Chargement des classes…",
+      "noClassesFound": "Aucune classe trouvée",
+      "createClass": "Créer une classe"
+    },
+    "modal": {
+      "editTitle": "Modifier la classe",
+      "createTitle": "Créer une nouvelle classe",
+      "className": "Nom de la classe *",
+      "classNamePlaceholder": "ex. Développement Web L3",
+      "description": "Description",
+      "descriptionPlaceholder": "Brève description de la classe…",
+      "rtqfLevel": "Niveau RTQF",
+      "none": "Aucun",
+      "noRtqfYet": "Aucun niveau RTQF pour l'instant — ajoutez d'abord un programme dans les paramètres admin.",
+      "trade": "Filière",
+      "noTradesYet": "Aucune filière pour l'instant — ajoutez d'abord un programme dans les paramètres admin.",
+      "tvetProgram": "Programme TVET / Qualification",
+      "noneNotLinked": "Aucun — non lié à un programme",
+      "noProgramsYet": "Aucun programme configuré pour l'instant — ajoutez-en un dans les paramètres admin pour remplir cette liste.",
+      "programHint": "Le secteur, l'intitulé de la qualification et le niveau RTQF de ce programme apparaîtront sur les bulletins des élèves de cette classe.",
+      "teacherAssignNote": "L'enseignant titulaire et les co-enseignants sont assignés ensuite, depuis Gérer la classe sur la carte de cette classe — une classe ne devient active qu'une fois qu'elle a un enseignant titulaire et au moins un élève inscrit.",
+      "cancel": "Annuler",
+      "updateClass": "Mettre à jour",
+      "createClass": "Créer la classe"
+    },
+    "enrollModal": {
+      "title": "Inscrire un élève — {{name}}",
+      "studentEnrolled": "Élève inscrit !",
+      "shareCredentials": "Partagez ces identifiants avec l'élève. Il/elle a été inscrit(e) dans {{name}}.",
+      "email": "Email",
+      "defaultPassword": "Mot de passe par défaut",
+      "close": "Fermer",
+      "enrollAnother": "Inscrire un autre",
+      "infoNote": "Cet élève sera enregistré et inscrit directement dans {{name}}. Comme un élève ne peut appartenir qu'à une seule classe, il n'y a pas de liste de classes ici — c'est déjà décidé.",
+      "fullName": "Nom complet *",
+      "fullNamePlaceholder": "Nom de l'élève",
+      "emailLabel": "Email *",
+      "emailPlaceholder": "eleve@ecole.edu",
+      "intakeYear": "Année d'admission",
+      "selectYear": "Choisir une année…",
+      "cancel": "Annuler",
+      "enrollStudent": "Inscrire l'élève"
+    },
+    "confirm": {
+      "deactivateTitle": "Désactiver la classe",
+      "activateTitle": "Activer la classe",
+      "deactivateMessage": "Désactiver « {{name}} » ? Les élèves perdront l'accès aux devoirs et documents de cette classe.",
+      "activateMessage": "Activer « {{name}} » ? Les élèves retrouveront l'accès à cette classe.",
+      "deactivateConfirm": "Désactiver",
+      "activateConfirm": "Activer",
+      "deleteTitle": "Supprimer la classe",
+      "deleteMessage": "Supprimer « {{name}} » ? Tous les devoirs et documents de cette classe seront également supprimés.",
+      "deleteConfirm": "Supprimer"
+    },
+    "hero": {
+      "classManagement": "Gestion des classes",
+      "active": "{{count}} actives",
+      "title": "📚 Classes",
+      "subtitle": "Créez et gérez les classes, assignez des enseignants, et suivez les inscriptions dans tous les programmes."
+    },
+    "filterBy": "Filtrer par :",
+    "level": "Niveau",
+    "trade": "Filière",
+    "table": {
+      "class": "Classe",
+      "tags": "Étiquettes",
+      "teacher": "Enseignant",
+      "students": "Élèves"
+    },
+    "studentsModal": {
+      "title": "Élèves — {{name}}",
+      "noStudentsEnrolled": "Aucun élève inscrit",
+      "addStudentsDesc": "Ajoutez des élèves à cette classe pour commencer.",
+      "enrollAStudent": "Inscrire un élève",
+      "studentsEnrolled_one": "{{count}} élève inscrit",
+      "studentsEnrolled_other": "{{count}} élèves inscrits",
+      "enrollStudent": "Inscrire un élève",
+      "close": "Fermer"
     }
   }
 }

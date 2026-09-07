@@ -14,7 +14,9 @@
     "email": "Email",
     "password": "Password",
     "back": "Back",
-    "or": "or"
+    "or": "or",
+    "active": "Active",
+    "inactive": "Inactive"
   },
   "nav": {
     "teachingHub": "Teaching Hub",
@@ -679,6 +681,305 @@
       "rejectedDesc": "Returned to teacher",
       "totalModules": "Total Modules",
       "totalModulesDesc": "Across all classes"
+    }
+  },
+  "studentModules": {
+    "title": "Your Modules",
+    "subtitle": "Everything you're studying this term, and who's teaching it",
+    "modules": "Modules",
+    "teachers": "Teachers",
+    "categories": "Categories",
+    "pinned": "Pinned",
+    "searchPlaceholder": "Search modules or teachers…",
+    "all": "All",
+    "categorySpecific": "Specific",
+    "categoryGeneral": "General",
+    "categoryComplementary": "Complementary",
+    "categoryElective": "Elective",
+    "categoryModule": "Module",
+    "sortName": "Sort: Name",
+    "sortTeacher": "Sort: Teacher",
+    "sortCategory": "Sort: Category",
+    "gridView": "Grid view",
+    "listView": "List view",
+    "noModulesYet": "No modules yet",
+    "noModulesDesc": "Your admin hasn't assigned any modules to your class yet.",
+    "noMatches": "No matches",
+    "noMatchesDesc": "Try a different search term or category.",
+    "pinModule": "Pin module",
+    "unpinModule": "Unpin module",
+    "taughtBy": "Taught by ",
+    "noTeacherAssigned": "No teacher assigned yet",
+    "copyEmail": "Copy email",
+    "copyTeacherEmail": "Copy teacher email"
+  },
+  "adminTeachers": {
+    "statStrip": {
+      "totalTeachers": "Total Teachers",
+      "teachingClasses": "Teaching Classes",
+      "withStudents": "With Students",
+      "topTeacher": "Top Teacher"
+    },
+    "status": {
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "card": {
+      "classes": "Classes",
+      "students": "Students",
+      "teacherBadge": "Teacher",
+      "resetPassword": "Reset password",
+      "deactivate": "Deactivate",
+      "activate": "Activate"
+    },
+    "toolbar": {
+      "searchPlaceholder": "Search by name or email…",
+      "newTeacher": "New Teacher"
+    },
+    "states": {
+      "loading": "Loading teachers…",
+      "noTeachersYet": "No teachers yet",
+      "noTeachersDesc": "Create the first teacher account to get started."
+    },
+    "table": {
+      "teacher": "Teacher",
+      "contact": "Contact",
+      "classes": "Classes",
+      "students": "Students",
+      "joined": "Joined",
+      "actions": "Actions"
+    },
+    "modal": {
+      "editTitle": "Edit Teacher",
+      "createTitle": "Create New Teacher",
+      "teacherCreated": "Teacher Created!",
+      "shareCredentials": "Share these login credentials with the teacher.",
+      "email": "Email",
+      "defaultPassword": "Default Password",
+      "noEmailYet": "No email yet",
+      "sharedPasswordNoticeSuccess": "All teachers share a default password. The teacher should change it after their first login.",
+      "close": "Close",
+      "addAnother": "Add Another",
+      "fullName": "Full Name *",
+      "fullNamePlaceholder": "Teacher full name",
+      "emailLabel": "Email *",
+      "emailPlaceholder": "teacher@school.edu",
+      "phone": "Phone",
+      "phonePlaceholder": "+250 xxx xxx xxx",
+      "sharedPasswordNoticeForm": "All teachers share the same default password. The teacher should change it after first login.",
+      "cancel": "Cancel",
+      "updateTeacher": "Update Teacher",
+      "createTeacher": "Create Teacher"
+    },
+    "confirm": {
+      "deleteTitle": "Delete Teacher",
+      "deleteMessage": "Delete \"{{name}}\"? Their classes will remain and can be reassigned to another teacher.",
+      "deleteConfirm": "Delete",
+      "deactivateTitle": "Deactivate Teacher",
+      "activateTitle": "Activate Teacher",
+      "deactivateMessage": "Deactivate \"{{name}}\"? They will lose access to EDUPLA immediately.",
+      "activateMessage": "Activate \"{{name}}\"? They will regain full access to EDUPLA.",
+      "deactivateConfirm": "Deactivate",
+      "activateConfirm": "Activate"
+    }
+  },
+  "adminStudents": {
+    "hero": {
+      "registry": "Student Registry",
+      "enrolled": "{{count}} enrolled",
+      "title": "🎓 Students",
+      "subtitle": "Manage student accounts, track class enrollments, and monitor progress across all programs.",
+      "newStudent": "New Student"
+    },
+    "statStrip": {
+      "totalStudents": "Total Students",
+      "enrolled": "Enrolled",
+      "tradesActive": "Trades Active",
+      "topTrade": "Top Trade"
+    },
+    "status": {
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "card": {
+      "resetPassword": "Reset password",
+      "deactivate": "Deactivate",
+      "activate": "Activate",
+      "class_one": "class",
+      "class_other": "classes"
+    },
+    "toolbar": {
+      "searchPlaceholder": "Search by name or email…",
+      "filters": "Filters",
+      "clearAll": "Clear all",
+      "filterBy": "Filter by:",
+      "class": "Class",
+      "allClasses": "All Classes"
+    },
+    "states": {
+      "loading": "Loading students…",
+      "noStudentsFound": "No students found",
+      "tryAdjusting": "Try adjusting your search or filters.",
+      "addFirstStudent": "Add your first student to get started.",
+      "addStudent": "Add Student"
+    },
+    "table": {
+      "student": "Student",
+      "levelTrade": "Level / Trade",
+      "classes": "Classes",
+      "year": "Year",
+      "joined": "Joined",
+      "actions": "Actions"
+    },
+    "modal": {
+      "editTitle": "Edit Student",
+      "createTitle": "New Student",
+      "studentCreated": "Student Created!",
+      "shareCredentials": "Share these login credentials with the student.",
+      "email": "Email",
+      "defaultPassword": "Default Password",
+      "close": "Close",
+      "addAnother": "Add Another",
+      "fullName": "Full Name *",
+      "fullNamePlaceholder": "Student name",
+      "emailLabel": "Email *",
+      "emailPlaceholder": "student@school.edu",
+      "intakeYear": "Intake Year",
+      "selectYear": "Select year…",
+      "class": "Class",
+      "enrollInClass": "Enroll in Class",
+      "selected": "selected",
+      "editingClassNote": "A student can only be enrolled in one class. Tick a different class to move them out of their current one.",
+      "current": "(current)",
+      "noClassesAvailable": "No classes available.",
+      "tvetAutoTitle": "TVET info assigned automatically",
+      "from": "From",
+      "level": "Level: ",
+      "trade": "Trade: ",
+      "cancel": "Cancel",
+      "updateStudent": "Update Student",
+      "createStudent": "Create Student"
+    },
+    "confirm": {
+      "deactivateTitle": "Deactivate Student",
+      "activateTitle": "Activate Student",
+      "deactivateMessage": "Deactivate \"{{name}}\"? They will lose access to EDUPLA immediately.",
+      "activateMessage": "Activate \"{{name}}\"? They will regain full access to EDUPLA.",
+      "deactivateConfirm": "Deactivate",
+      "activateConfirm": "Activate",
+      "deleteTitle": "Delete Student",
+      "deleteMessage": "Delete \"{{name}}\"? Their submissions and records will also be removed.",
+      "deleteConfirm": "Delete"
+    }
+  },
+  "adminClasses": {
+    "statStrip": {
+      "totalClasses": "Total Classes",
+      "totalStudents": "Total Students",
+      "tradesActive": "Trades Active",
+      "topTrade": "Top Trade"
+    },
+    "card": {
+      "classTeacher": "Class Teacher",
+      "unassigned": "⚠ Unassigned",
+      "linked": "Linked",
+      "students": "Students",
+      "student_one": "student",
+      "student_other": "students",
+      "editClassInfo": "Edit Class Info",
+      "manage": "Manage",
+      "needsBoth": "Needs a class teacher and at least one student to become active.",
+      "needsTeacher": "Needs a class teacher assigned to become active.",
+      "needsStudent": "Needs at least one enrolled student to become active.",
+      "manuallyDeactivated": "Manually deactivated by an admin.",
+      "enroll": "Enroll",
+      "students2": "Students",
+      "edit": "Edit",
+      "delete": "Delete"
+    },
+    "toolbar": {
+      "searchPlaceholder": "Search classes or teachers…",
+      "newClass": "New Class"
+    },
+    "states": {
+      "loading": "Loading classes…",
+      "noClassesFound": "No classes found",
+      "createClass": "Create Class"
+    },
+    "modal": {
+      "editTitle": "Edit Class",
+      "createTitle": "Create New Class",
+      "className": "Class Name *",
+      "classNamePlaceholder": "e.g. Web Development L3",
+      "description": "Description",
+      "descriptionPlaceholder": "Brief class description…",
+      "rtqfLevel": "RTQF Level",
+      "none": "None",
+      "noRtqfYet": "No RTQF levels yet — add a program in Admin Settings first.",
+      "trade": "Trade",
+      "noTradesYet": "No trades yet — add a program in Admin Settings first.",
+      "tvetProgram": "TVET Program / Qualification",
+      "noneNotLinked": "None — not linked to a program",
+      "noProgramsYet": "No programs configured yet — add one in Admin Settings to populate this list.",
+      "programHint": "Sector, qualification title and RTQF level from this program will appear on this class's student reports.",
+      "teacherAssignNote": "The class teacher and any co-teachers are assigned afterwards, from Manage Class on this class's card — a class only becomes active once it has a class teacher and at least one enrolled student.",
+      "cancel": "Cancel",
+      "updateClass": "Update Class",
+      "createClass": "Create Class"
+    },
+    "enrollModal": {
+      "title": "Enroll Student — {{name}}",
+      "studentEnrolled": "Student Enrolled!",
+      "shareCredentials": "Share these login credentials with the student. They've been enrolled in {{name}}.",
+      "email": "Email",
+      "defaultPassword": "Default Password",
+      "close": "Close",
+      "enrollAnother": "Enroll Another",
+      "infoNote": "This student will be registered and enrolled directly into {{name}}. Since a student can only belong to one class, there's no class list here — it's already decided.",
+      "fullName": "Full Name *",
+      "fullNamePlaceholder": "Student name",
+      "emailLabel": "Email *",
+      "emailPlaceholder": "student@school.edu",
+      "intakeYear": "Intake Year",
+      "selectYear": "Select year…",
+      "cancel": "Cancel",
+      "enrollStudent": "Enroll Student"
+    },
+    "confirm": {
+      "deactivateTitle": "Deactivate Class",
+      "activateTitle": "Activate Class",
+      "deactivateMessage": "Deactivate \"{{name}}\"? Students will lose access to assignments and documents in this class.",
+      "activateMessage": "Activate \"{{name}}\"? Students will regain access to this class.",
+      "deactivateConfirm": "Deactivate",
+      "activateConfirm": "Activate",
+      "deleteTitle": "Delete Class",
+      "deleteMessage": "Delete \"{{name}}\"? All assignments and documents for this class will also be removed.",
+      "deleteConfirm": "Delete"
+    },
+    "hero": {
+      "classManagement": "Class Management",
+      "active": "{{count}} active",
+      "title": "📚 Classes",
+      "subtitle": "Create and manage classes, assign teachers, and track student enrollment across all programs."
+    },
+    "filterBy": "Filter by:",
+    "level": "Level",
+    "trade": "Trade",
+    "table": {
+      "class": "Class",
+      "tags": "Tags",
+      "teacher": "Teacher",
+      "students": "Students"
+    },
+    "studentsModal": {
+      "title": "Students — {{name}}",
+      "noStudentsEnrolled": "No students enrolled",
+      "addStudentsDesc": "Add students to this class to get started.",
+      "enrollAStudent": "Enroll a Student",
+      "studentsEnrolled_one": "{{count}} student enrolled",
+      "studentsEnrolled_other": "{{count}} students enrolled",
+      "enrollStudent": "Enroll Student",
+      "close": "Close"
     }
   }
 }

@@ -3,6 +3,8 @@
 // import from the other (avoids a circular import between the page and
 // the modal it renders).
 
+import { useTranslation } from 'react-i18next';
+
 export const LEVEL_COLORS = ['#3b82f6', '#10b981', '#c2410c', '#f59e0b', '#ec4899', '#06b6d4', '#c2410c', '#64748b'];
 export const TRADE_COLORS = ['#f59e0b', '#06b6d4', '#ec4899', '#c2410c', '#c2410c', '#10b981', '#3b82f6', '#c2410c'];
 export const LEVEL_BG    = ['#dbeafe', '#d1fae5', '#fdba74', '#fef3c7', '#fce7f3', '#cffafe', '#fdba74', '#f1f5f9'];
@@ -29,13 +31,14 @@ export function getAvatarColors(name) {
 
 /* ── Status Badge ── */
 export function StatusBadge({ is_active }) {
+  const { t } = useTranslation();
   return (
     <span style={{
       fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6, letterSpacing: 0.3,
       background: is_active !== false ? '#ecfdf5' : '#fef2f2',
       color: is_active !== false ? '#059669' : '#ef4444',
     }}>
-      {is_active !== false ? 'Active' : 'Inactive'}
+      {is_active !== false ? t('common.active') : t('common.inactive')}
     </span>
   );
 }

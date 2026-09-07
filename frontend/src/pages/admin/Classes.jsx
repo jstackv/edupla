@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import Modal from '../../components/common/Modal';
@@ -53,6 +54,7 @@ function Sparkline({ count = 0, max = 1, color = '#c2410c' }) {
 
 /* ── Summary stat strip ── */
 function StatStrip({ classes, levels = [], trades = [] }) {
+  const { t: tr } = useTranslation();
   const totalStudents = classes.reduce((a, c) => a + (c.student_count || 0), 0);
   // byTrade is now computed from actual class data, no hardcoded trades needed
   const byTrade = classes.reduce((acc, c) => { if (c.trade) { acc[c.trade] = (acc[c.trade] || 0) + 1; } return acc; }, {});
@@ -63,10 +65,10 @@ function StatStrip({ classes, levels = [], trades = [] }) {
       display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10,
     }}>
       {[
-        { icon: BookOpen, label: 'Total Classes', value: classes.length, color: '#c2410c', bg: '#fed7aa' },
-        { icon: GraduationCap, label: 'Total Students', value: totalStudents, color: '#10b981', bg: '#ecfdf5' },
-        { icon: Layers, label: 'Trades Active', value: Object.values(byTrade).filter(Boolean).length, color: '#c2410c', bg: '#fed7aa' },
-        { icon: Star, label: 'Top Trade', value: maxTrade?.[0] || '—', color: '#f59e0b', bg: '#fffbeb', isText: true },
+        { icon: BookOpen, label: tr('adminClasses.statStrip.totalClasses'), value: classes.length, color: '#c2410c', bg: '#fed7aa' },
+        { icon: GraduationCap, label: tr('adminClasses.statStrip.totalStudents'), value: totalStudents, color: '#10b981', bg: '#ecfdf5' },
+        { icon: Layers, label: tr('adminClasses.statStrip.tradesActive'), value: Object.values(byTrade).filter(Boolean).length, color: '#c2410c', bg: '#fed7aa' },
+        { icon: Star, label: tr('adminClasses.statStrip.topTrade'), value: maxTrade?.[0] || '—', color: '#f59e0b', bg: '#fffbeb', isText: true },
       ].map(({ icon: Icon, label, value, color, bg, isText }) => (
         <div key={label} className="card" style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{
@@ -95,6 +97,7 @@ function StatStrip({ classes, levels = [], trades = [] }) {
 const CLASS_CARD_ACCENT = '#0f766e';
 
 function ClassCard({ cls, onEdit, onDelete, onToggle, onViewStudents, onEnroll, onManage, animDelay = 0, levels = [], trades = [] }) {
+  const { t } = useTranslation();
   const [hovered, setHovered] = useState(false);
   const from = CLASS_CARD_ACCENT;
   const maxStudents = 30;
@@ -138,7 +141,7 @@ function ClassCard({ cls, onEdit, onDelete, onToggle, onViewStudents, onEnroll, 
             color: cls.is_active ? '#059669' : '#6b7280',
           }}>
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: cls.is_active ? '#059669' : '#9ca3af' }} />
-            {cls.is_active ? 'Active' : 'Inactive'}
+            {cls.is_active ? t('common.active') : t('common.inactive')}
           </span>
         </div>
 
@@ -167,7 +170,7 @@ function ClassCard({ cls, onEdit, onDelete, onToggle, onViewStudents, onEnroll, 
               background: '#fdba74', color: '#9a3412', display: 'inline-flex', alignItems: 'center', gap: 4,
               maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}>
-              <Award size={10} /> {cls.program_rtqf_level || cls.level || 'Linked'}
+              <Award size={10} /> {cls.program_rtqf_level || cls.level || t('adminClasses.card.linked')}
             </span>
           )}
         </div>
@@ -180,12 +183,12 @@ function ClassCard({ cls, onEdit, onDelete, onToggle, onViewStudents, onEnroll, 
         }}>
           <Avatar name={cls.teacher_name || '?'} size={26} />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 1 }}>Class Teacher</p>
+            <p style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 1 }}>{t('adminClasses.card.classTeacher')}</p>
             <p style={{
               fontSize: 12, fontWeight: 600,
               color: cls.teacher_name ? 'var(--text-primary)' : '#f59e0b',
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            }}>{cls.teacher_name || '⚠ Unassigned'}</p>
+            }}>{cls.teacher_name || t('adminClasses.card.unassigned')}</p>
           </div>
         </div>
 
@@ -193,7 +196,7 @@ function ClassCard({ cls, onEdit, onDelete, onToggle, onViewStudents, onEnroll, 
         <div style={{ marginBottom: 12 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
             <span style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 4 }}>
-              <Users size={11} /> Students
+              <Users size={11} /> {t('adminClasses.card.students')}
             </span>
             <Sparkline count={cls.student_count || 0} max={maxStudents} color={from} />
           </div>
@@ -217,10 +220,10 @@ function ClassCard({ cls, onEdit, onDelete, onToggle, onViewStudents, onEnroll, 
           }}>
             <AlertTriangle size={12} style={{ color: '#b45309', flexShrink: 0, marginTop: 2 }} />
             <p style={{ fontSize: 11, color: '#b45309', margin: 0, lineHeight: 1.4 }}>
-              {!cls.teacher_name && !cls.student_count && 'Needs a class teacher and at least one student to become active.'}
-              {!cls.teacher_name && cls.student_count > 0 && 'Needs a class teacher assigned to become active.'}
-              {cls.teacher_name && !cls.student_count && 'Needs at least one enrolled student to become active.'}
-              {cls.teacher_name && cls.student_count > 0 && 'Manually deactivated by an admin.'}
+              {!cls.teacher_name && !cls.student_count && t('adminClasses.card.needsBoth')}
+              {!cls.teacher_name && cls.student_count > 0 && t('adminClasses.card.needsTeacher')}
+              {cls.teacher_name && !cls.student_count && t('adminClasses.card.needsStudent')}
+              {cls.teacher_name && cls.student_count > 0 && t('adminClasses.card.manuallyDeactivated')}
             </p>
           </div>
         )}
@@ -236,7 +239,7 @@ function ClassCard({ cls, onEdit, onDelete, onToggle, onViewStudents, onEnroll, 
           }}>
             <span style={{ fontSize: 16 }}>{cls.student_count || 0}</span>
             <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-secondary)' }}>
-              student{cls.student_count !== 1 ? 's' : ''}
+              {t('adminClasses.card.student', { count: cls.student_count || 0 })}
             </span>
           </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -246,7 +249,7 @@ function ClassCard({ cls, onEdit, onDelete, onToggle, onViewStudents, onEnroll, 
               background: `${from}14`, border: 'none', cursor: 'pointer',
               padding: '5px 10px', borderRadius: 8, transition: 'background 0.15s',
             }}>
-              Edit Class Info <ArrowUpRight size={12} />
+              {t('adminClasses.card.editClassInfo')} <ArrowUpRight size={12} />
             </button>
             <button onClick={() => onManage(cls)} style={{
               display: 'flex', alignItems: 'center', gap: 5,
@@ -260,7 +263,7 @@ function ClassCard({ cls, onEdit, onDelete, onToggle, onViewStudents, onEnroll, 
               onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 5px 14px rgba(194, 65, 12,0.45)'; }}
               onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 3px 10px rgba(194, 65, 12,0.35)'; }}
             >
-              <Settings2 size={12} /> Manage
+              <Settings2 size={12} /> {t('adminClasses.card.manage')}
             </button>
           </div>
         </div>
@@ -271,6 +274,7 @@ function ClassCard({ cls, onEdit, onDelete, onToggle, onViewStudents, onEnroll, 
 
 /* ── Class Row (list view) ── */
 function ClassRow({ cls, onEdit, onDelete, onToggle, onViewStudents, onEnroll, onManage, animDelay = 0, levels = [], trades = [] }) {
+  const { t } = useTranslation();
   const [hovered, setHovered] = useState(false);
   const from = CLASS_CARD_ACCENT;
 
@@ -307,7 +311,7 @@ function ClassRow({ cls, onEdit, onDelete, onToggle, onViewStudents, onEnroll, o
             color: cls.is_active ? '#059669' : '#6b7280',
           }}>
             <span style={{ width: 5, height: 5, borderRadius: '50%', background: cls.is_active ? '#059669' : '#9ca3af' }} />
-            {cls.is_active ? 'Active' : 'Inactive'}
+            {cls.is_active ? t('common.active') : t('common.inactive')}
           </span>
         </p>
         {cls.description && (
@@ -325,7 +329,7 @@ function ClassRow({ cls, onEdit, onDelete, onToggle, onViewStudents, onEnroll, o
             fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6,
             background: '#fdba74', color: '#9a3412', display: 'inline-flex', alignItems: 'center', gap: 4,
           }}>
-            <Award size={10} /> {cls.program_rtqf_level || cls.level || 'Linked'}
+            <Award size={10} /> {cls.program_rtqf_level || cls.level || t('adminClasses.card.linked')}
           </span>
         )}
       </div>
@@ -333,7 +337,7 @@ function ClassRow({ cls, onEdit, onDelete, onToggle, onViewStudents, onEnroll, o
       <div style={{ display: 'flex', alignItems: 'center', gap: 7, flex: 1, minWidth: 120 }}>
         <Avatar name={cls.teacher_name || '?'} size={26} />
         <span style={{ fontSize: 12, color: cls.teacher_name ? 'var(--text-secondary)' : '#f59e0b', fontWeight: cls.teacher_name ? 400 : 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {cls.teacher_name || '⚠ Unassigned'}
+          {cls.teacher_name || t('adminClasses.card.unassigned')}
         </span>
       </div>
 
@@ -343,30 +347,30 @@ function ClassRow({ cls, onEdit, onDelete, onToggle, onViewStudents, onEnroll, o
       </div>
 
       <div style={{ display: 'flex', gap: 4, opacity: hovered ? 1 : 0.3, transition: 'opacity 0.15s' }}>
-        <button onClick={() => onEnroll(cls)} title="Enroll"
+        <button onClick={() => onEnroll(cls)} title={t('adminClasses.card.enroll')}
           style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#ecfdf5', display: 'flex' }}>
           <UserPlus size={13} style={{ color: '#10b981' }} />
         </button>
-        <button onClick={() => onViewStudents(cls)} title="Students"
+        <button onClick={() => onViewStudents(cls)} title={t('adminClasses.card.students2')}
           style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: 'var(--surface-100)', display: 'flex' }}>
           <Users size={13} style={{ color: 'var(--text-secondary)' }} />
         </button>
-        <button onClick={() => onEdit(cls)} title="Edit"
+        <button onClick={() => onEdit(cls)} title={t('adminClasses.card.edit')}
           style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: 'var(--surface-100)', display: 'flex' }}>
           <Edit2 size={13} style={{ color: 'var(--text-secondary)' }} />
         </button>
-        <button onClick={() => onDelete(cls)} title="Delete"
+        <button onClick={() => onDelete(cls)} title={t('adminClasses.card.delete')}
           style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#fef2f2', display: 'flex' }}>
           <Trash2 size={13} style={{ color: '#ef4444' }} />
         </button>
-        <button onClick={() => onManage(cls)} title="Manage" style={{
+        <button onClick={() => onManage(cls)} title={t('adminClasses.card.manage')} style={{
           display: 'flex', alignItems: 'center', gap: 4,
           fontSize: 11, fontWeight: 700, color: '#fff',
           background: 'linear-gradient(135deg, #7c2d12, #c2410c)',
           border: 'none', cursor: 'pointer', padding: '5px 10px', borderRadius: 8,
           boxShadow: '0 2px 8px rgba(194, 65, 12,0.35)',
         }}>
-          <Settings2 size={12} /> Manage
+          <Settings2 size={12} /> {t('adminClasses.card.manage')}
         </button>
       </div>
     </div>
@@ -375,6 +379,7 @@ function ClassRow({ cls, onEdit, onDelete, onToggle, onViewStudents, onEnroll, o
 
 /* ══ MAIN ══ */
 export default function AdminClasses() {
+  const { t } = useTranslation();
   const [classes, setClasses] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -587,18 +592,18 @@ export default function AdminClasses() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
               <div style={{ padding: '4px 10px', borderRadius: 99, background: 'rgba(194, 65, 12,0.12)', border: '1px solid rgba(194, 65, 12,0.25)', display: 'flex', alignItems: 'center', gap: 5 }}>
                 <BookOpen size={11} style={{ color: '#c2410c' }} />
-                <span style={{ fontSize: 10, fontWeight: 700, color: '#c2410c', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Class Management</span>
+                <span style={{ fontSize: 10, fontWeight: 700, color: '#c2410c', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{t('adminClasses.hero.classManagement')}</span>
               </div>
               <div style={{ padding: '3px 8px', borderRadius: 99, background: 'rgba(16,185,129,0.14)', border: '1px solid rgba(16,185,129,0.25)', display: 'flex', alignItems: 'center', gap: 4 }}>
                 <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#34d399', animation: 'pulse 2s infinite' }} />
-                <span style={{ fontSize: 10, fontWeight: 600, color: '#10b981' }}>{total} active</span>
+                <span style={{ fontSize: 10, fontWeight: 600, color: '#10b981' }}>{t('adminClasses.hero.active', { count: total })}</span>
               </div>
             </div>
             <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--hero-fg)', marginBottom: 5, lineHeight: 1.2 }}>
-              📚 Classes
+              {t('adminClasses.hero.title')}
             </h1>
             <p style={{ fontSize: 13, color: 'var(--hero-fg-soft)', maxWidth: 380, lineHeight: 1.6 }}>
-              Create and manage classes, assign teachers, and track student enrollment across all programs.
+              {t('adminClasses.hero.subtitle')}
             </p>
           </div>
 
@@ -643,7 +648,7 @@ export default function AdminClasses() {
             onMouseEnter={e => e.currentTarget.style.filter = 'brightness(1.12)'}
             onMouseLeave={e => e.currentTarget.style.filter = 'none'}
           >
-            <Plus size={14} /> New Class
+            <Plus size={14} /> {t('adminClasses.toolbar.newClass')}
           </button>
         </div>
       </div>
@@ -661,7 +666,7 @@ export default function AdminClasses() {
             onChange={e => { setSearch(e.target.value); setPage(1); }}
             className="input-field"
             style={{ paddingLeft: 34 }}
-            placeholder="Search classes or teachers…"
+            placeholder={t('adminClasses.toolbar.searchPlaceholder')}
           />
         </div>
 
@@ -707,7 +712,7 @@ export default function AdminClasses() {
         </div>
 
         <button onClick={() => openModal()} className="btn-primary" style={{ whiteSpace: 'nowrap' }}>
-          <Plus size={14} /> New Class
+          <Plus size={14} /> {t('adminClasses.toolbar.newClass')}
         </button>
       </div>
 
@@ -717,9 +722,9 @@ export default function AdminClasses() {
           padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 16,
           flexWrap: 'wrap', animation: 'slideUp 0.2s ease',
         }}>
-          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>Filter by:</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>{t('adminClasses.filterBy')}</span>
           <div style={{ display: 'flex', gap: 6 }}>
-            <span style={{ fontSize: 11, color: 'var(--text-secondary)', alignSelf: 'center' }}>Level</span>
+            <span style={{ fontSize: 11, color: 'var(--text-secondary)', alignSelf: 'center' }}>{t('adminClasses.level')}</span>
             {levels.map((l, i) => {
               const active = filterLevel === l.value;
               return (
@@ -735,7 +740,7 @@ export default function AdminClasses() {
           </div>
           <div style={{ width: 1, height: 20, background: 'var(--card-border)' }} />
           <div style={{ display: 'flex', gap: 6 }}>
-            <span style={{ fontSize: 11, color: 'var(--text-secondary)', alignSelf: 'center' }}>Trade</span>
+            <span style={{ fontSize: 11, color: 'var(--text-secondary)', alignSelf: 'center' }}>{t('adminClasses.trade')}</span>
             {trades.map((t, i) => {
               const active = filterTrade === t.value;
               return (
@@ -763,7 +768,7 @@ export default function AdminClasses() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 0' }}>
           <div style={{ textAlign: 'center' }}>
             <div style={{ width: 44, height: 44, borderRadius: '50%', border: '3px solid var(--surface-100)', borderTopColor: '#c2410c', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
-            <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Loading classes…</p>
+            <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{t('adminClasses.states.loading')}</p>
           </div>
         </div>
       ) : classes.length === 0 ? (
@@ -771,13 +776,13 @@ export default function AdminClasses() {
           <div style={{ width: 64, height: 64, borderRadius: 20, background: '#fed7aa', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
             <BookOpen size={28} style={{ color: '#c2410c' }} />
           </div>
-          <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>No classes found</p>
+          <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>{t('adminClasses.states.noClassesFound')}</p>
           <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20 }}>
             {search || activeFilters ? 'Try adjusting your search or filters.' : 'Create the first class to get started.'}
           </p>
           {!search && !activeFilters && (
             <button onClick={() => openModal()} className="btn-primary" style={{ margin: '0 auto' }}>
-              <Plus size={14} /> Create Class
+              <Plus size={14} /> {t('adminClasses.states.createClass')}
             </button>
           )}
         </div>
@@ -799,16 +804,16 @@ export default function AdminClasses() {
             background: 'var(--surface-50)',
           }}>
             <div style={{ flex: 1.8, minWidth: 0 }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Class</span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('adminClasses.table.class')}</span>
             </div>
             <div style={{ flex: 0.8, minWidth: 80 }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Tags</span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('adminClasses.table.tags')}</span>
             </div>
             <div style={{ flex: 1, minWidth: 120 }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Teacher</span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('adminClasses.table.teacher')}</span>
             </div>
             <div style={{ flex: 0.5, minWidth: 70 }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Students</span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('adminClasses.table.students')}</span>
             </div>
             <div style={{ width: 130 }} />
           </div>
@@ -828,24 +833,24 @@ export default function AdminClasses() {
       )}
 
       {/* ── Create/Edit Modal ── */}
-      <Modal isOpen={modal} onClose={() => setModal(false)} title={editing ? 'Edit Class' : 'Create New Class'}>
+      <Modal isOpen={modal} onClose={() => setModal(false)} title={editing ? t('adminClasses.modal.editTitle') : t('adminClasses.modal.createTitle')}>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="label">Class Name *</label>
+            <label className="label">{t('adminClasses.modal.className')}</label>
             <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-              className="input-field" placeholder="e.g. Web Development L3" required />
+              className="input-field" placeholder={t('adminClasses.modal.classNamePlaceholder')} required />
           </div>
           <div>
-            <label className="label">Description</label>
+            <label className="label">{t('adminClasses.modal.description')}</label>
             <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-              className="input-field resize-none" rows={3} placeholder="Brief class description…" />
+              className="input-field resize-none" rows={3} placeholder={t('adminClasses.modal.descriptionPlaceholder')} />
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
-              <label className="label">RTQF Level</label>
+              <label className="label">{t('adminClasses.modal.rtqfLevel')}</label>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
-                {[{ value: '', label: 'None' }, ...programRtqfLevelOptions].map((l, i) => {
+                {[{ value: '', label: t('adminClasses.modal.none') }, ...programRtqfLevelOptions].map((l, i) => {
                   const active = form.level === l.value;
                   const color = i === 0 ? 'var(--card-border)' : LEVEL_COLORS[(i - 1) % LEVEL_COLORS.length];
                   const bg = i === 0 ? 'var(--surface-50)' : LEVEL_BG[(i - 1) % LEVEL_BG.length];
@@ -858,48 +863,48 @@ export default function AdminClasses() {
                         color: active ? color : 'var(--text-secondary)',
                         fontSize: 11, fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s',
                       }}>
-                      {l.value || 'None'}
+                      {l.value || t('adminClasses.modal.none')}
                     </button>
                   );
                 })}
               </div>
               {programRtqfLevelOptions.length === 0 && (
                 <p style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 6 }}>
-                  No RTQF levels yet — add a program in Admin Settings first.
+                  {t('adminClasses.modal.noRtqfYet')}
                 </p>
               )}
             </div>
             <div>
-              <label className="label">Trade</label>
+              <label className="label">{t('adminClasses.modal.trade')}</label>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
-                {[{ value: '', label: 'None' }, ...programTradeOptions].map((t, i) => {
-                  const active = form.trade === t.value;
+                {[{ value: '', label: t('adminClasses.modal.none') }, ...programTradeOptions].map((trade, i) => {
+                  const active = form.trade === trade.value;
                   const color = i === 0 ? 'var(--card-border)' : TRADE_COLORS[(i - 1) % TRADE_COLORS.length];
                   const bg = i === 0 ? 'var(--surface-50)' : TRADE_BG[(i - 1) % TRADE_BG.length];
                   return (
-                    <button key={t.value} type="button"
-                      onClick={() => setForm(f => ({ ...f, trade: t.value }))}
+                    <button key={trade.value} type="button"
+                      onClick={() => setForm(f => ({ ...f, trade: trade.value }))}
                       style={{
                         padding: '5px 10px', borderRadius: 8, border: active ? `1.5px solid ${color}` : '1.5px solid var(--card-border)',
                         background: active ? bg : 'var(--surface-50)',
                         color: active ? color : 'var(--text-secondary)',
                         fontSize: 11, fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s',
                       }}>
-                      {t.value || 'None'}
+                      {trade.value || t('adminClasses.modal.none')}
                     </button>
                   );
                 })}
               </div>
               {programTradeOptions.length === 0 && (
                 <p style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 6 }}>
-                  No trades yet — add a program in Admin Settings first.
+                  {t('adminClasses.modal.noTradesYet')}
                 </p>
               )}
             </div>
           </div>
 
           <div>
-            <label className="label">TVET Program / Qualification</label>
+            <label className="label">{t('adminClasses.modal.tvetProgram')}</label>
             <select
               value={form.programConfigId}
               onChange={e => {
@@ -915,7 +920,7 @@ export default function AdminClasses() {
               }}
               className="input-field"
             >
-              <option value="">None — not linked to a program</option>
+              <option value="">{t('adminClasses.modal.noneNotLinked')}</option>
               {programConfigs.map(p => (
                 <option key={p._id} value={p._id}>
                   {p.trade} · {p.rtqfLevel} — {p.qualificationTitle}
@@ -924,8 +929,8 @@ export default function AdminClasses() {
             </select>
             <p style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
               {programConfigs.length === 0
-                ? 'No programs configured yet — add one in Admin Settings to populate this list.'
-                : "Sector, qualification title and RTQF level from this program will appear on this class's student reports."}
+                ? t('adminClasses.modal.noProgramsYet')
+                : t('adminClasses.modal.programHint')}
             </p>
           </div>
 
@@ -933,21 +938,21 @@ export default function AdminClasses() {
             padding: '10px 14px', borderRadius: 12, background: 'var(--surface-50)',
             border: '1px solid var(--card-border)', fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5,
           }}>
-            The class teacher and any co-teachers are assigned afterwards, from <strong>Manage Class</strong> on this class's card — a class only becomes active once it has a class teacher and at least one enrolled student.
+            {t('adminClasses.modal.teacherAssignNote')}
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, paddingTop: 4 }}>
-            <button type="button" onClick={() => setModal(false)} className="btn-secondary">Cancel</button>
+            <button type="button" onClick={() => setModal(false)} className="btn-secondary">{t('adminClasses.modal.cancel')}</button>
             <button type="submit" disabled={saving} className="btn-primary">
               {saving && <div style={{ width: 14, height: 14, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />}
-              {editing ? 'Update Class' : 'Create Class'}
+              {editing ? t('adminClasses.modal.updateClass') : t('adminClasses.modal.createClass')}
             </button>
           </div>
         </form>
       </Modal>
 
       {/* ── Students Modal ── */}
-      <Modal isOpen={studentsModal} onClose={() => setStudentsModal(false)} title={`Students — ${studentsTarget?.name}`}>
+      <Modal isOpen={studentsModal} onClose={() => setStudentsModal(false)} title={t('adminClasses.studentsModal.title', { name: studentsTarget?.name })}>
         {loadingStudents ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}>
             <div style={{ width: 32, height: 32, border: '3px solid var(--surface-100)', borderTopColor: '#c2410c', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
@@ -957,10 +962,10 @@ export default function AdminClasses() {
             <div style={{ width: 52, height: 52, borderRadius: 16, background: '#fed7aa', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
               <GraduationCap size={24} style={{ color: '#c2410c' }} />
             </div>
-            <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 }}>No students enrolled</p>
-            <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 20 }}>Add students to this class to get started.</p>
+            <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 }}>{t('adminClasses.studentsModal.noStudentsEnrolled')}</p>
+            <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 20 }}>{t('adminClasses.studentsModal.addStudentsDesc')}</p>
             <button onClick={() => { setStudentsModal(false); openEnrollModal(studentsTarget); }} className="btn-primary" style={{ margin: '0 auto' }}>
-              <UserPlus size={14} /> Enroll a Student
+              <UserPlus size={14} /> {t('adminClasses.studentsModal.enrollAStudent')}
             </button>
           </div>
         ) : (
@@ -989,12 +994,12 @@ export default function AdminClasses() {
               })}
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 14, borderTop: '1px solid var(--card-border)', marginTop: 14 }}>
-              <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{classStudents.length} student{classStudents.length !== 1 ? 's' : ''} enrolled</span>
+              <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{t('adminClasses.studentsModal.studentsEnrolled', { count: classStudents.length })}</span>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button onClick={() => { setStudentsModal(false); openEnrollModal(studentsTarget); }} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <UserPlus size={13} /> Enroll Student
+                  <UserPlus size={13} /> {t('adminClasses.studentsModal.enrollStudent')}
                 </button>
-                <button onClick={() => setStudentsModal(false)} className="btn-secondary">Close</button>
+                <button onClick={() => setStudentsModal(false)} className="btn-secondary">{t('adminClasses.studentsModal.close')}</button>
               </div>
             </div>
           </>
@@ -1002,27 +1007,27 @@ export default function AdminClasses() {
       </Modal>
 
       {/* ── Enroll Modal: register + enroll a brand-new student directly into this class ── */}
-      <Modal isOpen={enrollModal} onClose={() => { setEnrollModal(false); setEnrollDefaultPassword(''); }} title={`Enroll Student — ${enrollTarget?.name}`}>
+      <Modal isOpen={enrollModal} onClose={() => { setEnrollModal(false); setEnrollDefaultPassword(''); }} title={t('adminClasses.enrollModal.title', { name: enrollTarget?.name })}>
         {enrollDefaultPassword ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '12px 0 4px' }}>
               <div style={{ width: 56, height: 56, borderRadius: 18, background: '#ecfdf5', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
                 <CheckCircle2 size={28} style={{ color: '#10b981' }} />
               </div>
-              <p style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 4 }}>Student Enrolled!</p>
+              <p style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 4 }}>{t('adminClasses.enrollModal.studentEnrolled')}</p>
               <p style={{ fontSize: 12, color: 'var(--text-secondary)', textAlign: 'center' }}>
-                Share these login credentials with the student. They've been enrolled in <strong>{enrollTarget?.name}</strong>.
+                {t('adminClasses.enrollModal.shareCredentials', { name: enrollTarget?.name })}
               </p>
             </div>
 
             <div style={{ borderRadius: 14, border: '1px solid var(--surface-100)', background: 'transparent', overflow: 'hidden' }}>
               {[
-                { label: 'Email', value: enrollForm.email, mono: true },
-                { label: 'Default Password', value: enrollDefaultPassword, mono: true, secret: true },
+                { label: t('adminClasses.enrollModal.email'), value: enrollForm.email, mono: true },
+                { label: t('adminClasses.enrollModal.defaultPassword'), value: enrollDefaultPassword, mono: true, secret: true },
               ].map(({ label, value, mono, secret }) => (
                 <div key={label} style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '12px 16px', borderBottom: label === 'Email' ? '1px solid var(--surface-100)' : 'none',
+                  padding: '12px 16px', borderBottom: label === t('adminClasses.enrollModal.email') ? '1px solid var(--surface-100)' : 'none',
                 }}>
                   <div>
                     <p style={{ fontSize: 10, fontWeight: 600, color: '#6b7280', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</p>
@@ -1047,9 +1052,9 @@ export default function AdminClasses() {
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-              <button onClick={() => { setEnrollModal(false); setEnrollDefaultPassword(''); }} className="btn-secondary">Close</button>
+              <button onClick={() => { setEnrollModal(false); setEnrollDefaultPassword(''); }} className="btn-secondary">{t('adminClasses.enrollModal.close')}</button>
               <button onClick={() => { setEnrollDefaultPassword(''); setEnrollForm({ name: '', email: '', class_year: '' }); }} className="btn-primary">
-                <UserPlus size={14} /> Enroll Another
+                <UserPlus size={14} /> {t('adminClasses.enrollModal.enrollAnother')}
               </button>
             </div>
           </div>
@@ -1058,28 +1063,28 @@ export default function AdminClasses() {
             <div style={{ padding: '12px 14px', borderRadius: 12, background: '#fed7aa', border: '1px solid #fb923c', display: 'flex', gap: 10 }}>
               <UserPlus size={18} style={{ color: '#c2410c', flexShrink: 0, marginTop: 1 }} />
               <p style={{ fontSize: 12, color: '#7c2d12', lineHeight: 1.6 }}>
-                This student will be registered and enrolled directly into <strong>{enrollTarget?.name}</strong>. Since a student can only belong to one class, there's no class list here — it's already decided.
+                {t('adminClasses.enrollModal.infoNote', { name: enrollTarget?.name })}
               </p>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div>
-                <label className="label">Full Name *</label>
+                <label className="label">{t('adminClasses.enrollModal.fullName')}</label>
                 <input value={enrollForm.name} onChange={e => setEnrollForm(f => ({ ...f, name: e.target.value }))}
-                  className="input-field" placeholder="Student name" required />
+                  className="input-field" placeholder={t('adminClasses.enrollModal.fullNamePlaceholder')} required />
               </div>
               <div>
-                <label className="label">Email *</label>
+                <label className="label">{t('adminClasses.enrollModal.emailLabel')}</label>
                 <input type="email" value={enrollForm.email} onChange={e => setEnrollForm(f => ({ ...f, email: e.target.value }))}
-                  className="input-field" placeholder="student@school.edu" required />
+                  className="input-field" placeholder={t('adminClasses.enrollModal.emailPlaceholder')} required />
               </div>
             </div>
 
             <div>
-              <label className="label">Intake Year</label>
+              <label className="label">{t('adminClasses.enrollModal.intakeYear')}</label>
               <select value={enrollForm.class_year} onChange={e => setEnrollForm(f => ({ ...f, class_year: e.target.value }))}
                 className="input-field">
-                <option value="">Select year…</option>
+                <option value="">{t('adminClasses.enrollModal.selectYear')}</option>
                 {Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - 2 + i).map(y => (
                   <option key={y} value={String(y)}>{y}</option>
                 ))}
@@ -1087,10 +1092,10 @@ export default function AdminClasses() {
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-              <button type="button" onClick={() => setEnrollModal(false)} className="btn-secondary">Cancel</button>
+              <button type="button" onClick={() => setEnrollModal(false)} className="btn-secondary">{t('adminClasses.enrollModal.cancel')}</button>
               <button type="submit" disabled={enrolling} className="btn-primary">
                 {enrolling && <div style={{ width: 14, height: 14, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />}
-                Enroll Student
+                {t('adminClasses.enrollModal.enrollStudent')}
               </button>
             </div>
           </form>
@@ -1100,19 +1105,19 @@ export default function AdminClasses() {
       <ConfirmDialog
         isOpen={!!toggleTarget} onClose={() => setToggleTarget(null)}
         onConfirm={handleToggleConfirm} loading={toggling}
-        title={toggleTarget?.is_active !== false ? 'Deactivate Class' : 'Activate Class'}
+        title={toggleTarget?.is_active !== false ? t('adminClasses.confirm.deactivateTitle') : t('adminClasses.confirm.activateTitle')}
         message={toggleTarget?.is_active !== false
-          ? `Deactivate "${toggleTarget?.name}"? Students will lose access to assignments and documents in this class.`
-          : `Activate "${toggleTarget?.name}"? Students will regain access to this class.`}
-        confirmText={toggleTarget?.is_active !== false ? 'Deactivate' : 'Activate'}
+          ? t('adminClasses.confirm.deactivateMessage', { name: toggleTarget?.name })
+          : t('adminClasses.confirm.activateMessage', { name: toggleTarget?.name })}
+        confirmText={toggleTarget?.is_active !== false ? t('adminClasses.confirm.deactivateConfirm') : t('adminClasses.confirm.activateConfirm')}
         variant="danger"
       />
       <ConfirmDialog
         isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete} loading={deleting}
-        title="Delete Class"
-        message={`Delete "${deleteTarget?.name}"? All assignments and documents for this class will also be removed.`}
-        confirmText="Delete" variant="danger"
+        title={t('adminClasses.confirm.deleteTitle')}
+        message={t('adminClasses.confirm.deleteMessage', { name: deleteTarget?.name })}
+        confirmText={t('adminClasses.confirm.deleteConfirm')} variant="danger"
       />
 
       <ManageClassModal

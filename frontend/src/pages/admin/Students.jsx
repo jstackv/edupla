@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
@@ -24,13 +25,14 @@ const TRADE_BG    = ['#fef3c7', '#cffafe', '#fce7f3', '#fdba74', '#fdba74', '#d1
 
 /* ── Status Badge ── */
 function StatusBadge({ is_active }) {
+  const { t: tr } = useTranslation();
   return (
     <span style={{
       fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6, letterSpacing: 0.3,
       background: is_active !== false ? '#ecfdf5' : '#fef2f2',
       color: is_active !== false ? '#059669' : '#ef4444',
     }}>
-      {is_active !== false ? 'Active' : 'Inactive'}
+      {is_active !== false ? tr('adminStudents.status.active') : tr('adminStudents.status.inactive')}
     </span>
   );
 }
@@ -85,6 +87,7 @@ function TradeBadge({ trade, trades = [] }) {
 
 /* ── Stat strip ── */
 function StatStrip({ students, levels = [], trades = [] }) {
+  const { t: tr } = useTranslation();
   const byLevel = levels.reduce((a, l) => { a[l.value] = students.filter(s => s.level === l.value).length; return a; }, {});
   const byTrade = trades.reduce((a, t) => { a[t.value] = students.filter(s => s.trade === t.value).length; return a; }, {});
   const topTrade = Object.entries(byTrade).sort((a, b) => b[1] - a[1])[0];
@@ -93,10 +96,10 @@ function StatStrip({ students, levels = [], trades = [] }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10 }}>
       {[
-        { icon: GraduationCap, label: 'Total Students', value: students.length,    color: '#10b981', bg: '#ecfdf5' },
-        { icon: BookOpen,      label: 'Enrolled',       value: withClasses,        color: '#c2410c', bg: '#fed7aa' },
-        { icon: Layers,        label: 'Trades Active',  value: Object.values(byTrade).filter(Boolean).length, color: '#0ea5e9', bg: '#f0f9ff' },
-        { icon: Award,         label: 'Top Trade',      value: topTrade?.[0] || '—', color: '#f59e0b', bg: '#fffbeb', isText: true },
+        { icon: GraduationCap, label: tr('adminStudents.statStrip.totalStudents'), value: students.length,    color: '#10b981', bg: '#ecfdf5' },
+        { icon: BookOpen,      label: tr('adminStudents.statStrip.enrolled'),       value: withClasses,        color: '#c2410c', bg: '#fed7aa' },
+        { icon: Layers,        label: tr('adminStudents.statStrip.tradesActive'),  value: Object.values(byTrade).filter(Boolean).length, color: '#0ea5e9', bg: '#f0f9ff' },
+        { icon: Award,         label: tr('adminStudents.statStrip.topTrade'),      value: topTrade?.[0] || '—', color: '#f59e0b', bg: '#fffbeb', isText: true },
       ].map(({ icon: Icon, label, value, color, bg, isText }) => (
         <div key={label} className="card" style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ width: 36, height: 36, borderRadius: 10, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -114,6 +117,7 @@ function StatStrip({ students, levels = [], trades = [] }) {
 
 /* ── Student Card (grid) ── */
 function StudentCard({ student: s, levels = [], trades = [], onEdit, onDelete, onToggle, onResetPassword, isSuperAdmin, animDelay = 0 }) {
+  const { t } = useTranslation();
   const [hovered, setHovered] = useState(false);
   const [from] = getAvatarColors(s.name);
 
@@ -140,7 +144,7 @@ function StudentCard({ student: s, levels = [], trades = [], onEdit, onDelete, o
           <Avatar name={s.name} size={44} />
           <div style={{ display: 'flex', gap: 3, opacity: hovered ? 1 : 0, transition: 'opacity 0.18s' }}>
             {isSuperAdmin && <ImpersonateButton userId={s.id} name={s.name} />}
-            <button onClick={() => onResetPassword(s)} title="Reset password"
+            <button onClick={() => onResetPassword(s)} title={t('adminStudents.card.resetPassword')}
               style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#fed7aa', display: 'flex', transition: 'background 0.15s' }}>
               <KeyRound size={13} style={{ color: '#c2410c' }} />
             </button>
@@ -153,7 +157,7 @@ function StudentCard({ student: s, levels = [], trades = [], onEdit, onDelete, o
               <Trash2 size={13} style={{ color: '#ef4444' }} />
             </button>
             {isSuperAdmin && (
-              <button onClick={() => onToggle(s)} title={s.is_active !== false ? 'Deactivate' : 'Activate'}
+              <button onClick={() => onToggle(s)} title={s.is_active !== false ? t('adminStudents.card.deactivate') : t('adminStudents.card.activate')}
                 style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: s.is_active !== false ? '#fef3c7' : '#ecfdf5', display: 'flex', transition: 'background 0.15s' }}>
                 {s.is_active !== false ? <ToggleRight size={13} style={{ color: '#d97706' }} /> : <ToggleLeft size={13} style={{ color: '#10b981' }} />}
               </button>
@@ -184,7 +188,7 @@ function StudentCard({ student: s, levels = [], trades = [], onEdit, onDelete, o
           <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--text-secondary)' }}>
             <BookOpen size={12} />
             <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{s.class_count || 0}</span>
-            {' '}class{s.class_count !== 1 ? 'es' : ''}
+            {' '}{t('adminStudents.card.class', { count: s.class_count })}
           </span>
           <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>
             {s.created_at ? new Date(s.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''}
@@ -197,6 +201,7 @@ function StudentCard({ student: s, levels = [], trades = [], onEdit, onDelete, o
 
 /* ── Student Row (table) ── */
 function StudentRow({ student: s, levels = [], trades = [], onEdit, onDelete, onToggle, onResetPassword, isSuperAdmin, animDelay = 0 }) {
+  const { t } = useTranslation();
   const [hovered, setHovered] = useState(false);
   return (
     <tr
@@ -227,7 +232,7 @@ function StudentRow({ student: s, levels = [], trades = [], onEdit, onDelete, on
       <td style={{ padding: '10px 16px' }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--text-secondary)' }}>
           <BookOpen size={12} />
-          {s.class_count > 0 ? <><span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{s.class_count}</span> class{s.class_count !== 1 ? 'es' : ''}</> : '—'}
+          {s.class_count > 0 ? <><span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{s.class_count}</span> {t('adminStudents.card.class', { count: s.class_count })}</> : '—'}
         </span>
       </td>
       <td style={{ padding: '10px 16px' }}>
@@ -243,7 +248,7 @@ function StudentRow({ student: s, levels = [], trades = [], onEdit, onDelete, on
       <td style={{ padding: '10px 16px', textAlign: 'right' }}>
         <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end', opacity: hovered ? 1 : 0.3, transition: 'opacity 0.15s' }}>
           {isSuperAdmin && <ImpersonateButton userId={s.id} name={s.name} />}
-          <button onClick={() => onResetPassword(s)} title="Reset password"
+          <button onClick={() => onResetPassword(s)} title={t('adminStudents.card.resetPassword')}
             style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#fed7aa', display: 'flex' }}>
             <KeyRound size={13} style={{ color: '#c2410c' }} />
           </button>
@@ -256,7 +261,7 @@ function StudentRow({ student: s, levels = [], trades = [], onEdit, onDelete, on
             <Trash2 size={13} style={{ color: '#ef4444' }} />
           </button>
           {isSuperAdmin && (
-            <button onClick={() => onToggle(s)} title={s.is_active !== false ? 'Deactivate' : 'Activate'}
+            <button onClick={() => onToggle(s)} title={s.is_active !== false ? t('adminStudents.card.deactivate') : t('adminStudents.card.activate')}
               style={{ padding: '5px 7px', borderRadius: 8, border: 'none', cursor: 'pointer', background: s.is_active !== false ? '#fef3c7' : '#ecfdf5', display: 'flex' }}>
               {s.is_active !== false ? <ToggleRight size={13} style={{ color: '#d97706' }} /> : <ToggleLeft size={13} style={{ color: '#10b981' }} />}
             </button>
@@ -269,6 +274,7 @@ function StudentRow({ student: s, levels = [], trades = [], onEdit, onDelete, on
 
 /* ══ MAIN ══ */
 export default function AdminStudents() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const isSuperAdmin = !!user?.is_super_admin;
   const [students, setStudents] = useState([]);
@@ -433,18 +439,18 @@ export default function AdminStudents() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
               <div style={{ padding: '4px 10px', borderRadius: 99, background: 'rgba(16,185,129,0.14)', border: '1px solid rgba(16,185,129,0.25)', display: 'flex', alignItems: 'center', gap: 5 }}>
                 <GraduationCap size={11} style={{ color: '#10b981' }} />
-                <span style={{ fontSize: 10, fontWeight: 700, color: '#10b981', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Student Registry</span>
+                <span style={{ fontSize: 10, fontWeight: 700, color: '#10b981', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{t('adminStudents.hero.registry')}</span>
               </div>
               <div style={{ padding: '3px 8px', borderRadius: 99, background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.22)', display: 'flex', alignItems: 'center', gap: 4 }}>
                 <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#34d399', animation: 'pulse 2s infinite' }} />
-                <span style={{ fontSize: 10, fontWeight: 600, color: '#10b981' }}>{total} enrolled</span>
+                <span style={{ fontSize: 10, fontWeight: 600, color: '#10b981' }}>{t('adminStudents.hero.enrolled', { count: total })}</span>
               </div>
             </div>
             <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--hero-fg)', marginBottom: 5, lineHeight: 1.2 }}>
-              🎓 Students
+              {t('adminStudents.hero.title')}
             </h1>
             <p style={{ fontSize: 13, color: 'var(--hero-fg-soft)', maxWidth: 380, lineHeight: 1.6 }}>
-              Manage student accounts, track class enrollments, and monitor progress across all programs.
+              {t('adminStudents.hero.subtitle')}
             </p>
           </div>
 
@@ -464,7 +470,7 @@ export default function AdminStudents() {
             onMouseEnter={e => e.currentTarget.style.filter = 'brightness(1.12)'}
             onMouseLeave={e => e.currentTarget.style.filter = 'none'}
           >
-            <Plus size={14} /> New Student
+            <Plus size={14} /> {t('adminStudents.hero.newStudent')}
           </button>
         </div>
       </div>
@@ -481,7 +487,7 @@ export default function AdminStudents() {
             onChange={e => { setSearch(e.target.value); setPage(1); }}
             className="input-field"
             style={{ paddingLeft: 34 }}
-            placeholder="Search by name or email…"
+            placeholder={t('adminStudents.toolbar.searchPlaceholder')}
           />
         </div>
 
@@ -496,7 +502,7 @@ export default function AdminStudents() {
           }}
         >
           <Filter size={13} />
-          Filters
+          {t('adminStudents.toolbar.filters')}
           {activeFilters > 0 && (
             <span style={{
               width: 16, height: 16, borderRadius: '50%', background: '#10b981',
@@ -533,14 +539,14 @@ export default function AdminStudents() {
       {/* ── Filter Panel ── */}
       {showFilters && (
         <div className="card" style={{ padding: '14px 18px', display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'center', animation: 'slideUp 0.2s ease' }}>
-          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>Filter by:</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>{t('adminStudents.toolbar.filterBy')}</span>
 
           {/* Class select */}
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Class</span>
+            <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{t('adminStudents.toolbar.class')}</span>
             <select value={filterClass} onChange={e => { setFilterClass(e.target.value); setPage(1); }}
               className="input-field" style={{ width: 160, padding: '5px 10px', fontSize: 12 }}>
-              <option value="">All Classes</option>
+              <option value="">{t('adminStudents.toolbar.allClasses')}</option>
               {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
@@ -548,7 +554,7 @@ export default function AdminStudents() {
           {activeFilters > 0 && (
             <button onClick={() => { setFilterClass(''); setPage(1); }}
               style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600, color: '#ef4444', background: '#fef2f2', border: 'none', cursor: 'pointer', padding: '4px 10px', borderRadius: 7 }}>
-              <X size={11} /> Clear all
+              <X size={11} /> {t('adminStudents.toolbar.clearAll')}
             </button>
           )}
         </div>
@@ -559,7 +565,7 @@ export default function AdminStudents() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 0' }}>
           <div style={{ textAlign: 'center' }}>
             <div style={{ width: 44, height: 44, borderRadius: '50%', border: '3px solid var(--surface-100)', borderTopColor: '#10b981', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
-            <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Loading students…</p>
+            <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{t('adminStudents.states.loading')}</p>
           </div>
         </div>
       ) : students.length === 0 ? (
@@ -567,13 +573,13 @@ export default function AdminStudents() {
           <div style={{ width: 64, height: 64, borderRadius: 20, background: '#ecfdf5', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
             <GraduationCap size={28} style={{ color: '#10b981' }} />
           </div>
-          <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>No students found</p>
+          <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>{t('adminStudents.states.noStudentsFound')}</p>
           <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20 }}>
-            {search || activeFilters ? 'Try adjusting your search or filters.' : 'Add your first student to get started.'}
+            {search || activeFilters ? t('adminStudents.states.tryAdjusting') : t('adminStudents.states.addFirstStudent')}
           </p>
           {!search && !activeFilters && (
             <button onClick={() => openModal()} className="btn-primary" style={{ margin: '0 auto' }}>
-              <Plus size={14} /> Add Student
+              <Plus size={14} /> {t('adminStudents.states.addStudent')}
             </button>
           )}
         </div>
@@ -589,9 +595,9 @@ export default function AdminStudents() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: 'var(--surface-50)', borderBottom: '1px solid var(--card-border)' }}>
-                {['Student', 'Level / Trade', 'Classes', 'Year', 'Joined', 'Actions'].map(h => (
+                {[t('adminStudents.table.student'), t('adminStudents.table.levelTrade'), t('adminStudents.table.classes'), t('adminStudents.table.year'), t('adminStudents.table.joined'), t('adminStudents.table.actions')].map((h, idx) => (
                   <th key={h} style={{
-                    padding: '10px 16px', textAlign: h === 'Actions' ? 'right' : 'left',
+                    padding: '10px 16px', textAlign: idx === 5 ? 'right' : 'left',
                     fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)',
                     textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap',
                   }}>{h}</th>
@@ -611,7 +617,7 @@ export default function AdminStudents() {
       {total > 12 && <Pagination page={page} totalPages={Math.ceil(total / 12)} onPageChange={setPage} />}
 
       {/* ── Modal ── */}
-      <Modal isOpen={modal} onClose={() => { setModal(false); setDefaultPassword(''); }} title={editing ? 'Edit Student' : 'New Student'}>
+      <Modal isOpen={modal} onClose={() => { setModal(false); setDefaultPassword(''); }} title={editing ? t('adminStudents.modal.editTitle') : t('adminStudents.modal.createTitle')}>
 
         {/* Success screen after creation */}
         {defaultPassword ? (
@@ -620,18 +626,18 @@ export default function AdminStudents() {
               <div style={{ width: 56, height: 56, borderRadius: 18, background: '#ecfdf5', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
                 <CheckCircle2 size={28} style={{ color: '#10b981' }} />
               </div>
-              <p style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 4 }}>Student Created!</p>
-              <p style={{ fontSize: 12, color: 'var(--text-secondary)', textAlign: 'center' }}>Share these login credentials with the student.</p>
+              <p style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 4 }}>{t('adminStudents.modal.studentCreated')}</p>
+              <p style={{ fontSize: 12, color: 'var(--text-secondary)', textAlign: 'center' }}>{t('adminStudents.modal.shareCredentials')}</p>
             </div>
 
             <div style={{ borderRadius: 14, border: '1px solid var(--surface-100)', background: 'transparent', overflow: 'hidden' }}>
               {[
-                { label: 'Email', value: form.email, mono: true },
-                { label: 'Default Password', value: defaultPassword, mono: true, secret: true },
+                { label: t('adminStudents.modal.email'), value: form.email, mono: true },
+                { label: t('adminStudents.modal.defaultPassword'), value: defaultPassword, mono: true, secret: true },
               ].map(({ label, value, mono, secret }) => (
                 <div key={label} style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '12px 16px', borderBottom: label === 'Email' ? '1px solid var(--surface-100)' : 'none',
+                  padding: '12px 16px', borderBottom: label === t('adminStudents.modal.email') ? '1px solid var(--surface-100)' : 'none',
                 }}>
                   <div>
                     <p style={{ fontSize: 10, fontWeight: 600, color: '#6b7280', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</p>
@@ -656,14 +662,14 @@ export default function AdminStudents() {
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-              <button onClick={() => { setModal(false); setDefaultPassword(''); }} className="btn-secondary">Close</button>
+              <button onClick={() => { setModal(false); setDefaultPassword(''); }} className="btn-secondary">{t('adminStudents.modal.close')}</button>
               <button onClick={() => {
                 setDefaultPassword('');
                 setForm({ name: '', email: '', classIds: [], class_year: '' });
                 setEditing(null);
                 setOriginalClassId(null);
               }} className="btn-primary">
-                <Plus size={14} /> Add Another
+                <Plus size={14} /> {t('adminStudents.modal.addAnother')}
               </button>
             </div>
           </div>
@@ -673,23 +679,23 @@ export default function AdminStudents() {
             {/* Name & Email */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div>
-                <label className="label">Full Name *</label>
+                <label className="label">{t('adminStudents.modal.fullName')}</label>
                 <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                  className="input-field" placeholder="Student name" required />
+                  className="input-field" placeholder={t('adminStudents.modal.fullNamePlaceholder')} required />
               </div>
               <div>
-                <label className="label">Email *</label>
+                <label className="label">{t('adminStudents.modal.emailLabel')}</label>
                 <input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                  className="input-field" placeholder="student@school.edu" required />
+                  className="input-field" placeholder={t('adminStudents.modal.emailPlaceholder')} required />
               </div>
             </div>
 
             {/* Class Year */}
             <div>
-              <label className="label">Intake Year</label>
+              <label className="label">{t('adminStudents.modal.intakeYear')}</label>
               <select value={form.class_year} onChange={e => setForm(f => ({ ...f, class_year: e.target.value }))}
                 className="input-field">
-                <option value="">Select year…</option>
+                <option value="">{t('adminStudents.modal.selectYear')}</option>
                 {Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - 2 + i).map(y => (
                   <option key={y} value={String(y)}>{y}</option>
                 ))}
@@ -699,16 +705,16 @@ export default function AdminStudents() {
             {/* Enroll in Class (a student can only ever belong to one) */}
             <div>
               <label className="label">
-                {editing ? 'Class' : 'Enroll in Class'}
+                {editing ? t('adminStudents.modal.class') : t('adminStudents.modal.enrollInClass')}
                 {form.classIds.length > 0 && (
                   <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 600, color: '#10b981' }}>
-                    selected
+                    {t('adminStudents.modal.selected')}
                   </span>
                 )}
               </label>
               {editing && (
                 <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: '2px 0 6px' }}>
-                  A student can only be enrolled in one class. Tick a different class to move them out of their current one.
+                  {t('adminStudents.modal.editingClassNote')}
                 </p>
               )}
               <div style={{
@@ -736,7 +742,7 @@ export default function AdminStudents() {
                         <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {c.name}
                           {isCurrent && (
-                            <span style={{ marginLeft: 5, fontSize: 9, fontWeight: 700, color: '#6b7280' }}>(current)</span>
+                            <span style={{ marginLeft: 5, fontSize: 9, fontWeight: 700, color: '#6b7280' }}>{t('adminStudents.modal.current')}</span>
                           )}
                         </p>
                         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 2 }}>
@@ -755,7 +761,7 @@ export default function AdminStudents() {
                   );
                 })}
                 {classes.length === 0 && (
-                  <p style={{ fontSize: 12, color: 'var(--text-secondary)', gridColumn: '1/-1', padding: 8 }}>No classes available.</p>
+                  <p style={{ fontSize: 12, color: 'var(--text-secondary)', gridColumn: '1/-1', padding: 8 }}>{t('adminStudents.modal.noClassesAvailable')}</p>
                 )}
               </div>
             </div>
@@ -770,11 +776,11 @@ export default function AdminStudents() {
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '10px 12px', borderRadius: 10, background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
                   <Info size={14} style={{ color: '#16a34a', flexShrink: 0, marginTop: 1 }} />
                   <div>
-                    <p style={{ fontSize: 11, fontWeight: 700, color: '#15803d', marginBottom: 2 }}>TVET info assigned automatically</p>
+                    <p style={{ fontSize: 11, fontWeight: 700, color: '#15803d', marginBottom: 2 }}>{t('adminStudents.modal.tvetAutoTitle')}</p>
                     <p style={{ fontSize: 11, color: '#166534' }}>
-                      From <strong>{primaryClass.name}</strong>:{' '}
-                      {primaryClass.level && <span>Level: <strong>{primaryClass.level}</strong>{primaryClass.trade ? ' · ' : ''}</span>}
-                      {primaryClass.trade && <span>Trade: <strong>{primaryClass.trade}</strong></span>}
+                      {t('adminStudents.modal.from')} <strong>{primaryClass.name}</strong>:{' '}
+                      {primaryClass.level && <span>{t('adminStudents.modal.level')}<strong>{primaryClass.level}</strong>{primaryClass.trade ? ' · ' : ''}</span>}
+                      {primaryClass.trade && <span>{t('adminStudents.modal.trade')}<strong>{primaryClass.trade}</strong></span>}
                     </p>
                   </div>
                 </div>
@@ -782,10 +788,10 @@ export default function AdminStudents() {
             })()}
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, paddingTop: 4 }}>
-              <button type="button" onClick={() => setModal(false)} className="btn-secondary">Cancel</button>
+              <button type="button" onClick={() => setModal(false)} className="btn-secondary">{t('adminStudents.modal.cancel')}</button>
               <button type="submit" disabled={saving} className="btn-primary">
                 {saving && <div style={{ width: 14, height: 14, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />}
-                {editing ? 'Update Student' : 'Create Student'}
+                {editing ? t('adminStudents.modal.updateStudent') : t('adminStudents.modal.createStudent')}
               </button>
             </div>
           </form>
@@ -795,11 +801,11 @@ export default function AdminStudents() {
       <ConfirmDialog
         isOpen={!!toggleTarget} onClose={() => setToggleTarget(null)}
         onConfirm={handleToggleConfirm} loading={toggling}
-        title={toggleTarget?.is_active !== false ? 'Deactivate Student' : 'Activate Student'}
+        title={toggleTarget?.is_active !== false ? t('adminStudents.confirm.deactivateTitle') : t('adminStudents.confirm.activateTitle')}
         message={toggleTarget?.is_active !== false
-          ? `Deactivate "${toggleTarget?.name}"? They will lose access to EDUPLA immediately.`
-          : `Activate "${toggleTarget?.name}"? They will regain full access to EDUPLA.`}
-        confirmText={toggleTarget?.is_active !== false ? 'Deactivate' : 'Activate'}
+          ? t('adminStudents.confirm.deactivateMessage', { name: toggleTarget?.name })
+          : t('adminStudents.confirm.activateMessage', { name: toggleTarget?.name })}
+        confirmText={toggleTarget?.is_active !== false ? t('adminStudents.confirm.deactivateConfirm') : t('adminStudents.confirm.activateConfirm')}
         variant="danger"
       />
       {resetTarget && (
@@ -808,9 +814,9 @@ export default function AdminStudents() {
       <ConfirmDialog
         isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete} loading={deleting}
-        title="Delete Student"
-        message={`Delete "${deleteTarget?.name}"? Their submissions and records will also be removed.`}
-        confirmText="Delete" variant="danger"
+        title={t('adminStudents.confirm.deleteTitle')}
+        message={t('adminStudents.confirm.deleteMessage', { name: deleteTarget?.name })}
+        confirmText={t('adminStudents.confirm.deleteConfirm')} variant="danger"
       />
 
       <style>{`
