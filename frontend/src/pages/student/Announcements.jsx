@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import Pagination from '../../components/common/Pagination';
 import { Search, Megaphone, BookOpen, Calendar, Sparkles } from 'lucide-react';
 
 export default function StudentAnnouncements() {
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [announcements, setAnnouncements] = useState([]);
   const [total, setTotal] = useState(0);
@@ -25,7 +27,7 @@ export default function StudentAnnouncements() {
       const res = await api.get('/announcements', { params });
       setAnnouncements(res.data.announcements || []);
       setTotal(res.data.announcements?.length || 0);
-    } catch { toast.error('Failed to load announcements'); }
+    } catch { toast.error(t('announcementsPage.loadFailed')); }
     finally { setLoading(false); }
   }, [search, page, filterClass]);
 
@@ -39,13 +41,13 @@ export default function StudentAnnouncements() {
     if (!flashId || loading || !announcements.length) return;
     const el = itemRefs.current[flashId];
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       setFlashId(null);
       const next = new URLSearchParams(searchParams);
       next.delete('highlight');
       setSearchParams(next, { replace: true });
     }, 3500);
-    return () => clearTimeout(t);
+    return () => clearTimeout(timer);
   }, [flashId, loading, announcements]);
 
   return (
@@ -99,8 +101,8 @@ export default function StudentAnnouncements() {
           <Megaphone className="w-5 h-5 text-white" />
         </div>
         <div>
-          <h2 className="font-display font-bold text-lg" style={{ color: 'var(--text-primary)' }}>Announcements</h2>
-          <p className="text-sm text-muted">Updates from your teachers</p>
+          <h2 className="font-display font-bold text-lg" style={{ color: 'var(--text-primary)' }}>{t('announcementsPage.title')}</h2>
+          <p className="text-sm text-muted">{t('announcementsPage.subtitle')}</p>
         </div>
       </div>
 
@@ -109,11 +111,11 @@ export default function StudentAnnouncements() {
         <div className="relative flex-1 group">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted transition-colors group-focus-within:text-primary-500" />
           <input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
-            className="input-field pl-10 transition-shadow duration-200 focus:shadow-soft" placeholder="Search announcements…" />
+            className="input-field pl-10 transition-shadow duration-200 focus:shadow-soft" placeholder={t('announcementsPage.searchPlaceholder')} />
         </div>
         <select value={filterClass} onChange={e => { setFilterClass(e.target.value); setPage(1); }}
           className="input-field sm:w-44 transition-shadow duration-200 focus:shadow-soft">
-          <option value="">All Classes</option>
+          <option value="">{t('announcementsPage.allClasses')}</option>
           {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
       </div>
@@ -138,8 +140,8 @@ export default function StudentAnnouncements() {
       ) : announcements.length === 0 ? (
         <div className="card text-center py-16">
           <Megaphone className="ann-empty-icon w-12 h-12 mx-auto mb-3 text-muted opacity-30" />
-          <p className="font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>No announcements</p>
-          <p className="text-sm text-muted">Your teachers haven't posted anything yet.</p>
+          <p className="font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>{t('announcementsPage.noAnnouncements')}</p>
+          <p className="text-sm text-muted">{t('announcementsPage.noAnnouncementsDesc')}</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -159,7 +161,7 @@ export default function StudentAnnouncements() {
                   <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{a.content}</p>
                   <div className="flex items-center gap-3 mt-3 flex-wrap">
                     {a.teacher_name && (
-                      <span className="text-xs text-muted">By {a.teacher_name}</span>
+                      <span className="text-xs text-muted">{t('announcementsPage.by', { name: a.teacher_name })}</span>
                     )}
                     {a.class_name ? (
                       <span className="flex items-center gap-1 text-xs badge bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300">
@@ -167,7 +169,7 @@ export default function StudentAnnouncements() {
                       </span>
                     ) : (
                       <span className="text-xs badge bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
-                        All Students
+                        {t('announcementsPage.allStudents')}
                       </span>
                     )}
                     <span className="flex items-center gap-1 text-xs text-muted ml-auto">

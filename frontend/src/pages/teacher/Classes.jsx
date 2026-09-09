@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import {
@@ -37,12 +38,13 @@ const AVATAR_BG = ['bg-orange-500', 'bg-blue-500', 'bg-emerald-500', 'bg-rose-50
 function getColor(name) { return AVATAR_BG[hashStr(name) % AVATAR_BG.length]; }
 
 const SORT_OPTIONS = [
-  { key: 'name', label: 'Name' },
-  { key: 'modules', label: 'Modules taught' },
-  { key: 'students', label: 'Students' },
+  { key: 'name', labelKey: 'sortName' },
+  { key: 'modules', labelKey: 'sortModules' },
+  { key: 'students', labelKey: 'sortStudents' },
 ];
 
 export default function Classes() {
+  const { t } = useTranslation();
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -61,7 +63,7 @@ export default function Classes() {
       const res = await api.get('/assessment/teacher/courses');
       setCourses(res.data.courses || []);
     } catch {
-      toast.error('Failed to load classes');
+      toast.error(t('teacherClasses.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -92,7 +94,7 @@ export default function Classes() {
         if (!map.has(id)) {
           map.set(id, {
             id,
-            name: cls.name || 'Class',
+            name: cls.name || t('teacherClasses.defaultClassName'),
             description: cls.description || '',
             level: cls.level || '',
             moduleCount: 0,
@@ -116,7 +118,7 @@ export default function Classes() {
       const res = await api.get(`/classes/${cls.id}/students`);
       setClassStudents(s => ({ ...s, [cls.id]: res.data.students || [] }));
     } catch {
-      toast.error('Failed to load students');
+      toast.error(t('teacherClasses.loadStudentsFailed'));
     } finally {
       setLoadingStudents(s => ({ ...s, [cls.id]: false }));
     }
@@ -169,18 +171,18 @@ export default function Classes() {
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="font-display font-bold text-xl" style={{ color: 'var(--text-primary)' }}>My Classes</h2>
+            <h2 className="font-display font-bold text-xl" style={{ color: 'var(--text-primary)' }}>{t('teacherClasses.title')}</h2>
             <Sparkles className="w-4 h-4 text-amber-500" />
           </div>
-          <p className="text-sm text-muted mt-0.5">Your register of assigned classes and the students in them</p>
+          <p className="text-sm text-muted mt-0.5">{t('teacherClasses.subtitle')}</p>
         </div>
 
         {/* Stats strip */}
         <div className="flex items-center gap-2">
           {[
-            { label: 'Classes', value: totals.classes },
-            { label: 'Modules', value: totals.modules },
-            { label: 'Students', value: totals.students },
+            { label: t('teacherClasses.classes'), value: totals.classes },
+            { label: t('teacherClasses.modules'), value: totals.modules },
+            { label: t('teacherClasses.students'), value: totals.students },
           ].map(stat => (
             <div key={stat.label} className="px-3.5 py-2 rounded-xl text-center min-w-[72px]"
               style={{ background: 'var(--surface-100)' }}>
@@ -199,7 +201,7 @@ export default function Classes() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="input-field pl-10"
-            placeholder="Search your classes…"
+            placeholder={t('teacherClasses.searchPlaceholder')}
           />
         </div>
 
@@ -212,7 +214,7 @@ export default function Classes() {
               className="appearance-none pl-8 pr-7 py-2 rounded-xl text-xs font-medium cursor-pointer"
               style={{ background: 'var(--surface-100)', color: 'var(--text-secondary)', border: '1px solid var(--card-border)' }}
             >
-              {SORT_OPTIONS.map(o => <option key={o.key} value={o.key}>Sort: {o.label}</option>)}
+              {SORT_OPTIONS.map(o => <option key={o.key} value={o.key}>{t('teacherClasses.sortPrefix', { label: t('teacherClasses.' + o.labelKey) })}</option>)}
             </select>
             <ArrowUpDown className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted pointer-events-none" />
           </div>
@@ -221,7 +223,7 @@ export default function Classes() {
           <div className="flex items-center gap-0.5 p-0.5 rounded-xl" style={{ background: 'var(--surface-100)' }}>
             <button
               onClick={() => setView('grid')}
-              aria-label="Grid view"
+              aria-label={t('teacherClasses.gridView')}
               className="p-2 rounded-lg transition-colors"
               style={{ background: view === 'grid' ? 'var(--card-bg)' : 'transparent', color: view === 'grid' ? 'var(--text-primary)' : 'var(--text-secondary)' }}
             >
@@ -229,7 +231,7 @@ export default function Classes() {
             </button>
             <button
               onClick={() => setView('list')}
-              aria-label="List view"
+              aria-label={t('teacherClasses.listView')}
               className="p-2 rounded-lg transition-colors"
               style={{ background: view === 'list' ? 'var(--card-bg)' : 'transparent', color: view === 'list' ? 'var(--text-primary)' : 'var(--text-secondary)' }}
             >
@@ -247,14 +249,14 @@ export default function Classes() {
       ) : teacherClasses.length === 0 ? (
         <div className="card text-center py-16">
           <BookOpen className="w-12 h-12 mx-auto mb-3 text-muted opacity-30" />
-          <p className="font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>No classes assigned</p>
-          <p className="text-sm text-muted">The admin will assign modules to you to get started.</p>
+          <p className="font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>{t('teacherClasses.noClassesAssigned')}</p>
+          <p className="text-sm text-muted">{t('teacherClasses.noClassesDesc')}</p>
         </div>
       ) : filteredClasses.length === 0 ? (
         <div className="card text-center py-16">
           <Search className="w-12 h-12 mx-auto mb-3 text-muted opacity-30" />
-          <p className="font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>No matches</p>
-          <p className="text-sm text-muted">Try a different search term.</p>
+          <p className="font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>{t('teacherClasses.noMatches')}</p>
+          <p className="text-sm text-muted">{t('teacherClasses.noMatchesDesc')}</p>
         </div>
       ) : (
         <div className={view === 'grid' ? 'grid grid-cols-1 lg:grid-cols-2 gap-4' : 'space-y-3'}>
@@ -287,11 +289,11 @@ export default function Classes() {
                       <div className="flex items-center gap-3 mt-2 text-xs text-muted">
                         <span className="flex items-center gap-1">
                           <GraduationCap className="w-3.5 h-3.5" />
-                          {cls.moduleCount} module{cls.moduleCount !== 1 ? 's' : ''} taught
+                          {t('teacherClasses.module', { count: cls.moduleCount })} {t('teacherClasses.taught')}
                         </span>
                         <span className="flex items-center gap-1">
                           <Users className="w-3.5 h-3.5" />
-                          {roster ? `${roster.length} student${roster.length !== 1 ? 's' : ''}` : '…'}
+                          {roster ? t('teacherClasses.student', { count: roster.length }) : '…'}
                         </span>
                       </div>
                     </div>
@@ -302,7 +304,7 @@ export default function Classes() {
                       style={{ background: 'var(--surface-100)', color: 'var(--text-secondary)' }}
                     >
                       {isOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                      {isOpen ? 'Hide' : 'Roster'}
+                      {isOpen ? t('teacherClasses.hide') : t('teacherClasses.roster')}
                     </button>
                   </div>
 
@@ -316,12 +318,12 @@ export default function Classes() {
                       ) : !roster || roster.length === 0 ? (
                         <div className="text-center py-4">
                           <GraduationCap className="w-8 h-8 mx-auto mb-2 text-muted opacity-30" />
-                          <p className="text-sm text-muted">No students enrolled in this class yet.</p>
+                          <p className="text-sm text-muted">{t('teacherClasses.noStudentsYet')}</p>
                         </div>
                       ) : (
                         <div className="space-y-2">
                           <p className="text-[11px] font-semibold text-muted uppercase tracking-wide">
-                            Enrolled students ({roster.length})
+                            {t('teacherClasses.enrolledStudents', { count: roster.length })}
                           </p>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                             {roster.map(student => (

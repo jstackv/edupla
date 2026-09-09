@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import Modal from '../../components/common/Modal';
@@ -8,6 +9,7 @@ import Pagination from '../../components/common/Pagination';
 import { Plus, Search, Megaphone, Edit2, Trash2, BookOpen, Calendar } from 'lucide-react';
 
 export default function TeacherAnnouncements() {
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [announcements, setAnnouncements] = useState([]);
   const [total, setTotal] = useState(0);
@@ -33,7 +35,7 @@ export default function TeacherAnnouncements() {
       const res = await api.get('/announcements', { params });
       setAnnouncements(res.data.announcements);
       setTotal(res.data.announcements?.length || 0);
-    } catch { toast.error('Failed to load announcements'); }
+    } catch { toast.error(t('teacherAnnouncements.loadFailed')); }
     finally { setLoading(false); }
   }, [search, page, filterClass]);
 
@@ -47,13 +49,13 @@ export default function TeacherAnnouncements() {
     if (!flashId || loading || !announcements.length) return;
     const el = itemRefs.current[flashId];
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       setFlashId(null);
       const next = new URLSearchParams(searchParams);
       next.delete('highlight');
       setSearchParams(next, { replace: true });
     }, 3500);
-    return () => clearTimeout(t);
+    return () => clearTimeout(timer);
   }, [flashId, loading, announcements]);
 
   const openModal = (a = null) => {
@@ -69,14 +71,14 @@ export default function TeacherAnnouncements() {
     try {
       if (editing) {
         await api.put(`/announcements/${editing.id}`, form);
-        toast.success('Announcement updated');
+        toast.success(t('teacherAnnouncements.updated'));
       } else {
         await api.post('/announcements', form);
-        toast.success('Announcement posted');
+        toast.success(t('teacherAnnouncements.posted'));
       }
       setModal(false);
       fetchAnnouncements();
-    } catch (err) { toast.error(err.response?.data?.message || 'Failed to save'); }
+    } catch (err) { toast.error(err.response?.data?.message || t('teacherAnnouncements.saveFailed')); }
     finally { setSaving(false); }
   };
 
@@ -84,10 +86,10 @@ export default function TeacherAnnouncements() {
     setDeleting(true);
     try {
       await api.delete(`/announcements/${deleteTarget.id}`);
-      toast.success('Announcement deleted');
+      toast.success(t('teacherAnnouncements.deleted'));
       setDeleteTarget(null);
       fetchAnnouncements();
-    } catch { toast.error('Failed to delete'); }
+    } catch { toast.error(t('teacherAnnouncements.deleteFailed')); }
     finally { setDeleting(false); }
   };
 
@@ -96,11 +98,11 @@ export default function TeacherAnnouncements() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <div className="flex-1">
-          <h2 className="font-display font-bold text-lg" style={{ color: 'var(--text-primary)' }}>Announcements</h2>
-          <p className="text-sm text-muted">Post updates and news for your students</p>
+          <h2 className="font-display font-bold text-lg" style={{ color: 'var(--text-primary)' }}>{t('teacherAnnouncements.title')}</h2>
+          <p className="text-sm text-muted">{t('teacherAnnouncements.subtitle')}</p>
         </div>
         <button onClick={() => openModal()} className="btn-primary">
-          <Plus className="w-4 h-4" /> New Announcement
+          <Plus className="w-4 h-4" /> {t('teacherAnnouncements.newAnnouncement')}
         </button>
       </div>
 
@@ -109,11 +111,11 @@ export default function TeacherAnnouncements() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
           <input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
-            className="input-field pl-10" placeholder="Search announcements…" />
+            className="input-field pl-10" placeholder={t('teacherAnnouncements.searchPlaceholder')} />
         </div>
         <select value={filterClass} onChange={e => { setFilterClass(e.target.value); setPage(1); }}
           className="input-field sm:w-44">
-          <option value="">All Classes</option>
+          <option value="">{t('teacherAnnouncements.allClasses')}</option>
           {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
       </div>
@@ -126,10 +128,10 @@ export default function TeacherAnnouncements() {
       ) : announcements.length === 0 ? (
         <div className="card text-center py-16">
           <Megaphone className="w-12 h-12 mx-auto mb-3 text-muted opacity-30" />
-          <p className="font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>No announcements yet</p>
-          <p className="text-sm text-muted mb-4">Post an update to keep your students informed.</p>
+          <p className="font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>{t('teacherAnnouncements.noAnnouncementsYet')}</p>
+          <p className="text-sm text-muted mb-4">{t('teacherAnnouncements.postToInform')}</p>
           <button onClick={() => openModal()} className="btn-primary mx-auto">
-            <Plus className="w-4 h-4" /> Post Announcement
+            <Plus className="w-4 h-4" /> {t('teacherAnnouncements.postAnnouncement')}
           </button>
         </div>
       ) : (
@@ -150,11 +152,11 @@ export default function TeacherAnnouncements() {
                     <h3 className="font-display font-bold text-sm" style={{ color: 'var(--text-primary)' }}>{a.title}</h3>
                     <div className="flex gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button onClick={() => openModal(a)}
-                        className="p-1.5 rounded-lg hover:bg-surface-100 transition-colors" title="Edit">
+                        className="p-1.5 rounded-lg hover:bg-surface-100 transition-colors" title={t('teacherAnnouncements.edit')}>
                         <Edit2 className="w-3.5 h-3.5 text-muted" />
                       </button>
                       <button onClick={() => setDeleteTarget(a)}
-                        className="p-1.5 rounded-lg hover:bg-red-50 hover:text-red-500 transition-colors" title="Delete">
+                        className="p-1.5 rounded-lg hover:bg-red-50 hover:text-red-500 transition-colors" title={t('teacherAnnouncements.delete')}>
                         <Trash2 className="w-3.5 h-3.5 text-muted" />
                       </button>
                     </div>
@@ -167,7 +169,7 @@ export default function TeacherAnnouncements() {
                       </span>
                     ) : (
                       <span className="text-xs badge bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
-                        All Classes
+                        {t('teacherAnnouncements.allClassesBadge')}
                       </span>
                     )}
                     <span className="flex items-center gap-1 text-xs text-muted">
@@ -185,31 +187,31 @@ export default function TeacherAnnouncements() {
       {total > 10 && <Pagination page={page} totalPages={Math.ceil(total / 10)} onPageChange={setPage} />}
 
       {/* Modal */}
-      <Modal isOpen={modal} onClose={() => setModal(false)} title={editing ? 'Edit Announcement' : 'New Announcement'}>
+      <Modal isOpen={modal} onClose={() => setModal(false)} title={editing ? t('teacherAnnouncements.editTitle') : t('teacherAnnouncements.newTitle')}>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="label">Title *</label>
+            <label className="label">{t('teacherAnnouncements.titleLabel')}</label>
             <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-              className="input-field" placeholder="Announcement title" required />
+              className="input-field" placeholder={t('teacherAnnouncements.titlePlaceholder')} required />
           </div>
           <div>
-            <label className="label">Content *</label>
+            <label className="label">{t('teacherAnnouncements.contentLabel')}</label>
             <textarea value={form.content} onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
-              className="input-field resize-none" rows={5} placeholder="Write your announcement…" required />
+              className="input-field resize-none" rows={5} placeholder={t('teacherAnnouncements.contentPlaceholder')} required />
           </div>
           <div>
-            <label className="label">Target Class</label>
+            <label className="label">{t('teacherAnnouncements.targetClass')}</label>
             <select value={form.classId} onChange={e => setForm(f => ({ ...f, classId: e.target.value }))} className="input-field">
-              <option value="">All My Classes</option>
+              <option value="">{t('teacherAnnouncements.allMyClasses')}</option>
               {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
-            <p className="text-xs text-muted mt-1">Leave blank to announce to all your students</p>
+            <p className="text-xs text-muted mt-1">{t('teacherAnnouncements.leaveBlankNote')}</p>
           </div>
           <div className="flex justify-end gap-3 pt-2">
-            <button type="button" onClick={() => setModal(false)} className="btn-secondary">Cancel</button>
+            <button type="button" onClick={() => setModal(false)} className="btn-secondary">{t('teacherAnnouncements.cancel')}</button>
             <button type="submit" disabled={saving} className="btn-primary">
               {saving && <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />}
-              {editing ? 'Update' : 'Post'}
+              {editing ? t('teacherAnnouncements.update') : t('teacherAnnouncements.post')}
             </button>
           </div>
         </form>
@@ -220,9 +222,9 @@ export default function TeacherAnnouncements() {
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
         loading={deleting}
-        title="Delete Announcement"
-        message={`Delete "${deleteTarget?.title}"?`}
-        confirmText="Delete"
+        title={t('teacherAnnouncements.deleteTitle')}
+        message={t('teacherAnnouncements.deleteMessage', { title: deleteTarget?.title })}
+        confirmText={t('teacherAnnouncements.deleteConfirm')}
         variant="danger"
       />
     </div>

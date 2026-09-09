@@ -11,13 +11,15 @@
  * weight.
  */
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import Modal from './Modal';
 import { Inbox, ChevronRight, Layers } from 'lucide-react';
 
-const ASSESSMENT_TYPE_LABELS = { FA: 'Formative Assessment', IA: 'Integrated Assessment', CA: 'Comprehensive Assessment' };
 const TERM_ORDER = { 'Term 1': 0, 'Term 2': 1, 'Term 3': 2 };
 
 export default function ResultsPickerModal({ assessments, onClose, onSelectAssessment, onSelectOverall }) {
+  const { t } = useTranslation();
+  const ASSESSMENT_TYPE_LABELS = { FA: t('resultsPicker.formative'), IA: t('resultsPicker.integrated'), CA: t('resultsPicker.comprehensive') };
   const groups = useMemo(() => {
     const map = new Map();
     assessments.filter(a => a.is_shared).forEach(a => {
@@ -33,11 +35,11 @@ export default function ResultsPickerModal({ assessments, onClose, onSelectAsses
   }, [assessments]);
 
   return (
-    <Modal isOpen={true} onClose={onClose} title="View Results" size="lg">
+    <Modal isOpen={true} onClose={onClose} title={t('resultsPicker.title')} size="lg">
       {groups.length === 0 ? (
         <div className="text-center py-10">
           <Inbox className="w-9 h-9 mx-auto mb-3" style={{ color: 'var(--text-secondary)' }} />
-          <p style={{ color: 'var(--text-secondary)' }}>No shared assessments yet — share an assessment to see its results here.</p>
+          <p style={{ color: 'var(--text-secondary)' }}>{t('resultsPicker.noShared')}</p>
         </div>
       ) : (
         <div className="space-y-5">
@@ -61,10 +63,10 @@ export default function ResultsPickerModal({ assessments, onClose, onSelectAsses
                   {g.items.length > 1 && (
                     <button
                       onClick={() => onSelectOverall(g)}
-                      title={`Combine ${g.items.length} assessments into one scaled result`}
+                      title={t('resultsPicker.combineInto', { count: g.items.length })}
                       className="btn-primary text-xs flex items-center gap-1.5"
                     >
-                      <Layers className="w-3.5 h-3.5" /> Overall
+                      <Layers className="w-3.5 h-3.5" /> {t('resultsPicker.overall')}
                     </button>
                   )}
                 </div>

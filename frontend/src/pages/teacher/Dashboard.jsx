@@ -1061,11 +1061,12 @@ export default function TeacherDashboard() {
 
 /* ─── Approval rate card, split out so it can carry its own hover state ─── */
 function ApprovalRateCard({ style, approvalRate, approvedCount, totalAssess, pendingCount, rejectedCount }) {
+  const { t } = useTranslation();
   const [hov, setHov] = useState(false);
   return (
     <div className="card" style={{ ...style, position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, cursor: 'default' }}
       onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}>
-      <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6, alignSelf: 'flex-start' }}>{('teacherDashboard.sections.approvalRate')}</p>
+      <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6, alignSelf: 'flex-start' }}>{t('teacherDashboard.sections.approvalRate')}</p>
       <div style={{ position: 'relative' }}>
         <ArcProgress value={approvedCount} max={totalAssess} size={80} stroke={8} color="#34d399" />
         <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', textAlign: 'center' }}>

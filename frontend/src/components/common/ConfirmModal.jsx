@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../context/ThemeContext';
 import {
   AlertTriangle, Trash2, CheckCircle, XCircle, Send,
@@ -26,13 +27,17 @@ export default function ConfirmModal({
   onConfirm,
   loading = false,
   variant = 'warning',
-  title = 'Are you sure?',
+  title,
   message,
-  confirmText = 'Confirm',
-  cancelText = 'Cancel',
+  confirmText,
+  cancelText,
   children,
 }) {
+  const { t } = useTranslation();
   const { dark } = useTheme();
+  const resolvedTitle = title ?? t('common.areYouSure');
+  const resolvedConfirmText = confirmText ?? t('common.confirm');
+  const resolvedCancelText = cancelText ?? t('common.cancel');
 
   // Close on Escape
   useEffect(() => {
@@ -176,7 +181,7 @@ export default function ConfirmModal({
                   color: dark ? '#f1f5f9' : '#131313',
                   fontFamily: "'Sora', sans-serif",
                   letterSpacing: '-0.01em',
-                }}>{title}</h3>
+                }}>{resolvedTitle}</h3>
               </div>
             </div>
             <button
@@ -231,7 +236,7 @@ export default function ConfirmModal({
                 cursor: loading ? 'not-allowed' : 'pointer',
                 opacity: loading ? 0.6 : 1,
               }}
-            >{cancelText}</button>
+            >{resolvedCancelText}</button>
 
             <button
               className="cm-confirm-btn"
@@ -259,9 +264,9 @@ export default function ConfirmModal({
                     display: 'inline-block',
                   }} />
                   <style>{`@keyframes cmSpin { to { transform: rotate(360deg); } }`}</style>
-                  Processing…
+                  {t('common.processing')}
                 </>
-              ) : confirmText}
+              ) : resolvedConfirmText}
             </button>
           </div>
         </div>

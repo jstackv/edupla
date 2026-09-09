@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import {
@@ -9,10 +10,10 @@ import {
 const TERMS = ['Term 1', 'Term 2', 'Term 3'];
 
 const STATUS_META = {
-  draft:     { label: 'Draft — not yet submitted', color: '#9ca3af', icon: Clock },
-  submitted: { label: 'Awaiting admin review', color: '#f59e0b', icon: Clock },
-  approved:  { label: 'Approved — visible on reports', color: '#10b981', icon: CheckCircle2 },
-  rejected:  { label: 'Rejected — edit and resubmit', color: '#ef4444', icon: XCircle },
+  draft:     { labelKey: 'statusDraft', color: '#9ca3af', icon: Clock },
+  submitted: { labelKey: 'statusSubmitted', color: '#f59e0b', icon: Clock },
+  approved:  { labelKey: 'statusApproved', color: '#10b981', icon: CheckCircle2 },
+  rejected:  { labelKey: 'statusRejected', color: '#ef4444', icon: XCircle },
 };
 
 function initials(name = '') {
@@ -23,6 +24,7 @@ function initials(name = '') {
 }
 
 export default function DisciplineMarks() {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [myClasses, setMyClasses] = useState([]);
   const [selectedClassId, setSelectedClassId] = useState('');
@@ -45,7 +47,7 @@ export default function DisciplineMarks() {
       setMyClasses(cRes.data.classes || []);
       if (cRes.data.classes?.length) setSelectedClassId(cRes.data.classes[0].id);
       if (yRes?.data?.academicYear) setActiveYear(yRes.data.academicYear);
-    }).catch(() => toast.error('Failed to load your classes'))
+    }).catch(() => toast.error(t('disciplineMarks.loadClassesFailed')))
       .finally(() => setLoading(false));
   }, []);
 
@@ -67,7 +69,7 @@ export default function DisciplineMarks() {
         sortedStudents.forEach(s => { e[s.student_id] = s.marks; });
         setEntries(e);
       })
-      .catch(() => toast.error('Failed to load discipline sheet'))
+      .catch(() => toast.error(t('disciplineMarks.loadSheetFailed')))
       .finally(() => setSheetLoading(false));
   }, [selectedClassId, term, yearName]);
 
@@ -91,10 +93,10 @@ export default function DisciplineMarks() {
         })),
       };
       await api.post(`/discipline/class/${selectedClassId}/save`, payload);
-      toast.success('Discipline marks saved');
+      toast.success(t('disciplineMarks.saved'));
       loadSheet();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to save');
+      toast.error(err.response?.data?.message || t('disciplineMarks.saveFailed'));
     } finally { setSaving(false); }
   }
 
@@ -102,10 +104,10 @@ export default function DisciplineMarks() {
     setSubmitting(true);
     try {
       await api.post(`/discipline/class/${selectedClassId}/submit`, { term, academic_year: yearName });
-      toast.success('Submitted for admin review');
+      toast.success(t('disciplineMarks.submitted'));
       loadSheet();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to submit');
+      toast.error(err.response?.data?.message || t('disciplineMarks.submitFailed'));
     } finally { setSubmitting(false); }
   }
 
@@ -125,9 +127,9 @@ export default function DisciplineMarks() {
         <Hero />
         <div className="aop-empty">
           <div className="aop-empty-icon"><ShieldCheck size={24} /></div>
-          <p style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: 14.5 }}>You're not a class teacher</p>
+          <p style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: 14.5 }}>{t('disciplineMarks.notClassTeacher')}</p>
           <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4, maxWidth: 420, marginInline: 'auto' }}>
-            Discipline marks can only be recorded by a class's own class teacher. Ask your School Manager to assign you as one if this isn't right.
+            {t('disciplineMarks.notClassTeacherDesc')}
           </p>
         </div>
       </div>
@@ -135,6 +137,7 @@ export default function DisciplineMarks() {
   }
 
   const statusMeta = STATUS_META[sheet?.record?.status || 'draft'];
+  const statusLabel = t('disciplineMarks.' + statusMeta.labelKey);
   const StatusIcon = statusMeta.icon;
   const progressPct = totalCount ? Math.round((markedCount / totalCount) * 100) : 0;
 
@@ -146,7 +149,7 @@ export default function DisciplineMarks() {
       <div style={{ borderRadius: 18, border: '1px solid var(--card-border)', background: 'var(--card-bg)', padding: 18, display: 'flex', flexWrap: 'wrap', gap: 18, alignItems: 'center' }}>
         {myClasses.length > 1 && (
           <div>
-            <p style={fieldLabel}>Class</p>
+            <p style={fieldLabel}>{t('disciplineMarks.class')}</p>
             <select value={selectedClassId} onChange={e => setSelectedClassId(e.target.value)} className="aop-sheet-select">
               {myClasses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
@@ -154,7 +157,7 @@ export default function DisciplineMarks() {
         )}
 
         <div>
-          <p style={fieldLabel}>Term</p>
+          <p style={fieldLabel}>{t('disciplineMarks.term')}</p>
           <div className="aop-segment">
             {TERMS.map(t => (
               <button
@@ -168,12 +171,12 @@ export default function DisciplineMarks() {
         </div>
 
         <div>
-          <p style={fieldLabel}>Academic Year</p>
+          <p style={fieldLabel}>{t('disciplineMarks.academicYear')}</p>
           <div className="aop-sheet-select" style={{ cursor: 'default', display: 'flex', alignItems: 'center' }}>{yearName || '—'}</div>
         </div>
 
         <div>
-          <p style={fieldLabel}>Max marks</p>
+          <p style={fieldLabel}>{t('disciplineMarks.maxMarks')}</p>
           <input
             type="number" min={1} value={maxMarks} disabled={locked}
             onChange={e => setMaxMarks(Number(e.target.value) || 1)}
@@ -182,14 +185,14 @@ export default function DisciplineMarks() {
         </div>
 
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 700, color: statusMeta.color }}>
-          <StatusIcon size={16} /> {statusMeta.label}
+          <StatusIcon size={16} /> {statusLabel}
         </div>
       </div>
 
       {isTermClosed && (
         <div className="aop-alert aop-alert--amber">
           <AlertTriangle size={16} color="#f59e0b" style={{ flexShrink: 0, marginTop: 1 }} />
-          <p style={{ fontSize: 12.5, color: 'var(--text-primary)', margin: 0 }}>{term} is closed by your School Manager — discipline marks can't be recorded or submitted for it.</p>
+          <p style={{ fontSize: 12.5, color: 'var(--text-primary)', margin: 0 }}>{t('disciplineMarks.termClosed', { term })}</p>
         </div>
       )}
 
@@ -197,7 +200,7 @@ export default function DisciplineMarks() {
         <div className="aop-alert aop-alert--red">
           <XCircle size={16} color="#ef4444" style={{ flexShrink: 0, marginTop: 1 }} />
           <div>
-            <p style={{ fontSize: 12.5, fontWeight: 800, color: '#ef4444', margin: 0 }}>Rejected by admin</p>
+            <p style={{ fontSize: 12.5, fontWeight: 800, color: '#ef4444', margin: 0 }}>{t('disciplineMarks.rejectedByAdmin')}</p>
             <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', margin: '2px 0 0' }}>{sheet.record.review_note}</p>
           </div>
         </div>
@@ -214,7 +217,7 @@ export default function DisciplineMarks() {
             </div>
             <span style={{ fontWeight: 800, fontSize: 15, color: 'var(--text-primary)' }}>{sheet.class.name}</span>
             <span style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 4 }}>
-              <Users size={13} /> {totalCount} students
+              <Users size={13} /> {t('disciplineMarks.student', { count: totalCount })}
             </span>
 
             {/* Progress ring-ish bar */}
@@ -227,7 +230,7 @@ export default function DisciplineMarks() {
                 }} />
               </div>
               <span style={{ fontSize: 11.5, fontWeight: 800, color: progressPct === 100 ? '#10b981' : 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
-                {markedCount}/{totalCount} marked
+                {t('disciplineMarks.marked', { marked: markedCount, total: totalCount })}
               </span>
             </div>
           </div>
@@ -268,15 +271,15 @@ export default function DisciplineMarks() {
           <div style={{ padding: 18, borderTop: '1px solid var(--card-border)', display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
             {locked ? (
               <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'var(--text-secondary)' }}>
-                <Lock size={13} /> Locked — {sheet.record.status === 'approved' ? 'already approved' : 'awaiting admin review'}
+                <Lock size={13} /> {t('disciplineMarks.locked', { status: sheet.record.status === 'approved' ? t('disciplineMarks.alreadyApproved') : t('disciplineMarks.awaitingReview') })}
               </span>
             ) : (
               <>
                 <button onClick={handleSave} disabled={saving || isTermClosed} className="aop-action-btn aop-action-btn--ghost">
-                  {saving ? <RefreshCw size={14} style={{ animation: 'spin 0.6s linear infinite' }} /> : <Save size={14} />} Save Draft
+                  {saving ? <RefreshCw size={14} style={{ animation: 'spin 0.6s linear infinite' }} /> : <Save size={14} />} {t('disciplineMarks.saveDraft')}
                 </button>
                 <button onClick={handleSubmit} disabled={submitting || isTermClosed} className="aop-action-btn aop-action-btn--primary">
-                  {submitting ? <RefreshCw size={14} style={{ animation: 'spin 0.6s linear infinite' }} /> : <Send size={14} />} Submit for Review
+                  {submitting ? <RefreshCw size={14} style={{ animation: 'spin 0.6s linear infinite' }} /> : <Send size={14} />} {t('disciplineMarks.submitForReview')}
                 </button>
               </>
             )}
@@ -288,6 +291,7 @@ export default function DisciplineMarks() {
 }
 
 function Hero() {
+  const { t } = useTranslation();
   return (
     <div className="aop-hero">
       <div className="aop-hero-orb a" />
@@ -296,9 +300,9 @@ function Hero() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, position: 'relative', zIndex: 1 }}>
         <div className="aop-hero-icon"><ShieldCheck size={22} color="#fff" /></div>
         <div className="aop-hero-title">
-          <h2 style={{ fontSize: 19, fontWeight: 800, color: '#fff' }}>Discipline Marks</h2>
+          <h2 style={{ fontSize: 19, fontWeight: 800, color: '#fff' }}>{t('disciplineMarks.heroTitle')}</h2>
           <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.75)', marginTop: 2 }}>
-            Record behavior marks for the class you're class teacher of, then submit for admin approval.
+            {t('disciplineMarks.heroSubtitle')}
           </p>
         </div>
         <GraduationCap size={40} style={{ marginLeft: 'auto', color: 'rgba(255,255,255,0.18)', position: 'relative', zIndex: 1 }} />

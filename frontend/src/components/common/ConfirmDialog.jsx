@@ -1,6 +1,8 @@
 import { AlertTriangle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 export default function ConfirmDialog({ isOpen, onClose, onConfirm, loading, title, message, confirmText = 'Confirm', variant = 'danger' }) {
+  const { t } = useTranslation();
   if (!isOpen) return null;
 
   const isDanger = variant === 'danger';
@@ -20,7 +22,7 @@ export default function ConfirmDialog({ isOpen, onClose, onConfirm, loading, tit
           <p className="text-sm mb-6" style={{ color: 'var(--text-secondary)' }}>{message}</p>
           <div className="flex gap-3">
             <button onClick={onClose} className="btn-secondary flex-1 justify-center" disabled={loading}>
-              Cancel
+              {t('common.cancel')}
             </button>
             <button onClick={onConfirm} disabled={loading}
               className={`flex-1 justify-center inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all text-white disabled:opacity-50 ${isDanger ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}>

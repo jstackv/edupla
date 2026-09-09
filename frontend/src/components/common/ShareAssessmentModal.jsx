@@ -27,6 +27,7 @@
  *   body: { duration_minutes, available_from, expires_at, max_attempts, instructions }
  */
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import Modal from './Modal';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
@@ -86,6 +87,7 @@ function toDatetimeLocalOrEmpty(value) {
 }
 
 export default function ShareAssessmentModal({ assessment, onClose, onShared }) {
+  const { t } = useTranslation();
   const isReshare = assessment.is_shared;
 
   const [durationMinutes, setDurationMinutes] = useState(assessment.duration_minutes || 30);
@@ -93,14 +95,14 @@ export default function ShareAssessmentModal({ assessment, onClose, onShared }) 
   const [expiresAt, setExpiresAt] = useState(isReshare ? toDatetimeLocal(assessment.expires_at) : defaultExpiry());
   const [maxAttempts, setMaxAttempts] = useState(assessment.max_attempts || 1);
   const [instructions, setInstructions] = useState(
-    assessment.instructions || 'Read every question carefully. The assessment opens in full screen and submits automatically if you leave the exam screen or when time runs out.'
+    assessment.instructions || t('shareAssessment.defaultInstructions')
   );
   const [saving, setSaving] = useState(false);
 
   const handleShare = async () => {
-    if (!durationMinutes || Number(durationMinutes) <= 0) return toast.error('Set a duration greater than 0 minutes.');
+    if (!durationMinutes || Number(durationMinutes) <= 0) return toast.error(t('shareAssessment.durationRequired'));
     if (availableFrom && expiresAt && new Date(availableFrom) >= new Date(expiresAt)) {
-      return toast.error('The start time must be before the expiry date/time.');
+      return toast.error(t('shareAssessment.startBeforeExpiry'));
     }
     setSaving(true);
     try {
@@ -111,11 +113,11 @@ export default function ShareAssessmentModal({ assessment, onClose, onShared }) 
         max_attempts: Number(maxAttempts) || 1,
         instructions,
       });
-      toast.success(`Assessment shared with ${assessment.class_id?.name || 'the class'}. Students have been notified.`);
+      toast.success(t('shareAssessment.sharedWith', { class: assessment.class_id?.name || t('shareAssessment.theClass') }));
       onShared?.();
       onClose();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to share assessment');
+      toast.error(err.response?.data?.message || t('shareAssessment.shareFailed'));
     } finally {
       setSaving(false);
     }
@@ -124,64 +126,64 @@ export default function ShareAssessmentModal({ assessment, onClose, onShared }) 
   return (
     <Modal
       isOpen={true} onClose={onClose}
-      title={`${isReshare ? 'Update sharing' : 'Share'} — ${assessment.title}`}
+      title={`${isReshare ? t('shareAssessment.updateSharing') : t('shareAssessment.share')} — ${assessment.title}`}
       icon={Send} accent="#c2410c" accent2="#c2410c"
     >
       <div className="space-y-4">
         <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-          This will {isReshare ? 're-publish' : 'publish'} the assessment to <strong style={{ color: 'var(--text-primary)' }}>{assessment.class_id?.name || 'the class'}</strong>. Every student will get an in-app and email notification.
+          {isReshare ? t('shareAssessment.willRepublish') : t('shareAssessment.willPublish')} <strong style={{ color: 'var(--text-primary)' }}>{assessment.class_id?.name || t('shareAssessment.theClass')}</strong>{t('shareAssessment.notifyNote')}
         </p>
         {isReshare && (
           <p className="qm-note text-xs px-3 py-2 rounded-xl" style={{ background: 'rgba(194, 65, 12,0.08)', border: '1px solid rgba(194, 65, 12,0.2)', color: 'var(--text-secondary)' }}>
-            Just want to give students an extra attempt? Use <strong style={{ color: 'var(--text-primary)' }}>Add Attempt</strong> instead — it's quicker and skips the full re-notification.
+            {t('shareAssessment.extraAttemptNote1')} <strong style={{ color: 'var(--text-primary)' }}>{t('shareAssessment.addAttempt')}</strong> {t('shareAssessment.extraAttemptNote2')}
           </p>
         )}
 
         <div className="qm-field-group" style={{ '--qm-accent': '#c2410c' }}>
           <label className="text-xs font-semibold flex items-center gap-1.5 mb-1.5" style={{ color: 'var(--text-secondary)' }}>
-            <span className="qm-field-icon-wrap"><Clock className="w-3.5 h-3.5" /></span> Duration (minutes)
+            <span className="qm-field-icon-wrap"><Clock className="w-3.5 h-3.5" /></span> {t('shareAssessment.duration')}
           </label>
-          <Stepper value={durationMinutes} onChange={setDurationMinutes} min={5} step={5} className="w-full" title="Attempt duration in minutes" />
+          <Stepper value={durationMinutes} onChange={setDurationMinutes} min={5} step={5} className="w-full" title={t('shareAssessment.durationTitle')} />
         </div>
 
         <div className="qm-field-group" style={{ '--qm-accent': '#c2410c' }}>
           <label className="text-xs font-semibold flex items-center gap-1.5 mb-1.5" style={{ color: 'var(--text-secondary)' }}>
-            <span className="qm-field-icon-wrap"><CalendarPlus className="w-3.5 h-3.5" /></span> Available from <span className="font-normal normal-case" style={{ color: 'var(--text-secondary)' }}>(optional)</span>
+            <span className="qm-field-icon-wrap"><CalendarPlus className="w-3.5 h-3.5" /></span> {t('shareAssessment.availableFrom')} <span className="font-normal normal-case" style={{ color: 'var(--text-secondary)' }}>{t('shareAssessment.optional')}</span>
           </label>
           <input type="datetime-local" value={availableFrom} onChange={e => setAvailableFrom(e.target.value)} className="chat-form-field qm-field w-full text-sm" />
           <p className="text-xs mt-1.5" style={{ color: 'var(--text-secondary)' }}>
-            Students are notified and can see this assessment right away, but can't start it until this time. Leave blank to let them start immediately.
+            {t('shareAssessment.availableFromNote')}
           </p>
         </div>
 
         <div className="qm-field-group" style={{ '--qm-accent': '#c2410c' }}>
           <label className="text-xs font-semibold flex items-center gap-1.5 mb-1.5" style={{ color: 'var(--text-secondary)' }}>
-            <span className="qm-field-icon-wrap"><CalendarClock className="w-3.5 h-3.5" /></span> Expiry date &amp; time
+            <span className="qm-field-icon-wrap"><CalendarClock className="w-3.5 h-3.5" /></span> {t('shareAssessment.expiryDateTime')}
           </label>
           <input type="datetime-local" value={expiresAt} onChange={e => setExpiresAt(e.target.value)} className="chat-form-field qm-field w-full text-sm" />
-          <p className="text-xs mt-1.5" style={{ color: 'var(--text-secondary)' }}>Students can no longer start the assessment after this time.</p>
+          <p className="text-xs mt-1.5" style={{ color: 'var(--text-secondary)' }}>{t('shareAssessment.expiryNote')}</p>
         </div>
 
         <div className="qm-field-group" style={{ '--qm-accent': '#c2410c' }}>
           <label className="text-xs font-semibold flex items-center gap-1.5 mb-1.5" style={{ color: 'var(--text-secondary)' }}>
-            <span className="qm-field-icon-wrap"><RotateCcw className="w-3.5 h-3.5" /></span> Number of attempts
+            <span className="qm-field-icon-wrap"><RotateCcw className="w-3.5 h-3.5" /></span> {t('shareAssessment.numberOfAttempts')}
           </label>
-          <Stepper value={maxAttempts} onChange={setMaxAttempts} min={1} step={1} className="w-full" title="Number of attempts allowed" />
-          <p className="text-xs mt-1.5" style={{ color: 'var(--text-secondary)' }}>Questions are shuffled per attempt whenever more than one attempt is allowed.</p>
+          <Stepper value={maxAttempts} onChange={setMaxAttempts} min={1} step={1} className="w-full" title={t('shareAssessment.attemptsTitle')} />
+          <p className="text-xs mt-1.5" style={{ color: 'var(--text-secondary)' }}>{t('shareAssessment.attemptsNote')}</p>
         </div>
 
         <div className="qm-field-group" style={{ '--qm-accent': '#c2410c' }}>
           <label className="text-xs font-semibold flex items-center gap-1.5 mb-1.5" style={{ color: 'var(--text-secondary)' }}>
-            <span className="qm-field-icon-wrap"><FileText className="w-3.5 h-3.5" /></span> Instructions shown to students
+            <span className="qm-field-icon-wrap"><FileText className="w-3.5 h-3.5" /></span> {t('shareAssessment.instructionsLabel')}
           </label>
           <textarea value={instructions} onChange={e => setInstructions(e.target.value)} rows={3} className="chat-form-field qm-field w-full text-sm" />
         </div>
 
         <div className="flex justify-end gap-2 pt-2">
-          <button onClick={onClose} className="btn-secondary">Cancel</button>
+          <button onClick={onClose} className="btn-secondary">{t('shareAssessment.cancel')}</button>
           <button onClick={handleShare} disabled={saving} className={`btn-primary assessment-cta flex items-center gap-2 ${!saving ? 'qm2-cta-ready' : ''}`}>
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-            {isReshare ? 'Update & Re-notify' : 'Share Assessment'}
+            {isReshare ? t('shareAssessment.updateRenotify') : t('shareAssessment.shareAssessment')}
           </button>
         </div>
       </div>

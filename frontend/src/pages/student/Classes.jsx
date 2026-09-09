@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import { BookMarked, Users, ClipboardCheck, GraduationCap, Award, Mail, Phone, Copy, Check } from 'lucide-react';
@@ -53,6 +54,7 @@ function SkeletonStack() {
 }
 
 export default function StudentClasses() {
+  const { t } = useTranslation();
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [copiedId, setCopiedId] = useState(null);
@@ -60,15 +62,15 @@ export default function StudentClasses() {
   const copyEmail = (email, id) => {
     navigator.clipboard.writeText(email).then(() => {
       setCopiedId(id);
-      toast.success('Email copied');
+      toast.success(t('studentClasses.emailCopied'));
       setTimeout(() => setCopiedId(prev => (prev === id ? null : prev)), 1600);
-    }).catch(() => toast.error('Could not copy email'));
+    }).catch(() => toast.error(t('studentClasses.copyFailed')));
   };
 
   useEffect(() => {
     api.get('/classes/my')
       .then(r => setClasses(r.data.classes || []))
-      .catch(() => toast.error('Failed to load classes'))
+      .catch(() => toast.error(t('studentClasses.loadFailed')))
       .finally(() => setLoading(false));
   }, []);
 
@@ -80,8 +82,8 @@ export default function StudentClasses() {
   if (loading) return (
     <div className="space-y-5">
       <div>
-        <h2 className="font-display font-bold text-lg" style={{ color: 'var(--text-primary)' }}>My Class</h2>
-        <p className="text-sm text-muted">class enrolled</p>
+        <h2 className="font-display font-bold text-lg" style={{ color: 'var(--text-primary)' }}>{t('studentClasses.title')}</h2>
+        <p className="text-sm text-muted">{t('studentClasses.classEnrolled')}</p>
       </div>
       <SkeletonStack />
     </div>
@@ -90,8 +92,8 @@ export default function StudentClasses() {
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="font-display font-bold text-lg" style={{ color: 'var(--text-primary)' }}>My Class</h2>
-        <p className="text-sm text-muted">class enrolled</p>
+        <h2 className="font-display font-bold text-lg" style={{ color: 'var(--text-primary)' }}>{t('studentClasses.title')}</h2>
+        <p className="text-sm text-muted">{t('studentClasses.classEnrolled')}</p>
       </div>
 
       {classes.length === 0 ? (
@@ -99,15 +101,15 @@ export default function StudentClasses() {
           <div className="modx-empty-icon">
             <BookMarked className="w-7 h-7" />
           </div>
-          <p className="font-display font-bold mb-1" style={{ color: 'var(--text-primary)' }}>No classes yet</p>
-          <p className="text-sm text-muted">Your teacher will enroll you in classes.</p>
+          <p className="font-display font-bold mb-1" style={{ color: 'var(--text-primary)' }}>{t('studentClasses.noClassesYet')}</p>
+          <p className="text-sm text-muted">{t('studentClasses.noClassesDesc')}</p>
         </div>
       ) : (
         <div className="clsx-stack space-y-5">
           {classes.map((cls, i) => {
             const pal = palettes[cls.id];
             const sealText = cls.level || cls.trade;
-            const sealLabel = cls.level ? 'Level' : 'Trade';
+            const sealLabel = cls.level ? t('studentClasses.level') : t('studentClasses.trade');
             return (
               <div
                 key={cls.id}
@@ -125,7 +127,7 @@ export default function StudentClasses() {
                       <div className="flex items-center gap-2 mb-2">
                         <Award className="w-3.5 h-3.5" style={{ opacity: 0.75 }} />
                         <span className="text-[10px] font-bold uppercase tracking-widest" style={{ opacity: 0.75 }}>
-                          Enrolled Class
+                          {t('studentClasses.enrolledClass')}
                         </span>
                       </div>
                       <h3 className="font-display font-extrabold text-2xl leading-tight truncate" style={{ letterSpacing: '-0.02em' }}>
@@ -156,12 +158,12 @@ export default function StudentClasses() {
                     <div className="clsx-teacher-card">
                       <div className="clsx-teacher-avatar-wrap">
                         <div className="clsx-teacher-avatar">{getInitials(cls.teacher_name)}</div>
-                        <div className="clsx-role-badge" title="Class Teacher">
+                        <div className="clsx-role-badge" title={t('studentClasses.classTeacher')}>
                           <GraduationCap className="w-3 h-3" />
                         </div>
                       </div>
                       <div className="min-w-0 flex-1">
-                        <span className="clsx-role-pill">Class Teacher</span>
+                        <span className="clsx-role-pill">{t('studentClasses.classTeacher')}</span>
                         <p className="font-display font-bold text-sm truncate mt-1" style={{ color: 'var(--text-primary)' }}>
                           {cls.teacher_name}
                         </p>
@@ -176,7 +178,7 @@ export default function StudentClasses() {
                         <button
                           type="button"
                           className={`clsx-copy-btn ${copiedId === cls.id ? 'clsx-copied' : ''}`}
-                          title="Copy email"
+                          title={t('studentClasses.copyEmail')}
                           onClick={() => copyEmail(cls.teacher_email, cls.id)}
                         >
                           {copiedId === cls.id ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
@@ -184,7 +186,7 @@ export default function StudentClasses() {
                       )}
                     </div>
                   ) : (
-                    <p className="text-xs text-muted italic">No class teacher assigned yet</p>
+                    <p className="text-xs text-muted italic">{t('studentClasses.noTeacherAssigned')}</p>
                   )}
 
                   <div className="clsx-stat-row">
@@ -194,7 +196,7 @@ export default function StudentClasses() {
                         <div className="clsx-stat-num truncate" style={{ fontSize: '0.85rem' }}>
                           {cls.teacher_email || '—'}
                         </div>
-                        <div className="clsx-stat-label">Email</div>
+                        <div className="clsx-stat-label">{t('studentClasses.email')}</div>
                       </div>
                     </div>
                     <div className="clsx-stat-tile" style={{ animationDelay: '140ms' }}>
@@ -203,7 +205,7 @@ export default function StudentClasses() {
                         <div className="clsx-stat-num truncate" style={{ fontSize: '0.85rem' }}>
                           {cls.teacher_phone || '—'}
                         </div>
-                        <div className="clsx-stat-label">Phone</div>
+                        <div className="clsx-stat-label">{t('studentClasses.phone')}</div>
                       </div>
                     </div>
                   </div>

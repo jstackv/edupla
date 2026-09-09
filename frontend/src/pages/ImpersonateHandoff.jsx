@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GraduationCap, AlertTriangle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 
@@ -20,6 +21,7 @@ function getDefaultRoute(role) {
  * this tab's session, then immediately scrub it from the address bar.
  */
 export default function ImpersonateHandoff() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { setImpersonatedUser } = useAuth();
   const [error, setError] = useState(null);
@@ -30,7 +32,7 @@ export default function ImpersonateHandoff() {
     const token = params.get('token');
 
     if (!token) {
-      setError('No impersonation token found.');
+      setError(t('impersonateHandoff.noToken'));
       return;
     }
 
@@ -52,7 +54,7 @@ export default function ImpersonateHandoff() {
         setImpersonatedUser(user);
         navigate(getDefaultRoute(user.role), { replace: true });
       } catch (err) {
-        setError(err.response?.data?.message || 'This impersonation link has expired or is invalid.');
+        setError(err.response?.data?.message || t('impersonateHandoff.expired'));
       }
     })();
   }, [navigate, setImpersonatedUser]);
@@ -65,7 +67,7 @@ export default function ImpersonateHandoff() {
             <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: '#fef2f2' }}>
               <AlertTriangle className="w-7 h-7" style={{ color: '#ef4444' }} />
             </div>
-            <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>Couldn't start session</p>
+            <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>{t('impersonateHandoff.couldntStart')}</p>
             <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{error}</p>
           </>
         ) : (
@@ -74,7 +76,7 @@ export default function ImpersonateHandoff() {
               <GraduationCap className="w-8 h-8 text-white" />
             </div>
             <div className="animate-spin w-6 h-6 border-4 border-primary-500 border-t-transparent rounded-full mx-auto" />
-            <p className="text-muted text-sm mt-3 font-medium">Starting impersonation session…</p>
+            <p className="text-muted text-sm mt-3 font-medium">{t('impersonateHandoff.starting')}</p>
           </>
         )}
       </div>

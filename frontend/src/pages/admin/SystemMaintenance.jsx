@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
@@ -7,8 +8,6 @@ import {
   Settings, Power, PowerOff, Clock, ShieldAlert, CheckCircle2,
   AlertTriangle, Sparkles, Loader2, UserCog, Search, Mail, X,
 } from 'lucide-react';
-
-const DEFAULT_MESSAGE = "We're performing scheduled maintenance to improve EDUPLA. We'll be back online shortly — thank you for your patience.";
 
 function toLocalInputValue(iso) {
   if (!iso) return '';
@@ -19,6 +18,8 @@ function toLocalInputValue(iso) {
 }
 
 export default function SystemMaintenance() {
+  const { t } = useTranslation();
+  const DEFAULT_MESSAGE = t('systemMaintenance.defaultMessage');
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -35,13 +36,13 @@ export default function SystemMaintenance() {
     const q = impQuery.trim();
     if (q.length < 2) { setImpResults([]); setImpSearching(false); return; }
     setImpSearching(true);
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       api.get('/admin/users/search', { params: { q } })
         .then(res => setImpResults(res.data.users))
         .catch(() => setImpResults([]))
         .finally(() => setImpSearching(false));
     }, 300);
-    return () => clearTimeout(t);
+    return () => clearTimeout(timer);
   }, [impQuery]);
 
   const ROLE_COLOR = { admin: '#9a3412', teacher: '#c2410c', student: '#10b981' };
@@ -54,7 +55,7 @@ export default function SystemMaintenance() {
       setMessage(res.data.message || DEFAULT_MESSAGE);
       setEtaInput(toLocalInputValue(res.data.estimated_back_at));
     } catch {
-      toast.error('Failed to load maintenance status');
+      toast.error(t('systemMaintenance.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -71,7 +72,7 @@ export default function SystemMaintenance() {
       setStatus(res.data.status);
       toast.success(res.data.message);
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to update maintenance mode');
+      toast.error(err.response?.data?.message || t('systemMaintenance.updateFailed'));
     } finally {
       setSaving(false);
       setConfirmAction(null);
@@ -109,16 +110,16 @@ export default function SystemMaintenance() {
           </div>
           <div style={{ flex: 1 }}>
             <p className="font-display font-bold text-base" style={{ color: 'var(--text-primary)' }}>
-              {isOn ? 'Maintenance mode is ACTIVE' : 'Platform is online'}
+              {isOn ? t('systemMaintenance.active') : t('systemMaintenance.online')}
             </p>
             <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
               {isOn
-                ? "Teachers, students, and regular admins only see the maintenance screen right now."
-                : 'Everyone has normal access to EDUPLA.'}
+                ? t('systemMaintenance.activeDesc')
+                : t('systemMaintenance.onlineDesc')}
             </p>
             {isOn && status?.enabled_at && (
               <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
-                Enabled {new Date(status.enabled_at).toLocaleString()}
+                {t('systemMaintenance.enabledAt', { date: new Date(status.enabled_at).toLocaleString() })}
               </p>
             )}
           </div>
@@ -129,7 +130,7 @@ export default function SystemMaintenance() {
             style={!isOn ? { background: 'linear-gradient(135deg,#f43f5e,#e11d48)', boxShadow: '0 2px 8px rgba(244,63,94,0.3)' } : {}}
           >
             {isOn ? <Power size={15} /> : <PowerOff size={15} />}
-            {isOn ? 'Turn Off' : 'Turn On'}
+            {isOn ? t('systemMaintenance.turnOff') : t('systemMaintenance.turnOn')}
           </button>
         </div>
       </div>
@@ -140,18 +141,18 @@ export default function SystemMaintenance() {
         <div className="flex items-center gap-2 mb-1">
           <UserCog size={16} style={{ color: '#9a3412' }} />
           <h2 className="font-display font-bold text-sm" style={{ color: 'var(--text-primary)' }}>
-            Log in as a user
+            {t('systemMaintenance.loginAsUser')}
           </h2>
         </div>
         <p className="text-xs mb-4" style={{ color: 'var(--text-secondary)' }}>
-          Search any teacher, student, or admin account and open a session as them in a new tab — useful for verifying a fix while maintenance is on. Your own session stays untouched. Sessions expire after 2 hours.
+          {t('systemMaintenance.loginAsUserDesc')}
         </p>
 
         <div style={{ position: 'relative', marginBottom: impResults.length || impSearching ? 12 : 0 }}>
           <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
           <input
             className="input-field"
-            placeholder="Search by name or email…"
+            placeholder={t('systemMaintenance.searchPlaceholder')}
             value={impQuery}
             onChange={e => setImpQuery(e.target.value)}
             style={{ paddingLeft: 34 }}
@@ -167,12 +168,12 @@ export default function SystemMaintenance() {
         {impSearching && (
           <div className="flex items-center gap-2" style={{ padding: '8px 2px' }}>
             <Loader2 size={13} className="animate-spin" style={{ color: '#9a3412' }} />
-            <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Searching…</span>
+            <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{t('systemMaintenance.searching')}</span>
           </div>
         )}
 
         {!impSearching && impQuery.trim().length >= 2 && impResults.length === 0 && (
-          <p className="text-xs" style={{ color: 'var(--text-secondary)', padding: '8px 2px' }}>No active users matched "{impQuery.trim()}".</p>
+          <p className="text-xs" style={{ color: 'var(--text-secondary)', padding: '8px 2px' }}>{t('systemMaintenance.noUsersMatched', { query: impQuery.trim() })}</p>
         )}
 
         {impResults.length > 0 && (
@@ -204,13 +205,13 @@ export default function SystemMaintenance() {
                 </span>
                 {u.is_active === false && (
                   <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 99, background: '#fef2f2', color: '#ef4444' }}>
-                    Inactive
+                    {t('systemMaintenance.inactive')}
                   </span>
                 )}
                 {u.is_active !== false ? (
                   <ImpersonateButton userId={u.id} name={u.name} size={14} style={{ background: `${ROLE_COLOR[u.role] || '#c2410c'}1a`, padding: '7px 9px' }} />
                 ) : (
-                  <span title="Can't impersonate a deactivated account" style={{ padding: '7px 9px', opacity: 0.3, display: 'flex' }}>
+                  <span title={t('systemMaintenance.cantImpersonate')} style={{ padding: '7px 9px', opacity: 0.3, display: 'flex' }}>
                     <UserCog size={14} />
                   </span>
                 )}
@@ -225,14 +226,14 @@ export default function SystemMaintenance() {
         <div className="flex items-center gap-2 mb-1">
           <Settings size={16} style={{ color: '#c2410c' }} />
           <h2 className="font-display font-bold text-sm" style={{ color: 'var(--text-primary)' }}>
-            Maintenance Screen
+            {t('systemMaintenance.maintenanceScreen')}
           </h2>
         </div>
         <p className="text-xs mb-5" style={{ color: 'var(--text-secondary)' }}>
-          This is what everyone except you will see while maintenance mode is on. Update it any time — changes apply immediately, even while it's active.
+          {t('systemMaintenance.maintenanceScreenDesc')}
         </p>
 
-        <label className="label">Message shown to users</label>
+        <label className="label">{t('systemMaintenance.messageLabel')}</label>
         <textarea
           className="input-field"
           rows={4}
@@ -243,7 +244,7 @@ export default function SystemMaintenance() {
         />
 
         <label className="label flex items-center gap-1.5">
-          <Clock size={11} /> Estimated back online (optional)
+          <Clock size={11} /> {t('systemMaintenance.etaLabel')}
         </label>
         <input
           type="datetime-local"
@@ -260,11 +261,11 @@ export default function SystemMaintenance() {
             className="btn-primary"
           >
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-            Save message{isOn ? ' & schedule' : ''}
+            {t('systemMaintenance.saveMessage')}{isOn ? t('systemMaintenance.andSchedule') : ''}
           </button>
           {!isOn && (
             <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-              Saved details will be used the next time you turn maintenance on.
+              {t('systemMaintenance.savedNote')}
             </span>
           )}
         </div>
@@ -275,14 +276,14 @@ export default function SystemMaintenance() {
         <div className="flex items-center gap-2 mb-2">
           <ShieldAlert size={15} style={{ color: '#c2410c' }} />
           <h3 className="font-display font-bold text-sm" style={{ color: 'var(--text-primary)' }}>
-            What happens when this is on
+            {t('systemMaintenance.whatHappens')}
           </h3>
         </div>
         <ul className="text-xs space-y-1.5" style={{ color: 'var(--text-secondary)' }}>
-          <li>• Teachers, students, and regular admins see only the maintenance screen — they can't reach any page or API.</li>
-          <li>• Anyone already signed in stays signed in; they're returned to their dashboard automatically once you turn it off.</li>
-          <li>• Only you, the super admin, keep full access so you can finish your changes and switch it off.</li>
-          <li>• The maintenance screen rechecks status automatically every 20 seconds — no one needs to refresh manually.</li>
+          <li>• {t('systemMaintenance.bullet1')}</li>
+          <li>• {t('systemMaintenance.bullet2')}</li>
+          <li>• {t('systemMaintenance.bullet3')}</li>
+          <li>• {t('systemMaintenance.bullet4')}</li>
         </ul>
       </div>
 
@@ -292,13 +293,13 @@ export default function SystemMaintenance() {
         onConfirm={() => apply(confirmAction === 'enable')}
         loading={saving}
         variant={confirmAction === 'enable' ? 'danger' : 'default'}
-        title={confirmAction === 'enable' ? 'Turn on maintenance mode?' : 'Turn off maintenance mode?'}
+        title={confirmAction === 'enable' ? t('systemMaintenance.turnOnTitle') : t('systemMaintenance.turnOffTitle')}
         message={
           confirmAction === 'enable'
-            ? 'Every teacher, student, and regular admin will immediately be shown the maintenance screen instead of EDUPLA. You can turn it off any time.'
-            : 'Everyone will regain normal access to EDUPLA right away.'
+            ? t('systemMaintenance.turnOnMessage')
+            : t('systemMaintenance.turnOffMessage')
         }
-        confirmText={confirmAction === 'enable' ? 'Turn On' : 'Turn Off'}
+        confirmText={confirmAction === 'enable' ? t('systemMaintenance.turnOn') : t('systemMaintenance.turnOff')}
       />
     </div>
   );

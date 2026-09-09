@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { UserCog, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 import api from '../../utils/api';
 
 /**
@@ -20,6 +21,7 @@ import api from '../../utils/api';
  * Usage: <ImpersonateButton userId={t.id} name={t.name} />
  */
 export default function ImpersonateButton({ userId, name, size = 13, style = {} }) {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
 
   const handleClick = async (e) => {
@@ -39,13 +41,13 @@ export default function ImpersonateButton({ userId, name, size = 13, style = {} 
         const handoffUrl = `${window.location.origin}/impersonate-handoff#token=${encodeURIComponent(token)}`;
         tab.location.href = handoffUrl;
       } else {
-        toast.error('Pop-up blocked. Please allow pop-ups for EDUPLA and try again.');
+        toast.error(t('impersonate.popupBlocked'));
       }
 
-      toast.success(`Impersonating ${user.name} (${user.role}) — opened in a new tab. Token expires in 2 hours.`);
+      toast.success(t('impersonate.impersonating', { name: user.name, role: user.role }));
     } catch (err) {
       if (tab) tab.close();
-      toast.error(err.response?.data?.message || 'Failed to start impersonation session.');
+      toast.error(err.response?.data?.message || t('impersonate.failed'));
     } finally {
       setLoading(false);
     }
@@ -55,7 +57,7 @@ export default function ImpersonateButton({ userId, name, size = 13, style = {} 
     <button
       onClick={handleClick}
       disabled={loading}
-      title={`Log in as ${name || 'this user'} (new tab)`}
+      title={t('impersonate.loginAs', { name: name || t('impersonate.thisUser') })}
       style={{
         padding: '5px 7px', borderRadius: 8, border: 'none', cursor: loading ? 'default' : 'pointer',
         background: '#fdba74', display: 'flex', alignItems: 'center', justifyContent: 'center',
