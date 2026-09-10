@@ -6,6 +6,7 @@ const PDFDocument = require('pdfkit');
 const { createInAppNotification, createDirectNotification, getStudentEmails, getTeacherEmail } = require('../services/notificationHelpers');
 const { notifyAssessmentShared } = require('../services/emailService');
 const { resolveOwnerId, getActiveYearDoc, isTermOpenForYearName } = require('../utils/academicYear');
+const { getAccessibleClassIds } = require('../utils/classAccess');
 
 /* ─────────────────────────────────────────────────────────
    Assessment title is derived from the assessment type.
@@ -2449,13 +2450,18 @@ exports.studentGetCourses = async (req, res) => {
     const cls = await Class.findOne({ students: req.user.id }).lean();
     if (!cls) return res.json({ courses: [] });
 
+    // Include modules assigned to the student's own class, plus modules
+    // assigned to lower-level classes of the same trade (e.g. an L5 SOD
+    // student also sees L4/L3 SOD modules) — see utils/classAccess.js.
+    const accessibleIds = await getAccessibleClassIds(req.user.id);
+
     /*
-     * Match courses assigned to this class via either field.
+     * Match courses assigned to any accessible class via either field.
      */
     const courses = await Course.find({
       $or: [
-        { class_id:  cls._id },
-        { class_ids: cls._id },
+        { class_id:  { $in: accessibleIds } },
+        { class_ids: { $in: accessibleIds } },
       ],
     })
       .populate('teacher_id', 'name email')
@@ -4317,7 +4323,23 @@ exports.studentGetSharedAssessments = async (req, res) => {
     const cls = await Class.findOne({ students: req.user.id }).lean();
     if (!cls) return res.json({ assessments: [] });
 
-    const assessments = await Assessment.find({ class_id: cls._id, mode: 'quiz', is_shared: true })
+    // Only ever show assessments from the school's CURRENT active academic
+    // year. An assessment created in "2025-2026" stays on record (marks,
+    // results, reports all still reference it) but must stop being
+    // displayed/accessible the moment the School Manager moves the active
+    // year on to "2026-2027" — see utils/academicYear.js.
+    const ownerId = await resolveOwnerId(req.user);
+    const activeYear = await getActiveYearDoc(ownerId);
+    // No active year configured yet -> nothing to show rather than leaking
+    // every year's assessments.
+    if (!activeYear) return res.json({ assessments: [] });
+
+    const assessments = await Assessment.find({
+      class_id: cls._id,
+      mode: 'quiz',
+      is_shared: true,
+      academic_year: activeYear.name,
+    })
       .populate('course_id', 'name code total_marks category')
       .populate('teacher_id', 'name')
       .sort({ shared_at: -1 })
@@ -4376,6 +4398,16 @@ exports.studentGetAssessmentInstructions = async (req, res) => {
     const cls = await Class.findOne({ _id: assessment.class_id, students: req.user.id }).lean();
     if (!cls) return res.status(403).json({ message: 'This assessment is not available to you.' });
 
+    // Block direct access to an assessment from a school year that's no
+    // longer the active one, mirroring the listing filter in
+    // studentGetSharedAssessments — a student can't reach an old-year
+    // assessment just by hitting this endpoint with its id.
+    const ownerId = await resolveOwnerId(req.user);
+    const activeYear = await getActiveYearDoc(ownerId);
+    if (!activeYear || assessment.academic_year !== activeYear.name) {
+      return res.status(403).json({ message: 'This assessment is no longer available — it belonged to a previous academic year.' });
+    }
+
     const questions = await AssessmentQuestion.find({ assessment_id: assessment._id }).lean();
     const totalMarks = questions.reduce((s, q) => s + (q.marks || 0), 0);
     const attemptsUsed = await AssessmentAttempt.countDocuments({ assessment_id: assessment._id, student_id: req.user.id, voided: { $ne: true } });
@@ -4415,6 +4447,15 @@ exports.studentStartAttempt = async (req, res) => {
 
     const cls = await Class.findOne({ _id: assessment.class_id, students: req.user.id }).lean();
     if (!cls) return res.status(403).json({ message: 'This assessment is not available to you.' });
+
+    // Same academic-year gate as studentGetAssessmentInstructions — a
+    // student can't start an attempt on an assessment from a year that's no
+    // longer active, even if they still have the link/id.
+    const ownerId = await resolveOwnerId(req.user);
+    const activeYear = await getActiveYearDoc(ownerId);
+    if (!activeYear || assessment.academic_year !== activeYear.name) {
+      return res.status(403).json({ message: 'This assessment is no longer available — it belonged to a previous academic year.' });
+    }
 
     if (assessment.expires_at && new Date() > new Date(assessment.expires_at)) {
       return res.status(400).json({ message: 'This assessment has expired.' });

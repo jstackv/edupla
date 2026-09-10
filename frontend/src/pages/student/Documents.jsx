@@ -441,7 +441,10 @@ export default function StudentDocuments() {
     try {
       const params = { page, limit: 24 };
       if (search) params.search = search;
-      if (studentClass) params.classId = studentClass.id;
+      // No classId filter here — the backend already scopes a student's
+      // documents to their own class plus lower-level classes of the same
+      // trade (see utils/classAccess.js), so restricting to just their own
+      // class id here would hide notes from those lower classes.
       params.courseId = selectedModule._id;
       const res = await api.get('/documents', { params });
       const docs = res.data.documents || [];

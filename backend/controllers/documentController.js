@@ -4,6 +4,7 @@ const { cloudinary, getResourceType } = require('../middleware/upload');
 const { notifyDocumentPosted } = require('../services/emailService');
 const { createInAppNotification, getStudentEmails, getTeacherEmail } = require('../services/notificationHelpers');
 const { buildDownloadFilename, streamWithFilename } = require('../utils/downloadFilename');
+const { getAccessibleClassIds } = require('../utils/classAccess');
 
 const getDocuments = async (req, res) => {
   try {
@@ -68,12 +69,13 @@ const getDocuments = async (req, res) => {
       });
     }
 
-    // Student: only docs from enrolled classes
-    const enrolled = await Class.find({ students: userId }, '_id').lean();
-    const enrolledIds = enrolled.map(c => c._id);
+    // Student: docs from their own class, plus notes shared for lower-level
+    // classes of the same trade (e.g. an L5 SOD student also sees L4/L3 SOD
+    // notes) — see utils/classAccess.js for the exact rule.
+    const accessibleIds = await getAccessibleClassIds(userId);
 
     const filter = {
-      class_id: { $in: enrolledIds },
+      class_id: { $in: accessibleIds },
       $or: [{ title: searchRegex }, { description: searchRegex }],
       ...scopeFilter,
     };
@@ -193,10 +195,10 @@ const resolveDocument = async (id, userId, role) => {
   if (role === 'admin') {
     return Document.findById(id).lean();
   }
-  // Student: must be enrolled in the document's class
-  const enrolled = await Class.find({ students: userId }, '_id').lean();
-  const enrolledIds = enrolled.map(c => c._id);
-  let doc = await Document.findOne({ _id: id, class_id: { $in: enrolledIds } }).lean();
+  // Student: must be enrolled in the document's class, or in a lower-level
+  // class of the same trade (see utils/classAccess.js).
+  const accessibleIds = await getAccessibleClassIds(userId);
+  let doc = await Document.findOne({ _id: id, class_id: { $in: accessibleIds } }).lean();
   if (!doc) doc = await Document.findOne({ _id: id, class_id: null }).lean();
   return doc;
 };
