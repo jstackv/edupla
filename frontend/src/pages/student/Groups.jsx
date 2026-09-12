@@ -73,6 +73,17 @@ const DM_RECEIVED_ACCENT = '#ea580c';
 const LEADER_COLORS = ['#9a3412', '#7c2d12'];
 const TEACHER_DM_COLORS = ['#9a3412', '#7c2d12'];
 
+// ── Discussion-wide bubble palette ──────────────────────────────────────
+// Every discussion header (group, class-monitor DM, teacher DM, peer DM)
+// now shares one identity color — a very dark orange — instead of the
+// old per-thread rainbow. The same color drives "sent" bubbles, since a
+// thread's header and the current user's own bubbles are the same visual
+// identity. Every "received" bubble (any other sender, including the
+// teacher) uses one dark-gray tone instead, so the two sides of the
+// conversation are always instantly distinguishable at a glance.
+const DISCUSSION_ACCENT = ['#9a3412', '#7c2d12'];
+const RECEIVED_BUBBLE = ['#3f3f46', '#27272a'];
+
 const SENDER_COLORS = ['#38bdf8', '#34d399', '#ea580c', '#f472b6', '#ea580c', '#fbbf24', '#4ade80', '#60a5fa'];
 function senderColor(seed) {
   const s = String(seed || '');
@@ -145,7 +156,7 @@ function AudioPlaybackProvider({ children }) {
   return <AudioPlaybackContext.Provider value={{ register, unregister, stopOthers }}>{children}</AudioPlaybackContext.Provider>;
 }
 
-function VoiceBubble({ url, duration, isMine, otherAccent }) {
+function VoiceBubble({ url, duration, isMine }) {
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const audioRef = useRef(null);
@@ -183,10 +194,10 @@ function VoiceBubble({ url, duration, isMine, otherAccent }) {
 
   // No pill/capsule of its own — the play button, waveform, and duration
   // sit directly inside the message bubble, which already supplies the
-  // background/border (mine = solid accent, received = sender's tint).
-  // This matches the teacher's voice-note treatment exactly.
-  const barColor = isMine ? 'rgba(255,255,255,0.95)' : (otherAccent || '#f97316');
-  const barMuted = isMine ? 'rgba(255,255,255,0.32)' : `${otherAccent || '#f97316'}50`;
+  // background (sent = dark orange, received = dark gray). Both are dark
+  // enough that a neutral white-based foreground reads clearly either way.
+  const barColor = isMine ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.85)';
+  const barMuted = isMine ? 'rgba(255,255,255,0.32)' : 'rgba(255,255,255,0.28)';
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 224 }}>
@@ -196,14 +207,14 @@ function VoiceBubble({ url, duration, isMine, otherAccent }) {
 
       <button onClick={toggle} title={playing ? 'Pause' : 'Play'}
         className={`wa-voice-play-btn${playing ? ' wa-voice-play-btn-active' : ''}`}
-        style={{ background: isMine ? 'rgba(255,255,255,0.24)' : `${otherAccent || '#ea580c'}22`, color: isMine ? '#fff' : (otherAccent || '#f97316'), '--voice-glow-color': isMine ? 'rgba(255,255,255,0.35)' : `${otherAccent || '#ea580c'}70` }}>
+        style={{ background: isMine ? 'rgba(255,255,255,0.24)' : 'rgba(255,255,255,0.16)', color: '#fff', '--voice-glow-color': isMine ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.28)' }}>
         {playing ? <Pause style={{ width: 14, height: 14 }} fill="currentColor" />
           : <Play style={{ width: 14, height: 14, marginLeft: 1.5 }} fill="currentColor" />}
       </button>
 
       <Waveform bars={bars} progress={progress} color={barColor} mutedColor={barMuted} playing={playing} onSeek={seek} />
 
-      <span style={{ fontSize: 11, fontWeight: 700, fontVariantNumeric: 'tabular-nums', flexShrink: 0, opacity: isMine ? 0.85 : 0.65, color: isMine ? '#fff' : 'var(--text-secondary)' }}>
+      <span style={{ fontSize: 11, fontWeight: 700, fontVariantNumeric: 'tabular-nums', flexShrink: 0, opacity: 0.85, color: '#fff' }}>
         {fmtDur(playing ? currentTime : totalDuration)}
       </span>
     </div>
@@ -262,25 +273,27 @@ function MessageBubble({
   // hashed tint, used for the name label everywhere and for the bubble
   // itself in group threads.
   const senderTint = !isMine && !isTeacherMsg ? senderColor(item.author_id || item.author_name) : null;
-  // Identity color used for received bubbles — the teacher always reads
-  // as violet; in group threads, each classmate gets their own distinct
-  // hashed color; in 1:1 threads, the thread's own single accent color
-  // (teacher DM purple, leader DM violet, peer DM gray) is used, since
-  // there's only one other person to color-code.
+  // Text-level identity accent — still used for the sender's name label
+  // and @mention highlighting, so it's easy to tell who's talking in a
+  // busy group thread even though every bubble now shares one of just
+  // two fill colors (see below).
   const otherAccent = isMine ? null : isTeacherMsg ? '#9a3412' : isGroupThread ? senderTint : DM_RECEIVED_ACCENT;
   const nameColor = isTeacherMsg ? '#9a3412' : isLeaderMsg ? GOLD : senderTint;
 
+  // Bubble fill: only two colors in the whole thread. Sent messages
+  // (mine) always use the thread's dark-orange accent; every received
+  // message — classmate or teacher alike — always uses the same dark
+  // gray, so "who sent it" reads instantly from bubble side + color.
   const bubbleBg = isMine
     ? `linear-gradient(135deg, ${accent[0]}, ${accent[1]})`
-    : isTeacherMsg ? 'linear-gradient(135deg, #9a3412, #7c2d12)'
-    : `linear-gradient(135deg, ${otherAccent}38, ${otherAccent}1c)`;
-  const bubbleColor = isMine || isTeacherMsg ? '#fff' : 'var(--text-primary)';
-  const bubbleShadow = isMine ? `0 3px 12px -3px ${accent[0]}55`
-    : isTeacherMsg ? '0 3px 12px -3px rgba(154, 52, 18,0.4)'
-    : `0 1px 6px -2px ${otherAccent}30`;
-  const bubbleBorder = !isMine && !isTeacherMsg ? `1px solid ${otherAccent}55` : 'none';
-  const bubbleBorderLeft = !isMine && !isTeacherMsg && item.message_type !== 'image' ? `3px solid ${otherAccent}` : undefined;
-  const isMedia = item.message_type === 'image' || item.message_type === 'file';
+    : `linear-gradient(135deg, ${RECEIVED_BUBBLE[0]}, ${RECEIVED_BUBBLE[1]})`;
+  const bubbleColor = '#fff';
+  const bubbleShadow = isMine
+    ? `0 3px 12px -3px ${accent[0]}55`
+    : '0 3px 12px -3px rgba(0,0,0,0.45)';
+  const isImageMsg = item.message_type === 'image';
+  const isFileMsg = item.message_type === 'file';
+  const isMedia = isImageMsg || isFileMsg;
 
   return (
     <div id={`msg-${item.id}`} className="group" style={{
@@ -329,16 +342,16 @@ function MessageBubble({
           )}
 
           <div style={{ position: 'relative', minWidth: 0 }}>
-            <div className={!isMine && !isMedia ? 'wa-bubble-received-glow' : undefined} style={{
-              background: isMedia ? 'transparent' : bubbleBg, color: bubbleColor, padding: isMedia ? 0 : '8px 12px',
+            <div className={!isMine && !isImageMsg ? 'wa-bubble-received-glow' : undefined} style={{
+              background: isImageMsg ? 'transparent' : bubbleBg, color: bubbleColor,
+              padding: isImageMsg ? 0 : isFileMsg ? 6 : '8px 12px',
               borderRadius: isMine ? '18px 18px 4px 18px' : '18px 18px 18px 4px', fontSize: 13.5, lineHeight: 1.5, wordBreak: 'break-word',
-              boxShadow: isMedia ? 'none' : bubbleShadow,
-              border: isMedia ? 'none' : bubbleBorder,
-              borderLeft: isMedia ? undefined : bubbleBorderLeft,
-              ...(!isMine && !isMedia ? { '--bubble-accent': otherAccent } : {}),
+              boxShadow: isImageMsg ? 'none' : bubbleShadow,
+              border: 'none',
+              ...(!isMine && !isImageMsg ? { '--bubble-accent': '#71717a' } : {}),
             }}>
               {item.message_type === 'voice'
-                ? <VoiceBubble url={item.voice_url} duration={item.voice_duration} isMine={isMine} otherAccent={otherAccent} />
+                ? <VoiceBubble url={item.voice_url} duration={item.voice_duration} isMine={isMine} />
                 : item.message_type === 'image' ? <ChatImageBubble url={item.file_url} name={item.file_name} mimeType={item.mime_type} />
                 : item.message_type === 'file' ? <ChatFileBubble url={item.file_url} name={item.file_name} size={item.file_size} mimeType={item.mime_type} />
                 : <MentionText text={item.content} accent={isMine ? '#fff' : otherAccent} />}
@@ -1070,7 +1083,7 @@ function ThreadPane({ entry, myId, myName, onBack, onOpenTeacherDm, onEntryActiv
   const messagesEndRef = useRef(null);
   const scrollRef = useRef(null);
 
-  const accent = entry.type === 'group' ? groupColor(entry.id) : entry.type === 'leaderdm' ? LEADER_COLORS : entry.type === 'teacherdm' ? TEACHER_DM_COLORS : DM_COLORS;
+  const accent = DISCUSSION_ACCENT;
 
   useEffect(() => {
     setActiveConversation(entry.key);
