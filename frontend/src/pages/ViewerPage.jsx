@@ -125,7 +125,7 @@ export default function ViewerPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: bg, fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", color: tp, display: 'flex', flexDirection: 'column' }}>
+    <div style={{ height: '100vh', overflow: 'hidden', background: bg, fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", color: tp, display: 'flex', flexDirection: 'column' }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; }

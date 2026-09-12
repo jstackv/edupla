@@ -3,6 +3,7 @@ import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import { showChatToast, markMessageSeen, setActiveConversation, clearActiveConversation, onPendingChatTarget, consumePendingChatTarget } from '../../utils/chatNotify';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import ConfirmModal from '../../components/common/ConfirmModal';
 import { ChatImageBubble, ChatFileBubble, fmtFileSize, AttachmentTypeIcon, AttachMenu, EmojiPicker } from '../../components/common/ChatMediaBubble';
 import {
@@ -83,6 +84,13 @@ const TEACHER_DM_COLORS = ['#9a3412', '#7c2d12'];
 // conversation are always instantly distinguishable at a glance.
 const DISCUSSION_ACCENT = ['#9a3412', '#7c2d12'];
 const RECEIVED_BUBBLE = ['#3f3f46', '#27272a'];
+// Header background: kept separate from DISCUSSION_ACCENT (which still
+// drives sent bubbles). Flat, solid — no gradient — and theme-aware: the
+// near-black tone that works on the dark theme reads as far too heavy
+// sitting on top of a bright light-theme page, so light theme gets a
+// lighter (but still clearly dark-orange) flat solid instead.
+const HEADER_BG_DARK = '#2a0d03';
+const HEADER_BG_LIGHT = '#9a3412';
 
 const SENDER_COLORS = ['#38bdf8', '#34d399', '#ea580c', '#f472b6', '#ea580c', '#fbbf24', '#4ade80', '#60a5fa'];
 function senderColor(seed) {
@@ -290,7 +298,7 @@ function MessageBubble({
   const bubbleColor = '#fff';
   const bubbleShadow = isMine
     ? `0 3px 12px -3px ${accent[0]}55`
-    : '0 3px 12px -3px rgba(0,0,0,0.45)';
+    : 'none';
   const isImageMsg = item.message_type === 'image';
   const isFileMsg = item.message_type === 'file';
   const isMedia = isImageMsg || isFileMsg;
@@ -342,19 +350,33 @@ function MessageBubble({
           )}
 
           <div style={{ position: 'relative', minWidth: 0 }}>
-            <div className={!isMine && !isImageMsg ? 'wa-bubble-received-glow' : undefined} style={{
+            <div style={{
               background: isImageMsg ? 'transparent' : bubbleBg, color: bubbleColor,
               padding: isImageMsg ? 0 : isFileMsg ? 6 : '8px 12px',
               borderRadius: isMine ? '18px 18px 4px 18px' : '18px 18px 18px 4px', fontSize: 13.5, lineHeight: 1.5, wordBreak: 'break-word',
               boxShadow: isImageMsg ? 'none' : bubbleShadow,
               border: 'none',
-              ...(!isMine && !isImageMsg ? { '--bubble-accent': '#71717a' } : {}),
+              // ChatFileBubble paints itself with var(--card-bg)/var(--card-border) —
+              // scoping those two variables here (rather than editing the shared
+              // component) makes the document card render in exactly the same
+              // color as the bubble around it, sent or received, with no extra file.
+              ...(isFileMsg ? {
+                '--card-bg': isMine ? bubbleBg : `linear-gradient(135deg, ${RECEIVED_BUBBLE[0]}, ${RECEIVED_BUBBLE[1]})`,
+                '--card-border': 'rgba(255,255,255,0.14)',
+                // The document card reads var(--text-primary)/--text-secondary
+                // for its name/size text. Those vars are theme-dependent (dark
+                // text in light theme), but this card's background is always
+                // dark (orange or gray) regardless of theme, so the text must
+                // always be light too, or it goes near-invisible in light mode.
+                '--text-primary': '#ffffff',
+                '--text-secondary': 'rgba(255,255,255,0.72)',
+              } : {}),
             }}>
               {item.message_type === 'voice'
                 ? <VoiceBubble url={item.voice_url} duration={item.voice_duration} isMine={isMine} />
                 : item.message_type === 'image' ? <ChatImageBubble url={item.file_url} name={item.file_name} mimeType={item.mime_type} />
                 : item.message_type === 'file' ? <ChatFileBubble url={item.file_url} name={item.file_name} size={item.file_size} mimeType={item.mime_type} />
-                : <MentionText text={item.content} accent={isMine ? '#fff' : otherAccent} />}
+                : <MentionText text={item.content} accent={isMine ? '#fff' : isTeacherMsg ? '#fdba74' : otherAccent} />}
             </div>
 
             {!item.pending && (
@@ -1070,7 +1092,7 @@ function useThread(entry, myId) {
   };
 }
 
-function ThreadPane({ entry, myId, myName, onBack, onOpenTeacherDm, onEntryActivity, onThreadHidden }) {
+function ThreadPane({ entry, myId, myName, onBack, onClose, onOpenTeacherDm, onEntryActivity, onThreadHidden }) {
   const thread = useThread(entry, myId);
   const [clearConfirm, setClearConfirm] = useState(false);
   const [clearing, setClearing] = useState(false);
@@ -1083,7 +1105,9 @@ function ThreadPane({ entry, myId, myName, onBack, onOpenTeacherDm, onEntryActiv
   const messagesEndRef = useRef(null);
   const scrollRef = useRef(null);
 
+  const { dark } = useTheme();
   const accent = DISCUSSION_ACCENT;
+  const headerBg = dark ? HEADER_BG_DARK : HEADER_BG_LIGHT;
 
   useEffect(() => {
     setActiveConversation(entry.key);
@@ -1093,7 +1117,7 @@ function ThreadPane({ entry, myId, myName, onBack, onOpenTeacherDm, onEntryActiv
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [thread.messages.length]);
 
   useEffect(() => {
-    if (thread.hidden) { onThreadHidden && onThreadHidden(entry.key); onBack(); }
+    if (thread.hidden) { onThreadHidden && onThreadHidden(entry.key); onClose ? onClose() : onBack(); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [thread.hidden]);
 
@@ -1101,6 +1125,23 @@ function ThreadPane({ entry, myId, myName, onBack, onOpenTeacherDm, onEntryActiv
     if (thread.messages.length > 0) onEntryActivity && onEntryActivity(entry.key, thread.messages[thread.messages.length - 1]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [thread.messages.length]);
+
+  // Esc closes whichever layer is on top: a confirm dialog first, then the
+  // members/search panels, and only closes the whole chat — back to the
+  // inbox list — once nothing else is open. Mirrors the new X button below.
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return;
+      if (deleteTarget) { setDeleteTarget(null); return; }
+      if (clearConfirm) { setClearConfirm(false); return; }
+      if (membersOpen) { setMembersOpen(false); return; }
+      if (searchOpen) { setSearchOpen(false); return; }
+      onClose ? onClose() : onBack();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deleteTarget, clearConfirm, membersOpen, searchOpen]);
 
   const jumpTo = (messageId) => {
     const el = document.getElementById(`msg-${messageId}`);
@@ -1154,7 +1195,7 @@ function ThreadPane({ entry, myId, myName, onBack, onOpenTeacherDm, onEntryActiv
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative', minWidth: 0 }}>
-      <div style={{ background: `linear-gradient(135deg, ${accent[0]}, ${accent[1]})`, padding: '12px 14px', flexShrink: 0 }}>
+      <div style={{ background: headerBg, padding: '12px 14px', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <button onClick={onBack} className="lg:hidden" style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><ArrowLeft style={{ width: 14, height: 14 }} /></button>
           <div style={{ width: 38, height: 38, borderRadius: entry.type === 'group' ? 10 : '50%', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: '#fff', fontSize: 14, flexShrink: 0 }}>
@@ -1181,6 +1222,7 @@ function ThreadPane({ entry, myId, myName, onBack, onOpenTeacherDm, onEntryActiv
               <MessageCircle style={{ width: 13, height: 13 }} /> Teacher
             </button>
           )}
+          <button onClick={() => (onClose ? onClose() : onBack())} title="Close conversation (Esc)" style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><X style={{ width: 15, height: 15 }} /></button>
         </div>
       </div>
 
@@ -1568,8 +1610,6 @@ export default function StudentGroups() {
 
         <div className={`flex flex-col flex-shrink-0 w-full lg:w-[340px] min-h-0 ${mobileShowThread ? 'hidden lg:flex' : 'flex'}`} style={{ borderRight: '1px solid var(--card-border)' }}>
           <div className="ibx-header-chrome" style={{ position: 'relative', overflow: 'hidden', padding: '16px 16px 12px', flexShrink: 0, isolation: 'isolate' }}>
-            <div style={{ position: 'absolute', top: '-30%', right: '-10%', width: 220, height: 220, borderRadius: '50%', background: 'radial-gradient(circle, var(--ibx-header-glow-1), transparent 70%)', filter: 'blur(6px)', pointerEvents: 'none', zIndex: 0, animation: 'ibxGlowDrift 8s ease-in-out infinite' }} />
-            <div style={{ position: 'absolute', bottom: '-40%', left: '10%', width: 180, height: 180, borderRadius: '50%', background: 'radial-gradient(circle, var(--ibx-header-glow-2), transparent 72%)', filter: 'blur(6px)', pointerEvents: 'none', zIndex: 0, animation: 'ibxGlowDrift 10s ease-in-out infinite reverse' }} />
             <div style={{ position: 'relative', zIndex: 1 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                 <h2 style={{ color: 'var(--ibx-header-text)', fontWeight: 800, fontSize: 17, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1628,6 +1668,7 @@ export default function StudentGroups() {
               myId={myId}
               myName={myName}
               onBack={() => setMobileShowThread(false)}
+              onClose={() => { setSelectedKey(null); setMobileShowThread(false); }}
               onOpenTeacherDm={openTeacherDm}
               onEntryActivity={handleEntryActivity}
               onThreadHidden={handleThreadHidden}
@@ -1676,8 +1717,6 @@ export default function StudentGroups() {
              and wallpaper keep their own per-conversation branded colors
              and are untouched by this variable. ── */
           --ibx-header-bg: linear-gradient(120deg, #f6f4ff 0%, #efeaff 35%, #f6ecff 65%, #eef1ff 100%);
-          --ibx-header-glow-1: rgba(154, 52, 18,0.14);
-          --ibx-header-glow-2: rgba(219,39,119,0.08);
           --ibx-header-text: #221c35;
           --ibx-header-icon-bg: rgba(154, 52, 18,0.10);
           --ibx-header-icon-border: rgba(154, 52, 18,0.18);
@@ -1704,11 +1743,10 @@ export default function StudentGroups() {
           --wa-voice-accent: #f97316;
           --wa-voice-accent-2: #ea580c;
 
-          /* ── Inbox list header chrome — dark theme: unchanged from the
-             original design, moody near-black gradient with white text. ── */
-          --ibx-header-bg: linear-gradient(120deg, #08090c 0%, #101319 35%, #171b24 65%, #0d0f14 100%);
-          --ibx-header-glow-1: rgba(154, 52, 18,0.4);
-          --ibx-header-glow-2: rgba(219,39,119,0.22);
+          /* ── Inbox list header chrome — dark theme: flat, very dark
+             orange (no gradient), matching the discussion header/bubble
+             palette used everywhere else on this page. ── */
+          --ibx-header-bg: #2a0d03;
           --ibx-header-text: #ffffff;
           --ibx-header-icon-bg: rgba(255,255,255,0.15);
           --ibx-header-icon-border: rgba(255,255,255,0.2);
@@ -1864,18 +1902,6 @@ export default function StudentGroups() {
 
         @keyframes ibxChromeShimmer { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
         @keyframes msgBubbleIn { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
-        .wa-bubble-received-glow {
-          animation: receivedGlowIn 0.7s cubic-bezier(0.16,1,0.3,1) both, receivedGlowPulse 3.4s ease-in-out 0.7s infinite;
-        }
-        @keyframes receivedGlowIn {
-          0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--bubble-accent, #ea580c) 65%, transparent), 0 4px 16px -4px color-mix(in srgb, var(--bubble-accent, #ea580c) 55%, transparent); }
-          60% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--bubble-accent, #ea580c) 0%, transparent), 0 4px 16px -4px color-mix(in srgb, var(--bubble-accent, #ea580c) 45%, transparent); }
-          100% { box-shadow: 0 0 0 0 transparent, 0 4px 16px -4px color-mix(in srgb, var(--bubble-accent, #ea580c) 30%, transparent); }
-        }
-        @keyframes receivedGlowPulse {
-          0%, 100% { box-shadow: 0 4px 16px -4px color-mix(in srgb, var(--bubble-accent, #ea580c) 30%, transparent); }
-          50% { box-shadow: 0 4px 22px -2px color-mix(in srgb, var(--bubble-accent, #ea580c) 50%, transparent); }
-        }
         @keyframes replyBarIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes avatarGlowPulse { 0%, 100% { box-shadow: 0 0 0 0 var(--glow-color, rgba(154, 52, 18,0.45)); } 50% { box-shadow: 0 0 0 6px rgba(154, 52, 18,0); } }
         @keyframes spin { to { transform: rotate(360deg); } }
@@ -1884,13 +1910,12 @@ export default function StudentGroups() {
         @keyframes slideInFromRight { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: translateX(0); } }
         @keyframes ibxRowIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes ibxBadgePulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(220,38,38,0.35); } 50% { box-shadow: 0 0 0 5px rgba(220,38,38,0); } }
-        @keyframes ibxGlowDrift { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-8px, 6px) scale(1.08); } }
         @keyframes ibxIconFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
         @media (prefers-reduced-motion: reduce) {
           .discussion-list-item, .discussion-list-item *,
           .wa-msg-delete-btn, .wa-clear-mine-btn, .wa-reply-quote, .wa-reply-side-btn,
           .wa-voice-play-btn-active, .wa-voice-bar-live, .wa-voice-live-dot,
-          .wa-rec-dot, .wa-recording-panel, .wa-bubble-received-glow { animation: none !important; }
+          .wa-rec-dot, .wa-recording-panel { animation: none !important; }
         }
       `}</style>
     </div>

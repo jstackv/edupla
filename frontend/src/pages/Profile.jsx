@@ -258,7 +258,7 @@ function AdminProfile({ user, dark }) {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1, marginTop: 30, background: `${accentB}14`, borderRadius: 4, overflow: 'hidden' }}>
               {[
                 { k: 'Status',   v: isActive ? 'Active' : 'Inactive', dot: isActive ? '#10b981' : '#ef4444', icon: Activity },
-                { k: 'Rank',     v: isSuperAdmin ? 'Super Admin' : 'Admin', dot: accentA, icon: SealIcon },
+                { k: 'Rank',     v: isSuperAdmin ? 'System Owner' : 'Admin', dot: accentA, icon: SealIcon },
                 { k: 'Session',  v: now.toLocaleTimeString(), dot: accentGold, icon: Fingerprint, mono: true },
                 { k: 'Enrolled', v: joined || 'Unknown', dot: textMuted, icon: Star },
               ].map(({ k, v, dot, icon: Icon, mono }) => (

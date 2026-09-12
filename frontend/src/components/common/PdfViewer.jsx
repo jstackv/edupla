@@ -11,6 +11,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import {
   ChevronLeft, ChevronRight, ZoomIn, ZoomOut, PanelLeftClose,
   PanelLeft, Maximize2, AlertTriangle, Download, ArrowUp, FileText,
+  Maximize, Minimize,
 } from 'lucide-react';
 
 let pdfjsLibPromise = null;
@@ -39,8 +40,10 @@ export default function PdfViewer({ url, title, dark, accent, tp, tm, border, ca
   const [renderedPages, setRenderedPages] = useState(() => new Set());
   const [renderProgress, setRenderProgress] = useState(0);
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const containerRef = useRef(null);
+  const rootRef = useRef(null);
   const wrapperRefs = useRef({});
   const canvasRefs = useRef({});
   const thumbBtnRefs = useRef({});
@@ -50,8 +53,13 @@ export default function PdfViewer({ url, title, dark, accent, tp, tm, border, ca
   const scaleRef = useRef(scale);
   const thumbRenderedRef = useRef(new Set());
   const loadTokenRef = useRef(0);
+  const pdfDocRef = useRef(null);
+  const renderedPagesRef = useRef(new Set());
+  const dprRef = useRef(window.devicePixelRatio || 1);
 
   useEffect(() => { scaleRef.current = scale; }, [scale]);
+  useEffect(() => { pdfDocRef.current = pdfDoc; }, [pdfDoc]);
+  useEffect(() => { renderedPagesRef.current = renderedPages; }, [renderedPages]);
 
   // ── Load the document ──────────────────────────────────────────────
   useEffect(() => {
@@ -266,11 +274,43 @@ export default function PdfViewer({ url, title, dark, accent, tp, tm, border, ca
   const zoomOut = () => setScale((s) => Math.max(0.4, +(s - 0.15).toFixed(2)));
   const resetZoom = () => setScale(1.15);
 
+  // ── Fullscreen ──────────────────────────────────────────────────────
+  const toggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      rootRef.current?.requestFullscreen?.().catch(() => {});
+    } else {
+      document.exitFullscreen?.().catch(() => {});
+    }
+  }, []);
+
+  useEffect(() => {
+    const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', onFsChange);
+    return () => document.removeEventListener('fullscreenchange', onFsChange);
+  }, []);
+
+  // ── Keep pages just as sharp when the *browser* is zoomed (Ctrl/Cmd
+  // +/-) as when the in-app zoom buttons are used. Browser zoom changes
+  // window.devicePixelRatio, but a canvas already on screen doesn't
+  // re-rasterize on its own — it just gets stretched by the browser and
+  // looks soft. Watching for a devicePixelRatio change and re-rendering
+  // every already-drawn page closes that gap. ──────────────────────────
+  useEffect(() => {
+    const checkDpr = () => {
+      const dpr = window.devicePixelRatio || 1;
+      if (Math.abs(dpr - dprRef.current) < 0.01) return;
+      dprRef.current = dpr;
+      const doc = pdfDocRef.current;
+      if (!doc) return;
+      renderedAtRef.current = {};
+      renderedPagesRef.current.forEach((n) => renderPage(doc, n));
+    };
+    window.addEventListener('resize', checkDpr);
+    return () => window.removeEventListener('resize', checkDpr);
+  }, [renderPage]);
+
   const toolbarBg = dark ? 'rgba(13,17,23,0.82)' : 'rgba(255,255,255,0.82)';
-  const railBg = dark ? '#0a0a0a' : '#f8fafc';
-  const pageBg = dark ? '#05070d' : '#e7ebf2';
   const chipBg = dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)';
-  const dotColor = dark ? 'rgba(255,255,255,0.045)' : 'rgba(15,23,42,0.05)';
 
   const allRendered = numPages > 0 && renderProgress >= numPages;
 
@@ -295,7 +335,7 @@ export default function PdfViewer({ url, title, dark, accent, tp, tm, border, ca
   }
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 'calc(100vh - 60px)' }}>
+    <div ref={rootRef} style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, background: bg }}>
       <style>{`
         .pv-scroll::-webkit-scrollbar { width: 10px; height: 10px; }
         .pv-scroll::-webkit-scrollbar-track { background: transparent; }
@@ -379,6 +419,9 @@ export default function PdfViewer({ url, title, dark, accent, tp, tm, border, ca
               {numPages} PAGE{numPages === 1 ? '' : 'S'}
             </span>
           )}
+          <button onClick={toggleFullscreen} title={isFullscreen ? 'Exit full screen' : 'Full screen'} style={iconBtnStyle(dark)}>
+            {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
+          </button>
         </div>
       </div>
 
@@ -386,7 +429,7 @@ export default function PdfViewer({ url, title, dark, accent, tp, tm, border, ca
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         {sidebarOpen && (
           <div className="pv-scroll" style={{
-            width: 156, flexShrink: 0, overflowY: 'auto', background: railBg,
+            width: 156, flexShrink: 0, overflowY: 'auto', background: 'transparent',
             borderRight: `1px solid ${border}`, padding: '14px 12px',
           }}>
             <p style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.08em', color: tm, textTransform: 'uppercase', margin: '2px 4px 12px' }}>
@@ -433,9 +476,7 @@ export default function PdfViewer({ url, title, dark, accent, tp, tm, border, ca
           className="pv-scroll"
           style={{
             flex: 1, overflow: 'auto', position: 'relative',
-            background: `
-              radial-gradient(circle at 1px 1px, ${dotColor} 1.4px, transparent 0) 0 0/22px 22px,
-              ${pageBg}`,
+            background: 'transparent',
             display: 'flex', flexDirection: 'column', alignItems: 'center',
             padding: '28px 20px 80px',
           }}
