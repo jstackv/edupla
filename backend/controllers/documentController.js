@@ -4,7 +4,7 @@ const { cloudinary, getResourceType } = require('../middleware/upload');
 const { notifyDocumentPosted } = require('../services/emailService');
 const { createInAppNotification, getStudentEmails, getTeacherEmail } = require('../services/notificationHelpers');
 const { buildDownloadFilename, streamWithFilename } = require('../utils/downloadFilename');
-const { getAccessibleClassIds } = require('../utils/classAccess');
+const { getAccessibleClassIds, getOtherAccessibleClasses } = require('../utils/classAccess');
 
 const getDocuments = async (req, res) => {
   try {
@@ -69,15 +69,27 @@ const getDocuments = async (req, res) => {
       });
     }
 
-    // Student: docs from their own class, plus notes shared for lower-level
-    // classes of the same trade (e.g. an L5 SOD student also sees L4/L3 SOD
-    // notes) — see utils/classAccess.js for the exact rule.
-    const accessibleIds = await getAccessibleClassIds(userId);
+    // Student: by default, only docs from the student's OWN class(es). An
+    // explicit `classId` lets them deliberately browse a lower-level class
+    // of the same trade instead (the "View other contents" picker on the
+    // frontend) — validated against getAccessibleClassIds so a student
+    // can't just pass an arbitrary id.
+    let targetClassIds;
+    if (classId) {
+      const accessibleIds = await getAccessibleClassIds(userId);
+      if (!accessibleIds.includes(String(classId))) {
+        return res.status(403).json({ message: 'You do not have access to that class.' });
+      }
+      targetClassIds = [new mongoose.Types.ObjectId(classId)];
+    } else {
+      const myClasses = await Class.find({ students: userId }, '_id').lean();
+      targetClassIds = myClasses.map(c => c._id);
+    }
 
     const filter = {
-      class_id: { $in: accessibleIds },
+      class_id: { $in: targetClassIds },
       $or: [{ title: searchRegex }, { description: searchRegex }],
-      ...scopeFilter,
+      ...(courseId ? { course_id: new mongoose.Types.ObjectId(courseId) } : {}),
     };
     const [docs, total] = await Promise.all([
       Document.find(filter).sort({ created_at: -1 }).skip(skip).limit(parseInt(limit))
@@ -222,4 +234,17 @@ const viewDocument = async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
-module.exports = { getDocuments, uploadDocument, updateDocument, deleteDocument, downloadDocument, viewDocument };
+const getOtherClasses = async (req, res) => {
+  try {
+    if (req.session.user.role !== 'student') return res.json({ classes: [] });
+    const classes = await getOtherAccessibleClasses(new mongoose.Types.ObjectId(req.session.user.id));
+    res.json({
+      classes: classes.map(c => ({
+        id: c._id, name: c.name, level: c.level, trade: c.trade,
+        program_qualification_title: c.program_qualification_title || null,
+      })),
+    });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+module.exports = { getDocuments, uploadDocument, updateDocument, deleteDocument, downloadDocument, viewDocument, getOtherClasses };

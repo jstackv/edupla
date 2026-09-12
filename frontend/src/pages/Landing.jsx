@@ -124,12 +124,10 @@ const OWNER = {
   founded: '2026',
 };
 
-/* Accent for the owner section — deliberately dark orange, matching the
-   rest of the site's brand palette (#c2410c / #9a3412 / #f97316) rather
-   than a color sampled from the photo, so every piece of owner UI
-   (badges, buttons, glow, links) reads as unmistakably "Edupla orange"
-   in both light and dark theme. */
-const OWNER_TINT = { deep: '#1f0a02', mid: '#c2410c', soft: '#f97316' };
+/* Dominant tone sampled from the owner photo's backdrop — used to give the
+   portrait a glow/background that reads as part of the same photograph
+   rather than a cut-out pasted onto the page. */
+const OWNER_TINT = { deep: '#02132b', mid: '#0d3258', soft: '#1a5f95' };
 
 /* ─── COUNTER ── */
 function useCountUp(target, started) {
@@ -391,7 +389,7 @@ function OwnerLinkRow(props) {
   function onEnter(e) {
     e.currentTarget.style.transform = 'translateX(4px)';
     e.currentTarget.style.borderColor = OWNER_TINT.soft + '55';
-    e.currentTarget.style.background = dark ? 'rgba(249,115,22,0.12)' : 'rgba(249,115,22,0.07)';
+    e.currentTarget.style.background = dark ? 'rgba(26,95,149,0.1)' : 'rgba(26,95,149,0.06)';
   }
   function onLeave(e) {
     e.currentTarget.style.transform = 'translateX(0)';
@@ -491,8 +489,8 @@ export default function Landing() {
         .owner-reveal { opacity:0; animation: ownerRise 0.7s cubic-bezier(0.16,1,0.3,1) forwards; }
         .owner-reveal-left { opacity:0; animation: ownerRiseLeft 0.8s cubic-bezier(0.16,1,0.3,1) forwards; }
         .owner-reveal-right { opacity:0; animation: ownerRiseRight 0.8s cubic-bezier(0.16,1,0.3,1) forwards; }
-        .owner-photo-frame { transition: transform 0.5s cubic-bezier(0.16,1,0.3,1), box-shadow 0.5s ease; }
-        .owner-photo-wrap:hover .owner-photo-frame { transform: perspective(900px) rotateY(-4deg) rotateX(2deg) scale(1.015); box-shadow: 0 40px 90px -15px rgba(249,115,22,0.5), 0 0 0 1px rgba(249,115,22,0.4); }
+        .owner-photo-frame { transition: transform 0.5s cubic-bezier(0.16,1,0.3,1); }
+        .owner-photo-wrap:hover .owner-photo-frame { transform: perspective(900px) rotateY(-4deg) rotateX(2deg) scale(1.015); }
         .owner-photo-wrap:hover .owner-glow { opacity:1; }
         .owner-badge-float { animation: ownerFloatSlow 5s ease-in-out infinite; }
         .owner-badge-float2 { animation: ownerFloatSlow2 6s ease-in-out infinite 0.6s; }
@@ -954,17 +952,15 @@ export default function Landing() {
 
         {/* OWNER / CREATOR */}
         <section id="owner" style={{ padding:'6rem 2rem', position:'relative', overflow:'hidden' }}>
-          {/* ambient glow, dark-orange to match the rest of the brand */}
+          {/* ambient glow, same family of colors as the portrait's own backdrop */}
           <div style={{ position:'absolute', top:'18%', left:'50%', width:900, height:900, transform:'translate(-50%,-50%)', borderRadius:'50%', background:'radial-gradient(circle,'+OWNER_TINT.soft+'22,transparent 70%)', filter:'blur(70px)', pointerEvents:'none', animation:'ownerGlowDrift 12s ease-in-out infinite' }} />
 
           <div style={{ maxWidth:1100, margin:'0 auto', position:'relative' }}>
             <div className="owner-reveal" style={{ textAlign:'center', marginBottom:'3.5rem' }}>
-              <Label icon={Sparkle} text="The Person Behind Edupla" color={OWNER_TINT.soft} />
-              <h2 style={{ fontFamily:"'Instrument Serif',serif", fontStyle:'italic', fontSize:'clamp(2.6rem,6vw,70px)', fontWeight:400, letterSpacing:'-0.02em', color:t.tp, margin:'0 0 14px' }}>
+              <h2 style={{ fontFamily:"'Instrument Serif',serif", fontStyle:'italic', fontSize:'clamp(2.6rem,6vw,70px)', fontWeight:400, letterSpacing:'-0.02em', color:t.tp }}>
                 Meet the Builder
               </h2>
-              <div style={{ width:64, height:3, borderRadius:2, background:'linear-gradient(90deg,transparent,'+OWNER_TINT.soft+',transparent)', margin:'0 auto 20px' }} />
-              <p style={{ fontSize:16, color:t.tm, maxWidth:560, margin:'0 auto', lineHeight:1.75 }}>
+              <p style={{ fontSize:16, color:t.tm, maxWidth:560, margin:'0 auto 20px', lineHeight:1.75 }}>
                 Edupla is built and maintained independently, with care given to every detail.
               </p>
             </div>
@@ -975,10 +971,11 @@ export default function Landing() {
               <div className="owner-photo-col owner-reveal-left" style={{ display:'flex', justifyContent:'center', animationDelay:'0.05s' }}>
                 <div className="owner-photo-wrap" style={{ position:'relative', width:380, maxWidth:'100%' }}>
 
-                  {/* warm orange glow sitting behind the portrait, tying it
-                      into the brand color without needing to tint the
-                      photo itself */}
-                  <div className="owner-glow" style={{ position:'absolute', top:'50%', left:'50%', width:500, height:500, transform:'translate(-50%,-50%)', borderRadius:'50%', background:'radial-gradient(circle,'+OWNER_TINT.soft+'55 0%,'+OWNER_TINT.mid+'33 45%,transparent 72%)', filter:'blur(42px)', opacity:0.9, transition:'opacity 0.4s ease', pointerEvents:'none', zIndex:0 }} />
+                  {/* color-matched glow sitting behind the portrait — same
+                      navy family sampled from the photo itself, so the
+                      photo reads as glowing out of its own background
+                      rather than sitting on top of an unrelated one */}
+                  <div className="owner-glow" style={{ position:'absolute', top:'50%', left:'50%', width:500, height:500, transform:'translate(-50%,-50%)', borderRadius:'50%', background:'radial-gradient(circle,'+OWNER_TINT.soft+'55 0%,'+OWNER_TINT.mid+'33 45%,transparent 72%)', filter:'blur(42px)', opacity:0.85, transition:'opacity 0.4s ease', pointerEvents:'none', zIndex:0 }} />
 
                   {/* slow-rotating soft-color ring for depth */}
                   <div style={{ position:'absolute', top:'50%', left:'50%', width:430, height:430, transform:'translate(-50%,-50%)', borderRadius:'50%', border:'1px dashed '+OWNER_TINT.soft+'40', animation:'ownerBorderSpin 30s linear infinite', pointerEvents:'none', zIndex:0 }} />
@@ -993,31 +990,33 @@ export default function Landing() {
                         height:500,
                         objectFit:'cover',
                         objectPosition:'top center',
-                        /* a dark-orange wash the photo dissolves into at
-                           its bottom edge, so it reads as one continuous
-                           surface instead of ending in a hard rectangle */
+                        /* the same navy the photo's backdrop already is —
+                           painted underneath, then the image itself is
+                           faded out at the very bottom edge so it dissolves
+                           into that color (and, beyond it, into the page)
+                           instead of ending in a hard rectangle */
                         background: 'linear-gradient(180deg,'+OWNER_TINT.deep+' 0%,'+OWNER_TINT.mid+' 100%)',
                         WebkitMaskImage: 'linear-gradient(to bottom, black 78%, transparent 100%)',
                         maskImage: 'linear-gradient(to bottom, black 78%, transparent 100%)',
                       }}
                     />
                     {/* thin tint wash so the frame's edges and the photo's
-                        own base read as one continuous surface */}
+                        own navy read as one continuous surface */}
                     <div style={{ position:'absolute', inset:0, background:'linear-gradient(180deg, transparent 55%, '+OWNER_TINT.deep+'55 100%)', pointerEvents:'none' }} />
                   </div>
 
                   {/* floating badges */}
-                  <div className="owner-badge-float" style={{ position:'absolute', top:18, right:-24, zIndex:2, padding:'8px 13px', borderRadius:12, background:dark?'rgba(154,52,18,0.4)':'#fff3ea', border:'1px solid '+OWNER_TINT.soft+'45', backdropFilter:'blur(12px)', display:'flex', alignItems:'center', gap:7, boxShadow:'0 10px 26px '+OWNER_TINT.mid+'30' }}>
+                  <div className="owner-badge-float" style={{ position:'absolute', top:18, right:-24, zIndex:2, padding:'8px 13px', borderRadius:12, background:dark?'rgba(13,50,88,0.55)':'#eaf4ff', border:'1px solid '+OWNER_TINT.soft+'45', backdropFilter:'blur(12px)', display:'flex', alignItems:'center', gap:7, boxShadow:'0 10px 26px '+OWNER_TINT.mid+'30' }}>
                     <Code2 size={13} color={OWNER_TINT.soft} />
-                    <span style={{ fontSize:11, fontWeight:700, color:dark?'#fed7aa':OWNER_TINT.mid, whiteSpace:'nowrap' }}>Founder of Edupla</span>
+                    <span style={{ fontSize:11, fontWeight:700, color:dark?'#bfe0ff':OWNER_TINT.mid, whiteSpace:'nowrap' }}>Founder of Edupla</span>
                   </div>
-                  <div className="owner-badge-float2" style={{ position:'absolute', bottom:34, left:-26, zIndex:2, padding:'8px 13px', borderRadius:12, background:dark?'rgba(154,52,18,0.4)':'#fff3ea', border:'1px solid '+OWNER_TINT.soft+'45', backdropFilter:'blur(12px)', display:'flex', alignItems:'center', gap:7, boxShadow:'0 10px 26px '+OWNER_TINT.mid+'30' }}>
+                  <div className="owner-badge-float2" style={{ position:'absolute', bottom:34, left:-26, zIndex:2, padding:'8px 13px', borderRadius:12, background:dark?'rgba(13,50,88,0.55)':'#eaf4ff', border:'1px solid '+OWNER_TINT.soft+'45', backdropFilter:'blur(12px)', display:'flex', alignItems:'center', gap:7, boxShadow:'0 10px 26px '+OWNER_TINT.mid+'30' }}>
                     <MapPin size={13} color={OWNER_TINT.soft} />
-                    <span style={{ fontSize:11, fontWeight:700, color:dark?'#fed7aa':OWNER_TINT.mid, whiteSpace:'nowrap' }}>{OWNER.location}</span>
+                    <span style={{ fontSize:11, fontWeight:700, color:dark?'#bfe0ff':OWNER_TINT.mid, whiteSpace:'nowrap' }}>{OWNER.location}</span>
                   </div>
-                  <div className="owner-badge-float3" style={{ position:'absolute', top:-18, left:30, zIndex:2, padding:'8px 13px', borderRadius:12, background:dark?'rgba(154,52,18,0.4)':'#fff3ea', border:'1px solid '+OWNER_TINT.soft+'45', backdropFilter:'blur(12px)', display:'flex', alignItems:'center', gap:7, boxShadow:'0 10px 26px '+OWNER_TINT.mid+'30' }}>
+                  <div className="owner-badge-float3" style={{ position:'absolute', top:-18, left:30, zIndex:2, padding:'8px 13px', borderRadius:12, background:dark?'rgba(13,50,88,0.55)':'#eaf4ff', border:'1px solid '+OWNER_TINT.soft+'45', backdropFilter:'blur(12px)', display:'flex', alignItems:'center', gap:7, boxShadow:'0 10px 26px '+OWNER_TINT.mid+'30' }}>
                     <span className="owner-status-dot" style={{ width:6, height:6, borderRadius:'50%', background:'#34d399', flexShrink:0 }} />
-                    <span style={{ fontSize:11, fontWeight:700, color:dark?'#fed7aa':OWNER_TINT.mid, whiteSpace:'nowrap' }}>Created since {OWNER.founded}</span>
+                    <span style={{ fontSize:11, fontWeight:700, color:dark?'#bfe0ff':OWNER_TINT.mid, whiteSpace:'nowrap' }}>Created since {OWNER.founded}</span>
                   </div>
                 </div>
               </div>
@@ -1032,12 +1031,7 @@ export default function Landing() {
                       <span style={{ fontSize:11, fontWeight:700, color:OWNER_TINT.soft }}>Verified Owner</span>
                     </span>
                   </div>
-
-                  <div style={{ display:'inline-flex', alignItems:'center', gap:7, padding:'5px 13px', borderRadius:100, background:OWNER_TINT.soft+'14', border:'1px solid '+OWNER_TINT.soft+'30', margin:'0 0 16px' }}>
-                    <Sparkle size={12} color={OWNER_TINT.soft} />
-                    <span style={{ fontSize:12.5, fontWeight:700, color:dark?'#fdba74':OWNER_TINT.mid, letterSpacing:'0.02em' }}>{OWNER.role}</span>
-                  </div>
-
+                  <p style={{ fontSize:14, fontWeight:600, color:t.tm, margin:'0 0 6px', letterSpacing:'0.01em' }}>{OWNER.role}</p>
                   <div style={{ display:'flex', alignItems:'center', gap:14, flexWrap:'wrap', marginBottom:22 }}>
                     <span style={{ display:'flex', alignItems:'center', gap:6, fontSize:12.5, color:t.tm }}>
                       <MapPin size={13} color={OWNER_TINT.soft} /> {OWNER.location}
@@ -1047,8 +1041,8 @@ export default function Landing() {
                     </span>
                   </div>
 
-                  <div style={{ position:'relative', padding:'20px 22px', borderRadius:16, background:t.card, border:'1px solid '+t.bord, borderLeft:'3px solid '+OWNER_TINT.soft, backdropFilter:'blur(16px)', marginBottom:24, boxShadow:'0 10px 30px '+OWNER_TINT.soft+'12' }}>
-                    <Quote size={28} color={OWNER_TINT.soft} style={{ opacity:0.3, position:'absolute', top:14, right:16 }} />
+                  <div style={{ position:'relative', padding:'18px 20px', borderRadius:16, background:t.card, border:'1px solid '+t.bord, backdropFilter:'blur(16px)', marginBottom:24 }}>
+                    <Quote size={26} color={OWNER_TINT.soft} style={{ opacity:0.35, position:'absolute', top:14, right:16 }} />
                     <p style={{ fontSize:14.5, lineHeight:1.8, color:dark?'#cbd5e1':'#475569', margin:0, maxWidth:480 }}>{OWNER.bio}</p>
                   </div>
 

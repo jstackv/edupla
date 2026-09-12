@@ -2447,21 +2447,33 @@ function getGrade(obtained, max) {
 /* ─────────── Student: get all courses for their enrolled class ─────────── */
 exports.studentGetCourses = async (req, res) => {
   try {
-    const cls = await Class.findOne({ students: req.user.id }).lean();
-    if (!cls) return res.json({ courses: [] });
+    const myClasses = await Class.find({ students: req.user.id }).lean();
+    if (!myClasses.length) return res.json({ courses: [] });
 
-    // Include modules assigned to the student's own class, plus modules
-    // assigned to lower-level classes of the same trade (e.g. an L5 SOD
-    // student also sees L4/L3 SOD modules) — see utils/classAccess.js.
-    const accessibleIds = await getAccessibleClassIds(req.user.id);
+    // By default: only modules assigned to the student's OWN class. An
+    // explicit `classId` (from the "View other contents" picker) lets them
+    // deliberately browse a lower-level class of the same trade instead —
+    // validated against getAccessibleClassIds so a student can't just pass
+    // an arbitrary id in.
+    let targetClassIds;
+    const { classId } = req.query;
+    if (classId) {
+      const accessibleIds = await getAccessibleClassIds(req.user.id);
+      if (!accessibleIds.includes(String(classId))) {
+        return res.status(403).json({ message: 'You do not have access to that class.' });
+      }
+      targetClassIds = [classId];
+    } else {
+      targetClassIds = myClasses.map(c => c._id);
+    }
 
     /*
-     * Match courses assigned to any accessible class via either field.
+     * Match courses assigned to the target class(es) via either field.
      */
     const courses = await Course.find({
       $or: [
-        { class_id:  { $in: accessibleIds } },
-        { class_ids: { $in: accessibleIds } },
+        { class_id:  { $in: targetClassIds } },
+        { class_ids: { $in: targetClassIds } },
       ],
     })
       .populate('teacher_id', 'name email')

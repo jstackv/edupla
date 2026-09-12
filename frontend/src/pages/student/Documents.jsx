@@ -4,10 +4,12 @@ import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import Pagination from '../../components/common/Pagination';
 import FileViewer, { downloadFile } from '../../components/common/FileViewer';
+import Modal from '../../components/common/Modal';
 import {
   Search, FileText, Download, Eye, BookOpen, ChevronRight,
   ArrowLeft, Inbox, X, Grid3X3, List, Filter, Clock,
   SortAsc, SortDesc, Layers, Tag, User, FolderOpen,
+  Sparkles, GraduationCap, Award, Check,
 } from 'lucide-react';
 
 /* ── Helpers ── */
@@ -372,6 +374,82 @@ function Spinner({ color = '#c2410c' }) {
   );
 }
 
+/* ── "View other contents" class picker ── */
+const PICKER_COLORS = ['#c2410c', '#10b981', '#f59e0b', '#06b6d4', '#ec4899', '#8b5cf6'];
+
+function ClassPickerCard({ cls, index, onSelect }) {
+  const [hov, setHov] = useState(false);
+  const color = PICKER_COLORS[index % PICKER_COLORS.length];
+  return (
+    <button onClick={() => onSelect(cls)} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
+      style={{
+        position: 'relative', textAlign: 'left', cursor: 'pointer', overflow: 'hidden',
+        borderRadius: 18, padding: '18px 16px 16px',
+        border: `1.5px solid ${hov ? color : 'var(--card-border)'}`,
+        background: hov ? `${color}12` : 'var(--card-bg)',
+        transform: hov ? 'translateY(-3px)' : 'translateY(0)',
+        boxShadow: hov ? `0 12px 28px ${color}2a` : 'none',
+        transition: 'all 0.2s ease',
+        animation: `fadeSlide 0.3s ease ${index * 0.05}s both`,
+      }}>
+      <div style={{
+        position: 'absolute', top: -30, right: -30, width: 90, height: 90, borderRadius: '50%',
+        background: `${color}18`, filter: 'blur(2px)',
+      }} />
+      <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <div style={{
+          width: 42, height: 42, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: `${color}20`, color, flexShrink: 0,
+        }}>
+          <GraduationCap style={{ width: 20, height: 20 }} />
+        </div>
+        {cls.level && (
+          <span style={{
+            fontSize: 10, fontWeight: 800, padding: '4px 9px', borderRadius: 20,
+            background: `${color}20`, color, display: 'flex', alignItems: 'center', gap: 4,
+          }}>
+            <Award style={{ width: 10, height: 10 }} /> {cls.level}
+          </span>
+        )}
+      </div>
+      <p style={{ position: 'relative', fontWeight: 800, fontSize: 14.5, color: 'var(--text-primary)', marginBottom: 4, letterSpacing: '-0.01em' }}>
+        {cls.name}
+      </p>
+      {cls.trade && (
+        <p style={{ position: 'relative', fontSize: 11.5, color: 'var(--text-secondary)', opacity: 0.75, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {cls.trade}
+        </p>
+      )}
+      <div style={{
+        position: 'relative', display: 'flex', alignItems: 'center', gap: 5, marginTop: 12,
+        fontSize: 11.5, fontWeight: 700, color,
+      }}>
+        Browse notes <ChevronRight style={{ width: 13, height: 13 }} />
+      </div>
+    </button>
+  );
+}
+
+function ClassPickerModal({ isOpen, onClose, classes, loading, onSelect, currentClassName }) {
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="View other contents" icon={Sparkles} accent="#c2410c" accent2="#ea580c" size="lg">
+      <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginBottom: 16, lineHeight: 1.5 }}>
+        As a <strong>{currentClassName}</strong> student, you can also browse notes shared with earlier levels of your trade — pick a class below.
+      </p>
+      {loading ? <Spinner /> : classes.length === 0 ? (
+        <EmptyState icon={Inbox} title="Nothing else to browse"
+          subtitle="There are no lower-level classes in your trade with notes yet." />
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
+          {classes.map((cls, i) => (
+            <ClassPickerCard key={cls.id} cls={cls} index={i} onSelect={onSelect} />
+          ))}
+        </div>
+      )}
+    </Modal>
+  );
+}
+
 /* ══ MAIN ══ */
 export default function StudentDocuments() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -394,14 +472,44 @@ export default function StudentDocuments() {
   const [flashId, setFlashId] = useState(searchParams.get('highlight') || null);
   const cardRefs = useRef({});
 
+  // "View other contents" — browsing a lower-level class of the same trade
+  // instead of the student's own class. `viewingClass` is null when looking
+  // at their own class (the default).
+  const [otherClasses, setOtherClasses] = useState([]);
+  const [loadingOtherClasses, setLoadingOtherClasses] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
+  const [viewingClass, setViewingClass] = useState(null);
+
+  const activeClass = viewingClass || studentClass;
+
   const [seenIds, setSeenIds] = useState(() => {
     try { return new Set(JSON.parse(localStorage.getItem('edupla_seen_docs') || '[]')); }
     catch { return new Set(); }
   });
 
+  const loadModules = useCallback(async (classId, ownClassId) => {
+    setLoadingModules(true);
+    try {
+      let fetchedModules = [];
+      try {
+        const res = await api.get('/assessment/student/courses', classId ? { params: { classId } } : undefined);
+        fetchedModules = res.data.courses || [];
+      } catch {
+        try {
+          const res = await api.get('/assessment/admin/courses');
+          const targetId = classId || ownClassId;
+          fetchedModules = (res.data.courses || []).filter(c =>
+            String(c.class_id?._id || c.class_id || '') === targetId
+          );
+        } catch { }
+      }
+      setModules(fetchedModules);
+      return fetchedModules;
+    } finally { setLoadingModules(false); }
+  }, []);
+
   useEffect(() => {
     (async () => {
-      setLoadingModules(true);
       try {
         const clsRes = await api.get('/classes/my');
         const myClasses = clsRes.data.classes || [];
@@ -410,19 +518,7 @@ export default function StudentDocuments() {
         const classId = String(cls.id || cls._id);
         setStudentClass({ id: classId, name: cls.name });
 
-        let fetchedModules = [];
-        try {
-          const res = await api.get('/assessment/student/courses');
-          fetchedModules = res.data.courses || [];
-        } catch {
-          try {
-            const res = await api.get('/assessment/admin/courses');
-            fetchedModules = (res.data.courses || []).filter(c =>
-              String(c.class_id?._id || c.class_id || '') === classId
-            );
-          } catch { }
-        }
-        setModules(fetchedModules);
+        const fetchedModules = await loadModules(null, classId);
 
         // Came here from a notification pointing at a specific module — jump straight there.
         const targetCourseId = searchParams.get('courseId');
@@ -430,10 +526,37 @@ export default function StudentDocuments() {
           const match = fetchedModules.find(m => String(m._id) === targetCourseId);
           if (match) { setSelectedModule(match); setView('docs'); }
         }
+
+        // Quietly check whether there's anything to browse — only show the
+        // "View other contents" button if there actually is.
+        setLoadingOtherClasses(true);
+        try {
+          const otherRes = await api.get('/documents/other-classes');
+          setOtherClasses(otherRes.data.classes || []);
+        } catch { }
+        finally { setLoadingOtherClasses(false); }
       } catch { toast.error('Failed to load class info'); }
-      finally { setLoadingModules(false); }
     })();
   }, []);
+
+  const openOtherClass = (cls) => {
+    setShowPicker(false);
+    setViewingClass(cls);
+    setSelectedModule(null);
+    setDocuments([]);
+    setDocCounts({});
+    setView('modules');
+    loadModules(cls.id, studentClass?.id);
+  };
+
+  const backToMyClass = () => {
+    setViewingClass(null);
+    setSelectedModule(null);
+    setDocuments([]);
+    setDocCounts({});
+    setView('modules');
+    loadModules(null, studentClass?.id);
+  };
 
   const fetchDocs = useCallback(async () => {
     if (view !== 'docs' || !selectedModule) return;
@@ -441,11 +564,10 @@ export default function StudentDocuments() {
     try {
       const params = { page, limit: 24 };
       if (search) params.search = search;
-      // No classId filter here — the backend already scopes a student's
-      // documents to their own class plus lower-level classes of the same
-      // trade (see utils/classAccess.js), so restricting to just their own
-      // class id here would hide notes from those lower classes.
       params.courseId = selectedModule._id;
+      // Explicit classId only when browsing another (lower-level) class —
+      // otherwise the backend defaults to the student's own class.
+      if (viewingClass) params.classId = viewingClass.id;
       const res = await api.get('/documents', { params });
       const docs = res.data.documents || [];
       setDocuments(docs);
@@ -454,7 +576,7 @@ export default function StudentDocuments() {
       setDocCounts(prev => ({ ...prev, [selectedModule._id]: res.data.total || docs.length }));
     } catch { toast.error('Failed to load notes'); }
     finally { setLoading(false); }
-  }, [view, search, page, selectedModule, studentClass]);
+  }, [view, search, page, selectedModule, viewingClass]);
 
   useEffect(() => { fetchDocs(); }, [fetchDocs]);
 
@@ -537,6 +659,27 @@ export default function StudentDocuments() {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
+        {/* Viewing-another-class banner */}
+        {viewingClass && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+            padding: '10px 16px', borderRadius: 14,
+            background: 'rgba(194, 65, 12, 0.1)', border: '1px solid rgba(194, 65, 12, 0.25)',
+          }}>
+            <Sparkles style={{ width: 15, height: 15, color: '#c2410c', flexShrink: 0 }} />
+            <p style={{ fontSize: 12.5, color: 'var(--text-primary)', flex: 1, minWidth: 160 }}>
+              Browsing notes for <strong>{viewingClass.name}</strong> {viewingClass.level ? `(${viewingClass.level})` : ''} — not your own class.
+            </p>
+            <button onClick={backToMyClass} style={{
+              display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px',
+              borderRadius: 10, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+              background: '#c2410c', color: '#fff', border: 'none', flexShrink: 0,
+            }}>
+              <ArrowLeft style={{ width: 13, height: 13 }} /> Back to my class
+            </button>
+          </div>
+        )}
+
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <div>
@@ -545,14 +688,30 @@ export default function StudentDocuments() {
             </h2>
             <p style={{ fontSize: 13, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 6 }}>
               <FolderOpen style={{ width: 13, height: 13 }} />
-              {studentClass ? `${studentClass.name} — pick a module below` : 'Select a module to view notes'}
+              {activeClass ? `${activeClass.name} — pick a module below` : 'Select a module to view notes'}
             </p>
           </div>
-          {modules.length > 0 && (
-            <span style={{ fontSize: 12, fontWeight: 700, padding: '5px 12px', borderRadius: 10, background: 'rgba(194, 65, 12,0.1)', color: '#c2410c' }}>
-              {modules.length} module{modules.length !== 1 ? 's' : ''}
-            </span>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            {modules.length > 0 && (
+              <span style={{ fontSize: 12, fontWeight: 700, padding: '5px 12px', borderRadius: 10, background: 'rgba(194, 65, 12,0.1)', color: '#c2410c' }}>
+                {modules.length} module{modules.length !== 1 ? 's' : ''}
+              </span>
+            )}
+            {!viewingClass && otherClasses.length > 0 && (
+              <button onClick={() => setShowPicker(true)} style={{
+                position: 'relative', overflow: 'hidden',
+                display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px',
+                borderRadius: 12, fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
+                background: 'linear-gradient(135deg, #c2410c, #ea580c)', color: '#fff', border: 'none',
+                boxShadow: '0 6px 18px rgba(194, 65, 12, 0.35)',
+                transition: 'transform 0.15s, box-shadow 0.15s',
+              }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 8px 22px rgba(194, 65, 12, 0.45)'; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 6px 18px rgba(194, 65, 12, 0.35)'; }}>
+                <Sparkles style={{ width: 14, height: 14 }} /> View other contents
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Module search */}
@@ -564,7 +723,7 @@ export default function StudentDocuments() {
           : !hasGroups ? (
             <div className="card">
               <EmptyState icon={BookOpen} title="No modules found"
-                subtitle={moduleSearch ? `No modules match "${moduleSearch}"` : studentClass ? `No modules have been assigned to ${studentClass.name} yet.` : 'You are not enrolled in a class yet.'} />
+                subtitle={moduleSearch ? `No modules match "${moduleSearch}"` : activeClass ? `No modules have been assigned to ${activeClass.name} yet.` : 'You are not enrolled in a class yet.'} />
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -587,6 +746,11 @@ export default function StudentDocuments() {
               ))}
             </div>
           )}
+
+        <ClassPickerModal isOpen={showPicker} onClose={() => setShowPicker(false)}
+          classes={otherClasses} loading={loadingOtherClasses}
+          onSelect={openOtherClass} currentClassName={studentClass?.name || 'your'} />
+
         <style>{`@keyframes fadeSlide { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } } @keyframes spin { to { transform:rotate(360deg); } }`}</style>
       </div>
     );
@@ -611,7 +775,12 @@ export default function StudentDocuments() {
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
             <span style={{ fontSize: 11, color: 'var(--text-secondary)', opacity: 0.6, display: 'flex', alignItems: 'center', gap: 4 }}>
-              <BookOpen style={{ width: 11, height: 11 }} /> {studentClass?.name}
+              <BookOpen style={{ width: 11, height: 11 }} /> {activeClass?.name}
+              {viewingClass && (
+                <span style={{ fontSize: 9, fontWeight: 800, padding: '1px 7px', borderRadius: 20, background: 'rgba(194, 65, 12,0.15)', color: '#c2410c', marginLeft: 2 }}>
+                  OTHER CLASS
+                </span>
+              )}
             </span>
             <ChevronRight style={{ width: 11, height: 11, color: 'var(--text-secondary)', opacity: 0.4 }} />
             {selectedModule?.code && (
