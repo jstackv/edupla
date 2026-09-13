@@ -150,7 +150,7 @@ export default function ViewerPage() {
       }}>
         {/* Logo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg,#3b5bdb,#7048e8)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg,#ea580c,#9a3412)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <GraduationCap size={15} color="white" />
           </div>
           <span style={{ fontWeight: 800, fontSize: 14, letterSpacing: '-0.03em', color: tp }}>EDUPLA</span>
@@ -187,7 +187,7 @@ export default function ViewerPage() {
           {/* Download button */}
           <button
             onClick={handleDownload}
-            style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px', borderRadius: 10, background: 'linear-gradient(135deg,#3b5bdb,#7048e8)', color: 'white', fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer', boxShadow: '0 3px 10px rgba(194, 65, 12,0.35)' }}
+            style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px', borderRadius: 10, background: 'linear-gradient(135deg,#ea580c,#9a3412)', color: 'white', fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer', boxShadow: '0 3px 10px rgba(194, 65, 12,0.35)' }}
           >
             <Download size={14} /> Download
           </button>

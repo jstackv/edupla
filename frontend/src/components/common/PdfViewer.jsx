@@ -56,6 +56,7 @@ export default function PdfViewer({ url, title, dark, accent, tp, tm, border, ca
   const pdfDocRef = useRef(null);
   const renderedPagesRef = useRef(new Set());
   const dprRef = useRef(window.devicePixelRatio || 1);
+  const hasAutoFitRef = useRef(false);
 
   useEffect(() => { scaleRef.current = scale; }, [scale]);
   useEffect(() => { pdfDocRef.current = pdfDoc; }, [pdfDoc]);
@@ -80,6 +81,7 @@ export default function PdfViewer({ url, title, dark, accent, tp, tm, border, ca
     wrapperRefs.current = {};
     canvasRefs.current = {};
     thumbRenderedRef.current = new Set();
+    hasAutoFitRef.current = false;
 
     loadPdfjs()
       .then((pdfjsLib) => pdfjsLib.getDocument(url).promise)
@@ -151,6 +153,20 @@ export default function PdfViewer({ url, title, dark, accent, tp, tm, border, ca
       }
       if (cancelled) return;
       setPageSizes(sizes);
+
+      // Fit the very first page to the available width on first load. A
+      // flat default scale looks fine on one screen size and leaves a lot
+      // of empty space next to the page on a wider one (or overflows on a
+      // narrower one) — sizing off the real container width fixes both.
+      if (!hasAutoFitRef.current && sizes[1] && containerRef.current) {
+        hasAutoFitRef.current = true;
+        const available = containerRef.current.clientWidth - 40; // side padding in the scroll area
+        if (available > 0) {
+          const fitScale = +Math.min(2.4, Math.max(0.6, available / sizes[1].width)).toFixed(2);
+          scaleRef.current = fitScale; // so the render loop below picks it up immediately
+          setScale(fitScale);
+        }
+      }
 
       for (let i = 1; i <= numPages; i++) {
         if (cancelled) return;
