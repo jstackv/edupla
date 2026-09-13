@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { isAuthenticated, isAdmin, isSuperAdmin } = require('../middleware/auth');
 const { logoUpload } = require('../middleware/upload');
+const { notifyWelcome, notifyPasswordReset } = require('../services/emailService');
 const {
   getDashboardStats, getTeachers, getClassTeachersOverview, createTeacher, updateTeacher, deleteTeacher,
   getAllClasses, adminCreateClass, adminUpdateClass, adminDeleteClass, adminAssignClassToTeacher, adminSetExtraTeachers,
@@ -169,6 +170,11 @@ router.post('/admins', isSuperAdmin, async (req, res) => {
     const hashed = await bcrypt.hash(password, 10);
     const admin = await User.create({ name, email: email.toLowerCase(), password: hashed, role: 'admin', is_active: true });
     res.status(201).json({ message: 'Admin account created', id: admin._id });
+    // Welcome email — matches the notification teachers/students already get on creation
+    try {
+      const creator = await User.findById(req.user.id, 'name').lean();
+      notifyWelcome({ to: admin.email, name: admin.name, role: 'admin', defaultPassword: password, adminName: creator?.name }).catch(() => {});
+    } catch (_) {}
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
@@ -195,6 +201,13 @@ router.put('/admins/:id', isSuperAdmin, async (req, res) => {
     const result = await User.findOneAndUpdate({ _id: req.params.id, role: 'admin' }, update, { new: true });
     if (!result) return res.status(404).json({ message: 'Admin not found' });
     res.json({ message: 'Admin updated successfully' });
+    // Password-reset email — only fires when a new password was actually set
+    if (password) {
+      try {
+        const superAdmin = await User.findById(req.user.id, 'name').lean();
+        notifyPasswordReset({ to: result.email, name: result.name, role: 'admin', newPassword: password, adminName: superAdmin?.name }).catch(() => {});
+      } catch (_) {}
+    }
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 

@@ -17,7 +17,7 @@ function createTransporter() {
 }
 
 const FROM    = () => process.env.EMAIL_FROM   || '"EDUPLA" <no-reply@edupla.app>';
-const APP_URL = () => process.env.APP_URL       || 'https://edupla.vercel.app/login';
+const APP_URL = () => process.env.APP_URL       || 'https://edupla.vercel.app';
 
 // ── Brand palette — dark "ticket card" theme, matching the in-app dialogs:
 // near-black canvas, a glowing colored status circle up top, and a darker
@@ -197,6 +197,31 @@ function appPreviewStrip(items) {
   return `<table role="presentation" style="width:100%;" cellpadding="0" cellspacing="0"><tr>${cells}</tr></table>`;
 }
 
+// "Browser chrome" teaser card — traffic-light dots + address pill + a live
+// badge, then a friendly greeting and a preview strip of what's inside the
+// app. Dropped into onboarding-type emails to turn a plain credential drop
+// into something that actually makes someone want to click through and log in.
+function dashboardTeaserCard({ greetingName, items, liveLabel = 'live' }) {
+  const dot = (color) => `<td style="width:9px;height:9px;border-radius:50%;background:${color};"></td><td width="6"></td>`;
+  return `<table role="presentation" style="width:100%;background:#0c0c0e;border:1px solid ${BRAND.ticketBorder};border-radius:16px;overflow:hidden;" cellpadding="0" cellspacing="0">
+    <tr><td style="padding:13px 18px;border-bottom:1px solid ${BRAND.headerBorder};">
+      <table role="presentation" style="width:100%;" cellpadding="0" cellspacing="0"><tr>
+        <td width="92"><table role="presentation" cellpadding="0" cellspacing="0"><tr>${dot('#f87171')}${dot('#f59e0b')}${dot('#34d399')}</tr></table></td>
+        <td align="center">
+          <span style="display:inline-block;padding:5px 14px;background:${BRAND.chipBg};border:1px solid ${BRAND.chipBorder};border-radius:999px;font-size:10px;color:${BRAND.textMuted};">app.edupla.school</span>
+        </td>
+        <td width="92" align="right">
+          <span style="display:inline-block;white-space:nowrap;padding:4px 10px;background:${BRAND.successBg};border:1px solid ${BRAND.successBorder};border-radius:999px;font-size:9px;font-weight:800;color:${BRAND.successText};text-transform:uppercase;letter-spacing:0.04em;">● ${liveLabel}</span>
+        </td>
+      </tr></table>
+    </td></tr>
+    <tr><td style="padding:20px 20px 4px;">
+      <p style="margin:0;font-size:14.5px;font-weight:800;color:${BRAND.textPrimary};">Good to see you${greetingName ? ', ' + greetingName : ''} 👋</p>
+      <p style="margin:4px 0 0;font-size:11.5px;color:${BRAND.textMuted};">Here's what's waiting for you inside EDUPLA</p>
+    </td></tr>
+    <tr><td style="padding:14px 16px 22px;">${appPreviewStrip(items)}</td></tr>
+  </table>`;
+}
 
 // Small decorative icon chip — mirrors the copy/eye icon buttons in the app's
 // dark UI. Purely visual in email (no client-side interactivity is possible),
@@ -361,10 +386,17 @@ async function notifyAccountStatus({ to, name, role, isActive }) {
 // ═══════════════════════════════════════════════════════════════════════════
 async function notifyWelcome({ to, name, role, defaultPassword, adminName }) {
   if (!to) return;
-  const roleLabel = role === 'teacher' ? 'Teacher' : 'Student';
-  const dashUrl   = role === 'teacher' ? `${APP_URL()}/teacher` : `${APP_URL()}/student`;
+  const roleLabel = role === 'admin' ? 'Admin' : role === 'teacher' ? 'Teacher' : 'Student';
+  const dashUrl   = role === 'admin' ? `${APP_URL()}/admin` : role === 'teacher' ? `${APP_URL()}/teacher` : `${APP_URL()}/student`;
   const firstName = (name || '').trim().split(' ')[0];
-  const previewItems = role === 'teacher'
+  const previewItems = role === 'admin'
+    ? [
+        { icon: '👥', label: 'Teachers' },
+        { icon: '🎓', label: 'Students' },
+        { icon: '📚', label: 'Classes' },
+        { icon: '📣', label: 'Announcements' },
+      ]
+    : role === 'teacher'
     ? [
         { icon: '📚', label: 'Classes' },
         { icon: '📋', label: 'Assignments' },
@@ -377,6 +409,8 @@ async function notifyWelcome({ to, name, role, defaultPassword, adminName }) {
         { icon: '📝', label: 'Assessments' },
         { icon: '📣', label: 'Announcements' },
       ];
+  const firstStepTitle = role === 'admin' ? 'Add your teachers & students' : role === 'teacher' ? 'Create your first class' : 'Explore your classes';
+  const firstStepDesc  = role === 'admin' ? 'Invite staff and enroll students to get your school set up.' : role === 'teacher' ? 'Set up a class and invite students.' : 'Check assignments, docs and announcements.';
 
   const body = `
     <p style="margin:0 0 6px;font-size:15px;font-weight:800;color:${BRAND.textPrimary};">Hi ${firstName || name},</p>
@@ -409,8 +443,8 @@ async function notifyWelcome({ to, name, role, defaultPassword, adminName }) {
     ${sectionLabel('🚀 Get started in 3 steps')}
     ${stepsStrip([
       { title: 'Log in', desc: 'Use the credentials above to sign in for the first time.' },
-      { title: 'Set up your profile', desc: 'Add a photo and confirm your details.' },
-      { title: role === 'teacher' ? 'Create your first class' : 'Explore your classes', desc: role === 'teacher' ? 'Set up a class and invite students.' : 'Check assignments, docs and announcements.' },
+      { title: 'Set up your account', desc: 'Change your password to something yuo know.' },
+      { title: firstStepTitle, desc: firstStepDesc },
     ])}`;
 
   await sendMail({
@@ -419,7 +453,7 @@ async function notifyWelcome({ to, name, role, defaultPassword, adminName }) {
     html: wrapEmail({
       title: 'Welcome to EDUPLA',
       preheader: `Your ${roleLabel} account has been created. Log in now.`,
-      badge: badgeChip(`New ${roleLabel} account created successfully!`, 'success'),
+      badge: badgeChip(`New ${roleLabel} account created successfully !!`, 'success'),
       icon: '✓',
       status: 'success',
       body,
@@ -432,7 +466,8 @@ async function notifyWelcome({ to, name, role, defaultPassword, adminName }) {
 // ═══════════════════════════════════════════════════════════════════════════
 async function notifyPasswordReset({ to, name, role, newPassword, adminName }) {
   if (!to) return;
-  const roleLabel = role === 'teacher' ? 'Teacher' : 'Student';
+  const roleLabel = role === 'admin' ? 'Admin' : role === 'teacher' ? 'Teacher' : 'Student';
+  const dashUrl   = role === 'admin' ? `${APP_URL()}/admin` : role === 'teacher' ? `${APP_URL()}/teacher` : `${APP_URL()}/student`;
 
   const body = `
     <p style="margin:0 0 22px;font-size:14px;color:${BRAND.textSecondary};">${adminName ? `${adminName} (your school admin)` : 'Your school admin'} reset your EDUPLA password. Here's your new login.</p>
@@ -448,7 +483,7 @@ async function notifyPasswordReset({ to, name, role, newPassword, adminName }) {
     <div style="margin-top:20px;">
       ${calloutBox({ label: 'Heads up', text: '🔒 Your old password no longer works — log in with the new one above, and consider changing it to something only you know.', tone: 'accent' })}
     </div>
-    ${ctaBtn('Log In to EDUPLA →', APP_URL())}`;
+    ${ctaBtn('Log In to EDUPLA →', dashUrl)}`;
 
   await sendMail({
     to,
