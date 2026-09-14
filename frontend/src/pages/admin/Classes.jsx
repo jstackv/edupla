@@ -619,20 +619,21 @@ export default function AdminClasses() {
         margin: { left: margin, right: margin },
         head: [['No', 'Student Name', 'Email']],
         body: alphabetical.map((s, i) => [String(i + 1), s.name || '—', s.email || '—']),
-        theme: 'plain',
+        theme: 'grid',
         styles: {
           font: 'helvetica', fontSize: 10.5, cellPadding: { top: 9, bottom: 9, left: 10, right: 10 },
-          textColor: [40, 32, 28], lineColor: [237, 224, 213], lineWidth: 0.6,
+          textColor: [40, 32, 28], lineColor: [200, 160, 130], lineWidth: 0.75,
         },
         headStyles: {
           fillColor: [194, 65, 12], textColor: 255, fontStyle: 'bold', fontSize: 9,
           cellPadding: { top: 10, bottom: 10, left: 10, right: 10 },
+          lineColor: [124, 45, 18], lineWidth: 0.75,
         },
         alternateRowStyles: { fillColor: [251, 246, 242] },
         columnStyles: {
           0: { cellWidth: 46, halign: 'center', textColor: [180, 83, 9], fontStyle: 'bold' },
           1: { cellWidth: 220, fontStyle: 'bold' },
-          2: { cellWidth: 'auto', textColor: [90, 78, 70] },
+          2: { cellWidth: 'auto', textColor: [40, 32, 28] },
         },
         didDrawPage: () => {
           // Footer on every page — brand tag + page count.
