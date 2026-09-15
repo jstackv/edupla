@@ -106,17 +106,27 @@ const createAssignment = async (req, res) => {
   try {
     const { title, description, deadline, classId, courseId, max_score, is_active } = req.body;
     if (!title || !deadline || !classId) return res.status(400).json({ message: 'Title, deadline, and class are required' });
-    // Verify teacher is assigned to this class (as class teacher or extra teacher)
-    const teacherClass = await Class.findOne({
-      _id: classId,
-      $or: [{ teacher_id: req.session.user.id }, { extra_teachers: req.session.user.id }]
-    }).lean();
-    if (!teacherClass) return res.status(403).json({ message: 'You are not assigned to this class.' });
-    // If a module/course is specified, verify the teacher is assigned to that module
-    if (courseId) {
-      const teacherCourse = await Course.findOne({ _id: courseId, teacher_id: req.session.user.id }).lean();
-      if (!teacherCourse) return res.status(403).json({ message: 'You are not assigned to this module.' });
-    }
+    // A teacher may post an assignment into a class either as the class
+    // teacher / a class-level co-teacher, OR as the assigned teacher of the
+    // specific MODULE it's posted under — e.g. a subject teacher who
+    // teaches "Website Development" in this class but isn't its class
+    // teacher. Previously this always required class-level access first,
+    // so a module-only teacher was rejected before their courseId was even
+    // considered.
+    const [teacherClass, teacherCourse] = await Promise.all([
+      Class.findOne({
+        _id: classId,
+        $or: [{ teacher_id: req.session.user.id }, { extra_teachers: req.session.user.id }],
+      }).lean(),
+      courseId
+        ? Course.findOne({
+            _id: courseId,
+            teacher_id: req.session.user.id,
+            $or: [{ class_id: classId }, { class_ids: classId }],
+          }).lean()
+        : null,
+    ]);
+    if (!teacherClass && !teacherCourse) return res.status(403).json({ message: 'You are not assigned to this class.' });
     const a = await Assignment.create({
       title, description, deadline,
       is_active: (is_active === undefined || is_active === null || is_active === "") ? true : (is_active === true || is_active === "true"),

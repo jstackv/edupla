@@ -32,6 +32,12 @@
          load faster — page speed is a Google ranking signal. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <!-- Preconnect to Cloudinary — every document/image/video preview and
+         download fetches from res.cloudinary.com, so starting its DNS/TLS
+         handshake immediately (instead of only once a preview is clicked)
+         shaves that round-trip off the very first document a user opens. -->
+    <link rel="preconnect" href="https://res.cloudinary.com" crossorigin />
   </head>
   <body>
     <div id="root"></div>

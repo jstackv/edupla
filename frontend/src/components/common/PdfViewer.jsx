@@ -13,13 +13,20 @@ import {
   PanelLeft, Maximize2, AlertTriangle, Download, ArrowUp, FileText,
   Maximize, Minimize,
 } from 'lucide-react';
+// Resolved at build time to a same-origin, hashed asset URL by Vite's `?url`
+// import — the actual worker file ships alongside the rest of the app's
+// static assets instead of being fetched cold from cdnjs.cloudflare.com on
+// someone's first document click. That used to mean a brand-new DNS lookup
+// + TLS handshake to a third-party domain before the worker could even
+// start parsing pages; now it's just another same-origin asset the browser
+// (and any CDN edge/cache in front of the app) already knows how to serve.
+import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
 let pdfjsLibPromise = null;
 function loadPdfjs() {
   if (!pdfjsLibPromise) {
     pdfjsLibPromise = import('pdfjs-dist').then((mod) => {
-      mod.GlobalWorkerOptions.workerSrc =
-        `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${mod.version}/pdf.worker.min.mjs`;
+      mod.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
       return mod;
     });
   }

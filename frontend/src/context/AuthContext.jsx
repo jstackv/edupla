@@ -19,6 +19,11 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // The document viewer (opened in its own tab) never reads `user` — it
+    // renders straight from URL params — so skip this call entirely there
+    // rather than let it compete with the actual PDF download for bandwidth.
+    if (window.location.pathname === '/view-doc') { setLoading(false); return; }
+
     const token = sessionStorage.getItem('token');
     if (!token) { setLoading(false); return; }
 

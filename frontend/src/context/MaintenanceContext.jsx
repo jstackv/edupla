@@ -25,6 +25,11 @@ export function MaintenanceProvider({ children }) {
   }, []);
 
   useEffect(() => {
+    // Skipped on the document viewer tab — it never reads `maintenance`,
+    // and a PDF can stay open for a while, so there's no reason to keep
+    // polling this every 20s in the background on that tab.
+    if (window.location.pathname === '/view-doc') { setLoading(false); return; }
+
     mounted.current = true;
     refresh();
     const id = setInterval(refresh, POLL_INTERVAL_MS);

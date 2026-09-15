@@ -241,6 +241,30 @@ export async function downloadFile(file) {
  * Thin component wrapper for callers using <FileViewer file={f} onClose={fn} />
  */
 import { useEffect } from 'react';
+import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+
+// Warms the document viewer's heaviest assets — the ViewerPage route chunk,
+// the pdfjs-dist library chunk, and the pdf.js worker script itself — during
+// browser idle time. This module is imported by every page that lists
+// documents/assignments (Documents, Assignments, etc.), so it fires once,
+// early, well before anyone actually clicks a preview: by the time they do,
+// these are already sitting in the HTTP cache instead of being fetched cold
+// (route chunk → pdfjs chunk → worker script, three round-trips in series)
+// on that first click. Failures here are silently ignored — this is a best-
+// effort speed-up, never something the actual click should depend on.
+let viewerAssetsWarmed = false;
+function warmViewerAssets() {
+  if (viewerAssetsWarmed || typeof window === 'undefined') return;
+  viewerAssetsWarmed = true;
+  import('../../pages/ViewerPage').catch(() => {});
+  import('pdfjs-dist').catch(() => {});
+  fetch(pdfWorkerUrl, { priority: 'low' }).catch(() => {});
+}
+if (typeof window !== 'undefined') {
+  const idle = window.requestIdleCallback || ((cb) => setTimeout(cb, 600));
+  idle(warmViewerAssets);
+}
+
 export default function FileViewer({ file, onClose }) {
   useEffect(() => {
     if (file) {

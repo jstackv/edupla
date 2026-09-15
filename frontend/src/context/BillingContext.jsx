@@ -30,6 +30,11 @@ export function BillingProvider({ children }) {
   }, [user]);
 
   useEffect(() => {
+    // Skipped on the document viewer tab — it never reads `billing`, and a
+    // PDF can stay open for a while, so there's no reason to keep polling
+    // this in the background on that tab.
+    if (window.location.pathname === '/view-doc') { setLoading(false); return; }
+
     mounted.current = true;
     refresh();
     // Skip ticks while the tab is backgrounded — billing status doesn't

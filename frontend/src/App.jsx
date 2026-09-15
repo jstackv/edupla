@@ -383,10 +383,33 @@ function AppGate() {
   // the app is showing the maintenance screen to everyone else.
   if (window.location.pathname === '/impersonate-handoff') return <AppRoutes />;
 
+  // Document viewer — opens in a brand-new tab (no existing session state
+  // to reuse) and renders no session/maintenance/billing-aware UI at all:
+  // ViewerPage never calls useAuth(), doesn't use <Layout>, and the file
+  // URL it renders is already a direct, pre-authorized Cloudinary link.
+  // Routing it through the same authLoading/maintLoading/billingLoading
+  // gate as every other page meant a brand-new tab had to wait on three
+  // backend round-trips it never needed just to show a PDF — that's what
+  // was producing the "Loading EDUPLA…" splash students saw before
+  // PdfViewer's own "Loading PDF…" spinner even started. It also gets its
+  // own Suspense with no fallback (instead of the shared branded
+  // LoadingScreen) so the brief moment while its JS chunk loads is blank
+  // rather than a second, redundant loading screen.
+  if (window.location.pathname === '/view-doc') {
+    return (
+      <Suspense fallback={null}>
+        <Routes>
+          <Route path="/view-doc" element={<ViewerPage />} />
+        </Routes>
+      </Suspense>
+    );
+  }
+
   // Billing status only exists for logged-in users, so only wait on it
   // once a user is present — otherwise the public landing/login pages
   // would hang on a request that never fires.
   if (authLoading || maintLoading || (user && billingLoading)) return <LoadingScreen />;
+
 
   const isSuperAdmin = user?.role === 'admin' && !!user?.is_super_admin;
   // Mirrors the backend's maintenanceGate: a token carrying

@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { Document, Class, User } = require('../models/db');
+const { Document, Class, Course, User } = require('../models/db');
 const { cloudinary, getResourceType } = require('../middleware/upload');
 const { notifyDocumentPosted } = require('../services/emailService');
 const { createInAppNotification, getStudentEmails, getTeacherEmail } = require('../services/notificationHelpers');
@@ -117,13 +117,28 @@ const uploadDocument = async (req, res) => {
     if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
     const { title, description, classId, courseId } = req.body;
     if (!title) return res.status(400).json({ message: 'Title is required' });
-    // If a class is specified, verify the teacher is assigned to it
+    // A teacher may post a note into a class either because they're the
+    // class teacher / a co-teacher of the WHOLE class, OR because they're
+    // the assigned teacher of the specific MODULE being posted to — e.g. a
+    // subject teacher who teaches "Website Development" in this class but
+    // isn't its class teacher. Only rejecting when neither is true means a
+    // module teacher can post to every module actually assigned to them,
+    // not just classes where they hold the class-teacher role.
     if (classId) {
-      const teacherClass = await Class.findOne({
-        _id: classId,
-        $or: [{ teacher_id: req.session.user.id }, { extra_teachers: req.session.user.id }]
-      }).lean();
-      if (!teacherClass) return res.status(403).json({ message: 'You are not assigned to this class.' });
+      const [teacherClass, teacherCourse] = await Promise.all([
+        Class.findOne({
+          _id: classId,
+          $or: [{ teacher_id: req.session.user.id }, { extra_teachers: req.session.user.id }],
+        }).lean(),
+        courseId
+          ? Course.findOne({
+              _id: courseId,
+              teacher_id: req.session.user.id,
+              $or: [{ class_id: classId }, { class_ids: classId }],
+            }).lean()
+          : null,
+      ]);
+      if (!teacherClass && !teacherCourse) return res.status(403).json({ message: 'You are not assigned to this class.' });
     }
     const doc = await Document.create({
       title, description, class_id: classId || null,
