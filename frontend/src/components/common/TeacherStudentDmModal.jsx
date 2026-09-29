@@ -4,13 +4,14 @@ import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import { MessageCircle, Send, Trash2, X, Lock, Unlock, PauseCircle, PlayCircle } from 'lucide-react';
 import ConfirmDialog from './ConfirmDialog';
+import { setActiveConversation, clearActiveConversation } from '../../utils/chatNotify';
 
 /* ══════════════════════════════════════════════════════════════════════
    TeacherStudentDmModal
    Private one-to-one chat between a teacher and a student they teach.
-   Opened from the teacher's Students list via the "Message" action.
-   Only the teacher can start this conversation — sending the first
-   message here is what makes it visible to the student at all.
+   Opened from a group's member list ("Message" action), from the teacher's
+   Messages inbox, or via a notification/toast deep link. Either side may
+   start the conversation; the teacher alone can pause or restore it.
 ══════════════════════════════════════════════════════════════════════ */
 export default function TeacherStudentDmModal({ studentId, studentName, onClose }) {
   const { t } = useTranslation();
@@ -50,6 +51,14 @@ export default function TeacherStudentDmModal({ studentId, studentName, onClose 
     } catch (err) {
       if (!silent) toast.error(err.response?.data?.message || t('teacherDm.loadFailed'));
     } finally { if (!silent) setLoading(false); }
+  }, [studentId]);
+
+  // While this modal is open the global toast poller must not announce
+  // messages from this student — they are already on screen.
+  useEffect(() => {
+    const key = `studentdm:${studentId}`;
+    setActiveConversation(key);
+    return () => clearActiveConversation(key);
   }, [studentId]);
 
   useEffect(() => {

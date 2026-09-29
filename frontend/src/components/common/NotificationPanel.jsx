@@ -51,10 +51,15 @@ function resolveNotificationPath(n, role) {
     case 'assignment':    return `${base}/assignments${qs()}`;
     case 'announcement':  return `${base}/announcements${qs()}`;
     case 'group':          return `${base}/groups`;
-    // A teacher's private DM only ever goes to a student — deep-link straight
-    // into that conversation instead of just the generic inbox.
+    // A private teacher <-> student DM can now be started from either side.
+    // link_id is the OTHER participant: the teacher's id for a student, the
+    // student's id for a teacher — deep-link straight into that conversation.
     case 'teacher_dm': {
-      if (n.link_id) setPendingChatTarget({ type: 'teacherdm', teacherId: n.link_id });
+      if (n.link_id) {
+        setPendingChatTarget(role === 'teacher'
+          ? { type: 'studentdm', studentId: n.link_id }
+          : { type: 'teacherdm', teacherId: n.link_id });
+      }
       return `${base}/groups`;
     }
     // A submission is only ever visible to the teacher who owns the class;

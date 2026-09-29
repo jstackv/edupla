@@ -70,7 +70,8 @@
     "adminCouncil": "Inama y'Abayobozi",
     "institutionsBilling": "Ibigo n'Kwishyura",
     "treasury": "Ubugenzuzi bw'Amafaranga",
-    "systemHealth": "Imikorere y'Uburyo"
+    "systemHealth": "Imikorere y'Uburyo",
+    "randomGroups": "Amatsinda y'Ubushake"
   },
   "roles": {
     "teacherPortal": "Urubuga rw'Umwarimu",
@@ -1260,5 +1261,42 @@
     "awaitingReview": "bitegereje isuzuma ry'umuyobozi",
     "saveDraft": "Bika Umushinga",
     "submitForReview": "Tanga ku Isuzuma"
+  },
+  "randomGroups": {
+    "title": "Gukora Amatsinda mu Buryo Butunguranye",
+    "subtitle": "Tandukanya ishuri mu matsinda butunguranye maze ukuremo urutonde muri PDF. Nta kintu kibikwa kandi nta matsinda y'ibiganiro akorwa.",
+    "class": "Ishuri",
+    "selectClass": "Hitamo ishuri",
+    "studentsCount": "Abanyeshuri {{count}}",
+    "splitBy": "Gutandukanya hakurikijwe",
+    "byGroups": "Umubare w'amatsinda",
+    "bySize": "Abanyeshuri mu itsinda",
+    "numGroups": "Amatsinda angahe?",
+    "groupSize": "Abanyeshuri bangahe mu itsinda?",
+    "preview": "Amatsinda {{groups}}: {{detail}}",
+    "previewSame": "Amatsinda {{groups}} y'abanyeshuri {{size}}",
+    "previewMixed": "{{big}} y'abanyeshuri {{bigSize}} na {{small}} y'abanyeshuri {{smallSize}}",
+    "invalidValue": "Andika umubare uri hagati ya 1 na {{max}}.",
+    "noStudents": "Iri shuri nta banyeshuri rifite.",
+    "generate": "Kora amatsinda",
+    "shuffleAgain": "Ongera uvange",
+    "downloadPdf": "Kuramo PDF",
+    "group": "Itsinda {{n}}",
+    "groupHeading": "Itsinda {{n}} - abanyeshuri {{count}}",
+    "oneStudent": "Umunyeshuri 1",
+    "resultSummary": "Abanyeshuri {{students}} bagabanyijwe mu matsinda {{groups}}",
+    "loadClassesFailed": "Kubona amashuri byanze",
+    "loadStudentsFailed": "Kubona abanyeshuri byanze",
+    "pdfDownloaded": "PDF yakuwemo",
+    "pdfFailed": "Gukora PDF byanze",
+    "pdfNo": "No",
+    "pdfStudent": "Izina ry'umunyeshuri",
+    "pdfStudentsTotal": "Abanyeshuri {{count}}",
+    "pdfGroupsTotal": "Amatsinda {{count}}",
+    "pdfTitle": "Amatsinda y'Ubushake",
+    "pdfTeacher": "Umwarimu: {{name}}",
+    "pdfPage": "Urupapuro {{n}} rwa {{total}}",
+    "pdfRandom": "Yakozwe butunguranye",
+    "pdfLight": "Urupapuro rw'umweru (rutwara wino muke)"
   }
 }

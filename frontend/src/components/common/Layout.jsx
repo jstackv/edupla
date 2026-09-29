@@ -14,7 +14,7 @@ import {
   GraduationCap, BookMarked, Notebook, Shield, UserCheck,
   UserCircle, Settings, Bell, Search, Home,
   Layers, UserPlus, AlertTriangle, X, Crown, ClipboardCheck,
-  LibraryBig, Building2, Wallet, MessageCircle, Activity, Laptop2, ShieldCheck,
+  LibraryBig, Building2, Wallet, MessageCircle, Activity, Laptop2, ShieldCheck, Shuffle,
 } from 'lucide-react';
 import NotificationPanel from './NotificationPanel';
 import LanguageSwitcher from './LanguageSwitcher';
@@ -36,6 +36,7 @@ const TeacherLinks = [
   { to: '/teacher/assessments',      icon: ClipboardCheck,  labelKey: 'nav.examsQuizzes',    section: 'manage' },
   { to: '/teacher/announcements',    icon: Megaphone,       labelKey: 'nav.broadcasts',      section: 'manage' },
   { to: '/teacher/groups',           icon: MessageCircle,   labelKey: 'nav.discussion',      section: 'manage' },
+  { to: '/teacher/random-groups',    icon: Shuffle,         labelKey: 'nav.randomGroups',    section: 'manage' },
   { to: '/teacher/discipline',       icon: ShieldCheck,     labelKey: 'nav.disciplineMarks', section: 'manage' },
 ];
 const StudentLinks = [

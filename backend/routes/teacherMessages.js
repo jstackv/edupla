@@ -4,12 +4,19 @@ const { isAuthenticated, isTeacher, isStudent } = require('../middleware/auth');
 const {
   getConversationAsTeacher, postMessageAsTeacher,
   getConversationAsStudent, postMessageAsStudent,
-  getMyTeacherThreads, deleteMessage, clearMyMessages,
+  getMyTeacherThreads, getMyTeachers, getMyStudentThreads,
+  deleteMessage, clearMyMessages,
   setConversationStatus,
 } = require('../controllers/teacherMessageController');
 
-// Student — list every teacher who has started a DM with them (inbox overview)
+// Student — inbox overview: every teacher they have a DM thread with
 router.get('/my', isAuthenticated, isStudent, getMyTeacherThreads);
+
+// Student — teachers of their enrolled classes they can start a DM with
+router.get('/my-teachers', isAuthenticated, isStudent, getMyTeachers);
+
+// Teacher — inbox overview: every student they have a DM thread with
+router.get('/my-students', isAuthenticated, isTeacher, getMyStudentThreads);
 
 // Teacher — start / continue a private DM with a student they teach
 router.get('/student/:studentId',            isAuthenticated, isTeacher, getConversationAsTeacher);
@@ -18,7 +25,7 @@ router.patch('/student/:studentId/status',   isAuthenticated, isTeacher, setConv
 router.delete('/student/:studentId/messages',            isAuthenticated, isTeacher, clearMyMessages);
 router.delete('/student/:studentId/messages/:messageId', isAuthenticated, isTeacher, deleteMessage);
 
-// Student — view / reply to a DM a teacher has started with them
+// Student — view / start / reply to a DM with a teacher of one of their classes
 router.get('/teacher/:teacherId',            isAuthenticated, isStudent, getConversationAsStudent);
 router.post('/teacher/:teacherId',           isAuthenticated, isStudent, postMessageAsStudent);
 router.delete('/teacher/:teacherId/messages',            isAuthenticated, isStudent, clearMyMessages);

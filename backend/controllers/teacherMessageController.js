@@ -1,15 +1,16 @@
 const mongoose = require('mongoose');
 const { Class, User, TeacherDirectMessage, TeacherDmConversationState } = require('../models/db');
-const { createDirectNotification } = require('../services/notificationHelpers');
+const { createDirectNotification, createInAppNotification } = require('../services/notificationHelpers');
 
 /* ══════════════════════════════════════════════════════════════════════════
    TEACHER <-> STUDENT PRIVATE DM
-   Only a teacher can start a conversation with a student they teach — the
-   thread only becomes visible to (and repliable by) the student once the
-   teacher has sent at least one message. After that, either side may
-   reply freely. Access to any given thread is strictly limited to the two
-   participants (teacher_id + student_id) — no one else, including other
-   teachers, can read it.
+   Either side may start a conversation: a teacher with any student they
+   teach, or a student with any teacher of a class they are enrolled in
+   (owning teacher OR extra_teacher). The only gate is the shared class.
+   The teacher keeps sole control of pausing a thread (TeacherDmConversationState).
+   Access to any given thread is strictly limited to the two participants
+   (teacher_id + student_id) — no one else, including other teachers, can
+   read it.
 ══════════════════════════════════════════════════════════════════════════ */
 
 // Confirms the teacher currently teaches a class the student is enrolled
@@ -21,9 +22,10 @@ async function findSharedClass(teacherId, studentId) {
   }, '_id name').lean();
 }
 
-// A thread only "exists" from the student's side once the teacher has
-// sent at least one message — this is what makes the teacher the only one
-// who can allow the conversation to start.
+// True once the teacher has sent at least one message in this thread. Used
+// only to decide whether the student should get a "new private message"
+// notification on the teacher's first message (a student-started thread
+// still notifies the student when the teacher first replies).
 async function threadStartedByTeacher(teacherId, studentId) {
   const exists = await TeacherDirectMessage.exists({
     teacher_id: teacherId,
@@ -137,13 +139,14 @@ const getConversationAsStudent = async (req, res) => {
     const { teacherId } = req.params;
     const { since } = req.query;
 
-    const started = await threadStartedByTeacher(teacherId, studentId);
-    if (!started) return res.status(403).json({ message: 'This teacher has not started a conversation with you yet.' });
+    // The only requirement to open (or start) a thread is a shared class.
+    const cls = await findSharedClass(teacherId, studentId);
+    if (!cls) return res.status(403).json({ message: 'You are not in any class taught by this teacher.' });
 
-    // A paused thread is invisible to the student — indistinguishable from
-    // one that was never started, until the teacher restores it.
+    // A thread the teacher paused is unavailable to the student, whether or
+    // not any messages exist yet.
     if (await isConversationDisabled(teacherId, studentId)) {
-      return res.status(403).json({ message: 'This teacher has not started a conversation with you yet.' });
+      return res.status(403).json({ message: 'This conversation is not available right now.' });
     }
 
     const teacher = await User.findOne({ _id: teacherId, role: 'teacher' }, 'name').lean();
@@ -158,11 +161,11 @@ const getConversationAsStudent = async (req, res) => {
       { read: true }
     );
 
-    res.json({ peer: { id: teacher._id, name: teacher.name }, messages: messages.map(fmt) });
+    res.json({ peer: { id: teacher._id, name: teacher.name }, class_name: cls.name, messages: messages.map(fmt) });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
-/* ── Student: reply — only once the teacher has started the thread ──────── */
+/* ── Student: send a message to a teacher (starts the thread if new) ────── */
 const postMessageAsStudent = async (req, res) => {
   try {
     const studentId = String(req.user.id);
@@ -172,17 +175,19 @@ const postMessageAsStudent = async (req, res) => {
       return res.status(400).json({ message: 'Message cannot be empty.' });
     }
 
-    const started = await threadStartedByTeacher(teacherId, studentId);
-    if (!started) return res.status(403).json({ message: 'Only your teacher can start this conversation.' });
+    const cls = await findSharedClass(teacherId, studentId);
+    if (!cls) return res.status(403).json({ message: 'You are not in any class taught by this teacher.' });
 
-    // Same invisibility rule applies to sending — a paused thread behaves
-    // as if it never existed from the student's side.
     if (await isConversationDisabled(teacherId, studentId)) {
-      return res.status(403).json({ message: 'Only your teacher can start this conversation.' });
+      return res.status(403).json({ message: 'This conversation is not available right now.' });
     }
 
-    const cls = await findSharedClass(teacherId, studentId);
-    if (!cls) return res.status(403).json({ message: 'You are no longer sharing a class with this teacher.' });
+    // Notify the teacher only when this begins a new "burst" — i.e. they have
+    // no earlier unread message from this student. Avoids one notification
+    // per message while the student is typing several in a row.
+    const alreadyUnread = await TeacherDirectMessage.exists({
+      teacher_id: teacherId, student_id: studentId, sender_role: 'student', read: false,
+    });
 
     const msg = await TeacherDirectMessage.create({
       teacher_id: teacherId,
@@ -193,7 +198,106 @@ const postMessageAsStudent = async (req, res) => {
       content: content.trim(),
     });
 
+    if (!alreadyUnread) {
+      const student = await User.findById(studentId, 'name').lean();
+      await createInAppNotification({
+        title: 'New private message',
+        message: `${student?.name || 'A student'} sent you a private message.`,
+        type: 'info',
+        classId: cls._id,
+        teacherId,
+        audience: 'teacher',
+        linkType: 'teacher_dm',
+        linkId: studentId,
+      });
+    }
+
     res.status(201).json({ message: 'Message sent.', msg: fmt(msg) });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+/* ── Student: teachers they can message (any teacher of an enrolled class) ─ */
+const getMyTeachers = async (req, res) => {
+  try {
+    const studentId = new mongoose.Types.ObjectId(req.user.id);
+    const classes = await Class.find(
+      { students: studentId },
+      '_id name teacher_id extra_teachers'
+    ).lean();
+
+    // teacherId -> { classes: [names] }
+    const byTeacher = new Map();
+    classes.forEach(c => {
+      const ids = [c.teacher_id, ...(c.extra_teachers || [])].filter(Boolean).map(String);
+      new Set(ids).forEach(tid => {
+        if (!byTeacher.has(tid)) byTeacher.set(tid, []);
+        byTeacher.get(tid).push(c.name);
+      });
+    });
+    if (byTeacher.size === 0) return res.json({ teachers: [] });
+
+    const teacherIds = [...byTeacher.keys()];
+    const [teachers, paused] = await Promise.all([
+      User.find({ _id: { $in: teacherIds }, role: 'teacher' }, 'name').lean(),
+      // Teachers who paused their thread with this student are left out — the
+      // student cannot message them until the teacher restores it.
+      TeacherDmConversationState.find(
+        { student_id: studentId, teacher_id: { $in: teacherIds }, disabled: true }, 'teacher_id'
+      ).lean(),
+    ]);
+    const pausedSet = new Set(paused.map(p => String(p.teacher_id)));
+
+    res.json({
+      teachers: teachers
+        .filter(t => !pausedSet.has(String(t._id)))
+        .map(t => ({ id: t._id, name: t.name, classes: byTeacher.get(String(t._id)) || [] }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+/* ── Teacher: inbox — every thread with a student (either side started it) ─ */
+const getMyStudentThreads = async (req, res) => {
+  try {
+    const teacherId = new mongoose.Types.ObjectId(req.user.id);
+
+    const convos = await TeacherDirectMessage.aggregate([
+      { $match: { teacher_id: teacherId } },
+      { $sort: { created_at: -1 } },
+      {
+        $group: {
+          _id: '$student_id',
+          last_message: { $first: '$content' },
+          last_at: { $first: '$created_at' },
+          unread_count: {
+            $sum: { $cond: [{ $and: [{ $eq: ['$sender_role', 'student'] }, { $eq: ['$read', false] }] }, 1, 0] },
+          },
+        },
+      },
+      { $sort: { last_at: -1 } },
+    ]);
+
+    const studentIds = convos.map(c => c._id);
+    const [students, states] = await Promise.all([
+      User.find({ _id: { $in: studentIds } }, 'name').lean(),
+      TeacherDmConversationState.find(
+        { teacher_id: teacherId, student_id: { $in: studentIds }, disabled: true }, 'student_id'
+      ).lean(),
+    ]);
+    const nameMap = {};
+    students.forEach(s => { nameMap[String(s._id)] = s.name; });
+    const pausedSet = new Set(states.map(s => String(s.student_id)));
+
+    res.json({
+      conversations: convos.map(c => ({
+        student_id: c._id,
+        student_name: nameMap[String(c._id)] || 'Student',
+        last_message: c.last_message,
+        last_at: c.last_at,
+        unread_count: c.unread_count,
+        disabled: pausedSet.has(String(c._id)),
+      })),
+    });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
@@ -297,6 +401,7 @@ const clearMyMessages = async (req, res) => {
 module.exports = {
   getConversationAsTeacher, postMessageAsTeacher,
   getConversationAsStudent, postMessageAsStudent,
-  getMyTeacherThreads, deleteMessage, clearMyMessages,
+  getMyTeacherThreads, getMyTeachers, getMyStudentThreads,
+  deleteMessage, clearMyMessages,
   setConversationStatus,
 };

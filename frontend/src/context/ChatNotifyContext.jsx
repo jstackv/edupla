@@ -74,6 +74,34 @@ export function ChatNotifyProvider({ children }) {
     });
   }, [goToPeerDm]);
 
+  // Student -> opens the private thread with a teacher.
+  const goToTeacherDm = useCallback((teacherId, teacherName) => {
+    setPendingChatTarget({ type: 'teacherdm', teacherId, teacherName });
+    goToGroups();
+  }, [goToGroups]);
+
+  // Teacher -> opens the private thread with a student.
+  const goToStudentDm = useCallback((studentId, studentName) => {
+    setPendingChatTarget({ type: 'studentdm', studentId, studentName });
+    goToGroups();
+  }, [goToGroups]);
+
+  // Shared toast logic for a private teacher <-> student thread summary
+  // (one row of /teacher-messages/my or /teacher-messages/my-students).
+  const maybeToastTeacherStudentDm = useCallback((key, peerName, convo, onClick) => {
+    const firstTime = !seededRef.current.has(key);
+    seededRef.current.add(key);
+    const prevAt = seenAtRef.current.get(key);
+    seenAtRef.current.set(key, convo.last_at);
+
+    if (firstTime) return;
+    if (!convo.last_at || convo.last_at === prevAt) return;
+    if (!convo.unread_count) return; // last message wasn't sent by the peer
+    if (isConversationActive(key)) return;
+
+    showChatToast({ name: peerName, preview: truncate(convo.last_message), onClick });
+  }, []);
+
   const maybeToastGroupMessage = useCallback((group, myId) => {
     const key = `group:${group.id}`;
     const lm = group.last_message;
@@ -149,7 +177,14 @@ export function ChatNotifyProvider({ children }) {
         if (g.is_team_leader) await maybeToastLeaderDm(g.id, g.name, myId);
       }
     } catch { /* silent */ }
-  }, [maybeToastPeerDm, maybeToastGroupMessage, maybeToastLeaderDm]);
+
+    try {
+      const { data } = await api.get('/teacher-messages/my');
+      (data.conversations || []).forEach(c => maybeToastTeacherStudentDm(
+        `teacherdm:${c.teacher_id}`, c.teacher_name, c, () => goToTeacherDm(c.teacher_id, c.teacher_name),
+      ));
+    } catch { /* silent */ }
+  }, [maybeToastPeerDm, maybeToastGroupMessage, maybeToastLeaderDm, maybeToastTeacherStudentDm, goToTeacherDm]);
 
   const pollTeacher = useCallback(async (myId) => {
     try {
@@ -160,7 +195,17 @@ export function ChatNotifyProvider({ children }) {
         if (g.is_owner) await maybeToastLeaderDm(g.id, g.name, myId);
       }
     } catch { /* silent */ }
-  }, [maybeToastGroupMessage, maybeToastLeaderDm]);
+
+    try {
+      const { data } = await api.get('/teacher-messages/my-students');
+      (data.conversations || []).forEach(c => {
+        if (c.disabled) return; // teacher paused this thread — no toasts for it
+        maybeToastTeacherStudentDm(
+          `studentdm:${c.student_id}`, c.student_name, c, () => goToStudentDm(c.student_id, c.student_name),
+        );
+      });
+    } catch { /* silent */ }
+  }, [maybeToastGroupMessage, maybeToastLeaderDm, maybeToastTeacherStudentDm, goToStudentDm]);
 
   useEffect(() => {
     if (!user || (user.role !== 'student' && user.role !== 'teacher')) return undefined;

@@ -70,7 +70,8 @@
     "adminCouncil": "Conseil des administrateurs",
     "institutionsBilling": "Établissements et facturation",
     "treasury": "Trésorerie",
-    "systemHealth": "État du système"
+    "systemHealth": "État du système",
+    "randomGroups": "Groupes aleatoires"
   },
   "roles": {
     "teacherPortal": "Portail enseignant",
@@ -1259,5 +1260,42 @@
     "awaitingReview": "en attente de validation admin",
     "saveDraft": "Enregistrer le brouillon",
     "submitForReview": "Soumettre pour validation"
+  },
+  "randomGroups": {
+    "title": "Generateur de groupes aleatoires",
+    "subtitle": "Repartissez une classe en groupes aleatoires et telechargez la liste en PDF. Rien n'est enregistre et aucun groupe de discussion n'est cree.",
+    "class": "Classe",
+    "selectClass": "Choisir une classe",
+    "studentsCount": "{{count}} eleves",
+    "splitBy": "Repartir par",
+    "byGroups": "Nombre de groupes",
+    "bySize": "Eleves par groupe",
+    "numGroups": "Combien de groupes ?",
+    "groupSize": "Combien d'eleves par groupe ?",
+    "preview": "{{groups}} groupes : {{detail}}",
+    "previewSame": "{{groups}} groupes de {{size}} eleves",
+    "previewMixed": "{{big}} de {{bigSize}} et {{small}} de {{smallSize}} eleves",
+    "invalidValue": "Saisissez un nombre entre 1 et {{max}}.",
+    "noStudents": "Cette classe n'a pas encore d'eleves.",
+    "generate": "Generer les groupes",
+    "shuffleAgain": "Melanger a nouveau",
+    "downloadPdf": "Telecharger le PDF",
+    "group": "Groupe {{n}}",
+    "groupHeading": "Groupe {{n}} - {{count}} eleves",
+    "oneStudent": "1 eleve",
+    "resultSummary": "{{students}} eleves repartis en {{groups}} groupes",
+    "loadClassesFailed": "Echec du chargement des classes",
+    "loadStudentsFailed": "Echec du chargement des eleves",
+    "pdfDownloaded": "PDF telecharge",
+    "pdfFailed": "Echec de creation du PDF",
+    "pdfNo": "N°",
+    "pdfStudent": "Nom de l'eleve",
+    "pdfStudentsTotal": "{{count}} eleves",
+    "pdfGroupsTotal": "{{count}} groupes",
+    "pdfTitle": "Groupes aleatoires",
+    "pdfTeacher": "Enseignant : {{name}}",
+    "pdfPage": "Page {{n}} sur {{total}}",
+    "pdfRandom": "Genere aleatoirement",
+    "pdfLight": "Fond clair (economise l'encre)"
   }
 }

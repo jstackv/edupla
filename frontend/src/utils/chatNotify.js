@@ -52,7 +52,8 @@ export function hasSeenMessage(id) {
      { type: 'group',     groupId }
      { type: 'leaderdm',  groupId }
      { type: 'dm', classId, peerId, peerName }
-     { type: 'teacherdm', teacherId, teacherName }
+     { type: 'teacherdm', teacherId, teacherName }   (student opens thread with a teacher)
+     { type: 'studentdm', studentId, studentName }   (teacher opens thread with a student)
 ══════════════════════════════════════════════════════════════════════ */
 const CHAT_TARGET_EVENT = 'edupla:chat-target';
 let pendingChatTarget = null;

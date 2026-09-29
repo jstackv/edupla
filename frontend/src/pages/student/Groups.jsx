@@ -1250,7 +1250,7 @@ function ThreadPane({ entry, myId, myName, onBack, onClose, onOpenTeacherDm, onE
           ) : enriched.filter(x => x.type === 'msg').length === 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', textAlign: 'center', padding: '40px 0' }}>
               <div style={{ fontSize: 40, marginBottom: 10 }}>{entry.type === 'group' ? '👋' : entry.type === 'teacherdm' ? '🔒' : '💬'}</div>
-              <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>{entry.type === 'group' ? 'No messages yet' : entry.type === 'teacherdm' ? `Message from ${entry.name}` : `Start talking to ${entry.name}`}</p>
+              <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>{entry.type === 'group' ? 'No messages yet' : entry.type === 'teacherdm' ? `Start a private conversation with ${entry.name}` : `Start talking to ${entry.name}`}</p>
               <p style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{entry.type === 'group' ? 'Be the first to say something!' : 'Your messages are private'}</p>
             </div>
           ) : enriched.map(item => item.type === 'date' ? (
@@ -1350,7 +1350,7 @@ function InboxRow({ entry, active, onClick, index }) {
           <p className="text-xs truncate" style={{ color: 'var(--text-secondary)' }}>
             {entry.lastMessage
               ? <>{entry.lastAuthor && <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{entry.lastAuthor}: </span>}{entry.lastMessage}</>
-              : <span className="italic">{entry.type === 'leaderdm' ? 'Private line to your teacher' : entry.type === 'teacherdm' ? 'Private message from your teacher' : 'No messages yet — say hello!'}</span>}
+              : <span className="italic">{entry.type === 'leaderdm' ? 'Private line to your teacher' : entry.type === 'teacherdm' ? 'Private conversation with your teacher' : 'No messages yet — say hello!'}</span>}
           </p>
           {entry.unreadCount > 0 && (
             <span className="flex-shrink-0 min-w-[18px] h-[18px] rounded-full text-[10px] font-bold flex items-center justify-center px-1.5 text-white" style={{ background: `linear-gradient(135deg, ${a}, ${b})`, animation: 'ibxBadgePulse 1.8s ease-in-out infinite' }}>{entry.unreadCount > 9 ? '9+' : entry.unreadCount}</span>
@@ -1380,19 +1380,31 @@ function InboxRowSkeleton({ delay = 0 }) {
   );
 }
 
-function NewMessagePicker({ classes, onPick, onClose }) {
+function NewMessagePicker({ classes, onPick, onPickTeacher, onClose }) {
+  const hasClassmates = classes.length > 0;
+  const [mode, setMode] = useState(hasClassmates ? 'classmates' : 'teachers');
   const [classId, setClassId] = useState(classes[0]?.id || null);
   const [classmates, setClassmates] = useState([]);
+  const [teachers, setTeachers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
 
   useEffect(() => {
-    if (!classId) return;
+    if (mode !== 'classmates' || !classId) return;
     setLoading(true);
     api.get(`/collaborations/class/${classId}/students`).then(res => setClassmates(res.data.classmates || [])).catch(() => setClassmates([])).finally(() => setLoading(false));
-  }, [classId]);
+  }, [classId, mode]);
 
-  const filtered = classmates.filter(c => c.name.toLowerCase().includes(search.toLowerCase()));
+  useEffect(() => {
+    if (mode !== 'teachers') return;
+    setLoading(true);
+    api.get('/teacher-messages/my-teachers').then(res => setTeachers(res.data.teachers || [])).catch(() => setTeachers([])).finally(() => setLoading(false));
+  }, [mode]);
+
+  const q = search.toLowerCase();
+  const filtered = mode === 'teachers'
+    ? teachers.filter(t => t.name.toLowerCase().includes(q))
+    : classmates.filter(c => c.name.toLowerCase().includes(q));
 
   return (
     <div onClick={e => { if (e.target === e.currentTarget) onClose(); }} className="fast-modal-backdrop">
@@ -1401,7 +1413,14 @@ function NewMessagePicker({ classes, onPick, onClose }) {
           <h3 style={{ fontWeight: 800, fontSize: 15, color: 'var(--text-primary)' }}>New message</h3>
           <button onClick={onClose} style={{ background: 'var(--surface-100)', border: 'none', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><X style={{ width: 14, height: 14 }} /></button>
         </div>
-        {classes.length > 1 && (
+        {hasClassmates && (
+          <div style={{ padding: '0 18px 10px', display: 'flex', gap: 6 }}>
+            {[['teachers', 'Teachers'], ['classmates', 'Classmates']].map(([val, label]) => (
+              <button key={val} onClick={() => { setMode(val); setSearch(''); }} style={{ fontSize: 12, fontWeight: 700, padding: '6px 14px', borderRadius: 20, border: 'none', cursor: 'pointer', background: mode === val ? 'linear-gradient(135deg, #9a3412, #7c2d12)' : 'var(--surface-100)', color: mode === val ? '#fff' : 'var(--text-secondary)' }}>{label}</button>
+            ))}
+          </div>
+        )}
+        {mode === 'classmates' && classes.length > 1 && (
           <div style={{ padding: '0 18px 10px', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {classes.map(c => (
               <button key={c.id} onClick={() => setClassId(c.id)} style={{ fontSize: 11.5, fontWeight: 700, padding: '5px 10px', borderRadius: 20, border: 'none', cursor: 'pointer', background: classId === c.id ? 'rgba(154, 52, 18,0.14)' : 'var(--surface-100)', color: classId === c.id ? '#9a3412' : 'var(--text-secondary)' }}>{c.name}</button>
@@ -1411,17 +1430,22 @@ function NewMessagePicker({ classes, onPick, onClose }) {
         <div style={{ padding: '0 18px 10px' }}>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: 'var(--text-secondary)' }} />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search classmates…" className="w-full pl-8 pr-3 py-2 rounded-xl text-sm outline-none" style={{ background: 'var(--surface-100)', border: '1px solid var(--card-border)', color: 'var(--text-primary)' }} />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder={mode === 'teachers' ? 'Search teachers…' : 'Search classmates…'} className="w-full pl-8 pr-3 py-2 rounded-xl text-sm outline-none" style={{ background: 'var(--surface-100)', border: '1px solid var(--card-border)', color: 'var(--text-primary)' }} />
           </div>
         </div>
         <div style={{ maxHeight: '50vh', overflowY: 'auto', padding: '0 10px 12px' }}>
           {loading ? <div className="flex justify-center py-8"><div className="w-5 h-5 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" /></div>
-            : filtered.length === 0 ? <p style={{ textAlign: 'center', fontSize: 12.5, color: 'var(--text-secondary)', padding: '20px 0' }}>No classmates found</p>
+            : filtered.length === 0 ? <p style={{ textAlign: 'center', fontSize: 12.5, color: 'var(--text-secondary)', padding: '20px 0' }}>{mode === 'teachers' ? 'No teachers available' : 'No classmates found'}</p>
             : filtered.map(c => (
-              <button key={c.id} onClick={() => onPick(classId, c)} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '9px 10px', borderRadius: 12, background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+              <button key={c.id} onClick={() => (mode === 'teachers' ? onPickTeacher(c) : onPick(classId, c))} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '9px 10px', borderRadius: 12, background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
                 onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-100)'} onMouseLeave={e => e.currentTarget.style.background = 'none'}>
                 <div style={{ width: 36, height: 36, borderRadius: '50%', background: `linear-gradient(135deg, ${senderColor(c.id || c.name)}, color-mix(in srgb, ${senderColor(c.id || c.name)} 65%, #000))`, color: '#fff', fontWeight: 800, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{c.name[0].toUpperCase()}</div>
-                <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-primary)' }}>{c.name}</span>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-primary)' }}>{c.name}</div>
+                  {mode === 'teachers' && c.classes?.length > 0 && (
+                    <div style={{ fontSize: 11, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.classes.join(' · ')}</div>
+                  )}
+                </div>
               </button>
             ))}
         </div>
@@ -1480,7 +1504,11 @@ export default function StudentGroups() {
       const res = await api.get('/teacher-messages/my');
       const convos = res.data.conversations || [];
       setTeacherDmEntries(prev => {
+        // Threads the student just opened from the picker (or a deep link) have
+        // no server-side message yet, so the poll can't return them — carry
+        // them over until the first message is sent, otherwise they'd vanish.
         const next = {};
+        Object.values(prev).forEach(e => { if (!e.lastMessage) next[e.key] = e; });
         convos.forEach(conv => {
           const key = `teacherdm:${conv.teacher_id}`;
           next[key] = {
@@ -1584,6 +1612,17 @@ export default function StudentGroups() {
     setMobileShowThread(true);
   };
 
+  // Student-initiated private thread with a teacher of one of their classes.
+  // Reuses an existing thread if there is one; otherwise opens an empty
+  // draft that becomes real once the first message is sent.
+  const startNewTeacherDm = (teacher) => {
+    const key = `teacherdm:${teacher.id}`;
+    setTeacherDmEntries(prev => prev[key] ? prev : { ...prev, [key]: { key, type: 'teacherdm', id: teacher.id, peerId: teacher.id, name: teacher.name, lastMessage: null, lastAuthor: null, lastAt: new Date().toISOString(), unreadCount: 0 } });
+    setNewMsgOpen(false);
+    setSelectedKey(key);
+    setMobileShowThread(true);
+  };
+
   useEffect(() => {
     const applyTarget = (t) => {
       if (!t) return;
@@ -1618,14 +1657,12 @@ export default function StudentGroups() {
                 </h2>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   {totalUnread > 0 && <span style={{ fontWeight: 800, fontSize: 11, padding: '3px 9px', borderRadius: 20, background: '#dc2626', color: '#fff', animation: 'ibxBadgePulse 1.8s ease-in-out infinite' }}>{totalUnread}</span>}
-                  {collabClasses.length > 0 && (
                     <button
                       onClick={() => setNewMsgOpen(true)} title="New message"
                       style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--ibx-header-btn-bg)', border: '1px solid var(--ibx-header-btn-border)', color: 'var(--ibx-header-icon-color)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.18s cubic-bezier(0.34,1.56,0.64,1), background 0.18s ease' }}
                       onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.1) rotate(90deg)'; e.currentTarget.style.background = 'var(--ibx-header-btn-bg-hover)'; }}
                       onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1) rotate(0deg)'; e.currentTarget.style.background = 'var(--ibx-header-btn-bg)'; }}
                     ><Plus style={{ width: 15, height: 15 }} /></button>
-                  )}
                 </div>
               </div>
               <div className="relative mb-2">
@@ -1685,7 +1722,7 @@ export default function StudentGroups() {
         </div>
       </div>
 
-      {newMsgOpen && <NewMessagePicker classes={collabClasses} onPick={startNewDm} onClose={() => setNewMsgOpen(false)} />}
+      {newMsgOpen && <NewMessagePicker classes={collabClasses} onPick={startNewDm} onPickTeacher={startNewTeacherDm} onClose={() => setNewMsgOpen(false)} />}
 
       <style>{`
         .ibx-header-chrome {

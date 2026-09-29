@@ -38,6 +38,7 @@ const TeacherAssessmentPage = lazy(() => import('./pages/teacher/AssessmentsTeac
 const TeacherAssessmentsOnline = lazy(() => import('./pages/teacher/AssessmentsOnline'));
 const TeacherDisciplineMarks = lazy(() => import('./pages/teacher/DisciplineMarks'));
 const TeacherGroups = lazy(() => import('./pages/teacher/Groups'));
+const TeacherRandomGroups = lazy(() => import('./pages/teacher/RandomGroups'));
 
 const StudentDashboard = lazy(() => import('./pages/student/Dashboard'));
 const StudentClasses = lazy(() => import('./pages/student/Classes'));
@@ -329,6 +330,7 @@ function AppRoutes() {
       <Route path="/teacher/assessments"       element={<TeacherRoute><TeacherAssessmentsOnline /></TeacherRoute>} />
       <Route path="/teacher/discipline"        element={<TeacherRoute><TeacherDisciplineMarks /></TeacherRoute>} />
       <Route path="/teacher/groups"            element={<TeacherRoute><TeacherGroups /></TeacherRoute>} />
+      <Route path="/teacher/random-groups"     element={<TeacherRoute><TeacherRandomGroups /></TeacherRoute>} />
 
       {/* Student routes */}
       <Route path="/student/dashboard"     element={<StudentRoute><StudentDashboard /></StudentRoute>} />

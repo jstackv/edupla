@@ -52,7 +52,8 @@
     "management": "Management",
     "control": "Control Panel",
     "dashboard": "Dashboard",
-    "announcements": "Announcements"
+    "announcements": "Announcements",
+    "randomGroups": "Random Groups"
   },
   "roles": {
     "teacherPortal": "Teacher Portal",
@@ -1241,5 +1242,42 @@
     "awaitingReview": "awaiting admin review",
     "saveDraft": "Save Draft",
     "submitForReview": "Submit for Review"
+  },
+  "randomGroups": {
+    "title": "Random Group Generator",
+    "subtitle": "Split a class into random groups and download the list as a PDF. Nothing is saved and no discussion groups are created.",
+    "class": "Class",
+    "selectClass": "Select a class",
+    "studentsCount": "{{count}} students",
+    "splitBy": "Split by",
+    "byGroups": "Number of groups",
+    "bySize": "Students per group",
+    "numGroups": "How many groups?",
+    "groupSize": "How many students per group?",
+    "preview": "{{groups}} groups: {{detail}}",
+    "previewSame": "{{groups}} groups of {{size}} students",
+    "previewMixed": "{{big}} of {{bigSize}} and {{small}} of {{smallSize}} students",
+    "invalidValue": "Enter a number between 1 and {{max}}.",
+    "noStudents": "This class has no students yet.",
+    "generate": "Generate groups",
+    "shuffleAgain": "Shuffle again",
+    "downloadPdf": "Download PDF",
+    "group": "Group {{n}}",
+    "groupHeading": "Group {{n}} - {{count}} students",
+    "oneStudent": "1 student",
+    "resultSummary": "{{students}} students split into {{groups}} groups",
+    "loadClassesFailed": "Failed to load classes",
+    "loadStudentsFailed": "Failed to load students",
+    "pdfDownloaded": "PDF downloaded",
+    "pdfFailed": "Failed to create PDF",
+    "pdfNo": "No",
+    "pdfStudent": "Student Name",
+    "pdfStudentsTotal": "{{count}} students",
+    "pdfGroupsTotal": "{{count}} groups",
+    "pdfTitle": "Random Groups",
+    "pdfTeacher": "Teacher: {{name}}",
+    "pdfPage": "Page {{n}} of {{total}}",
+    "pdfRandom": "Generated randomly",
+    "pdfLight": "Light background (saves ink)"
   }
 }

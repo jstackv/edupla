@@ -2402,6 +2402,37 @@ function CollaborationClassRow({ cls, onToggle, toggling, index = 0 }) {
 /* ══════════════════════════════════════════════
    Main page
 ══════════════════════════════════════════════ */
+/* ── Private student DM inbox row ─────────────────────────────────────────
+   One row per student the teacher has a private thread with (whichever side
+   started it). Clicking opens the existing TeacherStudentDmModal. */
+function StudentDmRow({ c, onOpen }) {
+  const [c1, c2] = COLORS[Math.abs(String(c.student_id).split('').reduce((a, ch) => a + ch.charCodeAt(0), 0)) % COLORS.length];
+  return (
+    <button onClick={() => onOpen(c)}
+      className="tg-group-card w-full flex items-center gap-3 px-4 py-3 text-left"
+      style={{ background: 'none', border: 'none', borderBottom: '1px solid var(--card-border)', cursor: 'pointer' }}>
+      <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
+        style={{ background: `linear-gradient(135deg, ${c1}, ${c2})` }}>
+        {(c.student_name || '?')[0].toUpperCase()}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm font-bold truncate" style={{ color: 'var(--text-primary)' }}>{c.student_name}</span>
+          <span className="text-[10px] flex-shrink-0" style={{ color: 'var(--text-secondary)' }}>{timeAgo(c.last_at)}</span>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-xs truncate" style={{ color: c.unread_count > 0 ? 'var(--text-primary)' : 'var(--text-secondary)', fontWeight: c.unread_count > 0 ? 600 : 400 }}>
+            {c.disabled ? 'Paused · ' : ''}{c.last_message}
+          </span>
+          {c.unread_count > 0 && (
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ background: '#dc2626', color: '#fff' }}>{c.unread_count}</span>
+          )}
+        </div>
+      </div>
+    </button>
+  );
+}
+
 export default function TeacherGroups() {
   const { user } = useAuth();
   const myId = user?.id;
@@ -2417,6 +2448,13 @@ export default function TeacherGroups() {
   const [deleteTarget, setDeleteTarget]   = useState(null);
   const [deleting, setDeleting]           = useState(false);
 
+  // Private student DMs (teacher <-> student). Either side may start a
+  // thread; this inbox is how the teacher finds the ones students started.
+  const [dmStudent, setDmStudent]         = useState(null); // { id, name } — opens TeacherStudentDmModal
+  const [studentThreads, setStudentThreads] = useState([]);
+  const [threadsLoading, setThreadsLoading] = useState(true);
+  const [threadSearch, setThreadSearch]   = useState('');
+
   // Deep-link target consumed from a toast click (see ChatNotifyContext) —
   // auto-opens the exact group, and its leader-DM panel if that's what the
   // notification was about, instead of just landing on the groups list.
@@ -2431,6 +2469,19 @@ export default function TeacherGroups() {
     } catch { toast.error('Failed to load groups'); }
     finally { setLoading(false); }
   }, [filterClass]);
+
+  const fetchStudentThreads = useCallback(async () => {
+    try {
+      const res = await api.get('/teacher-messages/my-students');
+      setStudentThreads(res.data.conversations || []);
+    } catch { /* silent — background refresh */ }
+    finally { setThreadsLoading(false); }
+  }, []);
+
+  useEffect(() => { fetchStudentThreads(); const id = setInterval(fetchStudentThreads, 8000); return () => clearInterval(id); }, [fetchStudentThreads]);
+
+  const totalUnreadDms = studentThreads.reduce((sum, c) => sum + (c.unread_count || 0), 0);
+  const visibleThreads = studentThreads.filter(c => (c.student_name || '').toLowerCase().includes(threadSearch.toLowerCase()));
 
   useEffect(() => { fetchGroups(); }, [fetchGroups]);
   useEffect(() => { api.get('/classes?limit=100').then(r => setClasses(r.data.classes || [])).catch(() => {}); }, []);
@@ -2470,6 +2521,10 @@ export default function TeacherGroups() {
         setTab('groups');
         setPendingLeaderDmGroupId(t.groupId);
         openGroup({ id: t.groupId });
+      } else if (t.type === 'studentdm') {
+        setTab('messages');
+        setActiveGroup(null); setGroupDetail(null); setCreateMode(false);
+        setDmStudent({ id: t.studentId, name: t.studentName || '' });
       }
     };
     applyTarget(consumePendingChatTarget());
@@ -2763,6 +2818,20 @@ export default function TeacherGroups() {
                 : { color: 'rgba(255,255,255,0.75)' }}>
               <Radio className="w-3 h-3" /> Collab
             </button>
+
+            {/* Private student messages */}
+            <button
+              onClick={() => { setTab('messages'); setActiveGroup(null); setGroupDetail(null); setCreateMode(false); }}
+              data-active={tab === 'messages'}
+              className="tg-tab-btn flex-1 text-xs font-bold px-2 py-1.5 rounded-lg flex items-center justify-center gap-1"
+              style={tab === 'messages'
+                ? { background: 'white', color: '#9a3412', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }
+                : { color: 'rgba(255,255,255,0.75)' }}>
+              <MessageCircle className="w-3 h-3" /> Messages
+              {totalUnreadDms > 0 && (
+                <span className="text-[9px] font-bold px-1.5 rounded-full" style={{ background: '#dc2626', color: '#fff' }}>{totalUnreadDms}</span>
+              )}
+            </button>
           </div>
         </div>
 
@@ -2802,6 +2871,36 @@ export default function TeacherGroups() {
               ))}
             </div>
           </>
+        ) : tab === 'messages' ? (
+          <>
+            <div className="px-3 py-2.5 flex-shrink-0" style={{ borderBottom: '1px solid var(--card-border)' }}>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: 'var(--text-secondary)' }} />
+                <input value={threadSearch} onChange={e => setThreadSearch(e.target.value)} placeholder="Search students…"
+                  className="w-full pl-8 pr-3 py-2 rounded-xl text-sm outline-none"
+                  style={{ background: 'var(--surface-100)', border: '1px solid var(--card-border)', color: 'var(--text-primary)' }} />
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto tg-sidebar-scroll">
+              {threadsLoading ? (
+                <div className="flex justify-center py-16"><div className="w-5 h-5 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" /></div>
+              ) : visibleThreads.length === 0 ? (
+                <div className="tg-empty-state flex flex-col items-center justify-center py-20 px-6 text-center">
+                  <div className="w-16 h-16 rounded-2xl mb-4 flex items-center justify-center" style={{ background: 'rgba(154, 52, 18,0.1)' }}>
+                    <MessageCircle className="w-8 h-8" style={{ color: '#9a3412', opacity: 0.6 }} />
+                  </div>
+                  <p className="font-bold mb-1" style={{ color: 'var(--text-primary)' }}>{studentThreads.length === 0 ? 'No private messages yet' : 'No matches'}</p>
+                  <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                    {studentThreads.length === 0
+                      ? 'When a student writes to you, or you message a student from a group, the conversation shows up here.'
+                      : 'Try a different search.'}
+                  </p>
+                </div>
+              ) : visibleThreads.map(c => (
+                <StudentDmRow key={c.student_id} c={c} onOpen={(row) => setDmStudent({ id: row.student_id, name: row.student_name })} />
+              ))}
+            </div>
+          </>
         ) : (
           /* Collapsed summary in sidebar when collab tab is selected on mobile */
           <div className="flex-1 flex items-center justify-center p-6 text-center lg:hidden">
@@ -2833,6 +2932,7 @@ export default function TeacherGroups() {
             <h3 className="font-bold text-xl mb-2" style={{ color: 'var(--text-primary)' }}>Group Discussions</h3>
             <p className="text-sm mb-6 max-w-xs mx-auto" style={{ color: 'var(--text-secondary)' }}>
               {tab === 'groups' ? 'Create groups, assign a team leader, and you get full access to every conversation automatically.'
+               : tab === 'messages' ? 'Students can message you privately, and you can message them. Pick a conversation from the list to reply.'
                : 'Enable peer-to-peer messaging for a class — students chat privately with any classmate.'}
             </p>
             {tab === 'groups' && (
@@ -2844,6 +2944,14 @@ export default function TeacherGroups() {
             )}
           </div>
         </div>
+      )}
+
+      {dmStudent && (
+        <TeacherStudentDmModal
+          studentId={dmStudent.id}
+          studentName={dmStudent.name}
+          onClose={() => { setDmStudent(null); fetchStudentThreads(); }}
+        />
       )}
 
       <ConfirmDialog isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} onConfirm={handleDelete} loading={deleting}
