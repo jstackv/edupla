@@ -137,9 +137,9 @@ const createAssignment = async (req, res) => {
       mime_type:     req.file?.mimetype      || null,
       file_url:      req.file?.path          || null,
     });
-    res.status(201).json({ message: 'Assignment created', id: a._id });
-
-    // ── Fire notifications async (don't block response) ────────────────
+    // ── Notifications run BEFORE responding ────────────────────────────
+    // On serverless (Vercel) the function is frozen as soon as the response
+    // ends, which silently killed in-flight emails.
     if (a.is_active) {
       try {
         const [cls, teacherEmail] = await Promise.all([
@@ -163,7 +163,7 @@ const createAssignment = async (req, res) => {
 
         // Email
         if (studentEmails.length) {
-          notifyAssignmentPosted({
+          await notifyAssignmentPosted({
             studentEmails,
             teacherEmail,
             assignmentTitle: title,
@@ -176,6 +176,7 @@ const createAssignment = async (req, res) => {
         console.error('Notification error (assignment create):', err.message);
       }
     }
+    res.status(201).json({ message: 'Assignment created', id: a._id });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
@@ -306,9 +307,7 @@ const submitAssignment = async (req, res) => {
       file_url:      req.file?.path         || null,
       notes,
     });
-    res.status(201).json({ message: 'Assignment submitted successfully' });
-
-    // ── Notify teacher async ─────────────────────────────────────────────
+    // ── Notify teacher BEFORE responding (serverless freezes after the response) ──
     try {
       const [student, cls, teacherEmail] = await Promise.all([
         User.findById(studentId, 'name').lean(),
@@ -333,7 +332,7 @@ const submitAssignment = async (req, res) => {
 
       // Email teacher
       if (teacherEmail) {
-        notifyAssignmentSubmitted({
+        await notifyAssignmentSubmitted({
           teacherEmail,
           studentName: student?.name || 'A student',
           assignmentTitle: a.title,
@@ -344,6 +343,7 @@ const submitAssignment = async (req, res) => {
     } catch (err) {
       console.error('Notification error (submission):', err.message);
     }
+    res.status(201).json({ message: 'Assignment submitted successfully' });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 

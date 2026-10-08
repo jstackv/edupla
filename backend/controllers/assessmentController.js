@@ -3034,9 +3034,7 @@ exports.teacherShareAssessment = async (req, res) => {
     assessment.shared_at         = new Date();
     await assessment.save();
 
-    res.json({ message: 'Assessment shared with the class.' });
-
-    // ── Notify students async (never block the response) ────────────────
+    // ── Notify students BEFORE responding (serverless freezes after the response) ──
     try {
       const teacher = await User.findById(req.user.id, 'name').lean();
       const studentEmails = await getStudentEmails(assessment.class_id._id);
@@ -3053,7 +3051,7 @@ exports.teacherShareAssessment = async (req, res) => {
       });
 
       if (studentEmails.length) {
-        notifyAssessmentShared({
+        await notifyAssessmentShared({
           studentEmails,
           teacherEmail: await getTeacherEmail(req.user.id),
           assessmentTitle: assessment.title,
@@ -3069,6 +3067,7 @@ exports.teacherShareAssessment = async (req, res) => {
     } catch (err) {
       console.error('Notification error (assessment share):', err.message);
     }
+    res.json({ message: 'Assessment shared with the class.' });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 

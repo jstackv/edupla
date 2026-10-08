@@ -150,9 +150,7 @@ const uploadDocument = async (req, res) => {
       mime_type: req.file.mimetype,
       file_url: req.file.path,
     });
-    res.status(201).json({ message: 'Document uploaded', id: doc._id });
-
-    // Fire notifications async
+    // Notifications run BEFORE responding (serverless freezes after the response)
     try {
       const [teacher, teacherEmail] = await Promise.all([
         User.findById(req.session.user.id, 'name').lean(),
@@ -176,7 +174,7 @@ const uploadDocument = async (req, res) => {
         courseId: courseId || null,
       });
       if (studentEmails.length) {
-        notifyDocumentPosted({
+        await notifyDocumentPosted({
           studentEmails, teacherEmail,
           documentTitle: title, className,
           teacherName: teacher?.name || 'Your teacher',
@@ -184,6 +182,7 @@ const uploadDocument = async (req, res) => {
         }).catch(err => console.error('Email error:', err.message));
       }
     } catch (err) { console.error('Notification error (document):', err.message); }
+    res.status(201).json({ message: 'Document uploaded', id: doc._id });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 

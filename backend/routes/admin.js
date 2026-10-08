@@ -169,12 +169,12 @@ router.post('/admins', isSuperAdmin, async (req, res) => {
     if (exists) return res.status(400).json({ message: 'Email already in use' });
     const hashed = await bcrypt.hash(password, 10);
     const admin = await User.create({ name, email: email.toLowerCase(), password: hashed, role: 'admin', is_active: true });
-    res.status(201).json({ message: 'Admin account created', id: admin._id });
-    // Welcome email — matches the notification teachers/students already get on creation
+    // Welcome email — awaited BEFORE responding (serverless freezes after the response)
     try {
       const creator = await User.findById(req.user.id, 'name').lean();
-      notifyWelcome({ to: admin.email, name: admin.name, role: 'admin', defaultPassword: password, adminName: creator?.name }).catch(() => {});
+      await notifyWelcome({ to: admin.email, name: admin.name, role: 'admin', defaultPassword: password, adminName: creator?.name });
     } catch (_) {}
+    res.status(201).json({ message: 'Admin account created', id: admin._id });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
@@ -200,14 +200,15 @@ router.put('/admins/:id', isSuperAdmin, async (req, res) => {
     }
     const result = await User.findOneAndUpdate({ _id: req.params.id, role: 'admin' }, update, { new: true });
     if (!result) return res.status(404).json({ message: 'Admin not found' });
-    res.json({ message: 'Admin updated successfully' });
     // Password-reset email — only fires when a new password was actually set
+    // (awaited BEFORE responding — serverless freezes after the response)
     if (password) {
       try {
         const superAdmin = await User.findById(req.user.id, 'name').lean();
-        notifyPasswordReset({ to: result.email, name: result.name, role: 'admin', newPassword: password, adminName: superAdmin?.name }).catch(() => {});
+        await notifyPasswordReset({ to: result.email, name: result.name, role: 'admin', newPassword: password, adminName: superAdmin?.name });
       } catch (_) {}
     }
+    res.json({ message: 'Admin updated successfully' });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
