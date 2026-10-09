@@ -233,12 +233,12 @@ const createTeacher = async (req, res) => {
     const defaultPassword = process.env.TEACHER_DEFAULT_PASSWORD || 'teacher123';
     const hashed = await bcrypt.hash(defaultPassword, 10);
     const t = await User.create({ name, email: email.toLowerCase(), password: hashed, role: 'teacher', phone: phone || null, created_by: req.user.id });
-    res.status(201).json({ message: 'Teacher created successfully', id: t._id, defaultPassword });
-    // Welcome email
+    // Welcome email — awaited BEFORE responding (serverless freezes after the response)
     try {
       const admin = await User.findById(req.user.id, 'name').lean();
-      notifyWelcome({ to: t.email, name: t.name, role: 'teacher', defaultPassword, adminName: admin?.name }).catch(() => {});
+      await notifyWelcome({ to: t.email, name: t.name, role: 'teacher', defaultPassword, adminName: admin?.name });
     } catch (_) {}
+    res.status(201).json({ message: 'Teacher created successfully', id: t._id, defaultPassword });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
@@ -589,12 +589,12 @@ const adminCreateStudent = async (req, res) => {
     if (classId) {
       await Class.updateOne({ _id: classId }, { $addToSet: { students: s._id } });
     }
-    res.status(201).json({ message: 'Student created successfully', id: s._id, defaultPassword });
-    // Welcome email
+    // Welcome email — awaited BEFORE responding (serverless freezes after the response)
     try {
       const admin = await User.findById(req.user.id, 'name').lean();
-      notifyWelcome({ to: s.email, name: s.name, role: 'student', defaultPassword, adminName: admin?.name }).catch(() => {});
+      await notifyWelcome({ to: s.email, name: s.name, role: 'student', defaultPassword, adminName: admin?.name });
     } catch (_) {}
+    res.status(201).json({ message: 'Student created successfully', id: s._id, defaultPassword });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
@@ -800,8 +800,8 @@ const toggleTeacherStatus = async (req, res) => {
     teacher.is_active = !teacher.is_active;
     teacher.deactivated_at = teacher.is_active ? null : new Date();
     await teacher.save();
+    await notifyAccountStatus({ to: teacher.email, name: teacher.name, role: 'teacher', isActive: teacher.is_active }).catch(() => {});
     res.json({ message: `Teacher ${teacher.is_active ? 'activated' : 'deactivated'} successfully`, is_active: teacher.is_active });
-    notifyAccountStatus({ to: teacher.email, name: teacher.name, role: 'teacher', isActive: teacher.is_active }).catch(() => {});
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
@@ -812,8 +812,8 @@ const toggleStudentStatus = async (req, res) => {
     student.is_active = !student.is_active;
     student.deactivated_at = student.is_active ? null : new Date();
     await student.save();
+    await notifyAccountStatus({ to: student.email, name: student.name, role: 'student', isActive: student.is_active }).catch(() => {});
     res.json({ message: `Student ${student.is_active ? 'activated' : 'deactivated'} successfully`, is_active: student.is_active });
-    notifyAccountStatus({ to: student.email, name: student.name, role: 'student', isActive: student.is_active }).catch(() => {});
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
@@ -835,12 +835,12 @@ const resetTeacherPassword = async (req, res) => {
     teacher.password = await bcrypt.hash(newPassword, 10);
     await teacher.save();
 
-    res.json({ message: 'Password reset successfully', newPassword, email: teacher.email, name: teacher.name });
-
     try {
       const admin = await User.findById(req.user.id, 'name').lean();
-      notifyPasswordReset({ to: teacher.email, name: teacher.name, role: 'teacher', newPassword, adminName: admin?.name }).catch(() => {});
+      await notifyPasswordReset({ to: teacher.email, name: teacher.name, role: 'teacher', newPassword, adminName: admin?.name });
     } catch (_) {}
+
+    res.json({ message: 'Password reset successfully', newPassword, email: teacher.email, name: teacher.name });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
@@ -853,12 +853,12 @@ const resetStudentPassword = async (req, res) => {
     student.password = await bcrypt.hash(newPassword, 10);
     await student.save();
 
-    res.json({ message: 'Password reset successfully', newPassword, email: student.email, name: student.name });
-
     try {
       const admin = await User.findById(req.user.id, 'name').lean();
-      notifyPasswordReset({ to: student.email, name: student.name, role: 'student', newPassword, adminName: admin?.name }).catch(() => {});
+      await notifyPasswordReset({ to: student.email, name: student.name, role: 'student', newPassword, adminName: admin?.name });
     } catch (_) {}
+
+    res.json({ message: 'Password reset successfully', newPassword, email: student.email, name: student.name });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
@@ -915,19 +915,20 @@ const toggleAdminStatus = async (req, res) => {
       }
     );
 
+    // Notify admin + all their teachers + all their students by email.
+    // Awaited (in parallel) BEFORE responding — serverless freezes after the response.
+    try {
+      const affected = await User.find({ created_by: admin._id, role: { $in: ['teacher', 'student'] } }, 'name email role').lean();
+      await Promise.all([
+        notifyAccountStatus({ to: admin.email, name: admin.name, role: 'admin', isActive: admin.is_active }),
+        ...affected.map(u => notifyAccountStatus({ to: u.email, name: u.name, role: u.role, isActive: admin.is_active })),
+      ].map(p => p.catch(() => {})));
+    } catch (_) {}
+
     res.json({
       message: `Admin ${admin.is_active ? 'activated' : 'deactivated'} successfully. All their teachers and students have been ${admin.is_active ? 'reactivated' : 'deactivated'} and their sessions terminated.`,
       is_active: admin.is_active,
     });
-
-    // Notify admin + all their teachers + all their students by email
-    try {
-      notifyAccountStatus({ to: admin.email, name: admin.name, role: 'admin', isActive: admin.is_active }).catch(() => {});
-      const affected = await User.find({ created_by: admin._id, role: { $in: ['teacher', 'student'] } }, 'name email role').lean();
-      for (const u of affected) {
-        notifyAccountStatus({ to: u.email, name: u.name, role: u.role, isActive: admin.is_active }).catch(() => {});
-      }
-    } catch (_) {}
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 

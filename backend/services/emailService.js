@@ -8,11 +8,18 @@ function createTransporter() {
     console.warn(`⚠️  Email not configured — missing ${missing.join(', ')} in .env. No welcome/assignment/assessment/announcement/account-status emails will be sent until ${missing.length > 1 ? 'these are' : 'this is'} set.`);
     return null;
   }
+  const port = parseInt(process.env.EMAIL_PORT || '587', 10);
   return nodemailer.createTransport({
     host: process.env.EMAIL_HOST,
-    port: parseInt(process.env.EMAIL_PORT || '587'),
-    secure: process.env.EMAIL_SECURE === 'true',
+    port,
+    // Port 465 is implicit-TLS; everything else (587/25) starts plain and upgrades via STARTTLS.
+    secure: process.env.EMAIL_SECURE === 'true' || port === 465,
     auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
+    // The API runs as a serverless function: a hung SMTP connection must fail fast
+    // instead of holding the request (and the function) open until the platform kills it.
+    connectionTimeout: 10000,
+    greetingTimeout:   10000,
+    socketTimeout:     20000,
   });
 }
 
@@ -329,13 +336,18 @@ function daysLeftPill(deadline) {
 }
 
 // ── Safe send wrapper ──────────────────────────────────────────────────────
+// Never throws. IMPORTANT: callers must `await` the notify*() functions BEFORE
+// sending the HTTP response. On Vercel (serverless) the function is frozen the
+// moment the response ends, so a fire-and-forget send started after res.json()
+// is killed mid-SMTP and the email is never delivered.
 async function sendMail(opts) {
   const transporter = createTransporter();
   if (!transporter) return;
   try {
-    await transporter.sendMail({ from: FROM(), ...opts });
+    const info = await transporter.sendMail({ from: FROM(), ...opts });
+    console.log(`📧 Email sent: "${opts.subject}" → ${[].concat(opts.to).join(', ')} (${info.messageId})`);
   } catch (err) {
-    console.error('📧 Email send error:', err.message);
+    console.error(`📧 Email send error ("${opts.subject}"):`, err.message);
   }
 }
 

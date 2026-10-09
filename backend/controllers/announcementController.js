@@ -53,9 +53,8 @@ const createAnnouncement = async (req, res) => {
     const a = await Announcement.create({
       title, content, class_id: classId || null, teacher_id: req.session.user.id
     });
-    res.status(201).json({ message: 'Announcement created', id: a._id });
-
-    // Fire notifications async
+    // Notifications run BEFORE responding: on serverless (Vercel) the function is
+    // frozen as soon as the response ends, which silently killed in-flight emails.
     try {
       const [teacher, teacherEmail] = await Promise.all([
         User.findById(req.session.user.id, 'name').lean(),
@@ -78,13 +77,14 @@ const createAnnouncement = async (req, res) => {
         linkId: a._id,
       });
       if (studentEmails.length) {
-        notifyAnnouncement({
+        await notifyAnnouncement({
           studentEmails, teacherEmail,
           announcementTitle: title, content, className,
           teacherName: teacher?.name || 'Your teacher',
         }).catch(err => console.error('Email error:', err.message));
       }
     } catch (err) { console.error('Notification error (announcement):', err.message); }
+    res.status(201).json({ message: 'Announcement created', id: a._id });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
