@@ -26,107 +26,187 @@ function createTransporter() {
 const FROM    = () => process.env.EMAIL_FROM   || '"EDUPLA" <no-reply@edupla.app>';
 const APP_URL = () => process.env.APP_URL       || 'https://edupla.vercel.app';
 
-// ── Brand palette — dark "ticket card" theme, matching the in-app dialogs:
-// near-black canvas, a glowing colored status circle up top, and a darker
-// ticket-style panel (avatar row + perforated divider + monospace rows)
-// for anything credential/detail related. Orange remains the CTA accent. ──
+// ── Brand palette — light "welcome card" theme ─────────────────────────────
+// A white card on a soft grey-blue page, an orange logo header, an orange
+// envelope hero (glow + sparkles), bold centred title, a solid orange CTA
+// with a sweeping shine, and peach icon circles — the EDUPLA onboarding look.
+// Animations are CSS keyframes: clients that support them (Apple Mail, iOS
+// Mail, Samsung Mail, most webmail "view in browser") play them; everything
+// else simply shows the finished, static design.
 const BRAND = {
-  pageBg:        '#050505',
-  cardBg:        '#111113',
-  cardBorder:    'rgba(255,255,255,0.08)',
-  headerBorder:  'rgba(255,255,255,0.07)',
-  ticketBg:      '#17171b',
-  ticketBorder:  'rgba(255,255,255,0.10)',
-  rowDivider:    'rgba(255,255,255,0.07)',
-  dashDivider:   'rgba(255,255,255,0.22)',
-  chipBg:        'rgba(255,255,255,0.05)',
-  chipBorder:    'rgba(255,255,255,0.13)',
-  textPrimary:   '#f5f5f7',
-  textSecondary: '#a3a3ad',
-  textMuted:     '#75757f',
-  accent:        '#ea580c',
-  accentBright:  '#fb923c',
-  accentDeep:    '#c2410c',
-  amber:         '#f59e0b',
-  // Fixed "white-gray" ink used on top of any dark-orange brand surface
-  // (icon badge, avatar chip) so it never inherits a status color.
-  onAccent:      '#f4f4f5',
-  successText:   '#34d399', successBg: 'rgba(21,128,61,0.14)', successBorder: 'rgba(21,128,61,0.35)', successRing: 'rgba(21,128,61,0.30)',
-  dangerText:    '#f87171', dangerBg: 'rgba(248,113,113,0.10)', dangerBorder: 'rgba(248,113,113,0.30)', dangerRing: 'rgba(248,113,113,0.28)',
-  accentRing:    'rgba(251,146,60,0.28)',
+  pageBg:        '#ebeef3',
+  cardBg:        '#fcfcfc',
+  cardBorder:    '#e4e8ed',
+  headerBorder:  '#eceef2',
+  ticketBg:      '#f7f8fa',
+  ticketBorder:  '#e4e8ed',
+  rowDivider:    '#e9ecf0',
+  dashDivider:   '#cfd4dc',
+  chipBg:        '#f4f5f8',
+  chipBorder:    '#dfe3e9',
+  textPrimary:   '#111424',
+  textSecondary: '#5d6475',
+  textMuted:     '#8b91a1',
+  accent:        '#ff5c1b',
+  accentBright:  '#fd8d5c',
+  accentDeep:    '#e8470f',
+  peach:         '#ffe1d5',
+  peachSoft:     '#fff1ea',
+  amber:         '#b45309',
+  onAccent:      '#ffffff',
+  successText:   '#15803d', successBg: '#ecfdf3', successBorder: '#b7ebcb', successRing: 'rgba(22,163,74,0.20)',
+  dangerText:    '#dc2626', dangerBg: '#fef2f2', dangerBorder: '#fecaca', dangerRing: 'rgba(239,68,68,0.20)',
+  accentRing:    'rgba(255,92,27,0.22)',
 };
+
+const FONT = "'Poppins','Segoe UI',Helvetica,Arial,sans-serif";
 
 const STATUS = {
-  success: { solid: '#15803d', dark: '#052e16', text: BRAND.successText, ring: BRAND.successRing, chip: BRAND.successBg, chipBorder: BRAND.successBorder },
-  danger:  { solid: '#ef4444', dark: '#5b1414', text: BRAND.dangerText,  ring: BRAND.dangerRing,  chip: BRAND.dangerBg,  chipBorder: BRAND.dangerBorder },
-  accent:  { solid: '#fb923c', dark: '#7c2d12', text: BRAND.accentBright, ring: BRAND.accentRing, chip: 'rgba(251,146,60,0.10)', chipBorder: 'rgba(251,146,60,0.30)' },
+  success: { solid: '#16a34a', soft: '#dcfce7', text: BRAND.successText, ring: BRAND.successRing, chip: BRAND.successBg, chipBorder: BRAND.successBorder, hero: 'orange' },
+  danger:  { solid: '#ef4444', soft: '#fee2e2', text: BRAND.dangerText,  ring: BRAND.dangerRing,  chip: BRAND.dangerBg,  chipBorder: BRAND.dangerBorder,  hero: 'red' },
+  accent:  { solid: BRAND.accent, soft: BRAND.peach, text: BRAND.accentDeep, ring: BRAND.accentRing, chip: BRAND.peachSoft, chipBorder: '#ffd2bf', hero: 'orange' },
 };
 
+// Envelope colours. Welcome / success / info mails use the brand orange;
+// a deactivation uses red so the bad news is visible before it is read.
+const HERO = {
+  orange: { body: '#ff5c1b', light: '#ff8a57', flap: '#e8470f', glow: 'rgba(255,92,27,0.17)', shadow: 'rgba(232,71,15,0.50)', star: '#ff5c1b' },
+  red:    { body: '#ef4444', light: '#f87171', flap: '#c92a2a', glow: 'rgba(239,68,68,0.15)', shadow: 'rgba(201,42,42,0.45)', star: '#ef4444' },
+};
+
+// Text glyphs (orange line-icon feel) instead of colour emoji. U+FE0E forces
+// text presentation so the glyph takes the surrounding colour.
+const GLYPH = { '📋': '✎', '📄': '❐', '📣': '✉', '📝': '✓', '🔑': '✱', '🎓': '✦' };
+function glyph(g) {
+  if (g == null) return '';
+  const mapped = GLYPH[g] || g;
+  const code = String(mapped).codePointAt(0);
+  return code >= 0x2190 && code <= 0x2BFF ? mapped + '︎' : mapped;
+}
+
 // ── HTML shell ─────────────────────────────────────────────────────────────
-function wrapEmail({ title, preheader, body, badge, icon = '🎓', status = 'accent' }) {
+function envelopeHero({ icon, status }) {
+  const s = STATUS[status] || STATUS.accent;
+  const h = HERO[s.hero];
+  const star = (ch, size, delay, align, pad) =>
+    `<div class="edu-star" style="font-size:${size}px;line-height:1;color:${h.star};text-align:${align};padding:${pad};animation-delay:${delay}s;">${ch}</div>`;
+
+  return `
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 auto 4px;">
+    <tr>
+      <td width="25%" align="right" valign="top" style="padding-top:34px;">
+        ${star('✦︎', 16, 0.2, 'right', '0 6px 34px 0')}
+        ${star('✧︎', 11, 1.1, 'right', '0 30px 0 0')}
+      </td>
+      <td width="50%" align="center" valign="middle">
+        <table class="edu-glow" role="presentation" width="190" height="190" cellpadding="0" cellspacing="0" style="margin:0 auto;border-radius:50%;background:radial-gradient(circle at 50% 50%, ${h.glow} 0%, ${h.glow} 38%, rgba(255,255,255,0) 70%);">
+          <tr><td align="center" valign="middle">
+            <table class="edu-env" role="presentation" width="128" cellpadding="0" cellspacing="0" bgcolor="${h.body}" style="margin:0 auto;border-radius:14px;background-color:${h.body};background-image:linear-gradient(165deg, ${h.light} 0%, ${h.body} 58%);box-shadow:0 20px 30px -14px ${h.shadow};">
+              <tr><td style="padding:0;line-height:0;font-size:0;height:52px;">
+                <div style="width:0;height:0;border-left:64px solid transparent;border-right:64px solid transparent;border-top:52px solid ${h.flap};line-height:0;font-size:0;border-radius:14px 14px 0 0;"></div>
+              </td></tr>
+              <tr><td align="center" style="padding:0 0 22px;height:44px;">
+                <div style="margin:-27px auto 0;width:46px;height:46px;border-radius:50%;background:#ffffff;line-height:46px;font-size:21px;font-weight:800;color:${h.body};text-align:center;font-family:${FONT};box-shadow:0 8px 14px -6px rgba(17,20,36,0.35);">${glyph(icon)}</div>
+              </td></tr>
+            </table>
+          </td></tr>
+        </table>
+      </td>
+      <td width="25%" align="left" valign="bottom" style="padding-bottom:30px;">
+        ${star('✧︎', 12, 0.6, 'left', '0 0 30px 26px')}
+        ${star('✦︎', 18, 1.5, 'left', '0 0 0 8px')}
+      </td>
+    </tr>
+  </table>`;
+}
+
+function wrapEmail({ title, preheader, body, badge, icon = '✓', status = 'accent' }) {
   const s = STATUS[status] || STATUS.accent;
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><meta name="color-scheme" content="dark"/><title>${title}</title>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta name="color-scheme" content="light only"/><meta name="supported-color-schemes" content="light only"/>
+<title>${title}</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
 <style>
-  @keyframes eduplaPop {
-    0%   { transform: scale(0.4) rotate(-8deg); opacity: 0; }
-    55%  { transform: scale(1.12) rotate(4deg); opacity: 1; }
-    75%  { transform: scale(0.96) rotate(-2deg); }
-    100% { transform: scale(1) rotate(0deg); }
+  @keyframes eduFadeUp {
+    0%   { opacity: 0; transform: translateY(18px); }
+    100% { opacity: 1; transform: translateY(0); }
   }
-  @keyframes eduplaFloat {
-    0%, 100% { transform: translateY(0px); }
-    50%      { transform: translateY(-5px); }
+  @keyframes eduPop {
+    0%   { transform: scale(0.55) rotate(-6deg); opacity: 0; }
+    60%  { transform: scale(1.08) rotate(2deg); opacity: 1; }
+    100% { transform: scale(1) rotate(0deg); opacity: 1; }
   }
-  @keyframes eduplaRing {
-    0%   { box-shadow: 0 0 0 0 ${s.ring}, 0 0 0 8px ${s.ring}; }
-    70%  { box-shadow: 0 0 0 8px ${s.ring}, 0 0 0 26px rgba(0,0,0,0); }
-    100% { box-shadow: 0 0 0 8px ${s.ring}, 0 0 0 26px rgba(0,0,0,0); }
+  @keyframes eduFloat {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-6px); }
   }
-  @keyframes eduplaShine {
-    0%   { background-position: -200% 0; }
-    100% { background-position: 200% 0; }
+  @keyframes eduGlow {
+    0%, 100% { transform: scale(1);    opacity: 1; }
+    50%      { transform: scale(1.07); opacity: 0.75; }
   }
-  .edupla-icon-badge {
-    animation: eduplaPop 0.7s cubic-bezier(.34,1.56,.64,1) 0s 1 both,
-               eduplaFloat 2.6s ease-in-out 0.7s infinite,
-               eduplaRing 2.4s ease-out 0.7s infinite;
+  @keyframes eduTwinkle {
+    0%, 100% { opacity: 0.25; transform: scale(0.8) rotate(0deg); }
+    50%      { opacity: 1;    transform: scale(1.2) rotate(18deg); }
   }
-  .edupla-cta a {
-    background-size: 200% 100%;
-    animation: eduplaShine 2.8s linear infinite;
+  @keyframes eduShine {
+    0%        { background-position: 100% 0; }
+    55%, 100% { background-position: 0% 0; }
+  }
+  @keyframes eduRow {
+    0%   { opacity: 0; transform: translateX(-10px); }
+    100% { opacity: 1; transform: translateX(0); }
+  }
+  .edu-card  { animation: eduFadeUp 0.7s cubic-bezier(.2,.8,.2,1) both; }
+  .edu-glow  { animation: eduGlow 3.2s ease-in-out 0.8s infinite; }
+  .edu-env   { animation: eduPop 0.8s cubic-bezier(.34,1.56,.64,1) 0.15s both, eduFloat 3s ease-in-out 1s infinite; }
+  .edu-star  { animation: eduTwinkle 2.4s ease-in-out infinite; }
+  .edu-cta   { animation: eduShine 3s ease-in-out 1.2s infinite; }
+  .edu-row   { animation: eduRow 0.6s ease-out both; }
+  .edu-row:nth-child(2) { animation-delay: 0.45s; }
+  .edu-row:nth-child(3) { animation-delay: 0.6s; }
+  .edu-row:nth-child(4) { animation-delay: 0.75s; }
+  @media (prefers-reduced-motion: reduce) {
+    .edu-card, .edu-glow, .edu-env, .edu-star, .edu-cta, .edu-row { animation: none !important; }
+  }
+  @media only screen and (max-width: 520px) {
+    .edu-pad { padding-left: 20px !important; padding-right: 20px !important; }
   }
 </style>
 </head>
-<body style="margin:0;padding:0;background:${BRAND.pageBg};font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
+<body style="margin:0;padding:0;background:${BRAND.pageBg};font-family:${FONT};">
   <span style="display:none;max-height:0;overflow:hidden;color:${BRAND.pageBg};">${preheader}</span>
-  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" bgcolor="${BRAND.pageBg}" style="background:${BRAND.pageBg};background-image:radial-gradient(circle at 50% -10%, ${s.ring} 0%, rgba(0,0,0,0) 55%);padding:44px 16px;">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" bgcolor="${BRAND.pageBg}" style="background:${BRAND.pageBg};padding:40px 14px;font-family:${FONT};">
     <tr><td align="center">
-      <table width="600" cellpadding="0" cellspacing="0" role="presentation" style="max-width:600px;width:100%;">
+      <table class="edu-card" width="600" cellpadding="0" cellspacing="0" role="presentation" style="max-width:600px;width:100%;">
 
         <tr>
-          <td style="border-radius:24px;overflow:hidden;box-shadow:0 24px 60px -20px rgba(0,0,0,0.7);">
-            <table width="100%" cellpadding="0" cellspacing="0" role="presentation" bgcolor="${BRAND.cardBg}" style="background:${BRAND.cardBg};border:1px solid ${BRAND.cardBorder};border-radius:24px;">
+          <td style="border-radius:18px;box-shadow:0 24px 60px -24px rgba(17,20,36,0.28);">
+            <table width="100%" cellpadding="0" cellspacing="0" role="presentation" bgcolor="${BRAND.cardBg}" style="background:${BRAND.cardBg};border:1px solid ${BRAND.cardBorder};border-radius:18px;">
 
-              <!-- Top accent bar -->
-              <tr><td height="4" style="height:4px;line-height:4px;font-size:0;background:linear-gradient(90deg,${s.dark},${s.solid},${s.dark});">&nbsp;</td></tr>
-
-              <!-- Header -->
+              <!-- Header: logo + link -->
               <tr>
-                <td style="padding:42px 36px 28px;text-align:center;border-bottom:1px solid ${BRAND.headerBorder};">
-                  ${brandLockup()}
-                  <table cellpadding="0" cellspacing="0" role="presentation" style="margin:0 auto 20px;">
-                    <tr><td class="edupla-icon-badge" style="width:70px;height:70px;border-radius:50%;background:radial-gradient(circle at 32% 26%, ${BRAND.accentBright} 0%, ${BRAND.accent} 45%, ${BRAND.accentDeep} 100%);text-align:center;vertical-align:middle;font-size:27px;color:${BRAND.onAccent};box-shadow:inset 0 1px 0 rgba(255,255,255,0.28), 0 12px 26px -8px ${s.ring};">${icon}</td></tr>
-                  </table>
-                  <h1 style="margin:0;font-size:22px;font-weight:800;color:${BRAND.textPrimary};letter-spacing:-0.01em;">${title}</h1>
-                  ${badge ? `<div style="margin-top:16px;">${badge}</div>` : ''}
+                <td class="edu-pad" style="padding:20px 32px;border-bottom:1px solid ${BRAND.headerBorder};">
+                  <table width="100%" cellpadding="0" cellspacing="0" role="presentation"><tr>
+                    <td align="left" valign="middle">${brandLockup()}</td>
+                    <td align="right" valign="middle"><a href="${APP_URL()}" style="color:${BRAND.accent};font-size:12.5px;font-weight:600;text-decoration:none;font-family:${FONT};">Open EDUPLA</a></td>
+                  </tr></table>
+                </td>
+              </tr>
+
+              <!-- Hero: envelope + title -->
+              <tr>
+                <td class="edu-pad" align="center" style="padding:30px 32px 6px;text-align:center;">
+                  ${envelopeHero({ icon, status })}
+                  <h1 style="margin:8px 0 0;font-size:27px;line-height:1.25;font-weight:800;color:${BRAND.textPrimary};letter-spacing:-0.01em;font-family:${FONT};">${title}</h1>
+                  ${badge ? `<div style="margin-top:14px;">${badge}</div>` : ''}
                 </td>
               </tr>
 
               <!-- Body -->
-              <tr><td style="padding:32px 36px 36px;">${body}</td></tr>
+              <tr><td class="edu-pad" style="padding:20px 32px 38px;text-align:center;font-family:${FONT};">${body}</td></tr>
 
             </table>
           </td>
@@ -134,9 +214,9 @@ function wrapEmail({ title, preheader, body, badge, icon = '🎓', status = 'acc
 
         <!-- Footer -->
         <tr>
-          <td style="padding:26px 12px 0;text-align:center;">
-            <p style="margin:0 0 5px;font-size:11.5px;color:${BRAND.textMuted};">Sent by <a href="${APP_URL()}" style="color:${BRAND.accentBright};font-weight:700;text-decoration:none;">EDUPLA</a> — empowering classrooms, one lesson at a time</p>
-            <p style="margin:0;font-size:10.5px;color:#3f3f46;">This is an automated notification — please don't reply directly to this email.</p>
+          <td style="padding:24px 12px 0;text-align:center;font-family:${FONT};">
+            <p style="margin:0 0 4px;font-size:11px;color:${BRAND.textMuted};">You received this email because you have an account on EDUPLA.</p>
+            <p style="margin:0;font-size:11px;"><a href="${APP_URL()}" style="color:${BRAND.accent};font-weight:600;text-decoration:none;">Open EDUPLA</a> <span style="color:${BRAND.textMuted};">· automated notification, please don't reply</span></p>
           </td>
         </tr>
 
@@ -148,121 +228,114 @@ function wrapEmail({ title, preheader, body, badge, icon = '🎓', status = 'acc
 
 function badgeChip(text, status = 'accent') {
   const s = STATUS[status] || STATUS.accent;
-  return `<span style="display:inline-block;padding:6px 16px;background:${s.chip};border:1px solid ${s.chipBorder};border-radius:999px;font-size:10.5px;font-weight:800;color:${s.text};letter-spacing:0.06em;text-transform:uppercase;">${text}</span>`;
+  return `<span style="display:inline-block;padding:6px 16px;background:${s.chip};border:1px solid ${s.chipBorder};border-radius:999px;font-size:10.5px;font-weight:700;color:${s.text};letter-spacing:0.07em;text-transform:uppercase;font-family:${FONT};">${text}</span>`;
 }
 
+// Primary call-to-action: solid orange, uppercase, with a glossy band that
+// sweeps across it (the "CONFIRM E-MAIL" button in the design).
 function ctaBtn(text, href) {
-  return `<table cellpadding="0" cellspacing="0" role="presentation" align="right" class="edupla-cta" style="margin-top:26px;border-radius:12px;box-shadow:0 12px 26px -10px rgba(154,52,18,0.55);">
-    <tr><td style="border-radius:12px;">
-      <a href="${href}" style="display:inline-block;padding:14px 30px;color:#fff;font-size:13.5px;font-weight:800;text-decoration:none;letter-spacing:0.01em;border-radius:12px;background:linear-gradient(100deg,#7c2d12 0%,#9a3412 25%,#c2410c 50%,#9a3412 75%,#7c2d12 100%);background-size:200% 100%;">${text}</a>
+  return `<table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:30px auto 0;">
+    <tr><td class="edu-cta" bgcolor="${BRAND.accent}" style="border-radius:6px;background-color:${BRAND.accent};background-image:linear-gradient(115deg, ${BRAND.accent} 0%, ${BRAND.accent} 38%, #ffa27a 50%, ${BRAND.accent} 62%, ${BRAND.accent} 100%);background-size:260% 100%;background-position:100% 0;box-shadow:0 12px 24px -12px rgba(232,71,15,0.75);">
+      <a href="${href}" style="display:block;padding:15px 46px;color:#ffffff;font-size:12.5px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;text-decoration:none;font-family:${FONT};">${text}</a>
     </td></tr>
-  </table>
-  <div style="clear:both;"></div>`;
+  </table>`;
 }
 
+// Small outlined button (the "EXPLORE" / "JOIN A CLASS" buttons in the design).
 function secondaryBtn(text, href) {
-  return `<table cellpadding="0" cellspacing="0" role="presentation" style="margin-top:26px;">
-    <tr><td style="border-radius:12px;border:1px solid ${BRAND.chipBorder};background:${BRAND.chipBg};">
-      <a href="${href}" style="display:inline-block;padding:13px 26px;color:${BRAND.textPrimary};font-size:13px;font-weight:700;text-decoration:none;">${text}</a>
+  return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:12px;">
+    <tr><td style="border-radius:4px;border:1px solid ${BRAND.dashDivider};background:#ffffff;">
+      <a href="${href}" style="display:inline-block;padding:7px 14px;color:${BRAND.textPrimary};font-size:11px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;text-decoration:none;font-family:${FONT};">${text}</a>
     </td></tr>
   </table>`;
 }
 
 function sectionLabel(text, status = 'accent') {
   const s = STATUS[status] || STATUS.accent;
-  return `<p style="margin:0 0 12px;font-size:10.5px;font-weight:800;color:${s.text};text-transform:uppercase;letter-spacing:0.11em;">${text}</p>`;
+  return `<p style="margin:0 0 12px;font-size:10.5px;font-weight:700;color:${s.text};text-transform:uppercase;letter-spacing:0.11em;">${text}</p>`;
 }
 
 // ── Brand logo lockup ──────────────────────────────────────────────────────
-// Mirrors the site nav: a rounded-square "E" mark in the dark-orange gradient
-// (fixed white-gray ink) beside an italic serif "Edupla" wordmark. Used at
-// the top of every email in place of a flat text label.
+// Orange round mark (white ring) + bold lowercase "edupla" wordmark.
 function brandLockup() {
-  return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 22px;"><tr>
-    <td style="padding-right:11px;" valign="middle">
+  return `<table role="presentation" cellpadding="0" cellspacing="0"><tr>
+    <td style="padding-right:9px;" valign="middle">
       <table role="presentation" cellpadding="0" cellspacing="0"><tr>
-        <td style="width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg, ${BRAND.accentBright}, ${BRAND.accentDeep});text-align:center;vertical-align:middle;font-family:Georgia,'Times New Roman',serif;font-style:italic;font-weight:700;font-size:18px;color:${BRAND.onAccent};box-shadow:inset 0 1px 0 rgba(255,255,255,0.25);">E</td>
+        <td align="center" valign="middle" style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg, ${BRAND.accentBright}, ${BRAND.accent});">
+          <div style="width:11px;height:11px;margin:0 auto;border:3px solid #ffffff;border-radius:50%;line-height:0;font-size:0;">&nbsp;</div>
+        </td>
       </tr></table>
     </td>
     <td valign="middle">
-      <span style="font-family:Georgia,'Times New Roman',serif;font-style:italic;font-weight:600;font-size:22px;color:${BRAND.textPrimary};letter-spacing:0.01em;">Edupla</span>
+      <span style="font-family:${FONT};font-weight:700;font-size:21px;color:${BRAND.textPrimary};letter-spacing:-0.01em;">edupla</span>
     </td>
   </tr></table>`;
 }
 
-// Row of rounded-square section tiles (Classes / Assignments / Documents /
-// Announcements, etc.) — the first tile is highlighted in brand orange,
-// mirroring the active sidebar icon in the app screenshot.
+// Peach circle holding an orange glyph — the icon bubble used all over the design.
+function peachCircle(g, size = 46) {
+  return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;"><tr>
+    <td align="center" valign="middle" style="width:${size}px;height:${size}px;border-radius:50%;background:${BRAND.peach};font-size:${Math.round(size * 0.44)}px;line-height:${size}px;font-weight:700;color:${BRAND.accent};font-family:${FONT};">${glyph(g)}</td>
+  </tr></table>`;
+}
+
+// Row of peach icon bubbles with labels underneath (Mentors / Quizzes / Community).
 function appPreviewStrip(items) {
-  const cells = items.map((it, i) => `
-    <td width="${Math.floor(100 / items.length)}%" align="center" style="padding:0 5px;">
-      <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;"><tr>
-        <td style="width:44px;height:44px;border-radius:12px;background:${i === 0 ? `linear-gradient(135deg, ${BRAND.accentBright}, ${BRAND.accentDeep})` : BRAND.chipBg};border:1px solid ${i === 0 ? 'transparent' : BRAND.chipBorder};text-align:center;vertical-align:middle;font-size:18px;color:${i === 0 ? BRAND.onAccent : BRAND.textSecondary};">${it.icon}</td>
-      </tr></table>
-      <p style="margin:8px 0 0;font-size:10.5px;font-weight:700;color:${BRAND.textSecondary};">${it.label}</p>
+  const cells = items.map((it) => `
+    <td width="${Math.floor(100 / items.length)}%" align="center" valign="top" style="padding:0 4px;">
+      ${peachCircle(it.icon, 44)}
+      <p style="margin:9px 0 0;font-size:11.5px;font-weight:500;color:${BRAND.textPrimary};font-family:${FONT};">${it.label}</p>
     </td>`).join('');
   return `<table role="presentation" style="width:100%;" cellpadding="0" cellspacing="0"><tr>${cells}</tr></table>`;
 }
 
-// "Browser chrome" teaser card — traffic-light dots + address pill + a live
-// badge, then a friendly greeting and a preview strip of what's inside the
-// app. Dropped into onboarding-type emails to turn a plain credential drop
-// into something that actually makes someone want to click through and log in.
-function dashboardTeaserCard({ greetingName, items, liveLabel = 'live' }) {
-  const dot = (color) => `<td style="width:9px;height:9px;border-radius:50%;background:${color};"></td><td width="6"></td>`;
-  return `<table role="presentation" style="width:100%;background:#0c0c0e;border:1px solid ${BRAND.ticketBorder};border-radius:16px;overflow:hidden;" cellpadding="0" cellspacing="0">
-    <tr><td style="padding:13px 18px;border-bottom:1px solid ${BRAND.headerBorder};">
-      <table role="presentation" style="width:100%;" cellpadding="0" cellspacing="0"><tr>
-        <td width="92"><table role="presentation" cellpadding="0" cellspacing="0"><tr>${dot('#f87171')}${dot('#f59e0b')}${dot('#34d399')}</tr></table></td>
-        <td align="center">
-          <span style="display:inline-block;padding:5px 14px;background:${BRAND.chipBg};border:1px solid ${BRAND.chipBorder};border-radius:999px;font-size:10px;color:${BRAND.textMuted};">app.edupla.school</span>
-        </td>
-        <td width="92" align="right">
-          <span style="display:inline-block;white-space:nowrap;padding:4px 10px;background:${BRAND.successBg};border:1px solid ${BRAND.successBorder};border-radius:999px;font-size:9px;font-weight:800;color:${BRAND.successText};text-transform:uppercase;letter-spacing:0.04em;">● ${liveLabel}</span>
-        </td>
-      </tr></table>
-    </td></tr>
-    <tr><td style="padding:20px 20px 4px;">
-      <p style="margin:0;font-size:14.5px;font-weight:800;color:${BRAND.textPrimary};">Good to see you${greetingName ? ', ' + greetingName : ''} 👋</p>
-      <p style="margin:4px 0 0;font-size:11.5px;color:${BRAND.textMuted};">Here's what's waiting for you inside EDUPLA</p>
-    </td></tr>
-    <tr><td style="padding:14px 16px 22px;">${appPreviewStrip(items)}</td></tr>
-  </table>`;
+// Feature rows — title, grey description, small outlined button on the left,
+// peach icon circle on the right, hairline between rows (the "Interactive
+// courses / Live classes / Certificates" list in the design).
+function featureRows(rows) {
+  const trs = rows.map((r, i) => `
+    <tr class="edu-row">
+      <td valign="middle" style="padding:20px 8px 20px 4px;${i < rows.length - 1 ? `border-bottom:1px solid ${BRAND.rowDivider};` : ''}text-align:left;">
+        <p style="margin:0;font-size:16px;font-weight:700;color:${BRAND.textPrimary};font-family:${FONT};">${r.title}</p>
+        <p style="margin:4px 0 0;font-size:12px;line-height:1.55;color:${BRAND.textSecondary};max-width:260px;font-family:${FONT};">${r.desc}</p>
+        ${r.cta ? secondaryBtn(r.cta, r.href || APP_URL()) : ''}
+      </td>
+      <td width="66" align="right" valign="middle" style="padding:20px 4px 20px 0;${i < rows.length - 1 ? `border-bottom:1px solid ${BRAND.rowDivider};` : ''}">${peachCircle(r.icon, 48)}</td>
+    </tr>`).join('');
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="text-align:left;border-top:1px solid ${BRAND.rowDivider};">${trs}</table>`;
 }
 
-// Small decorative icon chip — mirrors the copy/eye icon buttons in the app's
-// dark UI. Purely visual in email (no client-side interactivity is possible),
-// but it keeps the credential rows visually consistent with the product.
-function iconChip(glyph = '⧉', status = 'accent') {
+// Kept for API compatibility with older callers: feature rows + icon strip.
+function dashboardTeaserCard({ rows = [], items = [] }) {
+  return `${rows.length ? featureRows(rows) : ''}${items.length ? `<div style="margin-top:24px;">${appPreviewStrip(items)}</div>` : ''}`;
+}
+
+// Small decorative icon chip on the right of ticket rows.
+function iconChip(g = '⧉', status = 'accent') {
   const s = STATUS[status] || STATUS.accent;
-  return `<table cellpadding="0" cellspacing="0" role="presentation"><tr><td style="width:28px;height:28px;background:${STATUS.accent.chip};border:1px solid ${STATUS.accent.chipBorder};border-radius:8px;text-align:center;vertical-align:middle;font-size:12.5px;color:${s.text};">${glyph}</td></tr></table>`;
+  return `<table cellpadding="0" cellspacing="0" role="presentation"><tr><td style="width:28px;height:28px;background:${s.chip};border:1px solid ${s.chipBorder};border-radius:50%;text-align:center;vertical-align:middle;font-size:12.5px;color:${s.text};">${glyph(g)}</td></tr></table>`;
 }
 
 // ── Ticket card ──────────────────────────────────────────────────────────
-// The dark, perforated "ticket stub" panel used across the app — an optional
-// avatar/identity row, a dashed divider with cutout notches punched through
-// to the card background behind it, then stacked label/value rows each
-// separated by a hairline, with a small icon chip on the right of each row.
-//
-// NOTE: the identity avatar chip is always rendered in the brand's dark-orange
-// gradient with fixed white-gray ink (BRAND.onAccent) — independent of
-// `status` and of any legacy `avatarColor` — so every card reads as EDUPLA,
-// not as a status color.
+// Light "ticket stub": optional identity row (orange avatar + name), a dashed
+// perforation with punched-out notches, then label/value rows separated by
+// hairlines. The avatar is always the brand orange so every card reads as EDUPLA.
 function ticketCard({ avatarText, name, subtitle, headIcon, rows = [], status = 'accent' }) {
   const s = STATUS[status] || STATUS.accent;
   const hasIdentity = !!name;
+  const avatar = avatarText ? glyph(avatarText) : (name ? name.trim().charAt(0).toUpperCase() : '•');
   const identityRow = hasIdentity ? `
     <tr><td style="padding:18px 20px 15px;">
       <table role="presentation" style="width:100%;" cellpadding="0" cellspacing="0">
         <tr>
-          <td width="42" valign="middle">
-            <table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="width:40px;height:40px;background:linear-gradient(135deg, ${BRAND.accentBright}, ${BRAND.accentDeep});border-radius:12px;text-align:center;vertical-align:middle;color:${BRAND.onAccent};font-weight:800;font-size:15px;box-shadow:inset 0 1px 0 rgba(255,255,255,0.22);">${avatarText || (name ? name.trim().charAt(0).toUpperCase() : '•')}</td></tr></table>
+          <td width="44" valign="middle">
+            <table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="width:42px;height:42px;background:linear-gradient(135deg, ${BRAND.accentBright}, ${BRAND.accent});border-radius:50%;text-align:center;vertical-align:middle;color:${BRAND.onAccent};font-weight:700;font-size:16px;font-family:${FONT};">${avatar}</td></tr></table>
           </td>
           <td style="padding-left:13px;" valign="middle">
-            <p style="margin:0;font-size:14.5px;font-weight:800;color:${BRAND.textPrimary};">${name}</p>
+            <p style="margin:0;font-size:14.5px;font-weight:700;color:${BRAND.textPrimary};">${name}</p>
             ${subtitle ? `<p style="margin:2px 0 0;font-size:11.5px;color:${BRAND.textMuted};">${subtitle}</p>` : ''}
           </td>
-          ${headIcon ? `<td width="30" align="right" valign="middle" style="font-size:18px;">${headIcon}</td>` : ''}
+          ${headIcon ? `<td width="30" align="right" valign="middle" style="font-size:18px;color:${BRAND.accent};">${glyph(headIcon)}</td>` : ''}
         </tr>
       </table>
     </td></tr>
@@ -277,51 +350,49 @@ function ticketCard({ avatarText, name, subtitle, headIcon, rows = [], status = 
     <table role="presentation" style="width:100%;${i > 0 ? `margin-top:15px;padding-top:15px;border-top:1px solid ${BRAND.rowDivider};` : ''}" cellpadding="0" cellspacing="0">
       <tr>
         <td valign="middle">
-          <p style="margin:0 0 4px;font-size:9.5px;font-weight:800;color:${BRAND.textMuted};text-transform:uppercase;letter-spacing:0.09em;">${r.label}</p>
-          <p style="margin:0;font-size:14px;font-weight:700;color:${BRAND.textPrimary};${r.mono ? "font-family:Menlo,Consolas,monospace;" : ''}line-height:1.4;">${r.value}</p>
+          <p style="margin:0 0 4px;font-size:9.5px;font-weight:700;color:${BRAND.textMuted};text-transform:uppercase;letter-spacing:0.09em;">${r.label}</p>
+          <p style="margin:0;font-size:14px;font-weight:600;color:${BRAND.textPrimary};${r.mono ? "font-family:Menlo,Consolas,monospace;" : ''}line-height:1.4;">${r.value}</p>
         </td>
         ${r.icon !== false ? `<td width="36" align="right" valign="middle">${iconChip(r.icon || '⧉', status)}</td>` : ''}
       </tr>
     </table>`).join('');
 
-  return `<table role="presentation" style="width:100%;background:${BRAND.ticketBg};border:1px solid ${BRAND.ticketBorder};border-radius:16px;" cellpadding="0" cellspacing="0">
+  return `<table role="presentation" style="width:100%;background:${BRAND.ticketBg};border:1px solid ${BRAND.ticketBorder};border-radius:16px;text-align:left;" cellpadding="0" cellspacing="0">
     ${identityRow}
     <tr><td style="padding:${hasIdentity ? '16' : '18'}px 20px 18px;">${rowsHtml}</td></tr>
   </table>`;
 }
 
-// Callout — soft tinted panel with a bold left accent bar, dark theme.
+// Callout — soft tinted panel with a bold left accent bar.
 function calloutBox({ label, text, tone = 'accent' }) {
   const s = STATUS[tone] || STATUS.accent;
-  return `<div style="background:${s.chip};border:1px solid ${s.chipBorder};border-left:3px solid ${s.solid};border-radius:12px;padding:16px 19px;">
-    ${label ? `<p style="margin:0 0 5px;font-size:10px;font-weight:800;color:${s.text};text-transform:uppercase;letter-spacing:0.09em;">${label}</p>` : ''}
-    <p style="margin:0;font-size:13.5px;font-weight:500;color:${BRAND.textSecondary};line-height:1.6;">${text}</p>
+  return `<div style="background:${s.chip};border:1px solid ${s.chipBorder};border-left:3px solid ${s.solid};border-radius:12px;padding:15px 18px;text-align:left;">
+    ${label ? `<p style="margin:0 0 5px;font-size:10px;font-weight:700;color:${s.text};text-transform:uppercase;letter-spacing:0.09em;">${label}</p>` : ''}
+    <p style="margin:0;font-size:13px;font-weight:500;color:${BRAND.textSecondary};line-height:1.6;">${text}</p>
   </div>`;
 }
 
-// 3-step "getting started" strip — dark theme.
+// 3-step "getting started" strip.
 function stepsStrip(steps) {
   const cells = steps.map((s, i) => `
-    <td width="${Math.floor(100 / steps.length)}%" valign="top" style="padding:0 10px;">
-      <table cellpadding="0" cellspacing="0" role="presentation">
-        <tr><td style="width:30px;height:30px;background:${BRAND.chipBg};border:1px solid ${BRAND.chipBorder};border-radius:50%;text-align:center;vertical-align:middle;font-size:13px;font-weight:800;color:${BRAND.accentBright};">${i + 1}</td></tr>
+    <td width="${Math.floor(100 / steps.length)}%" valign="top" style="padding:0 8px;text-align:center;">
+      <table cellpadding="0" cellspacing="0" role="presentation" style="margin:0 auto;">
+        <tr><td style="width:32px;height:32px;background:${BRAND.peach};border-radius:50%;text-align:center;vertical-align:middle;font-size:13px;font-weight:700;color:${BRAND.accent};">${i + 1}</td></tr>
       </table>
-      <table cellpadding="0" cellspacing="0" role="presentation" style="width:100%;">
-        <tr><td style="padding-top:10px;font-size:12.5px;font-weight:700;color:${BRAND.textPrimary};line-height:1.4;">${s.title}</td></tr>
-        <tr><td style="padding-top:3px;font-size:11.5px;color:${BRAND.textSecondary};line-height:1.55;">${s.desc}</td></tr>
-      </table>
-    </td>`).join('<td width="18"></td>');
+      <p style="margin:10px 0 0;font-size:12.5px;font-weight:700;color:${BRAND.textPrimary};line-height:1.4;">${s.title}</p>
+      <p style="margin:3px 0 0;font-size:11.5px;color:${BRAND.textSecondary};line-height:1.55;">${s.desc}</p>
+    </td>`).join('');
 
-  return `<table cellpadding="0" cellspacing="0" role="presentation" style="width:100%;margin-top:28px;">
+  return `<table cellpadding="0" cellspacing="0" role="presentation" style="width:100%;margin-top:20px;">
     <tr>${cells}</tr>
   </table>`;
 }
 
 function divider() {
-  return `<div style="height:1px;background:linear-gradient(90deg,rgba(255,255,255,0) 0%,${BRAND.headerBorder} 50%,rgba(255,255,255,0) 100%);margin:28px 0;"></div>`;
+  return `<div style="height:1px;background:${BRAND.rowDivider};margin:30px 0;"></div>`;
 }
 
-// Countdown pill for deadlines, color-coded by urgency, dark theme.
+// Countdown pill for deadlines, colour-coded by urgency.
 function daysLeftPill(deadline) {
   if (!deadline) return '';
   const diffMs = new Date(deadline).getTime() - Date.now();
@@ -330,9 +401,9 @@ function daysLeftPill(deadline) {
   if (days < 0)        { label = 'Deadline passed'; color = BRAND.textMuted;   bg = BRAND.chipBg; border = BRAND.chipBorder; }
   else if (days === 0) { label = 'Due today';        color = BRAND.dangerText; bg = BRAND.dangerBg; border = BRAND.dangerBorder; }
   else if (days === 1) { label = '1 day left';       color = BRAND.dangerText; bg = BRAND.dangerBg; border = BRAND.dangerBorder; }
-  else if (days <= 3)  { label = `${days} days left`; color = BRAND.amber;     bg = 'rgba(245,158,11,0.10)'; border = 'rgba(245,158,11,0.30)'; }
+  else if (days <= 3)  { label = `${days} days left`; color = BRAND.amber;     bg = '#fffbeb'; border = '#fde68a'; }
   else                 { label = `${days} days left`; color = BRAND.successText; bg = BRAND.successBg; border = BRAND.successBorder; }
-  return `<span style="display:inline-block;margin-top:14px;padding:5px 14px;border-radius:999px;font-size:11px;font-weight:800;background:${bg};border:1px solid ${border};color:${color};">⏳ ${label}</span>`;
+  return `<span style="display:inline-block;margin-top:14px;padding:5px 14px;border-radius:999px;font-size:11px;font-weight:700;background:${bg};border:1px solid ${border};color:${color};">⏳ ${label}</span>`;
 }
 
 // ── Safe send wrapper ──────────────────────────────────────────────────────
@@ -401,32 +472,30 @@ async function notifyWelcome({ to, name, role, defaultPassword, adminName }) {
   const roleLabel = role === 'admin' ? 'Admin' : role === 'teacher' ? 'Teacher' : 'Student';
   const dashUrl   = role === 'admin' ? `${APP_URL()}/admin` : role === 'teacher' ? `${APP_URL()}/teacher` : `${APP_URL()}/student`;
   const firstName = (name || '').trim().split(' ')[0];
-  const previewItems = role === 'admin'
+  const base = APP_URL();
+  const featureList = role === 'admin'
     ? [
-        { icon: '👥', label: 'Teachers' },
-        { icon: '🎓', label: 'Students' },
-        { icon: '📚', label: 'Classes' },
-        { icon: '📣', label: 'Announcements' },
+        { title: 'Teachers & students', desc: 'Create accounts and manage everyone at your school.', cta: 'Manage people', href: dashUrl, icon: '☺' },
+        { title: 'Classes', desc: 'Build levels, trades and classes in minutes.',            cta: 'Open classes',    href: dashUrl, icon: '▤' },
+        { title: 'Announcements', desc: 'Keep every class informed in one place.',            cta: 'Post an update',  href: dashUrl, icon: '✉' },
       ]
     : role === 'teacher'
     ? [
-        { icon: '📚', label: 'Classes' },
-        { icon: '📋', label: 'Assignments' },
-        { icon: '📄', label: 'Documents' },
-        { icon: '📣', label: 'Announcements' },
+        { title: 'Classes',     desc: 'See your classes and the students in them.',           cta: 'Open classes',    href: dashUrl, icon: '▤' },
+        { title: 'Assignments', desc: 'Post work, set deadlines and track submissions.',      cta: 'New assignment',  href: `${base}/teacher/assignments`, icon: '✎' },
+        { title: 'Documents',   desc: 'Share notes and study material with your students.',   cta: 'Share a document', href: dashUrl, icon: '❐' },
       ]
     : [
-        { icon: '📚', label: 'Classes' },
-        { icon: '📋', label: 'Assignments' },
-        { icon: '📝', label: 'Assessments' },
-        { icon: '📣', label: 'Announcements' },
+        { title: 'Classes',     desc: 'Everything for your classes, in one place.',           cta: 'Open classes',    href: dashUrl, icon: '▤' },
+        { title: 'Assignments', desc: 'See what is due and hand your work in on time.',       cta: 'View assignments', href: `${base}/student/assignments`, icon: '✎' },
+        { title: 'Assessments', desc: 'Take online quizzes and check your marks.',            cta: 'Go to assessments', href: `${base}/student/assessments`, icon: '✓' },
       ];
   const firstStepTitle = role === 'admin' ? 'Add your teachers & students' : role === 'teacher' ? 'Create your first class' : 'Explore your classes';
   const firstStepDesc  = role === 'admin' ? 'Invite staff and enroll students to get your school set up.' : role === 'teacher' ? 'Set up a class and invite students.' : 'Check assignments, docs and announcements.';
 
   const body = `
-    <p style="margin:0 0 6px;font-size:15px;font-weight:800;color:${BRAND.textPrimary};">Hi ${firstName || name},</p>
-    <p style="margin:0 0 20px;font-size:14px;color:${BRAND.textSecondary};line-height:1.65;">Welcome to <strong style="color:${BRAND.accentBright};">EDUPLA</strong> — one unified platform for documents, assignments, teacher &amp; student management, modules and assessments, competency-based TVET curriculum setup, and automated report generation — built for admins, teachers, and students alike.</p>
+    <p style="margin:0 0 6px;font-size:16px;font-weight:700;color:${BRAND.textPrimary};">Hi ${firstName || name},</p>
+    <p style="margin:0 0 20px;font-size:14px;color:${BRAND.textSecondary};line-height:1.65;">Welcome to <strong style="color:${BRAND.accent};">EDUPLA</strong> — one unified platform for documents, assignments, teacher &amp; student management, modules and assessments, competency-based TVET curriculum setup, and automated report generation — built for admins, teachers, and students alike.</p>
     <p style="margin:0 0 22px;font-size:14px;color:${BRAND.textSecondary};">Use these credentials to sign in.</p>
 
     ${ticketCard({
@@ -436,26 +505,26 @@ async function notifyWelcome({ to, name, role, defaultPassword, adminName }) {
       status: 'success',
       rows: [
         { label: 'Email', value: `<a href="mailto:${to}" style="color:${BRAND.textPrimary};text-decoration:none;">${to}</a>`, icon: '⧉' },
-        { label: 'Default password', value: `<span style="letter-spacing:2px;">${defaultPassword}</span>`, mono: true, icon: '👁' },
+        { label: 'Default password', value: `<span style="letter-spacing:2px;">${defaultPassword}</span>`, mono: true, icon: '◉' },
       ],
     })}
 
     <div style="margin-top:20px;">
-      ${calloutBox({ label: 'Security tip', text: '🔑 Please change this password after the first login.', tone: 'accent' })}
+      ${calloutBox({ label: 'Security tip', text: 'Please change this password after your first login.', tone: 'accent' })}
     </div>
 
     <div style="margin-top:20px;">
-      ${dashboardTeaserCard({ greetingName: firstName, items: previewItems, liveLabel: 'ready for you' })}
+      ${featureRows(featureList)}
     </div>
 
     ${ctaBtn('Log In to EDUPLA →', dashUrl)}
 
     ${divider()}
 
-    ${sectionLabel('🚀 Get started in 3 steps')}
+    ${sectionLabel('Get started in 3 steps')}
     ${stepsStrip([
       { title: 'Log in', desc: 'Use the credentials above to sign in for the first time.' },
-      { title: 'Set up your account', desc: 'Change your password to something yuo know.' },
+      { title: 'Set up your account', desc: 'Change your password to something you know.' },
       { title: firstStepTitle, desc: firstStepDesc },
     ])}`;
 
@@ -489,11 +558,11 @@ async function notifyPasswordReset({ to, name, role, newPassword, adminName }) {
       headIcon: '🔑',
       rows: [
         { label: 'Email', value: to, icon: '⧉' },
-        { label: 'New password', value: `<span style="letter-spacing:2px;">${newPassword}</span>`, mono: true, icon: '👁' },
+        { label: 'New password', value: `<span style="letter-spacing:2px;">${newPassword}</span>`, mono: true, icon: '◉' },
       ],
     })}
     <div style="margin-top:20px;">
-      ${calloutBox({ label: 'Heads up', text: '🔒 Your old password no longer works — log in with the new one above, and consider changing it to something only you know.', tone: 'accent' })}
+      ${calloutBox({ label: 'Heads up', text: 'Your old password no longer works — log in with the new one above, and consider changing it to something only you know.', tone: 'accent' })}
     </div>
     ${ctaBtn('Log In to EDUPLA →', dashUrl)}`;
 
@@ -533,7 +602,7 @@ async function notifyAssignmentPosted({ studentEmails, teacherEmail, assignmentT
     })}
     <div style="margin:6px 0 0;">${daysLeftPill(deadline)}</div>
     <div style="margin-top:18px;">
-      ${calloutBox({ label: 'Reminder', text: '⏰ Submit your work before the deadline to avoid penalties.', tone: 'accent' })}
+      ${calloutBox({ label: 'Reminder', text: 'Submit your work before the deadline to avoid penalties.', tone: 'accent' })}
     </div>
     ${ctaBtn('View Assignment →', `${APP_URL()}/student/assignments`)}`;
 
@@ -661,7 +730,7 @@ async function notifyAssessmentShared({ studentEmails, teacherEmail, assessmentT
     })}
     ${expiresAt ? `<div style="margin:6px 0 0;">${daysLeftPill(expiresAt)}</div>` : ''}
     <div style="margin-top:18px;">
-      ${calloutBox({ label: 'Before you start', text: '⏰ The assessment opens in full screen and submits automatically when time runs out or if you leave the exam screen. Make sure you\'re ready first.', tone: 'accent' })}
+      ${calloutBox({ label: 'Before you start', text: 'The assessment opens in full screen and submits automatically when time runs out or if you leave the exam screen. Make sure you\'re ready first.', tone: 'accent' })}
     </div>
     ${ctaBtn('Go to Assessments →', `${APP_URL()}/student/assessments`)}`;
 
