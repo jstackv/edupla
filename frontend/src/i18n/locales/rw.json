@@ -71,7 +71,7 @@
     "institutionsBilling": "Ibigo n'Kwishyura",
     "treasury": "Ubugenzuzi bw'Amafaranga",
     "systemHealth": "Imikorere y'Uburyo",
-    "randomGroups": "Amatsinda y'Ubushake"
+    "tasks": "Imirimo"
   },
   "roles": {
     "teacherPortal": "Urubuga rw'Umwarimu",
@@ -1264,7 +1264,7 @@
   },
   "randomGroups": {
     "title": "Gukora Amatsinda mu Buryo Butunguranye",
-    "subtitle": "Tandukanya ishuri mu matsinda butunguranye maze ukuremo urutonde muri PDF. Nta kintu kibikwa kandi nta matsinda y'ibiganiro akorwa.",
+    "subtitle": "Hitamo abanyeshuri bagomba kujya mu matsinda, ubashyire mu matsinda y'ubushake maze ubike. Buri tsinda rishobora guhabwa umukoro waryo.",
     "class": "Ishuri",
     "selectClass": "Hitamo ishuri",
     "studentsCount": "Abanyeshuri {{count}}",
@@ -1297,6 +1297,28 @@
     "pdfTeacher": "Umwarimu: {{name}}",
     "pdfPage": "Urupapuro {{n}} rwa {{total}}",
     "pdfRandom": "Yakozwe butunguranye",
-    "pdfLight": "Urupapuro rw'umweru (rutwara wino muke)"
+    "pdfLight": "Urupapuro rw'umweru (rutwara wino muke)",
+    "loadGroupsFailed": "Kubona amatsinda byanze",
+    "saved": "Amatsinda yabitswe",
+    "saveFailed": "Kubika amatsinda byanze",
+    "deleted": "Amatsinda yasibwe",
+    "deleteFailed": "Gusiba amatsinda byanze",
+    "participants": "Abanyeshuri bazagaragara",
+    "hideStudents": "Hisha urutonde",
+    "chooseStudents": "Hitamo abanyeshuri",
+    "searchStudents": "Shakisha umunyeshuri…",
+    "selectAll": "Hitamo bose",
+    "clearAll": "Siba byose",
+    "pickSomeone": "Hitamo nibura umunyeshuri umwe.",
+    "regenerate": "Ongera ukore",
+    "draftTitle": "Ibigaragara — ntibirabikwa",
+    "setNamePlaceholder": "Tanga izina (si ngombwa), urugero: Amatsinda y'icyumweru cya 3",
+    "saveGroups": "Bika amatsinda",
+    "saveHint": "Bika amatsinda kugira ngo ubashe kuyaha imirimo.",
+    "savedTitle": "Amatsinda yabitswe",
+    "noSaved": "Nta matsinda araboneka. Kora amatsinda hejuru hanyuma uyabike.",
+    "tasksGiven": "Imirimo {{count}} yahawe",
+    "deleteSet": "Siba urutonde rw'amatsinda",
+    "deleteSetConfirm": "Gusiba \"{{name}}\" n'amatsinda yose arimo? Ntibisubizwa inyuma."
   }
 }

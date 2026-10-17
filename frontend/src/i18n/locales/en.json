@@ -53,7 +53,7 @@
     "control": "Control Panel",
     "dashboard": "Dashboard",
     "announcements": "Announcements",
-    "randomGroups": "Random Groups"
+    "tasks": "Tasks"
   },
   "roles": {
     "teacherPortal": "Teacher Portal",
@@ -1245,7 +1245,7 @@
   },
   "randomGroups": {
     "title": "Random Group Generator",
-    "subtitle": "Split a class into random groups and download the list as a PDF. Nothing is saved and no discussion groups are created.",
+    "subtitle": "Pick the students taking part, split them into random groups and save the set. Each group can then be given its own task.",
     "class": "Class",
     "selectClass": "Select a class",
     "studentsCount": "{{count}} students",
@@ -1278,6 +1278,28 @@
     "pdfTeacher": "Teacher: {{name}}",
     "pdfPage": "Page {{n}} of {{total}}",
     "pdfRandom": "Generated randomly",
-    "pdfLight": "Light background (saves ink)"
+    "pdfLight": "Light background (saves ink)",
+    "loadGroupsFailed": "Failed to load groups",
+    "saved": "Groups saved",
+    "saveFailed": "Failed to save groups",
+    "deleted": "Groups deleted",
+    "deleteFailed": "Failed to delete groups",
+    "participants": "Students taking part",
+    "hideStudents": "Hide list",
+    "chooseStudents": "Choose students",
+    "searchStudents": "Search students…",
+    "selectAll": "Select all",
+    "clearAll": "Clear",
+    "pickSomeone": "Select at least one student.",
+    "regenerate": "Generate again",
+    "draftTitle": "Preview — not saved yet",
+    "setNamePlaceholder": "Name this set (optional), e.g. Week 3 teams",
+    "saveGroups": "Save groups",
+    "saveHint": "Save the groups to be able to assign tasks to them.",
+    "savedTitle": "Saved groups",
+    "noSaved": "No groups yet. Generate some above and save them.",
+    "tasksGiven": "{{count}} task(s) given",
+    "deleteSet": "Delete group set",
+    "deleteSetConfirm": "Delete \"{{name}}\" and all its groups? This can't be undone."
   }
 }

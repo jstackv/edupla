@@ -74,6 +74,7 @@ app.use('/api/classes',       require('./routes/classes'));
 app.use('/api/students',      require('./routes/students'));
 app.use('/api/documents',     require('./routes/documents'));
 app.use('/api/assignments',   require('./routes/assignments'));
+app.use('/api/task-groups',   require('./routes/taskGroups'));
 app.use('/api/assessment',   require('./routes/assessments_new'));
 app.use('/api/discipline',   require('./routes/discipline'));
 app.use('/api/academic-years', require('./routes/academicYears'));

@@ -1,9 +1,82 @@
 const mongoose = require('mongoose');
-const { Assignment, Submission, Class, User, Course } = require('../models/db');
+const { Assignment, Submission, Class, User, Course, TaskGroup } = require('../models/db');
 const { cloudinary, getResourceType } = require('../middleware/upload');
 const { notifyAssignmentPosted, notifyAssignmentSubmitted } = require('../services/emailService');
-const { createInAppNotification, getStudentEmails, getTeacherEmail } = require('../services/notificationHelpers');
+const { createInAppNotification, createDirectNotification, getStudentEmails, getTeacherEmail } = require('../services/notificationHelpers');
 const { buildDownloadFilename, streamWithFilename } = require('../utils/downloadFilename');
+
+
+// ── Task kinds ─────────────────────────────────────────────────────────────
+// task_type: 'assignment' | 'homework'   mode: 'individual' | 'discussion'
+// Documents created before these fields existed have neither, and are treated
+// as individual assignments — the Mongo filters below match that explicitly.
+const LEGACY_TYPE_ASSIGNMENT = { $or: [{ task_type: 'assignment' }, { task_type: { $exists: false } }, { task_type: null }] };
+const LEGACY_MODE_INDIVIDUAL = { $or: [{ mode: 'individual' }, { mode: { $exists: false } }, { mode: null }] };
+
+function taskKindFilter(taskType, mode) {
+  const and = [];
+  if (taskType === 'homework') and.push({ task_type: 'homework' });
+  else if (taskType === 'assignment') and.push(LEGACY_TYPE_ASSIGNMENT);
+  if (mode === 'discussion') and.push({ mode: 'discussion' });
+  else if (mode === 'individual') and.push(LEGACY_MODE_INDIVIDUAL);
+  return and;
+}
+
+// Parse the groupIds field, which arrives as a JSON string (multipart form),
+// a comma list, or an already-parsed array.
+function parseIdList(raw) {
+  if (!raw) return [];
+  let list = raw;
+  if (typeof raw === 'string') {
+    try { list = JSON.parse(raw); } catch { list = raw.split(','); }
+  }
+  if (!Array.isArray(list)) list = [list];
+  return [...new Set(list.map(x => String(x).trim()).filter(x => mongoose.isValidObjectId(x)))];
+}
+
+// Normalise + validate the task kind fields. Returns { taskType, mode, groupIds }
+// or { error } with a message suitable for a 400.
+async function resolveTaskKind({ taskType, mode, groupIds }, classId, teacherId) {
+  const type = taskType === 'homework' ? 'homework' : 'assignment';
+  const m = type === 'homework' ? 'individual' : (mode === 'discussion' ? 'discussion' : 'individual');
+  if (m !== 'discussion') return { taskType: type, mode: m, groupIds: [] };
+
+  const ids = parseIdList(groupIds);
+  if (ids.length === 0) return { error: 'Choose at least one group for a discussion task' };
+  const found = await TaskGroup.countDocuments({ _id: { $in: ids }, class_id: classId, teacher_id: teacherId });
+  if (found !== ids.length) return { error: 'One or more selected groups do not belong to this class' };
+  return { taskType: type, mode: m, groupIds: ids };
+}
+
+// Ids of every TaskGroup the student belongs to.
+async function getStudentGroupIds(studentId) {
+  const groups = await TaskGroup.find({ members: studentId }, '_id').lean();
+  return groups.map(g => g._id);
+}
+
+// May this student see / download / submit this task? Enforces enrolment and,
+// for discussion tasks, membership of one of the target groups — a student in
+// another group never gets the task.
+async function studentCanAccess(a, studentId) {
+  const enrolled = await Class.exists({ _id: a.class_id, students: studentId });
+  if (!enrolled) return false;
+  if (a.mode !== 'discussion') return true;
+  const gids = (a.group_ids || []).map(String);
+  if (gids.length === 0) return false;
+  return !!(await TaskGroup.exists({ _id: { $in: gids }, members: studentId }));
+}
+
+// Students a task is addressed to: the whole class, or the union of its groups.
+async function getTaskAudienceIds(a) {
+  if (a.mode === 'discussion') {
+    const groups = await TaskGroup.find({ _id: { $in: a.group_ids || [] } }, 'members').lean();
+    return [...new Set(groups.flatMap(g => (g.members || []).map(String)))];
+  }
+  const cls = await Class.findById(a.class_id, 'students').lean();
+  return (cls?.students || []).map(String);
+}
+
+const TASK_LABEL = { assignment: 'assignment', homework: 'homework' };
 
 // Helper: check if assignment is currently accessible to students
 function isAssignmentAccessible(a) {
@@ -12,11 +85,12 @@ function isAssignmentAccessible(a) {
 
 const getAssignments = async (req, res) => {
   try {
-    const { search = '', page = 1, limit = 10, classId, courseId } = req.query;
+    const { search = '', page = 1, limit = 10, classId, courseId, taskType, mode, groupId, status } = req.query;
     const skip = (page - 1) * limit;
     const userId = new mongoose.Types.ObjectId(req.session.user.id);
     const role = req.session.user.role;
     const searchRegex = new RegExp(search, 'i');
+    const kindFilter = taskKindFilter(taskType, mode);
 
     if (role === 'teacher') {
       // Find all classes this teacher is assigned to (as class teacher OR extra teacher)
@@ -28,12 +102,17 @@ const getAssignments = async (req, res) => {
       const classFilter = classId ? { class_id: classId } : { class_id: { $in: assignedClassIds } };
       const filter = {
         ...classFilter,
-        $or: [{ title: searchRegex }, { description: searchRegex }],
+        $and: [
+          { $or: [{ title: searchRegex }, { description: searchRegex }] },
+          ...kindFilter,
+        ],
       };
       if (courseId) filter.course_id = new mongoose.Types.ObjectId(courseId);
+      if (groupId && mongoose.isValidObjectId(groupId)) filter.group_ids = new mongoose.Types.ObjectId(groupId);
       const [assignments, total] = await Promise.all([
         Assignment.find(filter).sort({ created_at: -1 }).skip(skip).limit(parseInt(limit))
-          .populate('class_id', 'name').populate('course_id', 'name code category').lean(),
+          .populate('class_id', 'name').populate('course_id', 'name code category')
+          .populate('group_ids', 'name members').lean(),
         Assignment.countDocuments(filter),
       ]);
 
@@ -42,22 +121,31 @@ const getAssignments = async (req, res) => {
           Submission.countDocuments({ assignment_id: a._id }),
           Class.findById(a.class_id, 'students').lean(),
         ]);
+        const groups = (a.group_ids || []).map(g => ({ id: g._id, name: g.name, member_count: (g.members || []).length }));
+        const total_students = a.mode === 'discussion'
+          ? new Set((a.group_ids || []).flatMap(g => (g.members || []).map(String))).size
+          : (cls?.students?.length || 0);
         return {
           ...a, id: a._id,
+          class_id: a.class_id?._id || a.class_id,
+          task_type: a.task_type || 'assignment',
+          mode: a.mode || 'individual',
+          groups,
+          group_ids: groups.map(g => g.id),
           class_name: a.class_id?.name,
           course_name: a.course_id?.name,
           course_code: a.course_id?.code,
           course_category: a.course_id?.category,
           file_url: a.file_url,
           submission_count,
-          total_students: cls?.students?.length || 0,
+          total_students,
           is_accessible: isAssignmentAccessible(a),
         };
       }));
       return res.json({ assignments: result, total, page: parseInt(page), limit: parseInt(limit) });
     }
 
-    // Student view — only return active, in-window assignments
+    // Student view — only return active tasks the student is entitled to.
     // Note: do NOT filter by class is_active here — a class being inactive
     // should not hide assignments that are themselves active.
     const enrolledClasses = await Class.find({ students: userId }, '_id').lean();
@@ -69,11 +157,24 @@ const getAssignments = async (req, res) => {
       ? enrolledClassIds.filter(id => id.toString() === classId)
       : enrolledClassIds;
 
-    const filter = {
-      class_id: { $in: classIdFilter },
-      is_active: true,
-      $or: [{ title: searchRegex }, { description: searchRegex }],
-    };
+    // Discussion tasks are visible ONLY to members of the target groups.
+    const myGroupIds = await getStudentGroupIds(userId);
+    const and = [
+      { $or: [{ title: searchRegex }, { description: searchRegex }] },
+      { $or: [{ mode: { $ne: 'discussion' } }, { group_ids: { $in: myGroupIds } }] },
+      ...kindFilter,
+    ];
+
+    // Submission-status tabs (all / pending / submitted / graded).
+    if (status === 'pending' || status === 'submitted' || status === 'graded') {
+      const mine = await Submission.find({ student_id: userId }, 'assignment_id score').lean();
+      const submittedIds = mine.map(x => x.assignment_id);
+      if (status === 'pending') and.push({ _id: { $nin: submittedIds } });
+      else if (status === 'submitted') and.push({ _id: { $in: submittedIds } });
+      else and.push({ _id: { $in: mine.filter(x => x.score !== null && x.score !== undefined).map(x => x.assignment_id) } });
+    }
+
+    const filter = { class_id: { $in: classIdFilter }, is_active: true, $and: and };
     if (courseId) filter.course_id = new mongoose.Types.ObjectId(courseId);
     const [assignments, total] = await Promise.all([
       Assignment.find(filter).sort({ deadline: 1 }).skip(skip).limit(parseInt(limit))
@@ -82,10 +183,27 @@ const getAssignments = async (req, res) => {
       Assignment.countDocuments(filter),
     ]);
 
+    // Group details (name + teammates) for the discussion tasks in this page.
+    const groupDocs = await TaskGroup.find(
+      { _id: { $in: assignments.flatMap(a => a.group_ids || []) }, members: userId }
+    ).populate('members', 'name').lean();
+
     const result = await Promise.all(assignments.map(async (a) => {
-      const sub = await Submission.findOne({ assignment_id: a._id, student_id: userId }, 'submitted_at score feedback _id').lean();
+      const sub = await Submission.findOne(
+        { assignment_id: a._id, student_id: userId },
+        'submitted_at score feedback notes filename original_name file_url _id'
+      ).lean();
+      const myGroup = a.mode === 'discussion'
+        ? groupDocs.find(g => (a.group_ids || []).some(id => String(id) === String(g._id)))
+        : null;
       return {
         ...a, id: a._id,
+        task_type: a.task_type || 'assignment',
+        mode: a.mode || 'individual',
+        group_ids: undefined,
+        group: myGroup
+          ? { id: myGroup._id, name: myGroup.name, members: (myGroup.members || []).map(m => ({ id: m._id, name: m.name })) }
+          : null,
         class_name: a.class_id?.name,
         teacher_name: a.teacher_id?.name,
         course_name: a.course_id?.name,
@@ -94,6 +212,10 @@ const getAssignments = async (req, res) => {
         file_url: a.file_url,
         submission_id: sub?._id || null,
         submitted_at: sub?.submitted_at || null,
+        submission_notes: sub?.notes || null,
+        submission_file_name: sub?.original_name || null,
+        has_submission_file: !!sub?.filename,
+        submission_file_url: sub?.file_url || null,
         score: sub?.score ?? null,
         feedback: sub?.feedback || null,
       };
@@ -127,8 +249,11 @@ const createAssignment = async (req, res) => {
         : null,
     ]);
     if (!teacherClass && !teacherCourse) return res.status(403).json({ message: 'You are not assigned to this class.' });
+    const kind = await resolveTaskKind(req.body, classId, req.session.user.id);
+    if (kind.error) return res.status(400).json({ message: kind.error });
     const a = await Assignment.create({
       title, description, deadline,
+      task_type: kind.taskType, mode: kind.mode, group_ids: kind.groupIds,
       is_active: (is_active === undefined || is_active === null || is_active === "") ? true : (is_active === true || is_active === "true"),
       class_id: classId, course_id: courseId || null, teacher_id: req.session.user.id,
       max_score: max_score || 100,
@@ -143,23 +268,44 @@ const createAssignment = async (req, res) => {
     if (a.is_active) {
       try {
         const [cls, teacherEmail] = await Promise.all([
-          Class.findById(classId).populate('students', 'email name').lean(),
+          Class.findById(classId).lean(),
           getTeacherEmail(req.session.user.id),
         ]);
         const teacher = await User.findById(req.session.user.id, 'name').lean();
-        const studentEmails = cls?.students?.map(s => s.email).filter(Boolean) || [];
+        const label = TASK_LABEL[a.task_type] || 'assignment';
+        const noteTitle = `New ${label === 'homework' ? 'Homework' : 'Assignment'}: ${title}`;
+        const noteMsg = `${teacher?.name || 'Your teacher'} posted new ${label} "${title}" in ${cls?.name || 'your class'}. Deadline: ${new Date(deadline).toLocaleDateString()}.`;
 
-        // In-app
-        await createInAppNotification({
-          title: `New Assignment: ${title}`,
-          message: `${teacher?.name || 'Your teacher'} posted a new assignment "${title}" in ${cls?.name || 'your class'}. Deadline: ${new Date(deadline).toLocaleDateString()}.`,
-          type: 'info',
-          classId: classId,
-          teacherId: req.session.user.id,
-          linkType: 'assignment',
-          linkId: a._id,
-          courseId: a.course_id || null,
-        });
+        let studentEmails;
+        if (a.mode === 'discussion') {
+          // Group task: only the members of the chosen groups hear about it.
+          const memberIds = await getTaskAudienceIds(a);
+          const members = await User.find({ _id: { $in: memberIds } }, 'email').lean();
+          studentEmails = members.map(m => m.email).filter(Boolean);
+          await Promise.all(memberIds.map(rid => createDirectNotification({
+            title: noteTitle,
+            message: `${noteMsg} (group task)`,
+            type: 'info',
+            classId,
+            teacherId: req.session.user.id,
+            recipientId: rid,
+            linkType: 'assignment',
+            linkId: a._id,
+          })));
+        } else {
+          const populated = await Class.findById(classId).populate('students', 'email').lean();
+          studentEmails = populated?.students?.map(s => s.email).filter(Boolean) || [];
+          await createInAppNotification({
+            title: noteTitle,
+            message: noteMsg,
+            type: 'info',
+            classId: classId,
+            teacherId: req.session.user.id,
+            linkType: 'assignment',
+            linkId: a._id,
+            courseId: a.course_id || null,
+          });
+        }
 
         // Email
         if (studentEmails.length) {
@@ -186,6 +332,9 @@ const updateAssignment = async (req, res) => {
     const existing = await Assignment.findOne({ _id: req.params.id, teacher_id: req.session.user.id });
     if (!existing) return res.status(404).json({ message: 'Assignment not found' });
 
+    const kind = await resolveTaskKind(req.body, existing.class_id, req.session.user.id);
+    if (kind.error) return res.status(400).json({ message: kind.error });
+
     let { filename, original_name, mime_type, file_url } = existing;
 
     if (req.file) {
@@ -202,6 +351,7 @@ const updateAssignment = async (req, res) => {
       { _id: req.params.id },
       {
         title, description, deadline, class_id: classId, course_id: courseId || null, max_score: max_score || 100,
+        task_type: kind.taskType, mode: kind.mode, group_ids: kind.groupIds,
         is_active: is_active === true || is_active === 'true',
         filename, original_name, mime_type, file_url,
       }
@@ -247,8 +397,9 @@ const downloadAssignment = async (req, res) => {
     const a = await Assignment.findById(req.params.id).lean();
     if (!a || !a.file_url) return res.status(404).json({ message: 'File not found' });
     // Students can only download active, in-window assignments
-    if (req.session.user.role === 'student' && !isAssignmentAccessible(a)) {
-      return res.status(403).json({ message: 'This assignment is not currently active.' });
+    if (req.session.user.role === 'student') {
+      if (!isAssignmentAccessible(a)) return res.status(403).json({ message: 'This assignment is not currently active.' });
+      if (!(await studentCanAccess(a, req.session.user.id))) return res.status(403).json({ message: 'This task was not assigned to you.' });
     }
     const filename = buildDownloadFilename(a.title, a.original_name);
     await streamWithFilename(res, a.file_url, filename);
@@ -259,8 +410,9 @@ const viewAssignment = async (req, res) => {
   try {
     const a = await Assignment.findById(req.params.id).lean();
     if (!a || !a.file_url) return res.status(404).json({ message: 'File not found' });
-    if (req.session.user.role === 'student' && !isAssignmentAccessible(a)) {
-      return res.status(403).json({ message: 'This assignment is not currently active.' });
+    if (req.session.user.role === 'student') {
+      if (!isAssignmentAccessible(a)) return res.status(403).json({ message: 'This assignment is not currently active.' });
+      if (!(await studentCanAccess(a, req.session.user.id))) return res.status(403).json({ message: 'This task was not assigned to you.' });
     }
     const filename = buildDownloadFilename(a.title, a.original_name);
     await streamWithFilename(res, a.file_url, filename, 'inline');
@@ -279,6 +431,10 @@ const submitAssignment = async (req, res) => {
     // Block submission if assignment is inactive or outside window
     if (!isAssignmentAccessible(a)) {
       return res.status(403).json({ message: 'This assignment is not currently active and cannot be submitted.' });
+    }
+
+    if (!(await studentCanAccess(a, studentId))) {
+      return res.status(403).json({ message: 'This task was not assigned to you.' });
     }
 
     if (new Date() > new Date(a.deadline)) {
@@ -427,10 +583,19 @@ const getGradesReport = async (req, res) => {
     const isExtraTeacher = a.class_id?.extra_teachers?.some?.(id => id?.toString() === teacherId);
     if (!isOwner && !isExtraTeacher) return res.status(404).json({ message: 'Assignment not found' });
 
+    // Roster = the whole class for individual tasks, or only the members of
+    // the chosen groups for a discussion task.
+    const audienceIds = a.mode === 'discussion' ? await getTaskAudienceIds(a) : a.class_id.students;
     let students = await User.find(
-      { _id: { $in: a.class_id.students }, role: 'student', ...(studentId && { _id: studentId }) },
+      { _id: { $in: audienceIds }, role: 'student', ...(studentId && { _id: studentId }) },
       'name email level trade'
     ).lean();
+
+    const groupByStudent = {};
+    if (a.mode === 'discussion') {
+      const groups = await TaskGroup.find({ _id: { $in: a.group_ids || [] } }, 'name members').lean();
+      groups.forEach(g => (g.members || []).forEach(m => { groupByStudent[String(m)] = g.name; }));
+    }
 
     const grades = await Promise.all(students.map(async (s) => {
       const sub = await Submission.findOne({ assignment_id: assignmentId, student_id: s._id }, 'score feedback submitted_at graded_at filename original_name file_url notes _id').lean();
@@ -440,6 +605,7 @@ const getGradesReport = async (req, res) => {
         student_email: s.email,
         level: s.level,
         trade: s.trade,
+        group_name:    groupByStudent[String(s._id)] || null,
         submission_id: sub?._id || null,
         filename:      sub?.filename || null,
         original_name: sub?.original_name || null,

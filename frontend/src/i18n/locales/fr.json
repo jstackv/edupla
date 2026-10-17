@@ -71,7 +71,7 @@
     "institutionsBilling": "Établissements et facturation",
     "treasury": "Trésorerie",
     "systemHealth": "État du système",
-    "randomGroups": "Groupes aleatoires"
+    "tasks": "Tâches"
   },
   "roles": {
     "teacherPortal": "Portail enseignant",
@@ -1263,7 +1263,7 @@
   },
   "randomGroups": {
     "title": "Generateur de groupes aleatoires",
-    "subtitle": "Repartissez une classe en groupes aleatoires et telechargez la liste en PDF. Rien n'est enregistre et aucun groupe de discussion n'est cree.",
+    "subtitle": "Choisissez les élèves concernés, répartissez-les en groupes aléatoires et enregistrez l'ensemble. Chaque groupe peut ensuite recevoir sa propre tâche.",
     "class": "Classe",
     "selectClass": "Choisir une classe",
     "studentsCount": "{{count}} eleves",
@@ -1296,6 +1296,28 @@
     "pdfTeacher": "Enseignant : {{name}}",
     "pdfPage": "Page {{n}} sur {{total}}",
     "pdfRandom": "Genere aleatoirement",
-    "pdfLight": "Fond clair (economise l'encre)"
+    "pdfLight": "Fond clair (economise l'encre)",
+    "loadGroupsFailed": "Échec du chargement des groupes",
+    "saved": "Groupes enregistrés",
+    "saveFailed": "Échec de l'enregistrement des groupes",
+    "deleted": "Groupes supprimés",
+    "deleteFailed": "Échec de la suppression des groupes",
+    "participants": "Élèves participants",
+    "hideStudents": "Masquer la liste",
+    "chooseStudents": "Choisir les élèves",
+    "searchStudents": "Rechercher un élève…",
+    "selectAll": "Tout sélectionner",
+    "clearAll": "Effacer",
+    "pickSomeone": "Sélectionnez au moins un élève.",
+    "regenerate": "Générer à nouveau",
+    "draftTitle": "Aperçu — pas encore enregistré",
+    "setNamePlaceholder": "Nommez cet ensemble (facultatif), ex. Équipes semaine 3",
+    "saveGroups": "Enregistrer les groupes",
+    "saveHint": "Enregistrez les groupes pour pouvoir leur attribuer des tâches.",
+    "savedTitle": "Groupes enregistrés",
+    "noSaved": "Aucun groupe pour l'instant. Générez-en ci-dessus puis enregistrez-les.",
+    "tasksGiven": "{{count}} tâche(s) attribuée(s)",
+    "deleteSet": "Supprimer l'ensemble de groupes",
+    "deleteSetConfirm": "Supprimer « {{name}} » et tous ses groupes ? Cette action est irréversible."
   }
 }
