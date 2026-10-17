@@ -13,6 +13,7 @@ import {
   BarChart2, FileDown, Printer,
   ToggleLeft, ToggleRight,
   BookOpen, ChevronRight, ArrowLeft, AlertCircle, Home, User,
+  CheckCircle2, CalendarClock, GraduationCap, Layers, Target,
 } from 'lucide-react';
 
 function formatSize(bytes) {
@@ -69,6 +70,246 @@ function ChoiceCard({ icon: Icon, title, desc, color, onClick }) {
       </div>
       <ChevronRight className="w-4 h-4 text-muted flex-shrink-0" />
     </button>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Task Manager visual system — one colour identity per kind of task,
+   shared with the student side so both portals feel like one product.
+══════════════════════════════════════════════════════════════════════ */
+const KIND_THEME = {
+  individual: {
+    icon: User, label: 'Individual Assignment',
+    hero: 'linear-gradient(135deg, #1c0a02 0%, #7c2d12 52%, #ea580c 100%)',
+    accent: '#ea580c', accent2: '#f59e0b', soft: 'rgba(234,88,12,0.10)', ring: 'rgba(234,88,12,0.35)',
+  },
+  homework: {
+    icon: Home, label: 'Homework',
+    hero: 'linear-gradient(135deg, #04121f 0%, #0c4a6e 52%, #0ea5e9 100%)',
+    accent: '#0284c7', accent2: '#22d3ee', soft: 'rgba(14,165,233,0.10)', ring: 'rgba(14,165,233,0.35)',
+  },
+  discussion: {
+    icon: Users, label: 'Group Discussion',
+    hero: 'linear-gradient(135deg, #12061f 0%, #4c1d95 52%, #a855f7 100%)',
+    accent: '#7c3aed', accent2: '#d946ef', soft: 'rgba(124,58,237,0.10)', ring: 'rgba(124,58,237,0.35)',
+  },
+};
+const BRAND_THEME = {
+  ...KIND_THEME.individual, icon: ClipboardList,
+  hero: 'linear-gradient(135deg, #140803 0%, #431407 48%, #c2410c 100%)',
+};
+const kindThemeOf = (taskType, mode) =>
+  taskType === 'homework' ? KIND_THEME.homework : mode === 'discussion' ? KIND_THEME.discussion : KIND_THEME.individual;
+
+const initialsOf = (name = '') => name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?';
+
+/* Deadline as a short, human state. */
+function deadlineInfo(deadline) {
+  const ms = new Date(deadline).getTime() - Date.now();
+  if (ms <= 0) return { text: 'Closed', color: '#dc2626', bg: 'rgba(239,68,68,0.12)' };
+  const d = Math.floor(ms / 86400000);
+  const h = Math.floor((ms % 86400000) / 3600000);
+  if (d >= 3) return { text: `${d} days left`, color: '#059669', bg: 'rgba(16,185,129,0.12)' };
+  if (d >= 1) return { text: `${d}d ${h}h left`, color: '#d97706', bg: 'rgba(245,158,11,0.14)' };
+  return { text: `${h}h left`, color: '#ea580c', bg: 'rgba(234,88,12,0.14)' };
+}
+
+/* Gradient banner shared by every screen of the flow. */
+function Hero({ tone = BRAND_THEME, onBack, trail = [], eyebrow, title, subtitle, actions, children }) {
+  const Icon = tone.icon;
+  return (
+    <div className="relative overflow-hidden rounded-3xl text-white" style={{ background: tone.hero, boxShadow: `0 20px 50px -22px ${tone.accent}` }}>
+      <div aria-hidden className="absolute -right-14 -top-20 w-64 h-64 rounded-full blur-3xl opacity-40" style={{ background: tone.accent2 }} />
+      <div aria-hidden className="absolute -left-10 -bottom-24 w-56 h-56 rounded-full blur-3xl opacity-25" style={{ background: tone.accent }} />
+      <Icon aria-hidden className="absolute right-6 -bottom-4 w-40 h-40 opacity-[0.07]" />
+      <div className="relative p-5 sm:p-6">
+        <div className="flex items-center gap-3 mb-4">
+          {onBack && (
+            <button onClick={onBack} aria-label="Back"
+              className="w-9 h-9 rounded-xl flex items-center justify-center transition-all hover:bg-white/25 active:scale-95 flex-shrink-0"
+              style={{ background: 'rgba(255,255,255,0.14)', backdropFilter: 'blur(6px)' }}>
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+          )}
+          {trail.length > 0 && (
+            <div className="flex items-center gap-1.5 text-xs font-medium text-white/65 min-w-0 flex-wrap">
+              {trail.map((t, i) => (
+                <span key={i} className="flex items-center gap-1.5 min-w-0">
+                  {i > 0 && <ChevronRight className="w-3 h-3 flex-shrink-0" />}
+                  <span className={`truncate ${i === trail.length - 1 ? 'font-bold text-white' : ''}`}>{t}</span>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="flex flex-col md:flex-row md:items-end gap-4">
+          <div className="flex-1 min-w-0">
+            {eyebrow && <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-white/60 mb-1.5">{eyebrow}</p>}
+            <h1 className="font-display font-extrabold text-2xl sm:text-3xl leading-tight break-words">{title}</h1>
+            {subtitle && <p className="text-sm text-white/75 mt-1.5">{subtitle}</p>}
+          </div>
+          {actions && <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">{actions}</div>}
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function HeroButton({ onClick, icon: Icon, children, primary }) {
+  return (
+    <button onClick={onClick}
+      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-bold transition-all hover:-translate-y-0.5 active:scale-95"
+      style={primary
+        ? { background: '#fff', color: '#18181b', boxShadow: '0 10px 24px -8px rgba(0,0,0,0.5)' }
+        : { background: 'rgba(255,255,255,0.16)', color: '#fff', backdropFilter: 'blur(6px)' }}>
+      {Icon && <Icon className="w-4 h-4" />} {children}
+    </button>
+  );
+}
+
+function StatTile({ icon: Icon, label, value }) {
+  return (
+    <div className="rounded-2xl px-4 py-3 flex items-center gap-3" style={{ background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(6px)' }}>
+      <span className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(255,255,255,0.16)' }}><Icon className="w-4 h-4" /></span>
+      <div className="min-w-0">
+        <p className="text-xl font-extrabold leading-none">{value}</p>
+        <p className="text-[11px] text-white/65 mt-1 truncate">{label}</p>
+      </div>
+    </div>
+  );
+}
+
+/* Big option card used for classes, modules and the two kind pickers. */
+function SelectCard({ icon: Icon, lead, title, desc, chips = [], tone = BRAND_THEME, onClick, large }) {
+  return (
+    <button onClick={onClick}
+      className="group relative overflow-hidden text-left rounded-3xl transition-all hover:-translate-y-1 active:scale-[0.99]"
+      style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', padding: large ? 24 : 18 }}>
+      <span aria-hidden className="absolute -right-10 -top-10 w-36 h-36 rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" style={{ background: tone.soft }} />
+      <span aria-hidden className="absolute left-0 right-0 bottom-0 h-1 opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: `linear-gradient(90deg, ${tone.accent}, ${tone.accent2})` }} />
+      <div className="relative flex items-start gap-4">
+        <span className="rounded-2xl flex items-center justify-center flex-shrink-0 text-white font-extrabold transition-transform group-hover:scale-105 group-hover:-rotate-3"
+          style={{ width: large ? 60 : 50, height: large ? 60 : 50, fontSize: 14, background: `linear-gradient(135deg, ${tone.accent}, ${tone.accent2})`, boxShadow: `0 10px 22px -8px ${tone.accent}` }}>
+          {Icon ? <Icon className={large ? 'w-7 h-7' : 'w-6 h-6'} /> : lead}
+        </span>
+        <div className="flex-1 min-w-0">
+          <p className={`font-display font-bold truncate ${large ? 'text-lg' : 'text-sm'}`} style={{ color: 'var(--text-primary)' }}>{title}</p>
+          {desc && <p className="text-xs text-muted mt-1 leading-relaxed">{desc}</p>}
+          {chips.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-2.5">
+              {chips.map(c => (
+                <span key={c} className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: tone.soft, color: tone.accent }}>{c}</span>
+              ))}
+            </div>
+          )}
+        </div>
+        <span className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-all group-hover:translate-x-1"
+          style={{ background: tone.soft }}>
+          <ChevronRight className="w-4 h-4" style={{ color: tone.accent }} />
+        </span>
+      </div>
+    </button>
+  );
+}
+
+function IconAction({ onClick, title, children, danger }) {
+  return (
+    <button onClick={onClick} title={title} aria-label={title}
+      className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${danger ? 'hover:bg-red-50 hover:text-red-500' : 'hover:bg-surface-100'}`}
+      style={{ color: 'var(--text-secondary)' }}>
+      {children}
+    </button>
+  );
+}
+
+/* One task, as a professional row card with a live submission meter. */
+function TaskRow({ a, tone, flashed, cardRef, onSubs, onGrades, onPreview, onToggle, onEdit, onDelete }) {
+  const KindIcon = tone.icon;
+  const dl = deadlineInfo(a.deadline);
+  const total = a.total_students || 0;
+  const done = a.submission_count || 0;
+  const pct = total ? Math.round((done / total) * 100) : 0;
+  return (
+    <div ref={cardRef} className="group relative overflow-hidden rounded-3xl transition-all hover:-translate-y-0.5"
+      style={{
+        background: 'var(--card-bg)', border: '1px solid var(--card-border)',
+        boxShadow: flashed ? `0 0 0 2px ${tone.accent}, 0 8px 24px ${tone.ring}` : undefined,
+        opacity: a.is_active ? 1 : 0.78,
+      }}>
+      <span aria-hidden className="absolute left-0 top-0 bottom-0 w-1.5" style={{ background: a.is_active ? `linear-gradient(180deg, ${tone.accent}, ${tone.accent2})` : 'var(--card-border)' }} />
+      <div className="p-5 pl-6">
+        <div className="flex items-start gap-4">
+          <span className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 text-white"
+            style={{ background: `linear-gradient(135deg, ${tone.accent}, ${tone.accent2})`, boxShadow: `0 8px 18px -6px ${tone.accent}` }}>
+            <KindIcon className="w-5 h-5" />
+          </span>
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-wrap items-center gap-2 mb-1">
+              <span className="text-[10px] font-extrabold uppercase tracking-widest" style={{ color: tone.accent }}>{tone.label}</span>
+              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: dl.bg, color: dl.color }}>{dl.text}</span>
+              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full"
+                style={a.is_active ? { background: 'rgba(16,185,129,0.12)', color: '#059669' } : { background: 'var(--surface-100)', color: 'var(--text-secondary)' }}>
+                {a.is_active ? '● Live' : '○ Hidden from students'}
+              </span>
+            </div>
+            <h3 className="font-display font-bold text-base" style={{ color: 'var(--text-primary)' }}>{a.title}</h3>
+            {a.description && <p className="text-xs text-muted mt-1 line-clamp-2">{a.description}</p>}
+          </div>
+          <div className="flex items-center gap-0.5 flex-shrink-0">
+            {a.filename && <IconAction onClick={onPreview} title="Preview attachment"><Eye className="w-4 h-4" /></IconAction>}
+            <IconAction onClick={onToggle} title={a.is_active ? 'Hide from students' : 'Publish to students'}>
+              {a.is_active ? <ToggleRight className="w-5 h-5 text-emerald-500" /> : <ToggleLeft className="w-5 h-5" />}
+            </IconAction>
+            <IconAction onClick={onEdit} title="Edit"><Edit2 className="w-4 h-4" /></IconAction>
+            <IconAction onClick={onDelete} title="Delete" danger><Trash2 className="w-4 h-4" /></IconAction>
+          </div>
+        </div>
+
+        {a.mode === 'discussion' && a.groups?.length > 0 && (
+          <div className="flex items-center gap-1.5 flex-wrap mt-3 ml-16">
+            <Users className="w-3.5 h-3.5" style={{ color: tone.accent }} />
+            {a.groups.map(g => (
+              <span key={g.id} className="text-[11px] font-bold px-2.5 py-1 rounded-full" style={{ background: tone.soft, color: tone.accent }}>
+                {g.name} · {g.member_count}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Submission meter */}
+        <div className="mt-4 ml-0 sm:ml-16">
+          <div className="flex items-center justify-between text-xs mb-1.5">
+            <span className="font-semibold flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
+              <CheckCircle2 className="w-3.5 h-3.5" style={{ color: tone.accent }} /> {done} of {total} submitted
+            </span>
+            <span className="font-extrabold" style={{ color: tone.accent }}>{pct}%</span>
+          </div>
+          <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--card-border)' }}>
+            <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${tone.accent}, ${tone.accent2})` }} />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-x-4 gap-y-2 mt-4 pt-4 flex-wrap" style={{ borderTop: '1px solid var(--card-border)' }}>
+          <span className="text-xs text-muted flex items-center gap-1.5"><CalendarClock className="w-3.5 h-3.5" />
+            {new Date(a.deadline).toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+          </span>
+          <span className="text-xs text-muted flex items-center gap-1.5"><Award className="w-3.5 h-3.5" /> {a.max_score || 100} pts</span>
+          <div className="flex items-center gap-2 ml-auto">
+            <button onClick={onSubs} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white transition-all hover:-translate-y-0.5 active:scale-95"
+              style={{ background: `linear-gradient(135deg, ${tone.accent}, ${tone.accent2})`, boxShadow: `0 8px 18px -8px ${tone.accent}` }}>
+              <Users className="w-3.5 h-3.5" /> Submissions
+            </button>
+            {done > 0 && (
+              <button onClick={onGrades} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-colors"
+                style={{ background: 'var(--surface-100)', color: 'var(--text-primary)', border: '1px solid var(--card-border)' }}>
+                <BarChart2 className="w-3.5 h-3.5" /> Grades
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -444,6 +685,36 @@ function SubmissionsModal({ assignment, onClose }) {
         </div>
       ) : (
         <div className="space-y-3">
+          {/* Summary */}
+          {(() => {
+            const t = kindThemeOf(assignment.task_type, assignment.mode);
+            const pct = roster.length ? Math.round((submittedCount / roster.length) * 100) : 0;
+            return (
+              <div className="rounded-2xl p-4 text-white relative overflow-hidden" style={{ background: t.hero }}>
+                <div className="flex items-center justify-between gap-3 flex-wrap relative">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-white/65">{t.label}</p>
+                    <p className="text-sm font-bold truncate">{assignment.title}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    {[['Submitted', submittedCount], ['Pending', pendingCount], ['Graded', gradedCount]].map(([l, v]) => (
+                      <div key={l} className="px-3 py-1.5 rounded-xl text-center min-w-[64px]" style={{ background: 'rgba(255,255,255,0.14)' }}>
+                        <p className="text-lg font-extrabold leading-none">{v}</p>
+                        <p className="text-[10px] text-white/70 mt-0.5">{l}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="relative mt-3">
+                  <div className="flex justify-between text-[11px] font-semibold text-white/80 mb-1"><span>Completion</span><span>{pct}%</span></div>
+                  <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.2)' }}>
+                    <div className="h-full rounded-full bg-white transition-all duration-700" style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Toolbar: tabs + search + export */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-3">
             <div className="flex gap-1 p-1 rounded-xl w-fit flex-shrink-0" style={{ background: 'var(--card-border)' }}>
@@ -476,7 +747,7 @@ function SubmissionsModal({ assignment, onClose }) {
               {filtered.map(row => {
                 const isSubmitted = !!row.submission_id;
                 return (
-                  <div key={row.student_id} className="p-4 rounded-xl" style={{ background: 'var(--card-border)' }}>
+                  <div key={row.student_id} className="p-4 rounded-2xl transition-colors" style={{ background: 'var(--surface-100)', border: '1px solid var(--card-border)' }}>
                     <div className="flex items-start gap-3">
                       <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
                         isSubmitted ? 'bg-primary-100 dark:bg-primary-900/40' : 'bg-amber-100 dark:bg-amber-900/30'
@@ -667,25 +938,23 @@ function AssignmentFormModal({ isOpen, onClose, editing, presetClass, presetModu
     finally { setSaving(false); }
   };
 
+  const formTone = kindThemeOf(taskType, mode);
+  const selectedStudents = new Set((groups || []).filter(g => form.groupIds.includes(String(g.id))).flatMap(g => (g.members || []).map(m => String(m.id || m._id || m)))).size;
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={editing ? `Edit ${noun}` : `New ${noun}`}>
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Context pill — shows which class / module / kind of task this is for */}
+        {/* Context banner — which class / module / kind of task this is for */}
         {(presetClass || presetModule) && (
-          <div className="flex items-center gap-2 flex-wrap px-3 py-2 rounded-xl text-xs font-semibold"
-            style={{ background: 'var(--surface-50, var(--card-bg))', border: '1px solid var(--card-border)' }}>
-            <BookOpen className="w-3.5 h-3.5 text-primary-500" />
-            <span className="text-muted">{presetClass?.name}</span>
-            {presetModule && (
-              <>
-                <ChevronRight className="w-3 h-3 text-muted" />
-                <span style={{ color: 'var(--text-primary)' }}>
-                  {presetModule.code && `[${presetModule.code}] `}{presetModule.name}
-                </span>
-              </>
-            )}
-            <ChevronRight className="w-3 h-3 text-muted" />
-            <span className="text-primary-600">{kindTitle(taskType, mode)}</span>
+          <div className="relative overflow-hidden flex items-center gap-3 px-4 py-3 rounded-2xl text-white" style={{ background: formTone.hero }}>
+            <span className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(255,255,255,0.18)' }}>
+              <formTone.icon className="w-5 h-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-white/65">{kindTitle(taskType, mode)}</p>
+              <p className="text-sm font-bold truncate">{presetModule ? `${presetModule.code ? `[${presetModule.code}] ` : ''}${presetModule.name}` : presetClass?.name}</p>
+              {presetModule && <p className="text-xs text-white/70 truncate">{presetClass?.name}</p>}
+            </div>
           </div>
         )}
         <div>
@@ -729,7 +998,7 @@ function AssignmentFormModal({ isOpen, onClose, editing, presetClass, presetModu
                             <button key={g.id} type="button" onClick={() => toggleGroup(String(g.id))}
                               className="px-3 py-1.5 rounded-full text-xs font-bold transition-all active:scale-95"
                               style={on
-                                ? { background: 'linear-gradient(135deg, #9a3412, #7c2d12)', color: '#fff' }
+                                ? { background: `linear-gradient(135deg, ${formTone.accent}, ${formTone.accent2})`, color: '#fff', boxShadow: `0 6px 14px -6px ${formTone.accent}` }
                                 : { background: 'var(--surface-100)', color: 'var(--text-secondary)', border: '1px solid var(--card-border)' }}>
                               {g.name} · {g.members.length}
                             </button>
@@ -741,7 +1010,10 @@ function AssignmentFormModal({ isOpen, onClose, editing, presetClass, presetModu
                 })}
               </div>
             )}
-            <p className="text-xs text-muted mt-1.5">Only the students in the selected groups will see and submit this task.</p>
+            <p className="text-xs mt-2 flex items-center gap-1.5 font-semibold" style={{ color: formTone.accent }}>
+              <Users className="w-3.5 h-3.5" />
+              {selectedStudents} student{selectedStudents !== 1 ? 's' : ''} in {form.groupIds.length} group{form.groupIds.length !== 1 ? 's' : ''} will receive this — everyone else won't see it.
+            </p>
           </div>
         )}
 
@@ -757,43 +1029,44 @@ function AssignmentFormModal({ isOpen, onClose, editing, presetClass, presetModu
               className="input-field" required />
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: form.is_active ? 'rgba(16,185,129,0.06)' : 'var(--surface-50)', borderRadius: 10, border: `1px solid ${form.is_active ? 'rgba(16,185,129,0.25)' : 'var(--card-border)'}` }}>
-          <div>
-            <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-              {form.is_active ? `✓ ${noun} is Active` : `${noun} is Inactive`}
-            </p>
-            <p className="text-xs" style={{ color: 'var(--text-secondary)', marginTop: 2 }}>
-              {form.is_active ? 'Students can view and submit this task' : 'Students cannot see or submit this task'}
-            </p>
-          </div>
-          <button type="button"
-            onClick={() => setForm(f => ({ ...f, is_active: !f.is_active }))}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
-            {form.is_active
-              ? <ToggleRight size={28} style={{ color: '#10b981' }} />
-              : <ToggleLeft size={28} style={{ color: '#9ca3af' }} />}
-          </button>
-        </div>
+        <button type="button" onClick={() => setForm(f => ({ ...f, is_active: !f.is_active }))}
+          className="w-full flex items-center gap-3 p-4 rounded-2xl text-left transition-all"
+          style={{ background: form.is_active ? 'rgba(16,185,129,0.08)' : 'var(--surface-100)', border: `1px solid ${form.is_active ? 'rgba(16,185,129,0.35)' : 'var(--card-border)'}` }}>
+          <span className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: form.is_active ? 'rgba(16,185,129,0.18)' : 'var(--card-border)' }}>
+            {form.is_active ? <CheckCircle2 className="w-5 h-5 text-emerald-500" /> : <Eye className="w-5 h-5 text-muted" />}
+          </span>
+          <span className="flex-1 min-w-0">
+            <span className="block text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{form.is_active ? `Published — students can see this ${noun.toLowerCase()}` : 'Saved as hidden'}</span>
+            <span className="block text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>{form.is_active ? 'They are notified and can submit right away.' : 'Nobody is notified until you publish it.'}</span>
+          </span>
+          {form.is_active ? <ToggleRight size={30} style={{ color: '#10b981' }} /> : <ToggleLeft size={30} style={{ color: '#9ca3af' }} />}
+        </button>
         <div>
-          <label className="label">Attachment (optional)</label>
-          <div className="flex items-center gap-2">
-            <input type="file" id="assignment-file" className="hidden" onChange={e => setFile(e.target.files[0])} />
-            <label htmlFor="assignment-file" className="btn-secondary text-xs cursor-pointer">
-              <CloudUpload className="w-3.5 h-3.5" />
-              {file ? file.name : editing?.original_name || 'Choose file'}
-            </label>
+          <label className="label">Attachment <span className="text-muted font-normal">(optional)</span></label>
+          <input type="file" id="assignment-file" className="hidden" onChange={e => setFile(e.target.files[0])} />
+          <label htmlFor="assignment-file" className="flex items-center gap-3 p-4 rounded-2xl cursor-pointer transition-all hover:-translate-y-0.5"
+            style={{ border: `2px dashed ${file ? formTone.ring : 'var(--input-border)'}`, background: file ? formTone.soft : 'transparent' }}>
+            <span className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: formTone.soft }}>
+              <CloudUpload className="w-5 h-5" style={{ color: formTone.accent }} />
+            </span>
+            <span className="flex-1 min-w-0">
+              <span className="block text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{file ? file.name : editing?.original_name || 'Attach a worksheet, brief or resource'}</span>
+              <span className="block text-xs text-muted">{file ? `${formatSize(file.size)} · click to replace` : 'PDF, Word, images… click to browse'}</span>
+            </span>
             {file && (
-              <button type="button" onClick={() => setFile(null)} className="text-muted hover:text-red-500">
+              <button type="button" onClick={ev => { ev.preventDefault(); setFile(null); }} className="p-2 rounded-lg text-muted hover:text-red-500" title="Remove">
                 <X className="w-4 h-4" />
               </button>
             )}
-          </div>
+          </label>
         </div>
         <div className="flex justify-end gap-3 pt-2">
           <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
-          <button type="submit" disabled={saving || (isDiscussion && batches.length === 0)} className="btn-primary">
+          <button type="submit" disabled={saving || (isDiscussion && batches.length === 0)}
+            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-2xl text-sm font-bold text-white transition-all hover:-translate-y-0.5 active:scale-95 disabled:opacity-50 disabled:hover:translate-y-0"
+            style={{ background: `linear-gradient(135deg, ${formTone.accent}, ${formTone.accent2})`, boxShadow: `0 10px 22px -8px ${formTone.accent}` }}>
             {saving && <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />}
-            {editing ? 'Update' : 'Create'}
+            {editing ? 'Save changes' : `Create ${noun}`}
           </button>
         </div>
       </form>
@@ -1012,46 +1285,67 @@ export default function Assignments() {
     else if (view === 'modules') setView('classes');
   };
 
+  const segmented = (items, value, onPick, tone) => (
+    <div className="inline-flex gap-1 p-1 rounded-2xl" style={{ background: 'var(--surface-100)', border: '1px solid var(--card-border)' }}>
+      {items.map(([key, label, Icon]) => (
+        <button key={key} onClick={() => onPick(key)}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all"
+          style={value === key
+            ? { background: `linear-gradient(135deg, ${tone.accent}, ${tone.accent2})`, color: '#fff', boxShadow: `0 6px 14px -6px ${tone.accent}` }
+            : { color: 'var(--text-secondary)' }}>
+          <Icon className="w-3.5 h-3.5" /> {label}
+        </button>
+      ))}
+    </div>
+  );
+
+  const Spinner = () => (
+    <div className="flex items-center justify-center py-20">
+      <div className="animate-spin w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full" />
+    </div>
+  );
+
+  const wrapStyle = `
+    @keyframes tm-rise { from { opacity: 0; transform: translateY(12px) } to { opacity: 1; transform: none } }
+    .tm-root > * { animation: tm-rise .45s cubic-bezier(.2,.8,.2,1) both }
+    .tm-root > *:nth-child(2) { animation-delay: .05s } .tm-root > *:nth-child(3) { animation-delay: .1s } .tm-root > *:nth-child(4) { animation-delay: .15s }
+    @media (prefers-reduced-motion: reduce) { .tm-root > * { animation: none } }
+  `;
+
   /* ── Classes view ── */
   if (view === 'classes') {
+    const totalModules = teacherClasses.reduce((n, c) => n + c.modules.length, 0);
     return (
-      <div className="space-y-5">
-        <div>
-          <h2 className="font-display font-bold text-lg" style={{ color: 'var(--text-primary)' }}>Assignments</h2>
-          <p className="text-sm text-muted">Select a class to manage module assignments</p>
-        </div>
+      <div className="space-y-6 tm-root">
+        <style>{wrapStyle}</style>
+        <Hero eyebrow="Teacher workspace" title="Task Manager"
+          subtitle="Give assignments, group discussions and homework — and follow every submission."
+          trail={['Task Manager', 'Classes']}>
+          <div className="grid grid-cols-2 gap-3 mt-5 max-w-md">
+            <StatTile icon={GraduationCap} label="Classes" value={teacherClasses.length} />
+            <StatTile icon={BookOpen} label="Modules you teach" value={totalModules} />
+          </div>
+        </Hero>
 
-        {loadingInit ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="animate-spin w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full" />
-          </div>
-        ) : teacherClasses.length === 0 ? (
-          <div className="card text-center py-16">
-            <BookOpen className="w-12 h-12 mx-auto mb-3 text-muted opacity-30" />
-            <p className="font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>No modules assigned yet</p>
-            <p className="text-sm text-muted">Ask the admin to assign modules to you.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {teacherClasses.map((cls, idx) => {
-              const color = moduleColor(idx);
-              return (
-                <button key={cls._id} onClick={() => goToModules(cls)}
-                  className="flex items-center gap-4 px-5 py-4 rounded-2xl text-left transition-all hover:scale-[1.01] active:scale-[0.99]"
-                  style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
-                  <div className={`w-12 h-12 rounded-xl ${color.bg} flex items-center justify-center flex-shrink-0`}>
-                    <BookOpen className={`w-6 h-6 ${color.text}`} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{cls.name}</p>
-                    <p className="text-xs text-muted mt-0.5">{cls.modules.length} module{cls.modules.length !== 1 ? 's' : ''} assigned to you</p>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-muted" />
-                </button>
-              );
-            })}
-          </div>
-        )}
+        <div>
+          <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-muted mb-3 px-1">Step 1 · Choose a class</p>
+          {loadingInit ? <Spinner /> : teacherClasses.length === 0 ? (
+            <div className="card text-center py-16">
+              <BookOpen className="w-12 h-12 mx-auto mb-3 text-muted opacity-30" />
+              <p className="font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>No modules assigned yet</p>
+              <p className="text-sm text-muted">Ask the admin to assign modules to you.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {teacherClasses.map(cls => (
+                <SelectCard key={cls._id} lead={initialsOf(cls.name)} title={cls.name}
+                  desc={`${cls.modules.length} module${cls.modules.length !== 1 ? 's' : ''} assigned to you`}
+                  chips={cls.modules.slice(0, 3).map(m => m.code || m.name).filter(Boolean)}
+                  onClick={() => goToModules(cls)} />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     );
   }
@@ -1060,80 +1354,50 @@ export default function Assignments() {
   if (view === 'modules') {
     const modules = selectedClass?.modules || [];
     return (
-      <div className="space-y-5">
-        <div className="flex items-center gap-3">
-          <button onClick={goBack}
-            className="p-2 rounded-lg hover:bg-surface-100 transition-colors flex-shrink-0">
-            <ArrowLeft className="w-5 h-5 text-muted" />
-          </button>
-          <div className="flex-1">
-            <p className="text-xs text-muted font-medium">Classes → Modules</p>
-            <h2 className="font-display font-bold text-lg" style={{ color: 'var(--text-primary)' }}>{selectedClass?.name}</h2>
+      <div className="space-y-6 tm-root">
+        <style>{wrapStyle}</style>
+        <Hero onBack={goBack} eyebrow="Step 2 · Choose a module" title={selectedClass?.name}
+          subtitle={`${modules.length} module${modules.length !== 1 ? 's' : ''} assigned to you in this class`}
+          trail={['Task Manager', selectedClass?.name]} />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {modules.map(mod => (
+            <SelectCard key={mod._id} lead={(mod.code || mod.name || '').slice(0, 3).toUpperCase()}
+              title={mod.name} desc={mod.code} chips={mod.category ? [mod.category] : []}
+              onClick={() => goToType(mod)} />
+          ))}
+        </div>
+        {modules.length === 0 && (
+          <div className="flex items-center gap-2 p-4 rounded-2xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800">
+            <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+            <p className="text-sm text-amber-700 dark:text-amber-400">No modules assigned to you in this class.</p>
           </div>
-        </div>
-
-        <div className="space-y-2">
-          {modules.map((mod, idx) => {
-            const color = moduleColor(idx);
-            return (
-              <button key={mod._id} onClick={() => goToType(mod)}
-                className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl text-left transition-all hover:scale-[1.005] active:scale-[0.99]"
-                style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
-                <div className={`w-12 h-12 rounded-xl ${color.bg} flex items-center justify-center flex-shrink-0`}>
-                  <span className={`text-sm font-bold ${color.text}`}>{(mod.code || mod.name || '').slice(0, 3).toUpperCase()}</span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  {mod.code && <p className={`text-xs font-bold ${color.text} mb-0.5`}>{mod.code}</p>}
-                  <p className="font-semibold text-sm truncate" style={{ color: 'var(--text-primary)' }}>{mod.name}</p>
-                  {mod.category && <p className="text-xs text-muted">{mod.category}</p>}
-                </div>
-                <ChevronRight className="w-4 h-4 text-muted" />
-              </button>
-            );
-          })}
-          {modules.length === 0 && (
-            <div className="flex items-center gap-2 p-4 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800">
-              <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
-              <p className="text-sm text-amber-700 dark:text-amber-400">No modules assigned to you in this class.</p>
-            </div>
-          )}
-        </div>
+        )}
       </div>
     );
   }
 
-  /* ── Header shared by the kind / mode / list screens ── */
-  const crumbs = (
-    <div className="flex items-center gap-1.5 text-xs text-muted font-medium mb-0.5 flex-wrap">
-      <span>{selectedClass?.name}</span>
-      <ChevronRight className="w-3 h-3" />
-      {selectedModule?.code && <span className="text-primary-600 font-bold">{selectedModule.code}</span>}
-      {taskType && <><ChevronRight className="w-3 h-3" /><span>{taskType === 'homework' ? 'Homework' : 'Assignment'}</span></>}
-      {taskType === 'assignment' && mode && <><ChevronRight className="w-3 h-3" /><span>{mode === 'discussion' ? 'Discussion' : 'Individual'}</span></>}
-    </div>
-  );
+  /* ── Trail shared by the kind / mode / list screens ── */
+  const trail = [
+    selectedClass?.name,
+    selectedModule?.code || selectedModule?.name,
+    ...(taskType ? [taskType === 'homework' ? 'Homework' : 'Assignment'] : []),
+    ...(taskType === 'assignment' && mode ? [mode === 'discussion' ? 'Discussion' : 'Individual'] : []),
+  ].filter(Boolean);
 
   /* ── Kind picker: Assignment | Homework ── */
   if (view === 'type') {
     return (
-      <div className="space-y-5">
-        <div className="flex items-center gap-3">
-          <button onClick={goBack} className="p-2 rounded-lg hover:bg-surface-100 transition-colors flex-shrink-0">
-            <ArrowLeft className="w-5 h-5 text-muted" />
-          </button>
-          <div className="flex-1 min-w-0">
-            {crumbs}
-            <h2 className="font-display font-bold text-lg truncate" style={{ color: 'var(--text-primary)' }}>{selectedModule?.name}</h2>
-            <p className="text-sm text-muted">What kind of task are you giving?</p>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <ChoiceCard icon={ClipboardList} color={{ bg: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-600' }}
-            title="Assignment" desc="Class work — set it for each student individually, or for random discussion groups."
-            onClick={() => pickType('assignment')} />
-          <ChoiceCard icon={Home} color={{ bg: 'bg-sky-100 dark:bg-sky-900/30', text: 'text-sky-600' }}
-            title="Homework" desc="Individual work students complete at home and submit."
-            onClick={() => pickType('homework')} />
+      <div className="space-y-6 tm-root">
+        <style>{wrapStyle}</style>
+        <Hero onBack={goBack} eyebrow="Step 3 · Type of task" title={selectedModule?.name}
+          subtitle="What kind of task are you giving?" trail={['Task Manager', ...trail]} />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <SelectCard large icon={ClipboardList} tone={KIND_THEME.individual} title="Assignment"
+            desc="Class work. Set it for every student individually, or for random discussion groups."
+            chips={['Individual', 'Group discussion']} onClick={() => pickType('assignment')} />
+          <SelectCard large icon={Home} tone={KIND_THEME.homework} title="Homework"
+            desc="Individual work students complete at home and upload before the deadline."
+            chips={['At home', 'Individual']} onClick={() => pickType('homework')} />
         </div>
       </div>
     );
@@ -1142,77 +1406,63 @@ export default function Assignments() {
   /* ── Mode picker: Individual | Discussion ── */
   if (view === 'mode') {
     return (
-      <div className="space-y-5">
-        <div className="flex items-center gap-3">
-          <button onClick={goBack} className="p-2 rounded-lg hover:bg-surface-100 transition-colors flex-shrink-0">
-            <ArrowLeft className="w-5 h-5 text-muted" />
-          </button>
-          <div className="flex-1 min-w-0">
-            {crumbs}
-            <h2 className="font-display font-bold text-lg truncate" style={{ color: 'var(--text-primary)' }}>Assignment</h2>
-            <p className="text-sm text-muted">Who is it for?</p>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <ChoiceCard icon={User} color={{ bg: 'bg-emerald-100 dark:bg-emerald-900/30', text: 'text-emerald-600' }}
-            title="Individual" desc="Every student in the class gets the task and submits their own work."
-            onClick={() => pickMode('individual')} />
-          <ChoiceCard icon={Users} color={{ bg: 'bg-violet-100 dark:bg-violet-900/30', text: 'text-violet-600' }}
-            title="Discussion" desc="Create random groups, then give a task to each group. Other groups never see it."
-            onClick={() => pickMode('discussion')} />
+      <div className="space-y-6 tm-root">
+        <style>{wrapStyle}</style>
+        <Hero onBack={goBack} eyebrow="Step 4 · Who is it for?" title="Assignment" tone={KIND_THEME.individual}
+          subtitle="Choose how students will work on it." trail={['Task Manager', ...trail]} />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <SelectCard large icon={User} tone={KIND_THEME.individual} title="Individual"
+            desc="Every student in the class gets the task and submits their own work."
+            chips={['Whole class']} onClick={() => pickMode('individual')} />
+          <SelectCard large icon={Users} tone={KIND_THEME.discussion} title="Group Discussion"
+            desc="Generate random groups, then give a task to chosen groups. Other groups never see it."
+            chips={['Random groups', 'Per-group tasks']} onClick={() => pickMode('discussion')} />
         </div>
       </div>
     );
   }
 
   /* ── Task list view (scoped to module + kind) ── */
-  return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <button onClick={goBack}
-          className="p-2 rounded-lg hover:bg-surface-100 transition-colors flex-shrink-0">
-          <ArrowLeft className="w-5 h-5 text-muted" />
-        </button>
-        <div className="flex-1 min-w-0">
-          {crumbs}
-          <h2 className="font-display font-bold text-lg truncate" style={{ color: 'var(--text-primary)' }}>
-            {selectedModule?.name}
-          </h2>
-          {showTaskList && <p className="text-sm text-muted">{total} {kindNoun(taskType, total)} posted</p>}
-        </div>
-        {showTaskList && (
-          <button onClick={() => openModal()} className="btn-primary flex-shrink-0">
-            <Plus className="w-4 h-4" /> New {taskType === 'homework' ? 'Homework' : isDiscussion ? 'Group Task' : 'Assignment'}
-          </button>
-        )}
-      </div>
+  const tone = kindThemeOf(taskType, mode);
+  const newLabel = taskType === 'homework' ? 'Homework' : isDiscussion ? 'Group Task' : 'Assignment';
+  const liveCount = assignments.filter(a => a.is_active).length;
+  const submissionsOnPage = assignments.reduce((n, a) => n + (a.submission_count || 0), 0);
+  const heroSubtitle = isDiscussion && discTab === 'groups'
+    ? 'Generate random groups, save them, then hand each task to the groups you choose.'
+    : `${selectedClass?.name} · ${tone.label}`;
 
-      {/* Discussion: Groups | Tasks */}
+  return (
+    <div className="space-y-6 tm-root">
+      <style>{wrapStyle}</style>
+      <Hero tone={tone} onBack={goBack} eyebrow={tone.label} title={selectedModule?.name}
+        subtitle={heroSubtitle} trail={['Task Manager', ...trail]}
+        actions={showTaskList && <HeroButton primary icon={Plus} onClick={() => openModal()}>New {newLabel}</HeroButton>}>
+        {showTaskList && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-5">
+            <StatTile icon={ClipboardList} label={`${kindNoun(taskType, total).replace(/^./, c => c.toUpperCase())} posted`} value={total} />
+            <StatTile icon={CheckCircle2} label="Live on this page" value={liveCount} />
+            <StatTile icon={Users} label="Submissions received" value={submissionsOnPage} />
+            {isDiscussion
+              ? <StatTile icon={Layers} label="Saved groups" value={groups.length} />
+              : <StatTile icon={Target} label="Page" value={`${page}/${Math.max(1, Math.ceil(total / 10))}`} />}
+          </div>
+        )}
+      </Hero>
+
       {isDiscussion && (
-        <div className="flex gap-1 p-1 rounded-xl w-fit" style={{ background: 'var(--card-border)' }}>
-          {[['groups', 'Groups', Users], ['tasks', 'Tasks', ClipboardList]].map(([key, label, Icon]) => (
-            <button key={key} onClick={() => { setDiscTab(key); setPage(1); }}
-              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                discTab === key ? 'bg-white dark:bg-neutral-800 shadow-sm text-primary-600' : 'text-muted hover:text-primary-600'
-              }`}>
-              <Icon className="w-3.5 h-3.5" /> {label}
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          {segmented([['groups', 'Groups', Users], ['tasks', 'Tasks', ClipboardList]], discTab, k => { setDiscTab(k); setPage(1); }, tone)}
+          {discTab === 'groups' && groups.length > 0 && (
+            <button onClick={() => setDiscTab('tasks')} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-bold text-white transition-all hover:-translate-y-0.5 active:scale-95"
+              style={{ background: `linear-gradient(135deg, ${tone.accent}, ${tone.accent2})`, boxShadow: `0 10px 24px -8px ${tone.accent}` }}>
+              Assign a task to these groups <ChevronRight className="w-4 h-4" />
             </button>
-          ))}
+          )}
         </div>
       )}
 
       {isDiscussion && discTab === 'groups' && (
-        <>
-          <TaskGroupsPanel cls={selectedClass} module={selectedModule} onChanged={fetchGroups} />
-          {groups.length > 0 && (
-            <div className="flex justify-end">
-              <button onClick={() => setDiscTab('tasks')} className="btn-primary">
-                Assign a task to these groups <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          )}
-        </>
+        <TaskGroupsPanel cls={selectedClass} module={selectedModule} onChanged={fetchGroups} />
       )}
 
       {showTaskList && (
@@ -1220,151 +1470,46 @@ export default function Assignments() {
           {/* Search (+ group filter for discussion tasks) */}
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
               <input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
-                className="input-field pl-10" placeholder="Search tasks…" />
+                className="input-field pl-11 rounded-2xl" style={{ paddingTop: 12, paddingBottom: 12 }} placeholder="Search tasks by title or description…" />
             </div>
             {isDiscussion && groups.length > 0 && (
               <select value={groupFilter} onChange={e => { setGroupFilter(e.target.value); setPage(1); }}
-                className="input-field sm:w-56">
+                className="input-field sm:w-60 rounded-2xl">
                 <option value="">All groups</option>
                 {groups.map(g => <option key={g.id} value={g.id}>{g.name} — {g.batch_name}</option>)}
               </select>
             )}
           </div>
 
-          {/* Task list */}
-          {loading ? (
-            <div className="flex items-center justify-center py-20">
-              <div className="animate-spin w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full" />
-            </div>
-          ) : assignments.length === 0 ? (
-            <div className="card text-center py-16">
-              <ClipboardList className="w-12 h-12 mx-auto mb-3 text-muted opacity-30" />
-              <p className="font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
+          {loading ? <Spinner /> : assignments.length === 0 ? (
+            <div className="relative overflow-hidden rounded-3xl text-center py-16 px-6" style={{ background: 'var(--card-bg)', border: '1px dashed var(--input-border)' }}>
+              <span className="inline-flex w-16 h-16 rounded-3xl items-center justify-center mb-4" style={{ background: tone.soft }}>
+                <tone.icon className="w-8 h-8" style={{ color: tone.accent }} />
+              </span>
+              <p className="font-display font-bold text-base mb-1" style={{ color: 'var(--text-primary)' }}>
                 You haven't posted any {kindNoun(taskType, 2)} here yet
               </p>
-              <p className="text-sm text-muted mb-4">
+              <p className="text-sm text-muted mb-5 max-w-sm mx-auto">
                 {isDiscussion && groups.length === 0
                   ? 'Generate and save some groups first, then give them a task.'
                   : `Create the first ${taskType === 'homework' ? 'homework' : 'assignment'} for ${selectedModule?.name}.`}
               </p>
               {isDiscussion && groups.length === 0 ? (
-                <button onClick={() => setDiscTab('groups')} className="btn-primary mx-auto">
-                  <Users className="w-4 h-4" /> Create groups
-                </button>
+                <button onClick={() => setDiscTab('groups')} className="btn-primary mx-auto"><Users className="w-4 h-4" /> Create groups</button>
               ) : (
-                <button onClick={() => openModal()} className="btn-primary mx-auto">
-                  <Plus className="w-4 h-4" /> New {taskType === 'homework' ? 'Homework' : isDiscussion ? 'Group Task' : 'Assignment'}
-                </button>
+                <button onClick={() => openModal()} className="btn-primary mx-auto"><Plus className="w-4 h-4" /> New {newLabel}</button>
               )}
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-4">
               {assignments.map(a => (
-                <div key={a.id} ref={el => { cardRefs.current[a.id] = el; }}
-                  className="card hover:shadow-soft transition-all"
-                  style={flashId === a.id ? { boxShadow: '0 0 0 2px #f59e0b, 0 8px 24px rgba(245,158,11,0.25)', transition: 'box-shadow 0.4s ease' } : undefined}>
-                  <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-                    <div className="w-11 h-11 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
-                      {taskType === 'homework' ? <Home className="w-5 h-5 text-sky-600" /> : isDiscussion ? <Users className="w-5 h-5 text-violet-600" /> : <ClipboardList className="w-5 h-5 text-amber-600" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <h3 className="font-display font-bold text-sm" style={{ color: 'var(--text-primary)' }}>{a.title}</h3>
-                          <div className="flex items-center gap-2 flex-wrap mt-1">
-                            <KindBadge taskType={a.task_type} mode={a.mode} />
-                            {a.class_name && (
-                              <span className="badge text-xs bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300">
-                                {a.class_name}
-                              </span>
-                            )}
-                            <DeadlineBadge deadline={a.deadline} />
-                            <span style={{
-                              fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 5,
-                              background: a.is_active ? '#ecfdf5' : '#f3f4f6',
-                              color: a.is_active ? '#059669' : '#6b7280',
-                            }}>
-                              {a.is_active ? 'Active' : 'Inactive'}
-                            </span>
-                            <span className="text-xs text-muted flex items-center gap-1">
-                              <Award className="w-3 h-3" /> Max: {a.max_score || 100}
-                            </span>
-                          </div>
-                          {a.mode === 'discussion' && a.groups?.length > 0 && (
-                            <div className="flex items-center gap-1.5 flex-wrap mt-2">
-                              <Users className="w-3 h-3 text-muted" />
-                              {a.groups.map(g => (
-                                <span key={g.id} className="badge text-xs bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
-                                  {g.name} · {g.member_count}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          {a.filename && (
-                            <button
-                              onClick={() => setViewingFile({ ...a, type: 'assignment' })}
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-                              style={{
-                                background: 'var(--card-border)',
-                                color: 'var(--text-primary)',
-                                border: '1px solid var(--input-border)',
-                              }}
-                              title="Preview attached file"
-                            >
-                              <Eye className="w-3.5 h-3.5" />
-                              Preview
-                            </button>
-                          )}
-                          <div className="flex items-center gap-1">
-                            <button onClick={() => handleToggleStatus(a)}
-                              className="p-1.5 rounded-lg hover:bg-surface-100 transition-colors"
-                              title={a.is_active ? 'Deactivate' : 'Activate'}>
-                              {a.is_active
-                                ? <ToggleRight className="w-4 h-4 text-emerald-500" />
-                                : <ToggleLeft className="w-4 h-4 text-muted" />}
-                            </button>
-                            <button onClick={() => openModal(a)}
-                              className="p-1.5 rounded-lg hover:bg-surface-100 transition-colors" title="Edit">
-                              <Edit2 className="w-4 h-4 text-muted" />
-                            </button>
-                            <button onClick={() => setDeleteTarget(a)}
-                              className="p-1.5 rounded-lg hover:bg-red-50 hover:text-red-500 transition-colors" title="Delete">
-                              <Trash2 className="w-4 h-4 text-muted" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                      {a.description && (
-                        <p className="text-xs text-muted mt-2 line-clamp-2">{a.description}</p>
-                      )}
-                      <div className="flex items-center gap-3 mt-3 pt-3 flex-wrap" style={{ borderTop: '1px solid var(--card-border)' }}>
-                        <div className="flex items-center gap-1.5 text-xs text-muted">
-                          <Clock className="w-3.5 h-3.5" />
-                          {new Date(a.deadline).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                        </div>
-                        <button onClick={() => setViewingSubs(a)}
-                          className="flex items-center gap-1.5 text-xs text-primary-600 hover:underline">
-                          <Users className="w-3.5 h-3.5" />
-                          {a.submission_count || 0}/{a.total_students || 0} submitted
-                          {a.avg_score !== null && a.avg_score !== undefined && (
-                            <span className="text-muted ml-1">• avg {Math.round(a.avg_score)}%</span>
-                          )}
-                        </button>
-                        {/* Grades Report button — shown after at least one submission */}
-                        {(a.submission_count > 0) && (
-                          <button onClick={() => setViewingGrades(a)}
-                            className="flex items-center gap-1.5 text-xs text-emerald-600 hover:underline ml-auto">
-                            <BarChart2 className="w-3.5 h-3.5" /> Grades Report
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <TaskRow key={a.id} a={a} tone={kindThemeOf(a.task_type, a.mode)} flashed={flashId === a.id}
+                  cardRef={el => { cardRefs.current[a.id] = el; }}
+                  onSubs={() => setViewingSubs(a)} onGrades={() => setViewingGrades(a)}
+                  onPreview={() => setViewingFile({ ...a, type: 'assignment' })}
+                  onToggle={() => handleToggleStatus(a)} onEdit={() => openModal(a)} onDelete={() => setDeleteTarget(a)} />
               ))}
             </div>
           )}
@@ -1391,11 +1536,11 @@ export default function Assignments() {
         onClose={() => setToggleTarget(null)}
         onConfirm={handleToggleConfirm}
         loading={toggling}
-        title={toggleTarget?.is_active ? 'Deactivate Task' : 'Activate Task'}
+        title={toggleTarget?.is_active ? 'Hide from students' : 'Publish to students'}
         message={toggleTarget?.is_active
-          ? `Deactivate "${toggleTarget?.title}"? Students will no longer be able to view or submit it.`
-          : `Activate "${toggleTarget?.title}"? Students will be able to view and submit it.`}
-        confirmText={toggleTarget?.is_active ? 'Deactivate' : 'Activate'}
+          ? `Hide "${toggleTarget?.title}"? Students will no longer be able to view or submit it.`
+          : `Publish "${toggleTarget?.title}"? Students will be able to view and submit it.`}
+        confirmText={toggleTarget?.is_active ? 'Hide' : 'Publish'}
         variant="danger"
       />
       <ConfirmDialog
