@@ -202,6 +202,15 @@ const assignmentSchema = new mongoose.Schema(
       required: true,
     },
     max_score: { type: Number, default: 100 },
+    // ── Task kinds ───────────────────────────────────────────────────────
+    // task_type: 'assignment' (done in class) | 'homework' (done at home).
+    // mode:      'individual' (every student in the class) | 'discussion'
+    //            (only the members of the TaskGroups listed in group_ids).
+    // Homework is always individual. Legacy documents without these fields
+    // are treated as individual assignments by the controller.
+    task_type: { type: String, enum: ["assignment", "homework"], default: "assignment" },
+    mode: { type: String, enum: ["individual", "discussion"], default: "individual" },
+    group_ids: [{ type: mongoose.Schema.Types.ObjectId, ref: "TaskGroup" }],
   },
   { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } },
 );
@@ -209,6 +218,7 @@ const assignmentSchema = new mongoose.Schema(
 // feed — both filter/sort on these fields on every page load.
 assignmentSchema.index({ teacher_id: 1, created_at: -1 });
 assignmentSchema.index({ class_id: 1, deadline: 1 });
+assignmentSchema.index({ group_ids: 1 });
 
 const submissionSchema = new mongoose.Schema({
   assignment_id: {
@@ -1052,6 +1062,28 @@ discussionGroupSchema.index({ class_id: 1 });
 discussionGroupSchema.index({ teacher_id: 1 });
 discussionGroupSchema.index({ members: 1 });
 
+// ── TaskGroup — randomly generated student groups used to hand out tasks ──
+// Created from the Task Manager (Assignment → Discussion). One document per
+// group; every group produced by the same "generate" action shares a
+// batch_id so the teacher can view / delete the whole set together. A
+// discussion task stores the TaskGroup ids it was given to, and only the
+// members of those groups can see or submit it.
+const taskGroupSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true },
+    batch_id: { type: mongoose.Schema.Types.ObjectId, required: true },
+    batch_name: { type: String, default: "" },
+    class_id: { type: mongoose.Schema.Types.ObjectId, ref: "Class", required: true },
+    course_id: { type: mongoose.Schema.Types.ObjectId, ref: "Course", default: null },
+    teacher_id: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    members: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }], // student ids
+  },
+  { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } },
+);
+taskGroupSchema.index({ class_id: 1, course_id: 1 });
+taskGroupSchema.index({ batch_id: 1 });
+taskGroupSchema.index({ members: 1 });
+
 // ── ClassCollaboration — open peer-to-peer messaging sessions ──────────
 // A teacher can enable independent student-to-student direct messaging for
 // any class they teach. While is_active is true, every enrolled student
@@ -1238,6 +1270,7 @@ const DiscussionGroup = mongoose.model(
   "DiscussionGroup",
   discussionGroupSchema,
 );
+const TaskGroup = mongoose.model("TaskGroup", taskGroupSchema);
 const ClassCollaboration = mongoose.model(
   "ClassCollaboration",
   classCollaborationSchema,
@@ -1278,6 +1311,7 @@ module.exports = {
   Payment,
   SubscriptionPlan,
   DiscussionGroup,
+  TaskGroup,
   ClassCollaboration,
   DirectMessage,
   TeacherDirectMessage,
