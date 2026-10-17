@@ -61,16 +61,24 @@ async function getReferencedPublicIds() {
 
   const [docs, assignments, submissions, reportConfigs, groups, dms] = await Promise.all([
     Document.find({}, 'filename').lean(),
-    Assignment.find({}, 'filename').lean(),
-    Submission.find({}, 'filename').lean(),
+    Assignment.find({}, 'filename attachments.filename').lean(),
+    Submission.find({}, 'filename files.filename').lean(),
     ReportConfig.find({}, 'schoolLogoPublicId').lean(),
     DiscussionGroup.find({}, 'messages.media_public_id').lean(),
     DirectMessage.find({}, 'media_public_id').lean(),
   ]);
 
   docs.forEach(d => d.filename && referenced.add(d.filename));
-  assignments.forEach(a => a.filename && referenced.add(a.filename));
-  submissions.forEach(s => s.filename && referenced.add(s.filename));
+  // A task / submission can hold several files (attachments[] / files[]); the
+  // top-level filename only mirrors the first. Count them all as referenced.
+  assignments.forEach(a => {
+    a.filename && referenced.add(a.filename);
+    (a.attachments || []).forEach(f => f.filename && referenced.add(f.filename));
+  });
+  submissions.forEach(s => {
+    s.filename && referenced.add(s.filename);
+    (s.files || []).forEach(f => f.filename && referenced.add(f.filename));
+  });
   reportConfigs.forEach(c => c.schoolLogoPublicId && referenced.add(c.schoolLogoPublicId));
   groups.forEach(g => (g.messages || []).forEach(m => m.media_public_id && referenced.add(m.media_public_id)));
   dms.forEach(m => m.media_public_id && referenced.add(m.media_public_id));

@@ -615,6 +615,38 @@ async function notifyAssignmentPosted({ studentEmails, teacherEmail, assignmentT
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+//  3b. Deadline extended (notify students who still have work to hand in)
+// ═══════════════════════════════════════════════════════════════════════════
+async function notifyDeadlineExtended({ studentEmails, teacherEmail, assignmentTitle, className, oldDeadline, newDeadline, reason, teacherName }) {
+  if (!studentEmails?.length) return;
+  const fmt = (d) => new Date(d).toLocaleString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+  const body = `
+    <p style="margin:0 0 20px;font-size:14px;color:${BRAND.textSecondary};">Good news — your teacher has given you more time.</p>
+    ${ticketCard({
+      name: assignmentTitle,
+      subtitle: className || 'Task',
+      avatarText: '⏳',
+      rows: [
+        { label: 'Teacher', value: teacherName, icon: false },
+        { label: 'Previous deadline', value: `<span style="text-decoration:line-through;">${fmt(oldDeadline)}</span>`, icon: false },
+        { label: 'New deadline', value: `<span style="color:${BRAND.dangerText};">${fmt(newDeadline)}</span>`, icon: false },
+      ],
+    })}
+    <div style="margin:6px 0 0;">${daysLeftPill(newDeadline)}</div>
+    ${reason ? `<div style="margin-top:18px;">${calloutBox({ label: 'Note from your teacher', text: reason, tone: 'accent' })}</div>` : ''}
+    ${ctaBtn('Open Task →', `${APP_URL()}/student/assignments`)}`;
+
+  await sendMail({
+    to: studentEmails,
+    ...(teacherEmail ? { bcc: teacherEmail } : {}),
+    subject: `⏳ Deadline extended: ${assignmentTitle}${className ? ' — ' + className : ''}`,
+    html: wrapEmail({ title: 'Deadline Extended', preheader: `${teacherName} extended: ${assignmentTitle}`, badge: badgeChip(className || 'Task', 'accent'), icon: '⏳', status: 'accent', body }),
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 //  4. Assignment submitted (notify teacher)
 // ═══════════════════════════════════════════════════════════════════════════
 async function notifyAssignmentSubmitted({ teacherEmail, studentName, assignmentTitle, className, submittedAt }) {
@@ -748,6 +780,7 @@ module.exports = {
   notifyPasswordReset,
   notifyAssessmentShared,
   notifyAssignmentPosted,
+  notifyDeadlineExtended,
   notifyAssignmentSubmitted,
   notifyDocumentPosted,
   notifyAnnouncement,
