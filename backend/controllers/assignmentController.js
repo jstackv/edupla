@@ -1,9 +1,14 @@
 const mongoose = require('mongoose');
 const { Assignment, Submission, Class, User, Course, TaskGroup } = require('../models/db');
 const { cloudinary, getResourceType } = require('../middleware/upload');
-const { notifyAssignmentPosted, notifyAssignmentSubmitted } = require('../services/emailService');
+const { notifyAssignmentPosted, notifyAssignmentSubmitted, notifyDeadlineExtended } = require('../services/emailService');
 const { createInAppNotification, createDirectNotification, getStudentEmails, getTeacherEmail } = require('../services/notificationHelpers');
 const { buildDownloadFilename, streamWithFilename } = require('../utils/downloadFilename');
+const {
+  MAX_TASK_FILES, LEGACY_FILE_ID,
+  uploadedFiles, resolveFiles, findFile, legacyMirror, parseIdArray,
+  allStoredFiles, destroyStoredFiles,
+} = require('../utils/taskFiles');
 
 
 // ── Task kinds ─────────────────────────────────────────────────────────────
@@ -83,6 +88,23 @@ function isAssignmentAccessible(a) {
   return !!a.is_active;
 }
 
+// The deadline the task was first posted with — the oldest 'from' in the history,
+// or the current deadline when it has never been extended.
+function originalDeadlineOf(a) {
+  const h = a.deadline_history || [];
+  return h.length ? h[0].from : a.deadline;
+}
+
+// Download name for one of several files: use the file's own name so a list of
+// attachments doesn't all save as the same title.
+function nameForFile(title, file, total) {
+  if (total > 1) {
+    const base = (file.original_name || '').replace(/\.[^/.]+$/, '');
+    return buildDownloadFilename(base || title, file.original_name);
+  }
+  return buildDownloadFilename(title, file.original_name);
+}
+
 const getAssignments = async (req, res) => {
   try {
     const { search = '', page = 1, limit = 10, classId, courseId, taskType, mode, groupId, status } = req.query;
@@ -137,6 +159,9 @@ const getAssignments = async (req, res) => {
           course_code: a.course_id?.code,
           course_category: a.course_id?.category,
           file_url: a.file_url,
+          attachments: resolveFiles(a, 'attachments'),
+          original_deadline: originalDeadlineOf(a),
+          deadline_extended: (a.deadline_history || []).length > 0,
           submission_count,
           total_students,
           is_accessible: isAssignmentAccessible(a),
@@ -191,7 +216,7 @@ const getAssignments = async (req, res) => {
     const result = await Promise.all(assignments.map(async (a) => {
       const sub = await Submission.findOne(
         { assignment_id: a._id, student_id: userId },
-        'submitted_at score feedback notes filename original_name file_url _id'
+        'submitted_at score feedback notes filename original_name file_url files _id'
       ).lean();
       const myGroup = a.mode === 'discussion'
         ? groupDocs.find(g => (a.group_ids || []).some(id => String(id) === String(g._id)))
@@ -210,6 +235,11 @@ const getAssignments = async (req, res) => {
         course_code: a.course_id?.code,
         course_category: a.course_id?.category,
         file_url: a.file_url,
+        attachments: resolveFiles(a, 'attachments'),
+        original_deadline: originalDeadlineOf(a),
+        deadline_extended: (a.deadline_history || []).length > 0,
+        deadline_history: undefined,
+        submission_files: resolveFiles(sub, 'files'),
         submission_id: sub?._id || null,
         submitted_at: sub?.submitted_at || null,
         submission_notes: sub?.notes || null,
@@ -251,16 +281,19 @@ const createAssignment = async (req, res) => {
     if (!teacherClass && !teacherCourse) return res.status(403).json({ message: 'You are not assigned to this class.' });
     const kind = await resolveTaskKind(req.body, classId, req.session.user.id);
     if (kind.error) return res.status(400).json({ message: kind.error });
+    const attachments = uploadedFiles(req);
+    if (attachments.length > MAX_TASK_FILES) {
+      await destroyStoredFiles(attachments, cloudinary, getResourceType);
+      return res.status(400).json({ message: `You can attach at most ${MAX_TASK_FILES} files.` });
+    }
     const a = await Assignment.create({
       title, description, deadline,
       task_type: kind.taskType, mode: kind.mode, group_ids: kind.groupIds,
       is_active: (is_active === undefined || is_active === null || is_active === "") ? true : (is_active === true || is_active === "true"),
       class_id: classId, course_id: courseId || null, teacher_id: req.session.user.id,
       max_score: max_score || 100,
-      filename:      req.file?.filename      || null,
-      original_name: req.file?.originalname  || null,
-      mime_type:     req.file?.mimetype      || null,
-      file_url:      req.file?.path          || null,
+      attachments,
+      ...legacyMirror(attachments),
     });
     // ── Notifications run BEFORE responding ────────────────────────────
     // On serverless (Vercel) the function is frozen as soon as the response
@@ -335,27 +368,38 @@ const updateAssignment = async (req, res) => {
     const kind = await resolveTaskKind(req.body, existing.class_id, req.session.user.id);
     if (kind.error) return res.status(400).json({ message: kind.error });
 
-    let { filename, original_name, mime_type, file_url } = existing;
-
-    if (req.file) {
-      if (filename) {
-        try { await cloudinary.uploader.destroy(filename, { resource_type: getResourceType(original_name, mime_type) }); } catch (_) {}
-      }
-      filename      = req.file.filename;
-      original_name = req.file.originalname;
-      mime_type     = req.file.mimetype;
-      file_url      = req.file.path;
+    // Attachments: keep what the teacher didn't remove, add what they just uploaded.
+    const removeIds = new Set(parseIdArray(req.body.removeAttachmentIds));
+    const current = resolveFiles(existing, 'attachments');
+    const kept = current.filter(f => !removeIds.has(f.id));
+    const removed = current.filter(f => removeIds.has(f.id));
+    const added = uploadedFiles(req);
+    if (kept.length + added.length > MAX_TASK_FILES) {
+      await destroyStoredFiles(added, cloudinary, getResourceType);
+      return res.status(400).json({ message: `A task can have at most ${MAX_TASK_FILES} attachments.` });
     }
+    // Kept files retain their ids; a legacy single file is promoted into the array.
+    const nextAttachments = [
+      ...kept.map(f => (f.id === LEGACY_FILE_ID ? { ...f, id: undefined } : { ...f, _id: f.id })),
+      ...added,
+    ].map(({ id, ...rest }) => rest);
 
-    await Assignment.updateOne(
-      { _id: req.params.id },
-      {
+    // Pushing the deadline later is an extension — keep the trail.
+    const ops = {
+      $set: {
         title, description, deadline, class_id: classId, course_id: courseId || null, max_score: max_score || 100,
         task_type: kind.taskType, mode: kind.mode, group_ids: kind.groupIds,
         is_active: is_active === true || is_active === 'true',
-        filename, original_name, mime_type, file_url,
-      }
-    );
+        attachments: nextAttachments,
+        ...legacyMirror(nextAttachments),
+      },
+    };
+    const newDeadline = new Date(deadline);
+    if (!isNaN(newDeadline) && newDeadline > new Date(existing.deadline)) {
+      ops.$push = { deadline_history: { from: existing.deadline, to: newDeadline, by: req.session.user.id, reason: null } };
+    }
+    await Assignment.updateOne({ _id: req.params.id }, ops);
+    await destroyStoredFiles(removed.filter(f => f.filename), cloudinary, getResourceType);
     res.json({ message: 'Assignment updated' });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
@@ -374,50 +418,44 @@ const deleteAssignment = async (req, res) => {
   try {
     const a = await Assignment.findOneAndDelete({ _id: req.params.id, teacher_id: req.session.user.id });
     if (!a) return res.status(404).json({ message: 'Assignment not found' });
-    if (a.filename) {
-      try { await cloudinary.uploader.destroy(a.filename, { resource_type: getResourceType(a.original_name, a.mime_type) }); } catch (_) {}
-    }
+    await destroyStoredFiles(allStoredFiles(a, 'attachments'), cloudinary, getResourceType);
 
-    // Cascade: every student submission for this assignment also has an
-    // uploaded file in Cloudinary — clean those up too, then remove the
-    // now-orphaned Submission records themselves.
-    const submissions = await Submission.find({ assignment_id: a._id }, 'filename original_name').lean();
-    await Promise.all(submissions.map(s => {
-      if (!s.filename) return Promise.resolve();
-      return cloudinary.uploader.destroy(s.filename, { resource_type: getResourceType(s.original_name) }).catch(() => {});
-    }));
+    // Cascade: every student submission for this assignment also has uploaded
+    // files in Cloudinary — clean those up too, then remove the now-orphaned
+    // Submission records themselves.
+    const submissions = await Submission.find({ assignment_id: a._id }, 'filename original_name files').lean();
+    await Promise.all(submissions.map(s => destroyStoredFiles(allStoredFiles(s, 'files'), cloudinary, getResourceType)));
     await Submission.deleteMany({ assignment_id: a._id });
 
     res.json({ message: 'Assignment deleted' });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
-const downloadAssignment = async (req, res) => {
-  try {
-    const a = await Assignment.findById(req.params.id).lean();
-    if (!a || !a.file_url) return res.status(404).json({ message: 'File not found' });
-    // Students can only download active, in-window assignments
-    if (req.session.user.role === 'student') {
-      if (!isAssignmentAccessible(a)) return res.status(403).json({ message: 'This assignment is not currently active.' });
-      if (!(await studentCanAccess(a, req.session.user.id))) return res.status(403).json({ message: 'This task was not assigned to you.' });
-    }
-    const filename = buildDownloadFilename(a.title, a.original_name);
-    await streamWithFilename(res, a.file_url, filename);
-  } catch (err) { res.status(500).json({ message: err.message }); }
-};
+// Students only get active tasks they are entitled to; teachers always may.
+async function assertCanReadTask(req, res, a) {
+  if (req.session.user.role !== 'student') return true;
+  if (!isAssignmentAccessible(a)) { res.status(403).json({ message: 'This assignment is not currently active.' }); return false; }
+  if (!(await studentCanAccess(a, req.session.user.id))) { res.status(403).json({ message: 'This task was not assigned to you.' }); return false; }
+  return true;
+}
 
-const viewAssignment = async (req, res) => {
+// Serves one teacher attachment (the first one when no fileId is given, which
+// keeps the old /:id/download and /:id/view URLs working).
+const serveAssignmentFile = (disposition) => async (req, res) => {
   try {
     const a = await Assignment.findById(req.params.id).lean();
-    if (!a || !a.file_url) return res.status(404).json({ message: 'File not found' });
-    if (req.session.user.role === 'student') {
-      if (!isAssignmentAccessible(a)) return res.status(403).json({ message: 'This assignment is not currently active.' });
-      if (!(await studentCanAccess(a, req.session.user.id))) return res.status(403).json({ message: 'This task was not assigned to you.' });
-    }
-    const filename = buildDownloadFilename(a.title, a.original_name);
-    await streamWithFilename(res, a.file_url, filename, 'inline');
+    if (!a) return res.status(404).json({ message: 'File not found' });
+    const file = findFile(a, 'attachments', req.params.fileId);
+    if (!file || !file.file_url) return res.status(404).json({ message: 'File not found' });
+    if (!(await assertCanReadTask(req, res, a))) return;
+    const total = resolveFiles(a, 'attachments').length;
+    await streamWithFilename(res, file.file_url, nameForFile(a.title, file, total), disposition);
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
+const downloadAssignment = serveAssignmentFile('attachment');
+const viewAssignment = serveAssignmentFile('inline');
+const downloadAssignmentFile = serveAssignmentFile('attachment');
+const viewAssignmentFile = serveAssignmentFile('inline');
 
 const submitAssignment = async (req, res) => {
   try {
@@ -441,26 +479,39 @@ const submitAssignment = async (req, res) => {
       return res.status(400).json({ message: 'Submission deadline has expired. Resubmission is no longer allowed.' });
     }
 
+    // A submission can hold several files. On a resubmit the student keeps the
+    // files they didn't remove and adds the ones they just picked.
+    const incoming = uploadedFiles(req);
     const existing = await Submission.findOne({ assignment_id: assignmentId, student_id: studentId });
+    const removeIds = new Set(parseIdArray(req.body.removeFileIds));
+    const current = resolveFiles(existing, 'files');
+    const kept = current.filter(f => !removeIds.has(f.id));
+    const removed = current.filter(f => removeIds.has(f.id));
+
+    if (kept.length + incoming.length > MAX_TASK_FILES) {
+      await destroyStoredFiles(incoming, cloudinary, getResourceType);
+      return res.status(400).json({ message: `You can submit at most ${MAX_TASK_FILES} files.` });
+    }
+    if (kept.length + incoming.length === 0 && !(notes || '').trim()) {
+      return res.status(400).json({ message: 'Attach at least one file or write a note.' });
+    }
+
+    const nextFiles = [
+      ...kept.map(f => (f.id === LEGACY_FILE_ID ? { ...f, id: undefined } : { ...f, _id: f.id })),
+      ...incoming,
+    ].map(({ id, ...rest }) => rest);
+
     if (existing) {
-      const update = { notes, submitted_at: new Date() };
-      if (req.file) {
-        if (existing.filename) {
-          try { await cloudinary.uploader.destroy(existing.filename, { resource_type: getResourceType(existing.original_name) }); } catch (_) {}
-        }
-        update.filename      = req.file.filename;
-        update.original_name = req.file.originalname;
-        update.file_url      = req.file.path;
-      }
-      await Submission.updateOne({ _id: existing._id }, update);
+      await Submission.updateOne({ _id: existing._id }, {
+        $set: { notes, submitted_at: new Date(), files: nextFiles, ...legacyMirror(nextFiles) },
+      });
+      await destroyStoredFiles(removed.filter(f => f.filename), cloudinary, getResourceType);
       return res.json({ message: 'Submission updated successfully' });
     }
 
     await Submission.create({
       assignment_id: assignmentId, student_id: studentId,
-      filename:      req.file?.filename     || null,
-      original_name: req.file?.originalname || null,
-      file_url:      req.file?.path         || null,
+      files: nextFiles, ...legacyMirror(nextFiles),
       notes,
     });
     // ── Notify teacher BEFORE responding (serverless freezes after the response) ──
@@ -476,7 +527,7 @@ const submitAssignment = async (req, res) => {
       // never be visible to any student, including the one who submitted it.
       await createInAppNotification({
         title: `Submission: ${a.title}`,
-        message: `${student?.name || 'A student'} submitted "${a.title}". Ready to review.`,
+        message: `${student?.name || 'A student'} submitted "${a.title}"${nextFiles.length > 1 ? ` (${nextFiles.length} files)` : ''}. Ready to review.`,
         type: 'success',
         classId: a.class_id,
         teacherId: a.teacher_id,
@@ -516,44 +567,39 @@ const getSubmissions = async (req, res) => {
       level: s.student_id?.level,
       trade: s.student_id?.trade,
       file_url: s.file_url,
+      files: resolveFiles(s, 'files'),
     }));
     res.json({ submissions: result });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
-const downloadSubmission = async (req, res) => {
+// Serves one file of a student's submission (the first one when no fileId is
+// given, which keeps the old .../download and .../view URLs working).
+const serveSubmissionFile = (disposition) => async (req, res) => {
   try {
     const sub = await Submission.findById(req.params.submissionId)
       .populate('assignment_id', 'title')
       .populate('student_id', 'name')
       .lean();
-    if (!sub || !sub.file_url) return res.status(404).json({ message: 'File not found' });
-    const assignmentTitle = sub.assignment_id?.title;
+    if (!sub) return res.status(404).json({ message: 'File not found' });
+    const file = findFile(sub, 'files', req.params.fileId);
+    if (!file || !file.file_url) return res.status(404).json({ message: 'File not found' });
     const studentName = sub.student_id?.name;
-    const title = assignmentTitle
-      ? `${assignmentTitle}${studentName ? ` - ${studentName}` : ''}`
-      : null;
-    const filename = buildDownloadFilename(title, sub.original_name);
-    await streamWithFilename(res, sub.file_url, filename);
+    const suffix = studentName ? ` - ${studentName}` : '';
+    const total = resolveFiles(sub, 'files').length;
+    // One file: "<task title> - <student>". Several: the file's own name, so
+    // they don't all save under the same title.
+    const base = total > 1
+      ? (file.original_name || '').replace(/\.[^/.]+$/, '')
+      : sub.assignment_id?.title;
+    const title = base ? `${base}${suffix}` : null;
+    await streamWithFilename(res, file.file_url, buildDownloadFilename(title, file.original_name), disposition);
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
-
-const viewSubmission = async (req, res) => {
-  try {
-    const sub = await Submission.findById(req.params.submissionId)
-      .populate('assignment_id', 'title')
-      .populate('student_id', 'name')
-      .lean();
-    if (!sub || !sub.file_url) return res.status(404).json({ message: 'File not found' });
-    const assignmentTitle = sub.assignment_id?.title;
-    const studentName = sub.student_id?.name;
-    const title = assignmentTitle
-      ? `${assignmentTitle}${studentName ? ` - ${studentName}` : ''}`
-      : null;
-    const filename = buildDownloadFilename(title, sub.original_name);
-    await streamWithFilename(res, sub.file_url, filename, 'inline');
-  } catch (err) { res.status(500).json({ message: err.message }); }
-};
+const downloadSubmission = serveSubmissionFile('attachment');
+const viewSubmission = serveSubmissionFile('inline');
+const downloadSubmissionFile = serveSubmissionFile('attachment');
+const viewSubmissionFile = serveSubmissionFile('inline');
 
 const gradeSubmission = async (req, res) => {
   try {
@@ -598,7 +644,7 @@ const getGradesReport = async (req, res) => {
     }
 
     const grades = await Promise.all(students.map(async (s) => {
-      const sub = await Submission.findOne({ assignment_id: assignmentId, student_id: s._id }, 'score feedback submitted_at graded_at filename original_name file_url notes _id').lean();
+      const sub = await Submission.findOne({ assignment_id: assignmentId, student_id: s._id }, 'score feedback submitted_at graded_at filename original_name file_url files notes _id').lean();
       return {
         student_id:    s._id,
         student_name:  s.name,
@@ -610,6 +656,7 @@ const getGradesReport = async (req, res) => {
         filename:      sub?.filename || null,
         original_name: sub?.original_name || null,
         file_url:      sub?.file_url || null,
+        files:         resolveFiles(sub, 'files'),
         notes:         sub?.notes || null,
         score:         sub?.score ?? null,
         feedback:      sub?.feedback || null,
@@ -626,9 +673,84 @@ const getGradesReport = async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
+// Teacher pushes the submission deadline later. Students (the whole class, or the
+// members of the chosen groups) are told, and anyone who was locked out by the
+// old deadline can submit again — the submit check compares against the live
+// deadline, so no other state needs touching.
+const extendDeadline = async (req, res) => {
+  try {
+    const { deadline, reason = '', notify = true } = req.body;
+    const a = await Assignment.findById(req.params.id);
+    if (!a) return res.status(404).json({ message: 'Assignment not found' });
+
+    const teacherId = String(req.session.user.id);
+    let allowed = String(a.teacher_id) === teacherId;
+    if (!allowed) {
+      allowed = !!(await Class.exists({ _id: a.class_id, $or: [{ teacher_id: teacherId }, { extra_teachers: teacherId }] }));
+    }
+    if (!allowed) return res.status(404).json({ message: 'Assignment not found' });
+
+    const next = new Date(deadline);
+    if (!deadline || isNaN(next)) return res.status(400).json({ message: 'Choose a valid new deadline.' });
+    if (next <= new Date(a.deadline)) return res.status(400).json({ message: 'The new deadline must be later than the current one.' });
+    if (next <= new Date()) return res.status(400).json({ message: 'The new deadline must be in the future.' });
+
+    const cleanReason = String(reason || '').trim().slice(0, 300) || null;
+    const previous = a.deadline;
+    a.deadline_history.push({ from: previous, to: next, by: teacherId, reason: cleanReason });
+    a.deadline = next;
+    await a.save();
+
+    // Notifications run BEFORE responding (serverless freezes after the response).
+    const wantsNotify = !(notify === false || notify === 'false');
+    if (wantsNotify && a.is_active) {
+      try {
+        const [cls, teacher, teacherEmail, audienceIds] = await Promise.all([
+          Class.findById(a.class_id, 'name').lean(),
+          User.findById(teacherId, 'name').lean(),
+          getTeacherEmail(teacherId),
+          getTaskAudienceIds(a),
+        ]);
+        const when = next.toLocaleString('en-US', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+        const title = `Deadline extended: ${a.title}`;
+        const message = `${teacher?.name || 'Your teacher'} extended the deadline for "${a.title}" to ${when}.${cleanReason ? ` Note: ${cleanReason}` : ''}`;
+
+        if (a.mode === 'discussion') {
+          await Promise.all(audienceIds.map(rid => createDirectNotification({
+            title, message, type: 'info', classId: a.class_id, teacherId, recipientId: rid, linkType: 'assignment', linkId: a._id,
+          })));
+        } else {
+          await createInAppNotification({
+            title, message, type: 'info', classId: a.class_id, teacherId,
+            linkType: 'assignment', linkId: a._id, courseId: a.course_id || null,
+          });
+        }
+
+        // Email only the students who still have something to hand in.
+        const done = await Submission.distinct('student_id', { assignment_id: a._id });
+        const doneSet = new Set(done.map(String));
+        const pending = audienceIds.filter(id => !doneSet.has(String(id)));
+        const people = await User.find({ _id: { $in: pending } }, 'email').lean();
+        const emails = people.map(p => p.email).filter(Boolean);
+        if (emails.length) {
+          await notifyDeadlineExtended({
+            studentEmails: emails, teacherEmail, assignmentTitle: a.title, className: cls?.name || '',
+            oldDeadline: previous, newDeadline: next, reason: cleanReason, teacherName: teacher?.name || 'Your teacher',
+          }).catch(err => console.error('Email send error:', err.message));
+        }
+      } catch (err) {
+        console.error('Notification error (extend deadline):', err.message);
+      }
+    }
+
+    res.json({ message: 'Deadline extended', deadline: a.deadline, deadline_history: a.deadline_history });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
 module.exports = {
   getAssignments, createAssignment, updateAssignment, deleteAssignment, toggleAssignmentStatus,
-  downloadAssignment, viewAssignment,
+  downloadAssignment, viewAssignment, downloadAssignmentFile, viewAssignmentFile,
   submitAssignment, getSubmissions, downloadSubmission, viewSubmission,
-  gradeSubmission, getGradesReport,
+  downloadSubmissionFile, viewSubmissionFile,
+  gradeSubmission, getGradesReport, extendDeadline,
 };

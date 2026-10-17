@@ -5,6 +5,7 @@ const {
   DiscussionGroup, ClassCollaboration, DirectMessage,
 } = require('../models/db');
 const { cloudinary, getResourceType } = require('../middleware/upload');
+const { allStoredFiles } = require('../utils/taskFiles');
 
 // Generates a short, readable one-time password for a password reset — e.g.
 // "Kj7-mPx4Qr". Mixes upper/lower/digits, skips visually-ambiguous
@@ -40,7 +41,7 @@ function destroyGroupMessageMedia(msg) {
 async function cascadeDeleteClassContent(classId) {
   const [documents, assignments, groups] = await Promise.all([
     Document.find({ class_id: classId }, 'filename original_name mime_type').lean(),
-    Assignment.find({ class_id: classId }, 'filename original_name mime_type').lean(),
+    Assignment.find({ class_id: classId }, 'filename original_name mime_type attachments').lean(),
     DiscussionGroup.find({ class_id: classId }, 'messages').lean(),
   ]);
 
@@ -49,12 +50,12 @@ async function cascadeDeleteClassContent(classId) {
   await Document.deleteMany({ class_id: classId });
 
   const assignmentIds = assignments.map(a => a._id);
-  await Promise.all(assignments.map(a => a.filename
-    ? destroyFile(a.filename, getResourceType(a.original_name, a.mime_type)) : Promise.resolve()));
+  await Promise.all(assignments.flatMap(a => allStoredFiles(a, 'attachments')
+    .map(f => destroyFile(f.filename, getResourceType(f.original_name, f.mime_type)))));
 
-  const submissions = await Submission.find({ assignment_id: { $in: assignmentIds } }, 'filename original_name').lean();
-  await Promise.all(submissions.map(s => s.filename
-    ? destroyFile(s.filename, getResourceType(s.original_name)) : Promise.resolve()));
+  const submissions = await Submission.find({ assignment_id: { $in: assignmentIds } }, 'filename original_name files').lean();
+  await Promise.all(submissions.flatMap(s => allStoredFiles(s, 'files')
+    .map(f => destroyFile(f.filename, getResourceType(f.original_name, f.mime_type)))));
   await Submission.deleteMany({ assignment_id: { $in: assignmentIds } });
   await Assignment.deleteMany({ class_id: classId });
 
@@ -499,9 +500,9 @@ const adminEraseClassStudents = async (req, res) => {
 
     const objectIds = idsToErase.map(id => new mongoose.Types.ObjectId(id));
 
-    const submissions = await Submission.find({ student_id: { $in: objectIds } }, 'filename original_name').lean();
-    await Promise.all(submissions.map(s => s.filename
-      ? destroyFile(s.filename, getResourceType(s.original_name)) : Promise.resolve()));
+    const submissions = await Submission.find({ student_id: { $in: objectIds } }, 'filename original_name files').lean();
+    await Promise.all(submissions.flatMap(s => allStoredFiles(s, 'files')
+      .map(f => destroyFile(f.filename, getResourceType(f.original_name, f.mime_type)))));
     await Submission.deleteMany({ student_id: { $in: objectIds } });
 
     await DiscussionGroup.updateMany({}, { $pull: { members: { $in: objectIds } } });
@@ -635,9 +636,9 @@ const adminDeleteStudent = async (req, res) => {
 
     // Clean up this student's uploaded submission files — otherwise they
     // become permanently orphaned in Cloudinary once the student is gone.
-    const submissions = await Submission.find({ student_id: result._id }, 'filename original_name').lean();
-    await Promise.all(submissions.map(s => s.filename
-      ? destroyFile(s.filename, getResourceType(s.original_name)) : Promise.resolve()));
+    const submissions = await Submission.find({ student_id: result._id }, 'filename original_name files').lean();
+    await Promise.all(submissions.flatMap(s => allStoredFiles(s, 'files')
+      .map(f => destroyFile(f.filename, getResourceType(f.original_name, f.mime_type)))));
     await Submission.deleteMany({ student_id: result._id });
 
     // Remove them from any discussion groups (as member and/or team leader)

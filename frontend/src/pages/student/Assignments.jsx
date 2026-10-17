@@ -4,21 +4,16 @@ import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import Pagination from '../../components/common/Pagination';
 import FileViewer from '../../components/common/FileViewer';
+import { FilePicker, FileRows, MAX_TASK_FILES } from '../../components/common/TaskFiles';
 import { useAuth } from '../../context/AuthContext';
 import {
   Search, ClipboardList, Upload, Eye,
   Clock, CheckCircle2, AlertTriangle, Award, X, CloudUpload, FileText, RefreshCw,
   BookOpen, ChevronRight, ArrowLeft, Inbox, Home, User, Users, Lock,
-  Sparkles, Trophy, Send, Timer, CalendarClock, Star, FileUp, PenLine,
+  Sparkles, Trophy, Send, Timer, CalendarClock, Star, FileUp, PenLine, Paperclip, History, PartyPopper,
 } from 'lucide-react';
 
 /* ── helpers ─────────────────────────────────────────────────────────── */
-function formatSize(bytes) {
-  if (!bytes && bytes !== 0) return '';
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-}
-
 function timeLeft(deadline, now = Date.now()) {
   const ms = new Date(deadline).getTime() - now;
   if (ms <= 0) return { overdue: true, text: 'Deadline passed' };
@@ -105,7 +100,6 @@ const kindThemeOf = (taskType, mode) =>
 
 const AVATAR_TONES = ['#ea580c', '#0284c7', '#7c3aed', '#059669', '#db2777', '#ca8a04', '#0891b2', '#dc2626'];
 const initials = (name = '') => name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?';
-const extOf = (name = '') => (name.includes('.') ? name.split('.').pop().slice(0, 4).toUpperCase() : 'FILE');
 
 function Avatar({ name, idx = 0, size = 34, ring }) {
   return (
@@ -136,27 +130,6 @@ function Ring({ value = 0, size = 96, stroke = 8, from = '#ea580c', to = '#f59e0
   );
 }
 
-function FileTile({ name, hint, action, tone, onClick }) {
-  return (
-    <button type="button" onClick={onClick}
-      className="group w-full flex items-center gap-3 p-3 rounded-2xl text-left transition-all hover:-translate-y-0.5"
-      style={{ background: 'var(--surface-100)', border: '1px solid var(--card-border)' }}>
-      <span className="w-12 h-12 rounded-xl flex items-center justify-center text-[11px] font-extrabold text-white flex-shrink-0 tracking-wide"
-        style={{ background: `linear-gradient(135deg, ${tone.accent}, ${tone.accent2})`, boxShadow: `0 6px 16px ${tone.ring}` }}>
-        {extOf(name)}
-      </span>
-      <span className="flex-1 min-w-0">
-        <span className="block text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{name}</span>
-        {hint && <span className="block text-xs text-muted mt-0.5">{hint}</span>}
-      </span>
-      <span className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-full transition-colors"
-        style={{ background: tone.soft, color: tone.accent }}>
-        <Eye className="w-3.5 h-3.5" /> {action}
-      </span>
-    </button>
-  );
-}
-
 function Panel({ icon: Icon, title, right, tone, children, className = '' }) {
   return (
     <section className={`rounded-3xl overflow-hidden ${className}`} style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
@@ -179,18 +152,19 @@ function Panel({ icon: Icon, title, right, tone, children, className = '' }) {
 function TaskWorkspace({ task, onBack, onChanged, onPreview }) {
   const { user } = useAuth();
   const myId = String(user?.id || '');
-  const [file, setFile] = useState(null);
+  const [files, setFiles] = useState([]);             // files picked in this session
+  const [removedIds, setRemovedIds] = useState([]);   // already-submitted files the student is dropping
   const [notes, setNotes] = useState(task.submission_notes || '');
   const [saving, setSaving] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [dragOver, setDragOver] = useState(false);
   const [editing, setEditing] = useState(false);   // re-opening the form after a submission
+  const [justDone, setJustDone] = useState(false); // celebratory receipt right after handing in
   const [now, setNow] = useState(Date.now());
-  const inputRef = useRef(null);
 
   useEffect(() => { const i = setInterval(() => setNow(Date.now()), 30000); return () => clearInterval(i); }, []);
   // Keep the form in step when the task is refreshed after a submit.
-  useEffect(() => { setNotes(task.submission_notes || ''); setFile(null); setEditing(false); setProgress(0); }, [task.id, task.submission_id, task.submitted_at]);
+  useEffect(() => { setNotes(task.submission_notes || ''); setFiles([]); setRemovedIds([]); setEditing(false); setProgress(0); }, [task.id, task.submission_id, task.submitted_at]);
+  useEffect(() => { if (!justDone) return; const t = setTimeout(() => setJustDone(false), 6000); return () => clearTimeout(t); }, [justDone]);
 
   const tone = kindThemeOf(task.task_type, task.mode);
   const KindIcon = tone.icon;
@@ -213,15 +187,21 @@ function TaskWorkspace({ task, onBack, onChanged, onPreview }) {
   const elapsed = end > start ? Math.min(1, Math.max(0, (now - start) / (end - start))) : 1;
   const remaining = overdue ? 0 : 1 - elapsed;
 
-  const pickFile = (f) => { if (f) setFile(f); };
+  const existingFiles = task.submission_files || [];
+  const keptCount = existingFiles.filter(f => !removedIds.includes(f.id)).length;
+  const totalCount = keptCount + files.length;
+  const taskFiles = task.attachments || [];
+  const toggleExisting = (id) => setRemovedIds(ids => ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]);
+  const resetForm = () => { setEditing(false); setFiles([]); setRemovedIds([]); setNotes(task.submission_notes || ''); };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!file && !notes.trim() && !task.has_submission_file) return toast.error('Attach a file or write a note first');
+    if (totalCount === 0 && !notes.trim()) return toast.error('Attach at least one file or write a note first');
     setSaving(true); setProgress(0);
     try {
       const fd = new FormData();
-      if (file) fd.append('file', file);
+      files.forEach(f => fd.append('files', f));
+      if (removedIds.length) fd.append('removeFileIds', JSON.stringify(removedIds));
       fd.append('notes', notes);
       await api.post(`/assignments/${task.id}/submit`, fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -229,6 +209,7 @@ function TaskWorkspace({ task, onBack, onChanged, onPreview }) {
         onUploadProgress: ev => { if (ev.total) setProgress(Math.round((ev.loaded / ev.total) * 100)); },
       });
       toast.success(isSubmitted ? 'Resubmitted successfully!' : 'Submitted successfully!');
+      setJustDone(true);
       onChanged();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Submission failed');
@@ -254,6 +235,7 @@ function TaskWorkspace({ task, onBack, onChanged, onPreview }) {
         @keyframes tw-float { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-10px) } }
         @keyframes tw-pulse { 0%,100% { box-shadow: 0 0 0 0 var(--tw-ring) } 50% { box-shadow: 0 0 0 9px transparent } }
         @keyframes tw-shine { from { background-position: -200% 0 } to { background-position: 200% 0 } }
+        @keyframes tw-burst { 0% { transform: scale(.7); opacity: .7 } 100% { transform: scale(1.9); opacity: 0 } }
         .tw-root > * { animation: tw-rise .5s cubic-bezier(.2,.8,.2,1) both }
         .tw-root > *:nth-child(2) { animation-delay: .06s } .tw-root > *:nth-child(3) { animation-delay: .12s }
         .tw-shimmer { background-size: 200% 100%; animation: tw-shine 2.4s linear infinite }
@@ -292,6 +274,12 @@ function TaskWorkspace({ task, onBack, onChanged, onPreview }) {
               <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mt-4 text-sm text-white/80">
                 {task.teacher_name && <span className="flex items-center gap-1.5"><Avatar name={task.teacher_name} size={22} idx={2} /> {task.teacher_name}</span>}
                 <span className="flex items-center gap-1.5"><CalendarClock className="w-4 h-4" /> {dueText}</span>
+                {task.deadline_extended && (
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-extrabold px-2.5 py-1 rounded-full" style={{ background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(6px)' }}
+                    title={`Originally due ${new Date(task.original_deadline).toLocaleString()}`}>
+                    <History className="w-3 h-3" /> Extended
+                  </span>
+                )}
                 <span className="flex items-center gap-1.5"><Star className="w-4 h-4" /> {max} points</span>
               </div>
             </div>
@@ -364,11 +352,23 @@ function TaskWorkspace({ task, onBack, onChanged, onPreview }) {
             <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--text-secondary)' }}>
               {task.description || 'No written instructions — see the attached file, if any.'}
             </p>
-            {task.filename && (
+            {taskFiles.length > 0 && (
               <div className="mt-4">
-                <p className="text-[11px] font-bold uppercase tracking-widest text-muted mb-2">Attached resource</p>
-                <FileTile tone={tone} name={task.original_name || 'Attached file'} action="Open"
-                  onClick={() => onPreview({ ...task, type: 'assignment', original_name: task.original_name || task.filename })} />
+                <p className="text-[11px] font-bold uppercase tracking-widest text-muted mb-2 flex items-center gap-1.5">
+                  <Paperclip className="w-3.5 h-3.5" /> {taskFiles.length === 1 ? 'Attached resource' : `${taskFiles.length} attached resources`}
+                </p>
+                <FileRows tone={tone} files={taskFiles} dense
+                  onView={f => onPreview({ ...f, id: task.id, file_id: f.id, type: 'assignment', title: task.title, class_name: task.class_name })} />
+              </div>
+            )}
+
+            {task.deadline_extended && (
+              <div className="mt-4 flex items-start gap-2.5 p-3 rounded-2xl text-xs" style={{ background: tone.soft, border: `1px solid ${tone.ring}`, color: 'var(--text-secondary)' }}>
+                <History className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: tone.accent }} />
+                <span>
+                  <strong style={{ color: 'var(--text-primary)' }}>Your teacher extended this deadline.</strong>{' '}
+                  It was first due <span className="line-through">{new Date(task.original_deadline).toLocaleString('en-US', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>.
+                </span>
               </div>
             )}
           </Panel>
@@ -429,10 +429,37 @@ function TaskWorkspace({ task, onBack, onChanged, onPreview }) {
           {isSubmitted && !showForm && (
             <Panel icon={CheckCircle2} title="Your submission" tone={{ ...tone, accent: '#10b981', soft: 'rgba(16,185,129,0.12)' }}
               right={<span className="text-xs text-muted">{new Date(task.submitted_at).toLocaleString()}</span>}>
-              <div className="space-y-3">
-                {task.has_submission_file ? (
-                  <FileTile tone={tone} name={task.submission_file_name || 'Submitted file'} hint="Delivered to your teacher" action="View"
-                    onClick={() => onPreview({ type: 'submission', id: task.submission_id, submission_id: task.submission_id, file_url: task.submission_file_url, original_name: task.submission_file_name, title: `${task.title} — my submission` })} />
+              <div className="space-y-4">
+                {/* Receipt — pops in right after handing in */}
+                {justDone && (
+                  <div className="relative overflow-hidden rounded-2xl p-4 flex items-center gap-4"
+                    style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.16), rgba(16,185,129,0.04))', border: '1px solid rgba(16,185,129,0.4)', animation: 'tw-rise .5s cubic-bezier(.2,.8,.2,1) both' }}>
+                    <span className="relative w-14 h-14 flex-shrink-0 flex items-center justify-center">
+                      <span aria-hidden className="absolute inset-0 rounded-full" style={{ background: 'rgba(16,185,129,0.35)', animation: 'tw-burst 1.4s ease-out 2' }} />
+                      <span className="relative w-14 h-14 rounded-full flex items-center justify-center text-white" style={{ background: 'linear-gradient(135deg,#10b981,#34d399)', animation: 'tw-pop .6s both', boxShadow: '0 10px 24px -6px rgba(16,185,129,0.6)' }}>
+                        <PartyPopper className="w-6 h-6" />
+                      </span>
+                    </span>
+                    <div className="min-w-0">
+                      <p className="font-display font-extrabold text-base" style={{ color: 'var(--text-primary)' }}>Handed in!</p>
+                      <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+                        {(task.submission_files || []).length > 0
+                          ? `${task.submission_files.length} file${task.submission_files.length !== 1 ? 's' : ''} delivered to ${task.teacher_name || 'your teacher'}.`
+                          : `Your answer was delivered to ${task.teacher_name || 'your teacher'}.`}
+                        {canSubmit && ' You can still make changes until the deadline.'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {(task.submission_files || []).length > 0 ? (
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-widest text-muted mb-2 flex items-center gap-1.5">
+                      <Paperclip className="w-3.5 h-3.5" /> {task.submission_files.length} file{task.submission_files.length !== 1 ? 's' : ''} delivered
+                    </p>
+                    <FileRows tone={tone} files={task.submission_files}
+                      onView={f => onPreview({ ...f, type: 'submission', submission_id: task.submission_id, title: `${task.title} — my submission` })} />
+                  </div>
                 ) : <p className="text-xs text-muted">No file attached.</p>}
                 {task.submission_notes && (
                   <div>
@@ -441,7 +468,7 @@ function TaskWorkspace({ task, onBack, onChanged, onPreview }) {
                   </div>
                 )}
                 {canSubmit ? (
-                  <button onClick={() => setEditing(true)} className="btn-secondary text-sm"><RefreshCw className="w-4 h-4" /> Edit / resubmit</button>
+                  <button onClick={() => setEditing(true)} className="btn-secondary text-sm"><RefreshCw className="w-4 h-4" /> Add files / edit</button>
                 ) : (
                   <p className="text-xs text-muted flex items-center gap-1.5 pt-1"><Lock className="w-3.5 h-3.5" /> {isGraded ? 'This task has been graded, so it can no longer be changed.' : 'The deadline has passed, so it can no longer be changed.'}</p>
                 )}
@@ -465,67 +492,33 @@ function TaskWorkspace({ task, onBack, onChanged, onPreview }) {
           {/* Submission studio */}
           {showForm && (
             <form onSubmit={handleSubmit}>
-              <Panel icon={FileUp} title={isSubmitted ? 'Resubmit your work' : 'Submit your work'} tone={tone}
-                right={isSubmitted && <button type="button" onClick={() => { setEditing(false); setFile(null); setNotes(task.submission_notes || ''); }} className="text-xs font-semibold text-muted hover:text-primary-600">Cancel</button>}>
+              <Panel icon={FileUp} title={isSubmitted ? 'Update your submission' : 'Submit your work'} tone={tone}
+                right={isSubmitted && <button type="button" onClick={resetForm} className="text-xs font-semibold text-muted hover:text-primary-600">Cancel</button>}>
                 <div className="space-y-5">
                   {isSubmitted && (
                     <p className="text-xs flex items-start gap-2 p-3 rounded-2xl" style={{ background: 'rgba(245,158,11,0.1)', color: 'var(--text-secondary)' }}>
                       <RefreshCw className="w-3.5 h-3.5 text-amber-600 flex-shrink-0 mt-0.5" />
-                      Your previous submission will be replaced. Leave the file empty to keep the one you already uploaded.
+                      Your files stay as they are — add more below, or remove the ones you want to replace.
                     </p>
                   )}
 
-                  {/* Drop-zone */}
-                  <div
-                    onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-                    onDragLeave={() => setDragOver(false)}
-                    onDrop={e => { e.preventDefault(); setDragOver(false); pickFile(e.dataTransfer.files[0]); }}
-                    onClick={() => !saving && inputRef.current?.click()}
-                    role="button" tabIndex={0}
-                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') inputRef.current?.click(); }}
-                    className="relative rounded-3xl text-center cursor-pointer transition-all overflow-hidden"
-                    style={{
-                      padding: file ? '20px' : '44px 20px',
-                      border: `2px dashed ${dragOver ? tone.accent : file ? tone.ring : 'var(--input-border)'}`,
-                      background: dragOver ? tone.soft : file ? tone.soft : 'transparent',
-                      transform: dragOver ? 'scale(1.01)' : 'none',
-                    }}>
-                    <input ref={inputRef} type="file" className="hidden" onChange={e => pickFile(e.target.files[0])} />
-                    {file ? (
-                      <div className="flex items-center gap-4 text-left">
-                        <span className="w-14 h-14 rounded-2xl flex items-center justify-center text-xs font-extrabold text-white flex-shrink-0"
-                          style={{ background: `linear-gradient(135deg, ${tone.accent}, ${tone.accent2})`, boxShadow: `0 8px 20px ${tone.ring}` }}>{extOf(file.name)}</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold truncate" style={{ color: 'var(--text-primary)' }}>{file.name}</p>
-                          <p className="text-xs text-muted mt-0.5">{formatSize(file.size)} · ready to send · click to replace</p>
-                        </div>
-                        {!saving && (
-                          <button type="button" onClick={ev => { ev.stopPropagation(); setFile(null); }} className="p-2 rounded-xl hover:bg-red-50 hover:text-red-500 transition-colors" title="Remove file">
-                            <X className="w-4 h-4 text-muted" />
-                          </button>
-                        )}
-                      </div>
-                    ) : (
-                      <>
-                        <span className="inline-flex w-16 h-16 rounded-3xl items-center justify-center mb-3 transition-transform" style={{ background: tone.soft, transform: dragOver ? 'scale(1.15) translateY(-4px)' : 'none' }}>
-                          <CloudUpload className="w-8 h-8" style={{ color: tone.accent }} />
+                  <div>
+                    <div className="flex items-center justify-between mb-2.5">
+                      <p className="flex items-center gap-2 text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
+                        <Paperclip className="w-4 h-4" style={{ color: tone.accent }} /> Your files
+                        <span className="text-xs text-muted font-normal">(up to {MAX_TASK_FILES})</span>
+                      </p>
+                      {totalCount > 0 && (
+                        <span className="text-[11px] font-extrabold px-2.5 py-1 rounded-full" style={{ background: tone.soft, color: tone.accent }}>
+                          {totalCount} file{totalCount !== 1 ? 's' : ''} in this submission
                         </span>
-                        <p className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>{dragOver ? 'Drop it here!' : 'Drag & drop your file'}</p>
-                        <p className="text-xs text-muted mt-1">or <span className="font-bold" style={{ color: tone.accent }}>browse your device</span> · PDF, Word, images, ZIP… up to 100 MB</p>
-                      </>
-                    )}
-                  </div>
-
-                  {saving && file && (
-                    <div>
-                      <div className="flex justify-between text-xs font-semibold mb-1.5" style={{ color: 'var(--text-secondary)' }}>
-                        <span>{progress < 100 ? 'Uploading…' : 'Finishing up…'}</span><span>{progress}%</span>
-                      </div>
-                      <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--card-border)' }}>
-                        <div className="h-full rounded-full tw-shimmer transition-all duration-300" style={{ width: `${progress}%`, backgroundImage: `linear-gradient(90deg, ${tone.accent}, ${tone.accent2}, ${tone.accent})` }} />
-                      </div>
+                      )}
                     </div>
-                  )}
+                    <FilePicker tone={tone} files={files} onChange={setFiles}
+                      existing={existingFiles} removedIds={removedIds} onToggleExisting={toggleExisting}
+                      disabled={saving} saving={saving} progress={progress}
+                      title="Drag & drop your files" hint="several at once — PDF, Word, images, ZIP… up to 100 MB each" />
+                  </div>
 
                   {/* Notes */}
                   <div>
@@ -533,26 +526,31 @@ function TaskWorkspace({ task, onBack, onChanged, onPreview }) {
                       <span className="flex items-center gap-2"><PenLine className="w-4 h-4" style={{ color: tone.accent }} /> {isDiscussion ? 'Your group’s answer & comments' : 'Your answer & notes'} <span className="text-xs text-muted font-normal">(optional)</span></span>
                       <span className="text-[11px] font-medium text-muted">{notes.length}/2000</span>
                     </label>
-                    <textarea value={notes} maxLength={2000} onChange={e => setNotes(e.target.value)} rows={7}
+                    <textarea value={notes} maxLength={2000} onChange={e => setNotes(e.target.value)} rows={6}
                       className="w-full rounded-2xl p-4 text-sm leading-relaxed outline-none resize-y transition-shadow"
-                      style={{ background: 'var(--surface-100)', border: '1.5px solid var(--card-border)', color: 'var(--text-primary)', minHeight: 140 }}
+                      style={{ background: 'var(--surface-100)', border: '1.5px solid var(--card-border)', color: 'var(--text-primary)', minHeight: 130 }}
                       onFocus={e => { e.target.style.borderColor = tone.accent; e.target.style.boxShadow = `0 0 0 4px ${tone.soft}`; }}
                       onBlur={e => { e.target.style.borderColor = 'var(--card-border)'; e.target.style.boxShadow = 'none'; }}
-                      placeholder={isDiscussion ? 'Write what your group concluded, or add comments about the file you attached…' : 'Write your answer, or add comments about the file you attached…'} />
+                      placeholder={isDiscussion ? 'Write what your group concluded, or add comments about the files you attached…' : 'Write your answer, or add comments about the files you attached…'} />
                     <div className="h-1 rounded-full mt-2 overflow-hidden" style={{ background: 'var(--card-border)' }}>
                       <div className="h-full rounded-full transition-all" style={{ width: `${(notes.length / 2000) * 100}%`, background: tone.accent }} />
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between gap-3 flex-wrap pt-1">
-                    <p className="text-xs font-semibold flex items-center gap-1.5" style={{ color: left.urgent ? '#ea580c' : 'var(--text-secondary)' }}>
+                  {/* Action bar */}
+                  <div className="flex items-center justify-between gap-3 flex-wrap p-3 -mx-1 rounded-2xl" style={{ background: 'var(--surface-100)', border: '1px solid var(--card-border)' }}>
+                    <p className="text-xs font-semibold flex items-center gap-1.5 pl-1" style={{ color: left.urgent ? '#ea580c' : 'var(--text-secondary)' }}>
                       <Clock className="w-3.5 h-3.5" /> {left.text}
+                      {task.deadline_extended && <span className="ml-1 text-[10px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded-full" style={{ background: tone.soft, color: tone.accent }}>extended</span>}
                     </p>
-                    <button type="submit" disabled={saving}
-                      className="inline-flex items-center gap-2 px-7 py-3 rounded-2xl text-sm font-bold text-white transition-all hover:-translate-y-0.5 active:scale-95 disabled:opacity-60 disabled:hover:translate-y-0"
+                    <button type="submit" disabled={saving || (totalCount === 0 && !notes.trim())}
+                      className="inline-flex items-center gap-2 px-7 py-3 rounded-2xl text-sm font-bold text-white transition-all hover:-translate-y-0.5 active:scale-95 disabled:opacity-50 disabled:hover:translate-y-0"
                       style={{ background: `linear-gradient(135deg, ${tone.accent}, ${tone.accent2})`, boxShadow: `0 10px 24px -6px ${tone.accent}` }}>
                       {saving ? <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : <Send className="w-4 h-4" />}
-                      {isSubmitted ? 'Resubmit' : isDiscussion ? 'Submit for my group' : 'Submit work'}
+                      {saving ? 'Sending…'
+                        : isSubmitted ? 'Save changes'
+                        : isDiscussion ? `Submit for my group${totalCount ? ` · ${totalCount} file${totalCount !== 1 ? 's' : ''}` : ''}`
+                        : `Submit work${totalCount ? ` · ${totalCount} file${totalCount !== 1 ? 's' : ''}` : ''}`}
                     </button>
                   </div>
                 </div>
@@ -575,7 +573,7 @@ function TaskCard({ a, onOpen, onPreview, cardRef, highlighted }) {
   const members = a.group?.members || [];
   const status = isGraded
     ? { text: `Graded · ${a.score}/${a.max_score || 100}`, color: '#059669', bg: 'rgba(16,185,129,0.12)' }
-    : isSubmitted ? { text: 'Submitted', color: '#2563eb', bg: 'rgba(59,130,246,0.12)' }
+    : isSubmitted ? { text: `Submitted${(a.submission_files || []).length > 1 ? ` · ${a.submission_files.length} files` : ''}`, color: '#2563eb', bg: 'rgba(59,130,246,0.12)' }
     : overdue ? { text: 'Not submitted', color: '#dc2626', bg: 'rgba(239,68,68,0.12)' }
     : { text: 'To do', color: '#d97706', bg: 'rgba(245,158,11,0.14)' };
 
@@ -605,6 +603,15 @@ function TaskCard({ a, onOpen, onPreview, cardRef, highlighted }) {
             <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> Due {new Date(a.deadline).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
             <span className="flex items-center gap-1"><Award className="w-3.5 h-3.5" /> {a.max_score || 100} pts</span>
             {!isSubmitted && !overdue && <DeadlineBadge deadline={a.deadline} />}
+            {a.deadline_extended && (
+              <span className="flex items-center gap-1 font-bold px-2 py-0.5 rounded-full text-[11px]" style={{ background: tone.soft, color: tone.accent }}
+                title={`Originally due ${new Date(a.original_deadline).toLocaleString()}`}>
+                <History className="w-3 h-3" /> Extended
+              </span>
+            )}
+            {(a.attachments || []).length > 0 && (
+              <span className="flex items-center gap-1"><Paperclip className="w-3.5 h-3.5" /> {a.attachments.length} file{a.attachments.length !== 1 ? 's' : ''}</span>
+            )}
             {isDiscussion(a) && a.group && (
               <span className="flex items-center gap-2">
                 <span className="flex -space-x-2">{members.slice(0, 4).map((m, i) => <Avatar key={m.id} name={m.name} idx={i} size={22} />)}</span>
@@ -615,8 +622,8 @@ function TaskCard({ a, onOpen, onPreview, cardRef, highlighted }) {
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0" onClick={e => e.stopPropagation()}>
-          {a.filename && (
-            <button onClick={() => onPreview({ ...a, type: 'assignment', original_name: a.original_name || a.filename })}
+          {(a.attachments || []).length === 1 && (
+            <button onClick={() => onPreview({ ...a.attachments[0], id: a.id, file_id: a.attachments[0].id, type: 'assignment', title: a.title, class_name: a.class_name })}
               className="w-10 h-10 rounded-xl flex items-center justify-center transition-colors hover:bg-surface-100"
               style={{ border: '1px solid var(--card-border)', color: 'var(--text-secondary)' }} title="Preview attached file">
               <Eye className="w-4 h-4" />

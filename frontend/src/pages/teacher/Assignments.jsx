@@ -7,20 +7,15 @@ import ConfirmDialog from '../../components/common/ConfirmDialog';
 import Pagination from '../../components/common/Pagination';
 import FileViewer, { downloadFile } from '../../components/common/FileViewer';
 import TaskGroupsPanel from '../../components/common/TaskGroupsPanel';
+import { FilePicker, FileRows, ExtendDeadlineModal } from '../../components/common/TaskFiles';
 import {
   Plus, Search, ClipboardList, Download, Eye, Edit2, Trash2,
-  Clock, Users, Award, X, CloudUpload, Star,
+  Clock, Users, Award, X, Star,
   BarChart2, FileDown, Printer,
   ToggleLeft, ToggleRight,
   BookOpen, ChevronRight, ArrowLeft, AlertCircle, Home, User,
-  CheckCircle2, CalendarClock, GraduationCap, Layers, Target,
+  CheckCircle2, CalendarClock, GraduationCap, Layers, Target, Paperclip, History,
 } from 'lucide-react';
-
-function formatSize(bytes) {
-  if (!bytes) return '';
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-}
 
 function DeadlineBadge({ deadline }) {
   const diff = Math.ceil((new Date(deadline) - new Date()) / 86400000);
@@ -224,7 +219,7 @@ function IconAction({ onClick, title, children, danger }) {
 }
 
 /* One task, as a professional row card with a live submission meter. */
-function TaskRow({ a, tone, flashed, cardRef, onSubs, onGrades, onPreview, onToggle, onEdit, onDelete }) {
+function TaskRow({ a, tone, flashed, cardRef, onSubs, onGrades, onPreview, onExtend, onToggle, onEdit, onDelete }) {
   const KindIcon = tone.icon;
   const dl = deadlineInfo(a.deadline);
   const total = a.total_students || 0;
@@ -257,7 +252,14 @@ function TaskRow({ a, tone, flashed, cardRef, onSubs, onGrades, onPreview, onTog
             {a.description && <p className="text-xs text-muted mt-1 line-clamp-2">{a.description}</p>}
           </div>
           <div className="flex items-center gap-0.5 flex-shrink-0">
-            {a.filename && <IconAction onClick={onPreview} title="Preview attachment"><Eye className="w-4 h-4" /></IconAction>}
+            {(a.attachments || []).length > 0 && (
+              <IconAction onClick={onPreview} title={a.attachments.length > 1 ? `${a.attachments.length} attachments` : 'Preview attachment'}>
+                {a.attachments.length > 1
+                  ? <span className="relative"><Paperclip className="w-4 h-4" /><span className="absolute -top-2 -right-2.5 text-[9px] font-extrabold text-white rounded-full px-1 min-w-[14px] text-center" style={{ background: tone.accent }}>{a.attachments.length}</span></span>
+                  : <Eye className="w-4 h-4" />}
+              </IconAction>
+            )}
+            <IconAction onClick={onExtend} title="Extend deadline"><CalendarClock className="w-4 h-4" /></IconAction>
             <IconAction onClick={onToggle} title={a.is_active ? 'Hide from students' : 'Publish to students'}>
               {a.is_active ? <ToggleRight className="w-5 h-5 text-emerald-500" /> : <ToggleLeft className="w-5 h-5" />}
             </IconAction>
@@ -294,6 +296,15 @@ function TaskRow({ a, tone, flashed, cardRef, onSubs, onGrades, onPreview, onTog
           <span className="text-xs text-muted flex items-center gap-1.5"><CalendarClock className="w-3.5 h-3.5" />
             {new Date(a.deadline).toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
           </span>
+          {a.deadline_extended && (
+            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1" style={{ background: tone.soft, color: tone.accent }}
+              title={`Originally due ${new Date(a.original_deadline).toLocaleString()}`}>
+              <History className="w-3 h-3" /> Extended
+            </span>
+          )}
+          <button onClick={onExtend} className="text-xs font-bold flex items-center gap-1 transition-opacity hover:opacity-70" style={{ color: tone.accent }}>
+            + Give more time
+          </button>
           <span className="text-xs text-muted flex items-center gap-1.5"><Award className="w-3.5 h-3.5" /> {a.max_score || 100} pts</span>
           <div className="flex items-center gap-2 ml-auto">
             <button onClick={onSubs} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white transition-all hover:-translate-y-0.5 active:scale-95"
@@ -562,7 +573,7 @@ function GradesReportModal({ assignment, onClose }) {
 // ─── Submissions Modal ────────────────────────────────────────────────────────
 // Shows the FULL class roster (submitted + pending), with search, status
 // filter/sort, an Export to PDF action, and an inline grading flow.
-function SubmissionsModal({ assignment, onClose }) {
+function SubmissionsModal({ assignment, onClose, onExtend, hidden }) {
   const [roster, setRoster] = useState([]);   // every student in the class, submitted or not
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -582,13 +593,20 @@ function SubmissionsModal({ assignment, onClose }) {
 
   useEffect(() => { fetchRoster(); }, [fetchRoster]);
 
-  const handleDownload = (row) => downloadFile({
-    ...row,
-    type: 'submission',
-    submission_id: row.submission_id,
-    assignment_id: assignment.id,
-    title: `${assignment.title}${row.student_name ? ` - ${row.student_name}` : ''}`,
+  // One submission can hold several files; each is named after itself when
+  // there is more than one, so a batch doesn't all save as the same title.
+  const fileTitle = (row, f) => {
+    const many = (row.files || []).length > 1;
+    const base = many ? (f.original_name || '').replace(/\.[^/.]+$/, '') : assignment.title;
+    return `${base}${row.student_name ? ` - ${row.student_name}` : ''}`;
+  };
+  const asViewable = (row, f) => ({
+    ...f, type: 'submission', submission_id: row.submission_id, assignment_id: assignment.id, title: fileTitle(row, f),
   });
+  const handleDownload = (row, f) => downloadFile(asViewable(row, f));
+  const downloadAll = async (row) => {
+    for (const f of row.files || []) { await handleDownload(row, f); await new Promise(r => setTimeout(r, 350)); }
+  };
 
   const submitGrade = async () => {
     try {
@@ -678,7 +696,7 @@ function SubmissionsModal({ assignment, onClose }) {
   ];
 
   return (
-    <Modal isOpen={true} onClose={onClose} title={`Submissions — ${assignment.title}`} size="xl">
+    <Modal isOpen={true} onClose={onClose} hidden={hidden} title={`Submissions — ${assignment.title}`} size="xl">
       {loading ? (
         <div className="flex justify-center py-8">
           <div className="animate-spin w-6 h-6 border-4 border-primary-500 border-t-transparent rounded-full" />
@@ -695,6 +713,12 @@ function SubmissionsModal({ assignment, onClose }) {
                   <div className="min-w-0">
                     <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-white/65">{t.label}</p>
                     <p className="text-sm font-bold truncate">{assignment.title}</p>
+                    <button onClick={onExtend} className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full transition-colors hover:bg-white/30"
+                      style={{ background: 'rgba(255,255,255,0.18)' }}>
+                      <CalendarClock className="w-3 h-3" />
+                      Due {new Date(assignment.deadline).toLocaleDateString('en-US', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      {assignment.deadline_extended ? ' · extended' : ''} · Extend
+                    </button>
                   </div>
                   <div className="flex gap-2">
                     {[['Submitted', submittedCount], ['Pending', pendingCount], ['Graded', gradedCount]].map(([l, v]) => (
@@ -760,7 +784,7 @@ function SubmissionsModal({ assignment, onClose }) {
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{row.student_name}</p>
                           <span className={`badge text-xs ${isSubmitted ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'}`}>
-                            {isSubmitted ? 'Submitted' : 'Pending'}
+                            {isSubmitted ? `Submitted${(row.files || []).length > 1 ? ` · ${row.files.length} files` : ''}` : 'Pending'}
                           </span>
                           {row.group_name && (
                             <span className="badge text-xs bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">{row.group_name}</span>
@@ -779,28 +803,24 @@ function SubmissionsModal({ assignment, onClose }) {
                         {row.feedback && <p className="text-xs italic mt-1" style={{ color: 'var(--text-secondary)' }}>"{row.feedback}"</p>}
                       </div>
                     </div>
+                    {isSubmitted && (row.files || []).length > 0 && (
+                      <div className="mt-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-[11px] font-bold uppercase tracking-widest text-muted flex items-center gap-1.5">
+                            <Paperclip className="w-3.5 h-3.5" /> {row.files.length} file{row.files.length !== 1 ? 's' : ''}
+                          </p>
+                          {row.files.length > 1 && (
+                            <button onClick={() => downloadAll(row)} className="text-xs font-bold flex items-center gap-1 transition-opacity hover:opacity-70" style={{ color: '#c2410c' }}>
+                              <Download className="w-3.5 h-3.5" /> Download all
+                            </button>
+                          )}
+                        </div>
+                        <FileRows dense tone={kindThemeOf(assignment.task_type, assignment.mode)} files={row.files}
+                          onView={f => setViewingSub(asViewable(row, f))} onDownload={f => handleDownload(row, f)} />
+                      </div>
+                    )}
                     {isSubmitted && (
                       <div className="flex gap-2 mt-3">
-                        {row.filename && (
-                          <>
-                            <button
-                              onClick={() => setViewingSub(row)}
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium flex-1 justify-center transition-colors"
-                              style={{ background: 'var(--card-border)', color: 'var(--text-primary)', border: '1px solid var(--input-border)' }}
-                              title="View this student's submission"
-                            >
-                              <Eye className="w-3.5 h-3.5" /> View
-                            </button>
-                            <button
-                              onClick={() => handleDownload(row)}
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium flex-1 justify-center transition-colors"
-                              style={{ background: '#c2410c', color: '#fff', border: 'none' }}
-                              title="Download submission"
-                            >
-                              <Download className="w-3.5 h-3.5" /> Download
-                            </button>
-                          </>
-                        )}
                         <button onClick={() => { setGrading(row); setGradeForm({ score: row.score ?? '', feedback: row.feedback || '' }); }}
                           className="btn-primary py-1.5 text-xs flex-1 justify-center">
                           <Award className="w-3.5 h-3.5" />
@@ -846,17 +866,7 @@ function SubmissionsModal({ assignment, onClose }) {
       )}
 
       {viewingSub && (
-        <FileViewer
-          file={{
-            ...viewingSub,
-            type: 'submission',
-            submission_id: viewingSub.submission_id,
-            assignment_id: assignment.id,
-            original_name: viewingSub.original_name,
-            title: `${assignment.title}${viewingSub.student_name ? ` - ${viewingSub.student_name}` : ''}`,
-          }}
-          onClose={() => setViewingSub(null)}
-        />
+        <FileViewer file={viewingSub} onClose={() => setViewingSub(null)} />
       )}
     </Modal>
   );
@@ -869,8 +879,10 @@ function AssignmentFormModal({ isOpen, onClose, editing, presetClass, presetModu
   const noun = isHomework ? 'Homework' : isDiscussion ? 'Group Task' : 'Assignment';
 
   const [form, setForm] = useState({ title: '', description: '', deadline: '', classId: '', courseId: '', max_score: 100, is_active: true, groupIds: [] });
-  const [file, setFile] = useState(null);
+  const [files, setFiles] = useState([]);            // newly picked attachments
+  const [removedIds, setRemovedIds] = useState([]);  // saved attachments the teacher is dropping (editing)
   const [saving, setSaving] = useState(false);
+  const [progress, setProgress] = useState(0);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -889,7 +901,9 @@ function AssignmentFormModal({ isOpen, onClose, editing, presetClass, presetModu
         max_score: 100, is_active: true, groupIds: [],
       });
     }
-    setFile(null);
+    setFiles([]);
+    setRemovedIds([]);
+    setProgress(0);
   }, [isOpen, editing, presetClass, presetModule]);
 
   // Saved groups bucketed by the set they came from, for the picker.
@@ -916,7 +930,7 @@ function AssignmentFormModal({ isOpen, onClose, editing, presetClass, presetModu
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (isDiscussion && form.groupIds.length === 0) return toast.error('Choose at least one group for this task');
-    setSaving(true);
+    setSaving(true); setProgress(0);
     try {
       const fd = new FormData();
       const { groupIds, ...rest } = form;
@@ -924,12 +938,18 @@ function AssignmentFormModal({ isOpen, onClose, editing, presetClass, presetModu
       fd.append('taskType', taskType || 'assignment');
       fd.append('mode', isHomework ? 'individual' : (mode || 'individual'));
       fd.append('groupIds', JSON.stringify(isDiscussion ? groupIds : []));
-      if (file) fd.append('file', file);
+      files.forEach(f => fd.append('files', f));
+      if (editing && removedIds.length) fd.append('removeAttachmentIds', JSON.stringify(removedIds));
+      const cfg = {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 0,
+        onUploadProgress: ev => { if (ev.total) setProgress(Math.round((ev.loaded / ev.total) * 100)); },
+      };
       if (editing) {
-        await api.put(`/assignments/${editing.id}`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+        await api.put(`/assignments/${editing.id}`, fd, cfg);
         toast.success(`${noun} updated`);
       } else {
-        await api.post('/assignments', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+        await api.post('/assignments', fd, cfg);
         toast.success(`${noun} created`);
       }
       onClose();
@@ -1042,23 +1062,12 @@ function AssignmentFormModal({ isOpen, onClose, editing, presetClass, presetModu
           {form.is_active ? <ToggleRight size={30} style={{ color: '#10b981' }} /> : <ToggleLeft size={30} style={{ color: '#9ca3af' }} />}
         </button>
         <div>
-          <label className="label">Attachment <span className="text-muted font-normal">(optional)</span></label>
-          <input type="file" id="assignment-file" className="hidden" onChange={e => setFile(e.target.files[0])} />
-          <label htmlFor="assignment-file" className="flex items-center gap-3 p-4 rounded-2xl cursor-pointer transition-all hover:-translate-y-0.5"
-            style={{ border: `2px dashed ${file ? formTone.ring : 'var(--input-border)'}`, background: file ? formTone.soft : 'transparent' }}>
-            <span className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: formTone.soft }}>
-              <CloudUpload className="w-5 h-5" style={{ color: formTone.accent }} />
-            </span>
-            <span className="flex-1 min-w-0">
-              <span className="block text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{file ? file.name : editing?.original_name || 'Attach a worksheet, brief or resource'}</span>
-              <span className="block text-xs text-muted">{file ? `${formatSize(file.size)} · click to replace` : 'PDF, Word, images… click to browse'}</span>
-            </span>
-            {file && (
-              <button type="button" onClick={ev => { ev.preventDefault(); setFile(null); }} className="p-2 rounded-lg text-muted hover:text-red-500" title="Remove">
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </label>
+          <label className="label">Attachments <span className="text-muted font-normal">(optional — add as many as you need)</span></label>
+          <FilePicker tone={formTone} files={files} onChange={setFiles}
+            existing={editing ? (editing.attachments || []) : []} removedIds={removedIds}
+            onToggleExisting={id => setRemovedIds(ids => ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id])}
+            disabled={saving} saving={saving} progress={progress}
+            title="Attach worksheets, briefs or resources" hint="PDF, Word, images… select several at once" />
         </div>
         <div className="flex justify-end gap-3 pt-2">
           <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
@@ -1107,6 +1116,8 @@ export default function Assignments() {
   const [viewingSubs, setViewingSubs] = useState(null);
   const [viewingGrades, setViewingGrades] = useState(null);
   const [viewingFile, setViewingFile] = useState(null);
+  const [filesFor, setFilesFor] = useState(null);       // task whose attachments are listed in a modal
+  const [extendTarget, setExtendTarget] = useState(null); // task whose deadline is being extended
   const [flashId, setFlashId] = useState(searchParams.get('highlight') || null);
   const cardRefs = useRef({});
   const deepLinkApplied = useRef(false);
@@ -1508,7 +1519,12 @@ export default function Assignments() {
                 <TaskRow key={a.id} a={a} tone={kindThemeOf(a.task_type, a.mode)} flashed={flashId === a.id}
                   cardRef={el => { cardRefs.current[a.id] = el; }}
                   onSubs={() => setViewingSubs(a)} onGrades={() => setViewingGrades(a)}
-                  onPreview={() => setViewingFile({ ...a, type: 'assignment' })}
+                  onPreview={() => {
+                    const list = a.attachments || [];
+                    if (list.length === 1) setViewingFile({ ...list[0], id: a.id, file_id: list[0].id, type: 'assignment', title: a.title, class_name: a.class_name });
+                    else if (list.length > 1) setFilesFor(a);
+                  }}
+                  onExtend={() => setExtendTarget(a)}
                   onToggle={() => handleToggleStatus(a)} onEdit={() => openModal(a)} onDelete={() => setDeleteTarget(a)} />
               ))}
             </div>
@@ -1554,7 +1570,27 @@ export default function Assignments() {
         variant="danger"
       />
 
-      {viewingSubs && <SubmissionsModal assignment={viewingSubs} onClose={() => setViewingSubs(null)} />}
+      {viewingSubs && (
+        <SubmissionsModal assignment={viewingSubs} onClose={() => setViewingSubs(null)}
+          onExtend={() => setExtendTarget(viewingSubs)} hidden={!!extendTarget} />
+      )}
+      {filesFor && (
+        <Modal isOpen onClose={() => setFilesFor(null)} title={`Attachments — ${filesFor.title}`}
+          icon={Paperclip} accent={kindThemeOf(filesFor.task_type, filesFor.mode).accent} accent2={kindThemeOf(filesFor.task_type, filesFor.mode).accent2}>
+          <FileRows tone={kindThemeOf(filesFor.task_type, filesFor.mode)} files={filesFor.attachments}
+            onView={f => setViewingFile({ ...f, id: filesFor.id, file_id: f.id, type: 'assignment', title: filesFor.title, class_name: filesFor.class_name })}
+            onDownload={f => downloadFile({ ...f, id: filesFor.id, type: 'assignment', title: (f.original_name || '').replace(/\.[^/.]+$/, '') || filesFor.title })} />
+        </Modal>
+      )}
+      {extendTarget && (
+        <ExtendDeadlineModal task={extendTarget} tone={kindThemeOf(extendTarget.task_type, extendTarget.mode)}
+          onClose={() => setExtendTarget(null)}
+          onDone={(data) => {
+            // Keep an open Submissions window in step with the new deadline.
+            setViewingSubs(v => (v && v.id === extendTarget.id) ? { ...v, deadline: data?.deadline || v.deadline, deadline_extended: true } : v);
+            fetchAssignments();
+          }} />
+      )}
       {viewingGrades && <GradesReportModal assignment={viewingGrades} onClose={() => setViewingGrades(null)} />}
       {viewingFile && (
         <FileViewer

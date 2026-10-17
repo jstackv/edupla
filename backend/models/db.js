@@ -176,6 +176,22 @@ const documentSchema = new mongoose.Schema(
 documentSchema.index({ teacher_id: 1, created_at: -1 });
 documentSchema.index({ class_id: 1, created_at: -1 });
 
+// One uploaded file. Used for teacher attachments on a task and for the files
+// a student hands in. The legacy single-file fields (filename / original_name /
+// file_url ...) stay on both schemas, mirroring the FIRST file, so older
+// documents and any code still reading them keep working.
+const taskFileSchema = new mongoose.Schema(
+  {
+    filename: { type: String, default: null },        // Cloudinary public_id
+    original_name: { type: String, default: null },
+    mime_type: { type: String, default: null },
+    file_url: { type: String, default: null },
+    size: { type: Number, default: 0 },
+    uploaded_at: { type: Date, default: Date.now },
+  },
+  { _id: true },
+);
+
 const assignmentSchema = new mongoose.Schema(
   {
     title: { type: String, required: true },
@@ -184,7 +200,26 @@ const assignmentSchema = new mongoose.Schema(
     original_name: { type: String, default: null },
     mime_type: { type: String, default: null },
     file_url: { type: String, default: null },
+    // Any number of teacher attachments (worksheets, briefs, resources).
+    attachments: { type: [taskFileSchema], default: [] },
     deadline: { type: Date, required: true },
+    // Every time the teacher pushes the deadline back we keep a record, so
+    // students can see it was extended and the teacher has an audit trail.
+    deadline_history: {
+      type: [
+        new mongoose.Schema(
+          {
+            from: { type: Date, required: true },
+            to: { type: Date, required: true },
+            by: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+            reason: { type: String, default: null },
+            at: { type: Date, default: Date.now },
+          },
+          { _id: false },
+        ),
+      ],
+      default: [],
+    },
     is_active: { type: Boolean, default: true },
     class_id: {
       type: mongoose.Schema.Types.ObjectId,
@@ -234,6 +269,8 @@ const submissionSchema = new mongoose.Schema({
   filename: { type: String, default: null },
   original_name: { type: String, default: null },
   file_url: { type: String, default: null },
+  // Any number of files in a single submission (legacy fields above mirror the first).
+  files: { type: [taskFileSchema], default: [] },
   notes: { type: String, default: null },
   score: { type: Number, default: null },
   feedback: { type: String, default: null },

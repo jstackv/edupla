@@ -36,9 +36,11 @@ const documentUpload = multer({
   limits: { fileSize: 100 * 1024 * 1024 }, // 100MB
 });
 
+// Used both for a teacher's task attachments and a student's submission, and
+// both can carry several files at once (see utils/taskFiles.js for the cap).
 const assignmentUpload = multer({
   storage: makeStorage('assignments'),
-  limits: { fileSize: 100 * 1024 * 1024 }, // 100MB
+  limits: { fileSize: 100 * 1024 * 1024, files: 20 }, // 100MB each
 });
 
 // Voice notes: stored as raw audio files (webm/ogg/mp4) up to 25 MB
