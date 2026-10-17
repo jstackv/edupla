@@ -4,10 +4,12 @@ import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import Pagination from '../../components/common/Pagination';
 import FileViewer from '../../components/common/FileViewer';
+import { useAuth } from '../../context/AuthContext';
 import {
   Search, ClipboardList, Upload, Eye,
   Clock, CheckCircle2, AlertTriangle, Award, X, CloudUpload, FileText, RefreshCw,
-  BookOpen, ChevronRight, ArrowLeft, Inbox, Home, User, Users, Lock, Paperclip,
+  BookOpen, ChevronRight, ArrowLeft, Inbox, Home, User, Users, Lock,
+  Sparkles, Trophy, Send, Timer, CalendarClock, Star, FileUp, PenLine,
 } from 'lucide-react';
 
 /* ── helpers ─────────────────────────────────────────────────────────── */
@@ -78,13 +80,109 @@ function ChoiceCard({ icon: Icon, title, desc, color, onClick }) {
 }
 
 /* ══════════════════════════════════════════════════════════════════════
-   Task workspace — one task, full width: instructions on one side, the
-   submission space on the other (file drop-zone, notes, status, grade).
+   Visual identity per kind of task — every kind gets its own colour,
+   icon and tone so a student can tell them apart at a glance.
+══════════════════════════════════════════════════════════════════════ */
+const KIND_THEME = {
+  individual: {
+    icon: User, label: 'Individual Assignment', tag: 'Your own work',
+    hero: 'linear-gradient(135deg, #1c0a02 0%, #7c2d12 52%, #ea580c 100%)',
+    accent: '#ea580c', accent2: '#f59e0b', soft: 'rgba(234,88,12,0.10)', ring: 'rgba(234,88,12,0.35)',
+  },
+  homework: {
+    icon: Home, label: 'Homework', tag: 'Work at home',
+    hero: 'linear-gradient(135deg, #04121f 0%, #0c4a6e 52%, #0ea5e9 100%)',
+    accent: '#0284c7', accent2: '#22d3ee', soft: 'rgba(14,165,233,0.10)', ring: 'rgba(14,165,233,0.35)',
+  },
+  discussion: {
+    icon: Users, label: 'Group Discussion', tag: 'Team up',
+    hero: 'linear-gradient(135deg, #12061f 0%, #4c1d95 52%, #a855f7 100%)',
+    accent: '#7c3aed', accent2: '#d946ef', soft: 'rgba(124,58,237,0.10)', ring: 'rgba(124,58,237,0.35)',
+  },
+};
+const kindThemeOf = (taskType, mode) =>
+  taskType === 'homework' ? KIND_THEME.homework : mode === 'discussion' ? KIND_THEME.discussion : KIND_THEME.individual;
+
+const AVATAR_TONES = ['#ea580c', '#0284c7', '#7c3aed', '#059669', '#db2777', '#ca8a04', '#0891b2', '#dc2626'];
+const initials = (name = '') => name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?';
+const extOf = (name = '') => (name.includes('.') ? name.split('.').pop().slice(0, 4).toUpperCase() : 'FILE');
+
+function Avatar({ name, idx = 0, size = 34, ring }) {
+  return (
+    <span title={name} className="inline-flex items-center justify-center rounded-full font-bold text-white flex-shrink-0 select-none"
+      style={{ width: size, height: size, fontSize: size * 0.36, background: AVATAR_TONES[idx % AVATAR_TONES.length], boxShadow: ring ? `0 0 0 2px var(--card-bg), 0 0 0 4px ${ring}` : '0 0 0 2px var(--card-bg)' }}>
+      {initials(name)}
+    </span>
+  );
+}
+
+/* Circular progress. `children` sits in the middle. */
+function Ring({ value = 0, size = 96, stroke = 8, from = '#ea580c', to = '#f59e0b', track = 'rgba(255,255,255,0.14)', id = 'ring', children }) {
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const v = Math.max(0, Math.min(1, value));
+  return (
+    <div className="relative flex-shrink-0" style={{ width: size, height: size }}>
+      <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
+        <defs>
+          <linearGradient id={id} x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor={from} /><stop offset="100%" stopColor={to} /></linearGradient>
+        </defs>
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={track} strokeWidth={stroke} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={`url(#${id})`} strokeWidth={stroke} strokeLinecap="round"
+          strokeDasharray={c} strokeDashoffset={c * (1 - v)} style={{ transition: 'stroke-dashoffset 1s cubic-bezier(.2,.8,.2,1)' }} />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center text-center">{children}</div>
+    </div>
+  );
+}
+
+function FileTile({ name, hint, action, tone, onClick }) {
+  return (
+    <button type="button" onClick={onClick}
+      className="group w-full flex items-center gap-3 p-3 rounded-2xl text-left transition-all hover:-translate-y-0.5"
+      style={{ background: 'var(--surface-100)', border: '1px solid var(--card-border)' }}>
+      <span className="w-12 h-12 rounded-xl flex items-center justify-center text-[11px] font-extrabold text-white flex-shrink-0 tracking-wide"
+        style={{ background: `linear-gradient(135deg, ${tone.accent}, ${tone.accent2})`, boxShadow: `0 6px 16px ${tone.ring}` }}>
+        {extOf(name)}
+      </span>
+      <span className="flex-1 min-w-0">
+        <span className="block text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{name}</span>
+        {hint && <span className="block text-xs text-muted mt-0.5">{hint}</span>}
+      </span>
+      <span className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-full transition-colors"
+        style={{ background: tone.soft, color: tone.accent }}>
+        <Eye className="w-3.5 h-3.5" /> {action}
+      </span>
+    </button>
+  );
+}
+
+function Panel({ icon: Icon, title, right, tone, children, className = '' }) {
+  return (
+    <section className={`rounded-3xl overflow-hidden ${className}`} style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+      <header className="flex items-center gap-3 px-5 py-3.5" style={{ borderBottom: '1px solid var(--card-border)' }}>
+        <span className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: tone.soft }}>
+          <Icon className="w-4 h-4" style={{ color: tone.accent }} />
+        </span>
+        <h3 className="font-display font-bold text-sm flex-1 min-w-0 truncate" style={{ color: 'var(--text-primary)' }}>{title}</h3>
+        {right}
+      </header>
+      <div className="p-5">{children}</div>
+    </section>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Task workspace — hero banner, live countdown ring, animated progress,
+   instructions + team on one side, a proper submission studio on the other.
 ══════════════════════════════════════════════════════════════════════ */
 function TaskWorkspace({ task, onBack, onChanged, onPreview }) {
+  const { user } = useAuth();
+  const myId = String(user?.id || '');
   const [file, setFile] = useState(null);
   const [notes, setNotes] = useState(task.submission_notes || '');
   const [saving, setSaving] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [dragOver, setDragOver] = useState(false);
   const [editing, setEditing] = useState(false);   // re-opening the form after a submission
   const [now, setNow] = useState(Date.now());
@@ -92,7 +190,11 @@ function TaskWorkspace({ task, onBack, onChanged, onPreview }) {
 
   useEffect(() => { const i = setInterval(() => setNow(Date.now()), 30000); return () => clearInterval(i); }, []);
   // Keep the form in step when the task is refreshed after a submit.
-  useEffect(() => { setNotes(task.submission_notes || ''); setFile(null); setEditing(false); }, [task.id, task.submission_id, task.submitted_at]);
+  useEffect(() => { setNotes(task.submission_notes || ''); setFile(null); setEditing(false); setProgress(0); }, [task.id, task.submission_id, task.submitted_at]);
+
+  const tone = kindThemeOf(task.task_type, task.mode);
+  const KindIcon = tone.icon;
+  const isDiscussion = task.mode === 'discussion';
 
   const isSubmitted = !!task.submission_id;
   const isGraded = task.score !== null && task.score !== undefined;
@@ -102,18 +204,30 @@ function TaskWorkspace({ task, onBack, onChanged, onPreview }) {
   const showForm = canSubmit && (!isSubmitted || editing);
   const max = task.max_score || 100;
   const pct = isGraded ? Math.round((task.score / max) * 100) : null;
+  const gradeColor = pct >= 70 ? '#10b981' : pct >= 50 ? '#f59e0b' : '#ef4444';
+  const gradeWord = pct >= 85 ? 'Outstanding' : pct >= 70 ? 'Great work' : pct >= 50 ? 'Good effort' : 'Keep going';
+
+  // How much of the time window has already gone by (created → deadline).
+  const start = new Date(task.created_at || task.deadline).getTime() - (task.created_at ? 0 : 86400000);
+  const end = new Date(task.deadline).getTime();
+  const elapsed = end > start ? Math.min(1, Math.max(0, (now - start) / (end - start))) : 1;
+  const remaining = overdue ? 0 : 1 - elapsed;
 
   const pickFile = (f) => { if (f) setFile(f); };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!file && !notes.trim() && !task.has_submission_file) return toast.error('Attach a file or write a note first');
-    setSaving(true);
+    setSaving(true); setProgress(0);
     try {
       const fd = new FormData();
       if (file) fd.append('file', file);
       fd.append('notes', notes);
-      await api.post(`/assignments/${task.id}/submit`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      await api.post(`/assignments/${task.id}/submit`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 0,
+        onUploadProgress: ev => { if (ev.total) setProgress(Math.round((ev.loaded / ev.total) * 100)); },
+      });
       toast.success(isSubmitted ? 'Resubmitted successfully!' : 'Submitted successfully!');
       onChanged();
     } catch (err) {
@@ -123,222 +237,326 @@ function TaskWorkspace({ task, onBack, onChanged, onPreview }) {
   };
 
   const steps = [
-    { label: 'Assigned', done: true },
-    { label: 'Submitted', done: isSubmitted },
-    { label: 'Graded', done: isGraded },
+    { label: 'Assigned', sub: 'Received', done: true },
+    { label: 'Submitted', sub: isSubmitted ? new Date(task.submitted_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short' }) : 'Your turn', done: isSubmitted },
+    { label: 'Graded', sub: isGraded ? `${task.score}/${max}` : 'Pending', done: isGraded },
   ];
+  const activeStep = steps.findIndex(s => !s.done);
+
+  const members = task.group?.members || [];
+  const dueText = new Date(task.deadline).toLocaleString('en-US', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center gap-3">
-        <button onClick={onBack} className="p-2 rounded-lg hover:bg-surface-100 transition-colors flex-shrink-0">
-          <ArrowLeft className="w-5 h-5 text-muted" />
-        </button>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 text-xs text-muted font-medium mb-0.5">
-            <BookOpen className="w-3 h-3" /> <span>{task.class_name}</span>
-            <ChevronRight className="w-3 h-3" /> <span>{task.course_code || task.course_name}</span>
+    <div className="space-y-5 tw-root">
+      <style>{`
+        @keyframes tw-rise { from { opacity: 0; transform: translateY(14px) } to { opacity: 1; transform: none } }
+        @keyframes tw-pop { 0% { transform: scale(.4); opacity: 0 } 60% { transform: scale(1.12) } 100% { transform: scale(1); opacity: 1 } }
+        @keyframes tw-float { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-10px) } }
+        @keyframes tw-pulse { 0%,100% { box-shadow: 0 0 0 0 var(--tw-ring) } 50% { box-shadow: 0 0 0 9px transparent } }
+        @keyframes tw-shine { from { background-position: -200% 0 } to { background-position: 200% 0 } }
+        .tw-root > * { animation: tw-rise .5s cubic-bezier(.2,.8,.2,1) both }
+        .tw-root > *:nth-child(2) { animation-delay: .06s } .tw-root > *:nth-child(3) { animation-delay: .12s }
+        .tw-shimmer { background-size: 200% 100%; animation: tw-shine 2.4s linear infinite }
+        @media (prefers-reduced-motion: reduce) { .tw-root > *, .tw-shimmer { animation: none } }
+      `}</style>
+
+      {/* ── Hero ── */}
+      <div className="relative overflow-hidden rounded-3xl text-white" style={{ background: tone.hero, boxShadow: `0 20px 50px -20px ${tone.accent}` }}>
+        <div aria-hidden className="absolute -right-16 -top-20 w-72 h-72 rounded-full blur-3xl opacity-40" style={{ background: tone.accent2 }} />
+        <div aria-hidden className="absolute -left-10 -bottom-24 w-64 h-64 rounded-full blur-3xl opacity-25" style={{ background: tone.accent }} />
+        <KindIcon aria-hidden className="absolute right-6 bottom-2 w-44 h-44 opacity-[0.07]" style={{ animation: 'tw-float 7s ease-in-out infinite' }} />
+
+        <div className="relative p-5 sm:p-7">
+          <div className="flex items-center gap-3 mb-5">
+            <button onClick={onBack} className="w-9 h-9 rounded-xl flex items-center justify-center transition-all hover:bg-white/25 active:scale-95"
+              style={{ background: 'rgba(255,255,255,0.14)', backdropFilter: 'blur(6px)' }} aria-label="Back">
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <div className="flex items-center gap-1.5 text-xs font-medium text-white/70 min-w-0">
+              <BookOpen className="w-3.5 h-3.5 flex-shrink-0" />
+              <span className="truncate">{task.class_name}</span>
+              <ChevronRight className="w-3 h-3 flex-shrink-0" />
+              <span className="truncate font-bold text-white/90">{task.course_code || task.course_name}</span>
+            </div>
           </div>
-          <h2 className="font-display font-bold text-lg truncate" style={{ color: 'var(--text-primary)' }}>{task.title}</h2>
+
+          <div className="flex flex-col md:flex-row md:items-center gap-6">
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-2 mb-3">
+                <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full" style={{ background: 'rgba(255,255,255,0.16)', backdropFilter: 'blur(6px)' }}>
+                  <KindIcon className="w-3.5 h-3.5" /> {tone.label}
+                </span>
+                <span className="text-xs font-medium text-white/70">{tone.tag}</span>
+              </div>
+              <h1 className="font-display font-extrabold text-2xl sm:text-3xl leading-tight break-words">{task.title}</h1>
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mt-4 text-sm text-white/80">
+                {task.teacher_name && <span className="flex items-center gap-1.5"><Avatar name={task.teacher_name} size={22} idx={2} /> {task.teacher_name}</span>}
+                <span className="flex items-center gap-1.5"><CalendarClock className="w-4 h-4" /> {dueText}</span>
+                <span className="flex items-center gap-1.5"><Star className="w-4 h-4" /> {max} points</span>
+              </div>
+            </div>
+
+            {/* Countdown / state ring */}
+            <div className="flex items-center gap-4 md:flex-col md:gap-2 flex-shrink-0">
+              {isGraded ? (
+                <Ring value={pct / 100} size={112} stroke={9} from={gradeColor} to="#ffffff" id="hero-grade">
+                  <span className="text-2xl font-extrabold leading-none">{task.score}</span>
+                  <span className="text-[10px] text-white/70 mt-0.5">of {max}</span>
+                </Ring>
+              ) : isSubmitted ? (
+                <div className="w-[112px] h-[112px] rounded-full flex items-center justify-center" style={{ background: 'rgba(16,185,129,0.22)', border: '2px solid rgba(52,211,153,0.6)' }}>
+                  <CheckCircle2 className="w-12 h-12 text-emerald-300" style={{ animation: 'tw-pop .6s both' }} />
+                </div>
+              ) : (
+                <Ring value={remaining} size={112} stroke={9} from={overdue ? '#f87171' : left.urgent ? '#fb923c' : '#ffffff'} to={overdue ? '#ef4444' : tone.accent2} id="hero-time">
+                  {overdue ? <AlertTriangle className="w-7 h-7 text-red-300" /> : (
+                    <>
+                      <Timer className="w-4 h-4 text-white/70 mb-0.5" />
+                      <span className="text-[13px] font-extrabold leading-tight px-2">{left.text.replace(' left', '')}</span>
+                      <span className="text-[10px] text-white/60">remaining</span>
+                    </>
+                  )}
+                </Ring>
+              )}
+              <span className="text-xs font-bold px-3 py-1 rounded-full"
+                style={{ background: isGraded ? 'rgba(16,185,129,0.25)' : isSubmitted ? 'rgba(59,130,246,0.25)' : overdue ? 'rgba(239,68,68,0.28)' : 'rgba(255,255,255,0.16)' }}>
+                {isGraded ? 'Graded' : isSubmitted ? 'Submitted' : overdue ? 'Closed' : 'To do'}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Progress */}
-      <div className="card">
-        <div className="flex items-center">
-          {steps.map((st, i) => (
-            <div key={st.label} className="flex items-center flex-1 last:flex-none">
-              <div className="flex items-center gap-2">
-                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${st.done ? 'bg-emerald-500 text-white' : ''}`}
-                  style={st.done ? undefined : { background: 'var(--card-border)', color: 'var(--text-secondary)' }}>
-                  {st.done ? <CheckCircle2 className="w-4 h-4" /> : i + 1}
+      {/* ── Progress ── */}
+      <div className="rounded-3xl px-5 py-4" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+        <div className="flex items-start">
+          {steps.map((st, i) => {
+            const active = i === activeStep;
+            return (
+              <div key={st.label} className="flex items-start flex-1 last:flex-none">
+                <div className="flex flex-col items-center text-center w-20 sm:w-24">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white transition-all"
+                    style={st.done
+                      ? { background: 'linear-gradient(135deg,#10b981,#34d399)', boxShadow: '0 6px 16px rgba(16,185,129,0.4)' }
+                      : active
+                        ? { background: `linear-gradient(135deg, ${tone.accent}, ${tone.accent2})`, '--tw-ring': tone.ring, animation: 'tw-pulse 2s infinite' }
+                        : { background: 'var(--surface-100)', color: 'var(--text-secondary)', border: '1px solid var(--card-border)' }}>
+                    {st.done ? <CheckCircle2 className="w-5 h-5" /> : i + 1}
+                  </div>
+                  <span className="text-xs font-bold mt-2" style={{ color: st.done || active ? 'var(--text-primary)' : 'var(--text-secondary)' }}>{st.label}</span>
+                  <span className="text-[11px] text-muted">{st.sub}</span>
                 </div>
-                <span className="text-xs font-semibold" style={{ color: st.done ? 'var(--text-primary)' : 'var(--text-secondary)' }}>{st.label}</span>
+                {i < steps.length - 1 && (
+                  <div className="flex-1 h-1 mt-[18px] mx-1 rounded-full overflow-hidden" style={{ background: 'var(--card-border)' }}>
+                    <div className="h-full rounded-full transition-all duration-700" style={{ width: steps[i + 1].done ? '100%' : st.done ? '50%' : '0%', background: 'linear-gradient(90deg,#10b981,#34d399)' }} />
+                  </div>
+                )}
               </div>
-              {i < steps.length - 1 && <div className="flex-1 h-0.5 mx-3 rounded" style={{ background: steps[i + 1].done ? '#10b981' : 'var(--card-border)' }} />}
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
       <div className="grid gap-5 lg:grid-cols-5">
-        {/* ── Task details ── */}
-        <div className="lg:col-span-2 space-y-4">
-          <div className="card space-y-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <KindBadge taskType={task.task_type} mode={task.mode} />
-              {task.teacher_name && <span className="text-xs text-muted">by {task.teacher_name}</span>}
-            </div>
-            <div className="flex items-center gap-2 text-sm" style={{ color: overdue ? '#dc2626' : left.urgent ? '#ea580c' : 'var(--text-primary)' }}>
-              <Clock className="w-4 h-4" />
-              <span className="font-semibold">{left.text}</span>
-            </div>
-            <p className="text-xs text-muted -mt-1">
-              Due {new Date(task.deadline).toLocaleString('en-US', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-              {' · '}Max score {max}
+        {/* ── Left: brief + team ── */}
+        <div className="lg:col-span-2 space-y-5">
+          <Panel icon={ClipboardList} title="The brief" tone={tone}>
+            <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--text-secondary)' }}>
+              {task.description || 'No written instructions — see the attached file, if any.'}
             </p>
-            <div>
-              <p className="text-xs font-bold mb-1" style={{ color: 'var(--text-primary)' }}>Instructions</p>
-              <p className="text-sm whitespace-pre-wrap" style={{ color: 'var(--text-secondary)' }}>
-                {task.description || 'No written instructions — see the attached file, if any.'}
-              </p>
-            </div>
             {task.filename && (
-              <button
-                onClick={() => onPreview({ ...task, type: 'assignment', original_name: task.original_name || task.filename })}
-                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors"
-                style={{ background: 'var(--card-border)', border: '1px solid var(--input-border)' }}>
-                <Paperclip className="w-4 h-4 text-primary-500 flex-shrink-0" />
-                <span className="flex-1 min-w-0 text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>{task.original_name || 'Attached file'}</span>
-                <span className="flex items-center gap-1 text-xs font-semibold text-primary-600"><Eye className="w-3.5 h-3.5" /> Open</span>
-              </button>
+              <div className="mt-4">
+                <p className="text-[11px] font-bold uppercase tracking-widest text-muted mb-2">Attached resource</p>
+                <FileTile tone={tone} name={task.original_name || 'Attached file'} action="Open"
+                  onClick={() => onPreview({ ...task, type: 'assignment', original_name: task.original_name || task.filename })} />
+              </div>
             )}
-          </div>
+          </Panel>
 
-          {/* Group + teammates (discussion tasks) */}
-          {task.mode === 'discussion' && task.group && (
-            <div className="card">
-              <div className="flex items-center gap-2 mb-2">
-                <Users className="w-4 h-4 text-violet-600" />
-                <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{task.group.name}</p>
-                <span className="text-xs text-muted">· {task.group.members.length} members</span>
+          {isDiscussion && task.group && (
+            <Panel icon={Users} title={task.group.name} tone={tone}
+              right={<span className="text-xs font-bold px-2.5 py-1 rounded-full" style={{ background: tone.soft, color: tone.accent }}>{members.length} members</span>}>
+              <div className="space-y-2">
+                {members.map((m, i) => {
+                  const me = String(m.id) === myId;
+                  return (
+                    <div key={m.id} className="flex items-center gap-3 p-2 rounded-xl" style={me ? { background: tone.soft } : undefined}>
+                      <Avatar name={m.name} idx={i} size={38} ring={me ? tone.accent : undefined} />
+                      <span className="flex-1 min-w-0 text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{m.name}</span>
+                      {me && <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full text-white" style={{ background: tone.accent }}>You</span>}
+                    </div>
+                  );
+                })}
               </div>
-              <div className="flex flex-wrap gap-1.5">
-                {task.group.members.map(m => (
-                  <span key={m.id} className="badge text-xs bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">{m.name}</span>
-                ))}
-              </div>
-              <p className="text-xs text-muted mt-2">Work through it together — each member then submits their own copy.</p>
+              <p className="text-xs text-muted mt-3 flex items-start gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: tone.accent }} />
+                Work through it together — each member then submits their own copy.
+              </p>
+            </Panel>
+          )}
+
+          {task.task_type === 'homework' && (
+            <div className="rounded-3xl p-4 flex items-start gap-3" style={{ background: tone.soft, border: `1px solid ${tone.ring}` }}>
+              <Home className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: tone.accent }} />
+              <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                This is <strong style={{ color: 'var(--text-primary)' }}>homework</strong> — take your time at home, then upload your finished work before the deadline.
+              </p>
             </div>
           )}
         </div>
 
-        {/* ── Submission space ── */}
-        <div className="lg:col-span-3 space-y-4">
+        {/* ── Right: submission studio ── */}
+        <div className="lg:col-span-3 space-y-5">
           {isGraded && (
-            <div className="card flex items-center gap-4" style={{ border: '1px solid rgba(16,185,129,0.35)', background: 'rgba(16,185,129,0.06)' }}>
-              <div className="w-16 h-16 rounded-2xl flex flex-col items-center justify-center flex-shrink-0"
-                style={{ background: pct >= 70 ? '#10b981' : pct >= 50 ? '#f59e0b' : '#ef4444', color: '#fff' }}>
-                <span className="text-xl font-bold leading-none">{task.score}</span>
-                <span className="text-[10px] opacity-80">/ {max}</span>
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Graded — {pct}%</p>
+            <div className="relative overflow-hidden rounded-3xl p-5 flex items-center gap-5"
+              style={{ background: `linear-gradient(135deg, ${gradeColor}1f, transparent)`, border: `1px solid ${gradeColor}55` }}>
+              <Ring value={pct / 100} size={92} stroke={8} from={gradeColor} to={gradeColor} track="var(--card-border)" id="grade-ring">
+                <span className="text-xl font-extrabold leading-none" style={{ color: 'var(--text-primary)' }}>{pct}%</span>
+              </Ring>
+              <div className="min-w-0 flex-1">
+                <p className="flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-widest" style={{ color: gradeColor }}>
+                  <Trophy className="w-3.5 h-3.5" /> {gradeWord}
+                </p>
+                <p className="text-lg font-display font-bold mt-0.5" style={{ color: 'var(--text-primary)' }}>{task.score} <span className="text-sm text-muted font-medium">out of {max}</span></p>
                 {task.feedback
-                  ? <p className="text-sm italic mt-0.5" style={{ color: 'var(--text-secondary)' }}>“{task.feedback}”</p>
-                  : <p className="text-xs text-muted mt-0.5">No written feedback.</p>}
+                  ? <p className="text-sm italic mt-2 pl-3" style={{ color: 'var(--text-secondary)', borderLeft: `3px solid ${gradeColor}` }}>“{task.feedback}”</p>
+                  : <p className="text-xs text-muted mt-1">No written feedback from your teacher.</p>}
               </div>
             </div>
           )}
 
-          {/* What you've already handed in */}
+          {/* Handed in */}
           {isSubmitted && !showForm && (
-            <div className="card space-y-3">
-              <div className="flex items-center justify-between gap-2 flex-wrap">
-                <p className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-                  <CheckCircle2 className="w-4 h-4 text-emerald-500" /> Your submission
-                </p>
-                <span className="text-xs text-muted">{new Date(task.submitted_at).toLocaleString()}</span>
+            <Panel icon={CheckCircle2} title="Your submission" tone={{ ...tone, accent: '#10b981', soft: 'rgba(16,185,129,0.12)' }}
+              right={<span className="text-xs text-muted">{new Date(task.submitted_at).toLocaleString()}</span>}>
+              <div className="space-y-3">
+                {task.has_submission_file ? (
+                  <FileTile tone={tone} name={task.submission_file_name || 'Submitted file'} hint="Delivered to your teacher" action="View"
+                    onClick={() => onPreview({ type: 'submission', id: task.submission_id, submission_id: task.submission_id, file_url: task.submission_file_url, original_name: task.submission_file_name, title: `${task.title} — my submission` })} />
+                ) : <p className="text-xs text-muted">No file attached.</p>}
+                {task.submission_notes && (
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-widest text-muted mb-1.5">Your notes</p>
+                    <div className="p-3.5 rounded-2xl text-sm whitespace-pre-wrap" style={{ background: 'var(--surface-100)', color: 'var(--text-secondary)' }}>{task.submission_notes}</div>
+                  </div>
+                )}
+                {canSubmit ? (
+                  <button onClick={() => setEditing(true)} className="btn-secondary text-sm"><RefreshCw className="w-4 h-4" /> Edit / resubmit</button>
+                ) : (
+                  <p className="text-xs text-muted flex items-center gap-1.5 pt-1"><Lock className="w-3.5 h-3.5" /> {isGraded ? 'This task has been graded, so it can no longer be changed.' : 'The deadline has passed, so it can no longer be changed.'}</p>
+                )}
               </div>
-              {task.has_submission_file ? (
-                <button
-                  onClick={() => onPreview({ type: 'submission', id: task.submission_id, submission_id: task.submission_id, file_url: task.submission_file_url, original_name: task.submission_file_name, title: `${task.title} — my submission` })}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left"
-                  style={{ background: 'var(--card-border)', border: '1px solid var(--input-border)' }}>
-                  <FileText className="w-4 h-4 text-primary-500 flex-shrink-0" />
-                  <span className="flex-1 min-w-0 text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>{task.submission_file_name || 'Submitted file'}</span>
-                  <span className="flex items-center gap-1 text-xs font-semibold text-primary-600"><Eye className="w-3.5 h-3.5" /> View</span>
-                </button>
-              ) : <p className="text-xs text-muted">No file attached.</p>}
-              {task.submission_notes && (
-                <div className="p-3 rounded-xl text-sm whitespace-pre-wrap" style={{ background: 'var(--card-border)', color: 'var(--text-secondary)' }}>{task.submission_notes}</div>
-              )}
-              {canSubmit ? (
-                <button onClick={() => setEditing(true)} className="btn-secondary text-sm"><RefreshCw className="w-4 h-4" /> Edit / resubmit</button>
-              ) : (
-                <p className="text-xs text-muted flex items-center gap-1.5"><Lock className="w-3.5 h-3.5" /> {isGraded ? 'This task has been graded, so it can no longer be changed.' : 'The deadline has passed, so it can no longer be changed.'}</p>
-              )}
-            </div>
+            </Panel>
           )}
 
           {/* Locked: deadline passed and nothing handed in */}
           {!isSubmitted && overdue && (
-            <div className="card flex items-start gap-3" style={{ border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.06)' }}>
-              <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+            <div className="rounded-3xl p-5 flex items-start gap-4" style={{ border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.06)' }}>
+              <span className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(239,68,68,0.15)' }}>
+                <Lock className="w-5 h-5 text-red-500" />
+              </span>
               <div>
                 <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Submissions are closed</p>
-                <p className="text-xs text-muted mt-0.5">The deadline has passed and nothing was submitted. Speak to your teacher if you need more time.</p>
+                <p className="text-xs text-muted mt-1">The deadline has passed and nothing was submitted. Speak to your teacher if you need more time.</p>
               </div>
             </div>
           )}
 
-          {/* Submission form */}
+          {/* Submission studio */}
           {showForm && (
-            <form onSubmit={handleSubmit} className="card space-y-4">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-                  <Upload className="w-4 h-4 text-primary-500" /> {isSubmitted ? 'Resubmit your work' : 'Submit your work'}
-                </p>
-                {isSubmitted && <button type="button" onClick={() => { setEditing(false); setFile(null); setNotes(task.submission_notes || ''); }} className="text-xs text-muted hover:text-primary-600">Cancel</button>}
-              </div>
-              {isSubmitted && (
-                <p className="text-xs flex items-start gap-1.5 p-2.5 rounded-lg" style={{ background: 'rgba(245,158,11,0.1)', color: 'var(--text-secondary)' }}>
-                  <RefreshCw className="w-3.5 h-3.5 text-amber-600 flex-shrink-0 mt-0.5" />
-                  Your previous submission will be replaced. Leave the file empty to keep the one you already uploaded.
-                </p>
-              )}
+            <form onSubmit={handleSubmit}>
+              <Panel icon={FileUp} title={isSubmitted ? 'Resubmit your work' : 'Submit your work'} tone={tone}
+                right={isSubmitted && <button type="button" onClick={() => { setEditing(false); setFile(null); setNotes(task.submission_notes || ''); }} className="text-xs font-semibold text-muted hover:text-primary-600">Cancel</button>}>
+                <div className="space-y-5">
+                  {isSubmitted && (
+                    <p className="text-xs flex items-start gap-2 p-3 rounded-2xl" style={{ background: 'rgba(245,158,11,0.1)', color: 'var(--text-secondary)' }}>
+                      <RefreshCw className="w-3.5 h-3.5 text-amber-600 flex-shrink-0 mt-0.5" />
+                      Your previous submission will be replaced. Leave the file empty to keep the one you already uploaded.
+                    </p>
+                  )}
 
-              {/* Drop-zone */}
-              <div
-                onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={e => { e.preventDefault(); setDragOver(false); pickFile(e.dataTransfer.files[0]); }}
-                onClick={() => inputRef.current?.click()}
-                role="button" tabIndex={0}
-                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') inputRef.current?.click(); }}
-                className="rounded-2xl text-center cursor-pointer transition-all"
-                style={{
-                  padding: file ? '18px' : '36px 18px',
-                  border: `2px dashed ${dragOver ? '#c2410c' : 'var(--input-border)'}`,
-                  background: dragOver ? 'rgba(194,65,12,0.06)' : 'transparent',
-                }}>
-                <input ref={inputRef} type="file" className="hidden" onChange={e => pickFile(e.target.files[0])} />
-                {file ? (
-                  <div className="flex items-center gap-3 text-left">
-                    <div className="w-11 h-11 rounded-xl bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center flex-shrink-0">
-                      <FileText className="w-5 h-5 text-primary-600" />
+                  {/* Drop-zone */}
+                  <div
+                    onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+                    onDragLeave={() => setDragOver(false)}
+                    onDrop={e => { e.preventDefault(); setDragOver(false); pickFile(e.dataTransfer.files[0]); }}
+                    onClick={() => !saving && inputRef.current?.click()}
+                    role="button" tabIndex={0}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') inputRef.current?.click(); }}
+                    className="relative rounded-3xl text-center cursor-pointer transition-all overflow-hidden"
+                    style={{
+                      padding: file ? '20px' : '44px 20px',
+                      border: `2px dashed ${dragOver ? tone.accent : file ? tone.ring : 'var(--input-border)'}`,
+                      background: dragOver ? tone.soft : file ? tone.soft : 'transparent',
+                      transform: dragOver ? 'scale(1.01)' : 'none',
+                    }}>
+                    <input ref={inputRef} type="file" className="hidden" onChange={e => pickFile(e.target.files[0])} />
+                    {file ? (
+                      <div className="flex items-center gap-4 text-left">
+                        <span className="w-14 h-14 rounded-2xl flex items-center justify-center text-xs font-extrabold text-white flex-shrink-0"
+                          style={{ background: `linear-gradient(135deg, ${tone.accent}, ${tone.accent2})`, boxShadow: `0 8px 20px ${tone.ring}` }}>{extOf(file.name)}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold truncate" style={{ color: 'var(--text-primary)' }}>{file.name}</p>
+                          <p className="text-xs text-muted mt-0.5">{formatSize(file.size)} · ready to send · click to replace</p>
+                        </div>
+                        {!saving && (
+                          <button type="button" onClick={ev => { ev.stopPropagation(); setFile(null); }} className="p-2 rounded-xl hover:bg-red-50 hover:text-red-500 transition-colors" title="Remove file">
+                            <X className="w-4 h-4 text-muted" />
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <>
+                        <span className="inline-flex w-16 h-16 rounded-3xl items-center justify-center mb-3 transition-transform" style={{ background: tone.soft, transform: dragOver ? 'scale(1.15) translateY(-4px)' : 'none' }}>
+                          <CloudUpload className="w-8 h-8" style={{ color: tone.accent }} />
+                        </span>
+                        <p className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>{dragOver ? 'Drop it here!' : 'Drag & drop your file'}</p>
+                        <p className="text-xs text-muted mt-1">or <span className="font-bold" style={{ color: tone.accent }}>browse your device</span> · PDF, Word, images, ZIP… up to 100 MB</p>
+                      </>
+                    )}
+                  </div>
+
+                  {saving && file && (
+                    <div>
+                      <div className="flex justify-between text-xs font-semibold mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+                        <span>{progress < 100 ? 'Uploading…' : 'Finishing up…'}</span><span>{progress}%</span>
+                      </div>
+                      <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--card-border)' }}>
+                        <div className="h-full rounded-full tw-shimmer transition-all duration-300" style={{ width: `${progress}%`, backgroundImage: `linear-gradient(90deg, ${tone.accent}, ${tone.accent2}, ${tone.accent})` }} />
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{file.name}</p>
-                      <p className="text-xs text-muted">{formatSize(file.size)} · click to replace</p>
+                  )}
+
+                  {/* Notes */}
+                  <div>
+                    <label className="flex items-center justify-between text-sm font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
+                      <span className="flex items-center gap-2"><PenLine className="w-4 h-4" style={{ color: tone.accent }} /> {isDiscussion ? 'Your group’s answer & comments' : 'Your answer & notes'} <span className="text-xs text-muted font-normal">(optional)</span></span>
+                      <span className="text-[11px] font-medium text-muted">{notes.length}/2000</span>
+                    </label>
+                    <textarea value={notes} maxLength={2000} onChange={e => setNotes(e.target.value)} rows={7}
+                      className="w-full rounded-2xl p-4 text-sm leading-relaxed outline-none resize-y transition-shadow"
+                      style={{ background: 'var(--surface-100)', border: '1.5px solid var(--card-border)', color: 'var(--text-primary)', minHeight: 140 }}
+                      onFocus={e => { e.target.style.borderColor = tone.accent; e.target.style.boxShadow = `0 0 0 4px ${tone.soft}`; }}
+                      onBlur={e => { e.target.style.borderColor = 'var(--card-border)'; e.target.style.boxShadow = 'none'; }}
+                      placeholder={isDiscussion ? 'Write what your group concluded, or add comments about the file you attached…' : 'Write your answer, or add comments about the file you attached…'} />
+                    <div className="h-1 rounded-full mt-2 overflow-hidden" style={{ background: 'var(--card-border)' }}>
+                      <div className="h-full rounded-full transition-all" style={{ width: `${(notes.length / 2000) * 100}%`, background: tone.accent }} />
                     </div>
-                    <button type="button" onClick={ev => { ev.stopPropagation(); setFile(null); }} className="p-1.5 rounded-lg hover:bg-red-50 hover:text-red-500" title="Remove file">
-                      <X className="w-4 h-4 text-muted" />
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3 flex-wrap pt-1">
+                    <p className="text-xs font-semibold flex items-center gap-1.5" style={{ color: left.urgent ? '#ea580c' : 'var(--text-secondary)' }}>
+                      <Clock className="w-3.5 h-3.5" /> {left.text}
+                    </p>
+                    <button type="submit" disabled={saving}
+                      className="inline-flex items-center gap-2 px-7 py-3 rounded-2xl text-sm font-bold text-white transition-all hover:-translate-y-0.5 active:scale-95 disabled:opacity-60 disabled:hover:translate-y-0"
+                      style={{ background: `linear-gradient(135deg, ${tone.accent}, ${tone.accent2})`, boxShadow: `0 10px 24px -6px ${tone.accent}` }}>
+                      {saving ? <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : <Send className="w-4 h-4" />}
+                      {isSubmitted ? 'Resubmit' : isDiscussion ? 'Submit for my group' : 'Submit work'}
                     </button>
                   </div>
-                ) : (
-                  <>
-                    <CloudUpload className="w-10 h-10 mx-auto mb-2 text-primary-500 opacity-70" />
-                    <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Drag & drop your file here</p>
-                    <p className="text-xs text-muted mt-0.5">or <span className="text-primary-600 font-semibold">browse your device</span> · up to 100 MB</p>
-                  </>
-                )}
-              </div>
-
-              <div>
-                <label className="label">Notes for your teacher <span className="text-muted font-normal">(optional)</span></label>
-                <textarea value={notes} maxLength={2000} onChange={e => setNotes(e.target.value)}
-                  className="input-field resize-y" rows={5} placeholder="Write your answer, or add comments about the file you attached…" />
-                <p className="text-[11px] text-muted text-right mt-1">{notes.length}/2000</p>
-              </div>
-
-              <div className="flex items-center justify-between gap-3 pt-1 flex-wrap">
-                <p className="text-xs text-muted flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> {left.text}</p>
-                <button type="submit" disabled={saving} className="btn-primary">
-                  {saving ? <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : <Upload className="w-4 h-4" />}
-                  {isSubmitted ? 'Resubmit' : 'Submit work'}
-                </button>
-              </div>
+                </div>
+              </Panel>
             </form>
           )}
         </div>
@@ -352,75 +570,71 @@ function TaskCard({ a, onOpen, onPreview, cardRef, highlighted }) {
   const isSubmitted = !!a.submission_id;
   const isGraded = a.score !== null && a.score !== undefined;
   const overdue = new Date(a.deadline) < new Date();
+  const tone = kindThemeOf(a.task_type, a.mode);
+  const KindIcon = tone.icon;
+  const members = a.group?.members || [];
+  const status = isGraded
+    ? { text: `Graded · ${a.score}/${a.max_score || 100}`, color: '#059669', bg: 'rgba(16,185,129,0.12)' }
+    : isSubmitted ? { text: 'Submitted', color: '#2563eb', bg: 'rgba(59,130,246,0.12)' }
+    : overdue ? { text: 'Not submitted', color: '#dc2626', bg: 'rgba(239,68,68,0.12)' }
+    : { text: 'To do', color: '#d97706', bg: 'rgba(245,158,11,0.14)' };
 
   return (
-    <div ref={cardRef} className="card hover:shadow-soft transition-all cursor-pointer" onClick={() => onOpen(a)}
-      style={highlighted ? { boxShadow: '0 0 0 2px #c2410c, 0 8px 24px rgba(194, 65, 12,0.25)', transition: 'box-shadow 0.4s ease' } : undefined}>
-      <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-        <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${
-          isGraded ? 'bg-emerald-100 dark:bg-emerald-900/30' :
-          isSubmitted ? 'bg-blue-100 dark:bg-blue-900/30' :
-          overdue ? 'bg-red-100 dark:bg-red-900/30' : 'bg-amber-100 dark:bg-amber-900/30'
-        }`}>
-          {isGraded ? <Award className="w-5 h-5 text-emerald-600" />
-            : isSubmitted ? <CheckCircle2 className="w-5 h-5 text-blue-600" />
-            : overdue ? <AlertTriangle className="w-5 h-5 text-red-600" />
-            : <Clock className="w-5 h-5 text-amber-600" />}
-        </div>
+    <div ref={cardRef} onClick={() => onOpen(a)}
+      className="group relative overflow-hidden rounded-3xl cursor-pointer transition-all hover:-translate-y-0.5"
+      style={{
+        background: 'var(--card-bg)', border: '1px solid var(--card-border)',
+        boxShadow: highlighted ? `0 0 0 2px ${tone.accent}, 0 8px 24px ${tone.ring}` : undefined,
+      }}>
+      <span aria-hidden className="absolute left-0 top-0 bottom-0 w-1.5" style={{ background: `linear-gradient(180deg, ${tone.accent}, ${tone.accent2})` }} />
+      <div className="p-5 pl-6 flex flex-col sm:flex-row sm:items-center gap-4">
+        <span className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 text-white transition-transform group-hover:scale-105"
+          style={{ background: `linear-gradient(135deg, ${tone.accent}, ${tone.accent2})`, boxShadow: `0 8px 18px -6px ${tone.accent}` }}>
+          <KindIcon className="w-5 h-5" />
+        </span>
 
         <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h3 className="font-display font-bold text-sm" style={{ color: 'var(--text-primary)' }}>{a.title}</h3>
-              <div className="flex flex-wrap items-center gap-2 mt-1">
-                <KindBadge taskType={a.task_type} mode={a.mode} />
-                <DeadlineBadge deadline={a.deadline} />
-                {isGraded && (
-                  <span className={`badge text-xs ${a.score >= 70 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : a.score >= 50 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
-                    Score: {a.score}/{a.max_score || 100}
-                  </span>
-                )}
-              </div>
-            </div>
-            <div className="flex items-center gap-1.5 flex-shrink-0" onClick={e => e.stopPropagation()}>
-              {a.filename && (
-                <button onClick={() => onPreview({ ...a, type: 'assignment', original_name: a.original_name || a.filename })}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-                  style={{ background: 'var(--card-border)', color: 'var(--text-primary)', border: '1px solid var(--input-border)' }}
-                  title="Preview attached file">
-                  <Eye className="w-3.5 h-3.5" /> Preview
-                </button>
-              )}
-              <button onClick={() => onOpen(a)} className={isSubmitted || overdue ? 'btn-secondary py-1.5 text-xs' : 'btn-primary py-1.5 text-xs'}>
-                {isSubmitted ? 'View' : overdue ? 'Open' : <><Upload className="w-3.5 h-3.5" /> Open & submit</>}
-              </button>
-            </div>
+          <div className="flex flex-wrap items-center gap-2 mb-1">
+            <span className="text-[10px] font-extrabold uppercase tracking-widest" style={{ color: tone.accent }}>{tone.label}</span>
+            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: status.bg, color: status.color }}>{status.text}</span>
           </div>
+          <h3 className="font-display font-bold text-base truncate" style={{ color: 'var(--text-primary)' }}>{a.title}</h3>
+          {a.description && <p className="text-xs text-muted mt-1 line-clamp-1">{a.description}</p>}
 
-          {a.description && <p className="text-xs text-muted mt-2 line-clamp-2">{a.description}</p>}
+          <div className="flex items-center gap-x-4 gap-y-1 mt-2.5 flex-wrap text-xs text-muted">
+            <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> Due {new Date(a.deadline).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+            <span className="flex items-center gap-1"><Award className="w-3.5 h-3.5" /> {a.max_score || 100} pts</span>
+            {!isSubmitted && !overdue && <DeadlineBadge deadline={a.deadline} />}
+            {isDiscussion(a) && a.group && (
+              <span className="flex items-center gap-2">
+                <span className="flex -space-x-2">{members.slice(0, 4).map((m, i) => <Avatar key={m.id} name={m.name} idx={i} size={22} />)}</span>
+                <span className="font-semibold" style={{ color: tone.accent }}>{a.group.name}{members.length > 4 ? ` +${members.length - 4}` : ''}</span>
+              </span>
+            )}
+          </div>
+        </div>
 
-          {a.mode === 'discussion' && a.group && (
-            <div className="flex items-center gap-1.5 flex-wrap mt-2">
-              <Users className="w-3 h-3 text-violet-600" />
-              <span className="text-xs font-semibold text-violet-700 dark:text-violet-300">{a.group.name}</span>
-              <span className="text-xs text-muted">· {a.group.members.map(m => m.name).join(', ')}</span>
-            </div>
+        <div className="flex items-center gap-2 flex-shrink-0" onClick={e => e.stopPropagation()}>
+          {a.filename && (
+            <button onClick={() => onPreview({ ...a, type: 'assignment', original_name: a.original_name || a.filename })}
+              className="w-10 h-10 rounded-xl flex items-center justify-center transition-colors hover:bg-surface-100"
+              style={{ border: '1px solid var(--card-border)', color: 'var(--text-secondary)' }} title="Preview attached file">
+              <Eye className="w-4 h-4" />
+            </button>
           )}
-
-          <div className="flex items-center gap-3 mt-3 pt-3 flex-wrap" style={{ borderTop: '1px solid var(--card-border)' }}>
-            <span className="text-xs text-muted flex items-center gap-1">
-              <Clock className="w-3 h-3" /> Due {new Date(a.deadline).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
-            </span>
-            <span className="text-xs text-muted flex items-center gap-1"><Award className="w-3 h-3" /> Max: {a.max_score || 100}</span>
-            <span className="text-xs font-medium ml-auto" style={{ color: isGraded ? '#059669' : isSubmitted ? '#2563eb' : overdue ? '#dc2626' : '#d97706' }}>
-              {isGraded ? 'Graded' : isSubmitted ? 'Submitted' : overdue ? 'Not submitted' : 'To do'}
-            </span>
-          </div>
+          <button onClick={() => onOpen(a)}
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold transition-all active:scale-95"
+            style={isSubmitted || overdue
+              ? { background: 'var(--surface-100)', color: 'var(--text-primary)', border: '1px solid var(--card-border)' }
+              : { background: `linear-gradient(135deg, ${tone.accent}, ${tone.accent2})`, color: '#fff', boxShadow: `0 8px 18px -8px ${tone.accent}` }}>
+            {isSubmitted ? 'View' : overdue ? 'Open' : <><Send className="w-3.5 h-3.5" /> Open & submit</>}
+          </button>
         </div>
       </div>
     </div>
   );
 }
+const isDiscussion = (a) => a.mode === 'discussion';
 
 /* ══════════════════════════════════════════════════════════════════════
    Page — Module → Kind (Assignment | Homework) → [Individual | Discussion]
