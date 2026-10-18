@@ -601,14 +601,29 @@ const viewSubmission = serveSubmissionFile('inline');
 const downloadSubmissionFile = serveSubmissionFile('attachment');
 const viewSubmissionFile = serveSubmissionFile('inline');
 
+// Save (or clear) one student's grade. The score must be a real number between
+// 0 and the task's max score — anything else is rejected instead of being stored
+// (a blank or non-numeric score used to end up as NaN in the mark list).
 const gradeSubmission = async (req, res) => {
   try {
     const { score, feedback } = req.body;
-    const result = await Submission.findByIdAndUpdate(
-      req.params.submissionId,
-      { score, feedback: feedback || null, graded_at: new Date() }
-    );
-    if (!result) return res.status(404).json({ message: 'Submission not found' });
+    const sub = await Submission.findOne({ _id: req.params.submissionId, assignment_id: req.params.id }).populate('assignment_id', 'max_score');
+    if (!sub) return res.status(404).json({ message: 'Submission not found' });
+
+    // score null / '' = clear the grade
+    if (score === null || score === '' || score === undefined) {
+      await Submission.updateOne({ _id: sub._id }, { $set: { score: null, feedback: String(feedback || '').trim().slice(0, 1000) || null, graded_at: null } });
+      return res.json({ message: 'Grade cleared' });
+    }
+
+    const value = Number(score);
+    const max = sub.assignment_id?.max_score || 100;
+    if (!Number.isFinite(value)) return res.status(400).json({ message: 'Score must be a number.' });
+    if (value < 0 || value > max) return res.status(400).json({ message: `Score must be between 0 and ${max}.` });
+
+    await Submission.updateOne({ _id: sub._id }, {
+      $set: { score: Math.round(value * 100) / 100, feedback: String(feedback || '').trim().slice(0, 1000) || null, graded_at: new Date() },
+    });
     res.json({ message: 'Submission graded' });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
