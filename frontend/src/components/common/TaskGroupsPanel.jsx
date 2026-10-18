@@ -55,6 +55,8 @@ function resolveGroupCount(mode, value, total) {
   return Math.min(Math.max(g, 1), total);
 }
 
+const SHUFFLE_MS = 2300;
+
 const byName = (a, b) => (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' });
 
 
@@ -247,6 +249,11 @@ const STYLES = `
   @keyframes tg-jig { 0%,100% { transform: translate(0,0) rotate(0) } 20% { transform: translate(7px,-9px) rotate(6deg) } 40% { transform: translate(-8px,6px) rotate(-7deg) } 60% { transform: translate(9px,8px) rotate(5deg) } 80% { transform: translate(-6px,-7px) rotate(-4deg) } }
   @keyframes tg-spin { to { transform: rotate(360deg) } }
   @keyframes tg-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(251,146,60,.55) } 50% { box-shadow: 0 0 0 9px rgba(251,146,60,0) } }
+  @keyframes tg-ring { 0% { transform: scale(1); opacity: .65 } 100% { transform: scale(2.1); opacity: 0 } }
+  @keyframes tg-bob { 0%,100% { transform: translateY(0) scale(1) } 50% { transform: translateY(-4px) scale(1.12) } }
+  @keyframes tg-fill { from { width: 0 } to { width: 100% } }
+  @keyframes tg-fill-hold { 0% { width: 4% } 100% { width: 92% } }
+  @keyframes tg-light { 0%,100% { opacity: .22; transform: scale(.85) } 45% { opacity: 1; transform: scale(1.12); box-shadow: 0 8px 18px -6px rgba(249,115,22,.7) } }
   .tg-rise { animation: tg-rise .45s cubic-bezier(.2,.8,.2,1) both }
   .tg-pop { animation: tg-pop .5s cubic-bezier(.2,.8,.2,1) both }
   .tg-hero { background-size: 200% 200%; animation: tg-pan 12s linear infinite }
@@ -297,6 +304,104 @@ function SizeBars({ sizes, label }) {
         })}
         {sizes.length > shown.length && <span className="text-[10px] text-muted font-bold pl-1">+{sizes.length - shown.length}</span>}
       </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   GroupLoader — shown while groups are being shuffled or saved.
+   Students orbit a glowing core on three counter-rotating rings (each avatar
+   is counter-rotated so initials stay upright), a status line cycles through
+   what is "happening", one slot per group lights up in a wave, and a progress
+   bar fills. `variant` only changes the wording and the core icon.
+══════════════════════════════════════════════════════════════════════ */
+const RINGS = [
+  { r: 54, n: 4, dur: 9, rev: false },
+  { r: 88, n: 6, dur: 14, rev: true },
+  { r: 122, n: 8, dur: 20, rev: false },
+];
+
+function GroupLoader({ variant = 'shuffle', students = [], groupCount = 0, studentCount = 0, duration = 2300, t }) {
+  const isShuffle = variant === 'shuffle';
+  const CoreIcon = isShuffle ? Shuffle : Layers;
+  const [phase, setPhase] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setPhase(p => (p + 1) % 3), isShuffle ? duration / 3 : 1100);
+    return () => clearInterval(id);
+  }, [isShuffle, duration]);
+
+  const pool = students.length ? students : [{ name: '•' }];
+  const slots = Math.min(groupCount || 6, 12);
+  let seed = 0;
+
+  return (
+    <div className="flex flex-col items-center text-center">
+      {/* Orbit */}
+      <div className="relative flex-shrink-0" style={{ width: 280, height: 280, maxWidth: '100%' }}>
+        <span aria-hidden className="absolute inset-0 m-auto rounded-full" style={{ width: 270, height: 270, background: 'conic-gradient(from 0deg, transparent, rgba(249,115,22,.35), rgba(236,72,153,.35), transparent 70%)', filter: 'blur(14px)', animation: 'tg-spin 6s linear infinite' }} />
+        {RINGS.map((ring, ri) => {
+          const offset = seed; seed += ring.n;
+          const dir = ring.rev ? 'reverse' : 'normal';
+          return (
+            <div key={ri} aria-hidden className="absolute inset-0 m-auto rounded-full"
+              style={{ width: ring.r * 2, height: ring.r * 2, border: '1.5px dashed rgba(251,146,60,.3)', animation: `tg-spin ${ring.dur}s linear infinite ${dir}` }}>
+              {Array.from({ length: ring.n }).map((_, k) => {
+                const angle = (360 / ring.n) * k;
+                const s = pool[(offset + k) % pool.length];
+                const c = colorOf(offset + k);
+                return (
+                  <span key={k} className="absolute left-1/2 top-1/2" style={{ width: 0, height: 0, transform: `rotate(${angle}deg) translateY(${-ring.r}px)` }}>
+                    <span className="absolute" style={{ left: -17, top: -17, transform: `rotate(${-angle}deg)` }}>
+                      <span className="block" style={{ animation: `tg-spin ${ring.dur}s linear infinite ${ring.rev ? 'normal' : 'reverse'}` }}>
+                        <Avatar name={s.name} size={34} bg={c.grad} ring="rgba(0,0,0,.25)" />
+                      </span>
+                    </span>
+                  </span>
+                );
+              })}
+            </div>
+          );
+        })}
+        {/* Core */}
+        <div className="absolute inset-0 m-auto w-20 h-20 rounded-full flex items-center justify-center text-white"
+          style={{ background: 'linear-gradient(135deg, #f97316, #be185d)', boxShadow: '0 0 46px 6px rgba(249,115,22,.5)' }}>
+          <span aria-hidden className="absolute inset-0 rounded-full" style={{ background: 'rgba(249,115,22,.55)', animation: 'tg-ring 1.8s ease-out infinite' }} />
+          <span aria-hidden className="absolute inset-0 rounded-full" style={{ background: 'rgba(236,72,153,.45)', animation: 'tg-ring 1.8s ease-out .9s infinite' }} />
+          <CoreIcon className="relative w-8 h-8" style={{ animation: isShuffle ? 'tg-spin 1.4s cubic-bezier(.6,0,.4,1) infinite' : 'tg-bob 1.2s ease-in-out infinite' }} />
+        </div>
+      </div>
+
+      {/* Words */}
+      <h4 className="font-display font-extrabold text-lg mt-1" style={{ color: 'var(--text-primary)' }}>
+        {t(isShuffle ? 'randomGroups.loaderShuffleTitle' : 'randomGroups.loaderCreateTitle')}
+      </h4>
+      <p key={phase} className="tg-rise text-sm font-semibold h-5 mt-1" style={{ color: '#fb923c' }}>
+        {t(`randomGroups.${isShuffle ? 'loaderShuffle' : 'loaderCreate'}${phase + 1}`)}
+      </p>
+
+      {/* One slot per group, lighting up in a wave */}
+      <div className="flex flex-wrap justify-center gap-1.5 mt-4 max-w-xs">
+        {Array.from({ length: slots }).map((_, i) => {
+          const c = colorOf(i);
+          return (
+            <span key={i} className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-extrabold text-white"
+              style={{ background: c.grad, animation: 'tg-light 1.6s ease-in-out infinite', animationDelay: `${i * 130}ms` }}>{i + 1}</span>
+          );
+        })}
+      </div>
+
+      {/* Progress */}
+      <div className="w-64 max-w-full h-1.5 rounded-full overflow-hidden mt-5" style={{ background: 'var(--card-border)' }}>
+        <div className="h-full rounded-full tg-bar" style={{
+          backgroundImage: 'linear-gradient(90deg, #f97316, #ec4899, #f97316)', backgroundSize: '200% 100%',
+          animation: isShuffle
+            ? `tg-fill ${duration}ms cubic-bezier(.4,0,.2,1) forwards, tg-pan 1.2s linear infinite`
+            : 'tg-fill-hold 3.5s cubic-bezier(.2,.7,.2,1) forwards, tg-pan 1.2s linear infinite',
+        }} />
+      </div>
+      {studentCount > 0 && groupCount > 0 && (
+        <p className="text-[11px] font-bold text-muted mt-3">{t('randomGroups.loaderSummary', { students: studentCount, groups: groupCount })}</p>
+      )}
     </div>
   );
 }
@@ -562,7 +667,7 @@ export default function TaskGroupsPanel({ cls, module: mod, onChanged, onAssignT
   const runShuffle = () => {
     if (shuffling || !valueValid || total === 0) return;
     setShuffling(true); setSel(null);
-    setTimeout(() => { setDraft({ groups: buildGroups() }); setShuffling(false); }, 950);
+    setTimeout(() => { setDraft({ groups: buildGroups() }); setShuffling(false); }, SHUFFLE_MS);
   };
 
   /* ── editing the draft: swap two students, move one, rename a group ── */
@@ -815,15 +920,8 @@ export default function TaskGroupsPanel({ cls, module: mod, onChanged, onAssignT
 
       {/* ── The draw ── */}
       {shuffling && (
-        <div className="rounded-3xl p-6 text-center" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
-          <div className="flex flex-wrap justify-center gap-2.5 max-w-2xl mx-auto">
-            {pickedStudents.slice(0, 28).map((s, i) => (
-              <span key={s._id} style={{ animation: `tg-jig ${0.5 + (i % 5) * 0.08}s ease-in-out infinite`, animationDelay: `${(i % 7) * -0.09}s` }}>
-                <Avatar name={s.name} size={38} bg={colorOf(i).grad} />
-              </span>
-            ))}
-          </div>
-          <p className="text-sm font-bold mt-4" style={{ color: 'var(--text-secondary)' }}>{t('randomGroups.shuffling', { count: total })}</p>
+        <div className="tg-rise rounded-3xl px-6 py-8 overflow-hidden" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+          <GroupLoader variant="shuffle" t={t} students={pickedStudents} studentCount={total} groupCount={sizes.length} duration={SHUFFLE_MS} />
         </div>
       )}
 
@@ -1002,6 +1100,14 @@ export default function TaskGroupsPanel({ cls, module: mod, onChanged, onAssignT
           );
         })}
       </div>
+
+      {saving && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(8px)' }} role="status" aria-live="polite">
+          <div className="tg-pop rounded-3xl px-8 py-8 w-full max-w-md" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', boxShadow: '0 30px 80px rgba(0,0,0,.55)' }}>
+            <GroupLoader variant="create" t={t} students={pickedStudents} studentCount={total} groupCount={draft?.groups.length || 0} />
+          </div>
+        </div>
+      )}
 
       {activeGroup && (
         <GroupWorkspace

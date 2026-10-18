@@ -1332,6 +1332,15 @@
     "openGroup": "Open group",
     "sizesPreview": "Group sizes",
     "setCount": "{{count}} sets",
-    "latestSet": "Latest"
+    "latestSet": "Latest",
+    "loaderShuffleTitle": "Shuffling groups…",
+    "loaderShuffle1": "Mixing the students…",
+    "loaderShuffle2": "Balancing the groups…",
+    "loaderShuffle3": "Dealing everyone in…",
+    "loaderCreateTitle": "Creating groups…",
+    "loaderCreate1": "Setting up the groups…",
+    "loaderCreate2": "Adding the students…",
+    "loaderCreate3": "Almost ready…",
+    "loaderSummary": "{{students}} students → {{groups}} groups"
   }
 }

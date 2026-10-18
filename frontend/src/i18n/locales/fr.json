@@ -1350,6 +1350,15 @@
     "openGroup": "Ouvrir le groupe",
     "sizesPreview": "Taille des groupes",
     "setCount": "{{count}} séries",
-    "latestSet": "Récent"
+    "latestSet": "Récent",
+    "loaderShuffleTitle": "Mélange des groupes…",
+    "loaderShuffle1": "On mélange les élèves…",
+    "loaderShuffle2": "On équilibre les groupes…",
+    "loaderShuffle3": "On répartit tout le monde…",
+    "loaderCreateTitle": "Création des groupes…",
+    "loaderCreate1": "Préparation des groupes…",
+    "loaderCreate2": "Ajout des élèves…",
+    "loaderCreate3": "Presque prêt…",
+    "loaderSummary": "{{students}} élèves → {{groups}} groupes"
   }
 }

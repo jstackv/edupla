@@ -1351,6 +1351,15 @@
     "openGroup": "Fungura itsinda",
     "sizesPreview": "Ingano z'amatsinda",
     "setCount": "Ibyiciro {{count}}",
-    "latestSet": "Bishya"
+    "latestSet": "Bishya",
+    "loaderShuffleTitle": "Kuvanga amatsinda…",
+    "loaderShuffle1": "Kuvanga abanyeshuri…",
+    "loaderShuffle2": "Kringaniza amatsinda…",
+    "loaderShuffle3": "Gushyira buri wese mu itsinda…",
+    "loaderCreateTitle": "Kurema amatsinda…",
+    "loaderCreate1": "Gutegura amatsinda…",
+    "loaderCreate2": "Kongeramo abanyeshuri…",
+    "loaderCreate3": "Hasigaye gato…",
+    "loaderSummary": "Abanyeshuri {{students}} → amatsinda {{groups}}"
   }
 }
