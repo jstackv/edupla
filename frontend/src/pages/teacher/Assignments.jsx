@@ -873,7 +873,7 @@ function SubmissionsModal({ assignment, onClose, onExtend, hidden }) {
 }
 
 // ─── Create/Edit Task Modal (module-aware) ────────────────────────────────────
-function AssignmentFormModal({ isOpen, onClose, editing, presetClass, presetModule, taskType, mode, groups, onSuccess }) {
+function AssignmentFormModal({ isOpen, onClose, editing, presetClass, presetModule, presetGroupIds, taskType, mode, groups, onSuccess }) {
   const isHomework = taskType === 'homework';
   const isDiscussion = mode === 'discussion';
   const noun = isHomework ? 'Homework' : isDiscussion ? 'Group Task' : 'Assignment';
@@ -898,13 +898,13 @@ function AssignmentFormModal({ isOpen, onClose, editing, presetClass, presetModu
       setForm({
         title: '', description: '', deadline: '',
         classId: presetClass?._id || '', courseId: presetModule?._id || '',
-        max_score: 100, is_active: true, groupIds: [],
+        max_score: 100, is_active: true, groupIds: (presetGroupIds || []).map(String),
       });
     }
     setFiles([]);
     setRemovedIds([]);
     setProgress(0);
-  }, [isOpen, editing, presetClass, presetModule]);
+  }, [isOpen, editing, presetClass, presetModule, presetGroupIds]);
 
   // Saved groups bucketed by the set they came from, for the picker.
   const batches = useMemo(() => {
@@ -1118,6 +1118,8 @@ export default function Assignments() {
   const [viewingFile, setViewingFile] = useState(null);
   const [filesFor, setFilesFor] = useState(null);       // task whose attachments are listed in a modal
   const [extendTarget, setExtendTarget] = useState(null); // task whose deadline is being extended
+  const [presetGroupIds, setPresetGroupIds] = useState([]); // groups pre-ticked in the task form (opened from a group)
+  const [taskVersion, setTaskVersion] = useState(0);        // bumped when a task is saved, so the Groups tab refreshes its counts
   const [flashId, setFlashId] = useState(searchParams.get('highlight') || null);
   const cardRefs = useRef({});
   const deepLinkApplied = useRef(false);
@@ -1230,7 +1232,9 @@ export default function Assignments() {
     return () => clearTimeout(t);
   }, [flashId, loading, assignments]);
 
-  const openModal = (a = null) => { setEditing(a); setModal(true); };
+  const openModal = (a = null) => { setEditing(a); setPresetGroupIds([]); setModal(true); };
+  // From a group's workspace: a new task with that group already chosen.
+  const assignToGroup = (group) => { setEditing(null); setPresetGroupIds([String(group.id)]); setModal(true); };
 
   const handleDelete = async () => {
     setDeleting(true);
@@ -1473,7 +1477,10 @@ export default function Assignments() {
       )}
 
       {isDiscussion && discTab === 'groups' && (
-        <TaskGroupsPanel cls={selectedClass} module={selectedModule} onChanged={fetchGroups} />
+        <TaskGroupsPanel cls={selectedClass} module={selectedModule} onChanged={fetchGroups}
+          onAssignTask={assignToGroup} onOpenTask={setViewingSubs}
+          coverOpen={modal || !!viewingSubs || !!extendTarget || !!viewingFile}
+          refreshKey={taskVersion} />
       )}
 
       {showTaskList && (
@@ -1541,10 +1548,11 @@ export default function Assignments() {
         editing={editing}
         presetClass={selectedClass}
         presetModule={selectedModule}
+        presetGroupIds={presetGroupIds}
         taskType={taskType}
         mode={mode}
         groups={groups}
-        onSuccess={() => { fetchAssignments(); if (isDiscussion) fetchGroups(); }}
+        onSuccess={() => { fetchAssignments(); setTaskVersion(v => v + 1); if (isDiscussion) fetchGroups(); }}
       />
 
       <ConfirmDialog

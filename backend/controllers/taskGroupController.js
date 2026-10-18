@@ -127,4 +127,51 @@ const deleteTaskGroupBatch = async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
-module.exports = { getTaskGroups, createTaskGroups, deleteTaskGroupBatch };
+// GET /api/task-groups/:id/progress — how far each task given to this group has
+// got: how many of the group's members have submitted / been graded. The task
+// details themselves come from the normal task list (filtered by groupId).
+const getGroupProgress = async (req, res) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({ message: 'Group not found' });
+    const group = await TaskGroup.findOne({ _id: req.params.id, teacher_id: req.session.user.id }, 'members').lean();
+    if (!group) return res.status(404).json({ message: 'Group not found' });
+
+    const tasks = await Assignment.find({ group_ids: group._id }, '_id').lean();
+    const taskIds = tasks.map(t => t._id);
+    const rows = taskIds.length
+      ? await Submission.aggregate([
+          { $match: { assignment_id: { $in: taskIds }, student_id: { $in: group.members } } },
+          { $group: {
+              _id: '$assignment_id',
+              submitted: { $sum: 1 },
+              graded: { $sum: { $cond: [{ $isNumber: '$score' }, 1, 0] } },
+              last_submitted_at: { $max: '$submitted_at' },
+          } },
+        ])
+      : [];
+    const byTask = new Map(rows.map(r => [String(r._id), r]));
+    res.json({
+      member_count: (group.members || []).length,
+      tasks: taskIds.map(id => {
+        const r = byTask.get(String(id));
+        return { assignment_id: id, submitted: r?.submitted || 0, graded: r?.graded || 0, last_submitted_at: r?.last_submitted_at || null };
+      }),
+    });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+// PATCH /api/task-groups/:id  { name } — rename one saved group.
+const renameTaskGroup = async (req, res) => {
+  try {
+    const name = String(req.body.name || '').trim().slice(0, 80);
+    if (!name) return res.status(400).json({ message: 'Give the group a name' });
+    if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({ message: 'Group not found' });
+    const g = await TaskGroup.findOneAndUpdate(
+      { _id: req.params.id, teacher_id: req.session.user.id }, { $set: { name } }, { new: true },
+    );
+    if (!g) return res.status(404).json({ message: 'Group not found' });
+    res.json({ message: 'Group renamed', name: g.name });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+module.exports = { getTaskGroups, createTaskGroups, deleteTaskGroupBatch, getGroupProgress, renameTaskGroup };
