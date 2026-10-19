@@ -36,8 +36,8 @@ export function exportMarksheetPdf({ title, className, subtitle, kindLabel = 'Ma
   const max = maxScore || 100;
 
   const P = dark
-    ? { page: [15, 15, 15], row: [24, 24, 24], rowAlt: [30, 30, 30], line: [52, 52, 52], text: [238, 238, 238], muted: [140, 134, 128], no: [194, 98, 28], card: [26, 26, 26] }
-    : { page: [255, 255, 255], row: [255, 255, 255], rowAlt: [252, 247, 243], line: [236, 222, 212], text: [38, 30, 26], muted: [120, 110, 102], no: [194, 65, 12], card: [251, 247, 243] };
+    ? { page: [15, 15, 15], row: [24, 24, 24], rowAlt: [30, 30, 30], line: [52, 52, 52], border: [92, 84, 78], text: [238, 238, 238], muted: [140, 134, 128], no: [194, 98, 28], card: [26, 26, 26] }
+    : { page: [255, 255, 255], row: [255, 255, 255], rowAlt: [252, 247, 243], line: [236, 222, 212], border: [196, 170, 152], text: [38, 30, 26], muted: [120, 110, 102], no: [194, 65, 12], card: [251, 247, 243] };
 
   const graded = rows.filter(r => Number.isFinite(r.score));
   const pcts = graded.map(r => pctOf(r.score, max));
@@ -164,9 +164,9 @@ export function exportMarksheetPdf({ title, className, subtitle, kindLabel = 'Ma
     body: body.map(r => r.slice(0, 4)),
     startY: firstPageBottom + 18,
     margin: { left: M, right: M, top: 60, bottom: 46 },
-    theme: 'plain',
-    styles: { font: 'helvetica', fontSize: 10.5, cellPadding: { top: 7, bottom: 7, left: 10, right: 10 }, textColor: P.text, lineColor: P.line, lineWidth: 0, valign: 'middle' },
-    headStyles: { fillColor: [194, 65, 12], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9.5, cellPadding: { top: 9, bottom: 9, left: 10, right: 10 } },
+    theme: 'grid',
+    styles: { font: 'helvetica', fontSize: 10.5, cellPadding: { top: 7, bottom: 7, left: 10, right: 10 }, textColor: P.text, lineColor: P.border, lineWidth: 0.7, valign: 'middle' },
+    headStyles: { fillColor: [194, 65, 12], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9.5, lineColor: [140, 48, 10], lineWidth: 0.7, cellPadding: { top: 9, bottom: 9, left: 10, right: 10 } },
     alternateRowStyles: { fillColor: P.rowAlt },
     bodyStyles: { fillColor: P.row },
     columnStyles: {
