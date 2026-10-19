@@ -4,7 +4,8 @@ import { useTranslation } from 'react-i18next';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import Pagination from '../../components/common/Pagination';
-import { Search, Megaphone, BookOpen, Calendar, Sparkles } from 'lucide-react';
+import AnnouncementLetter from '../../components/common/AnnouncementLetter';
+import { Search, Megaphone } from 'lucide-react';
 
 export default function StudentAnnouncements() {
   const { t } = useTranslation();
@@ -146,39 +147,9 @@ export default function StudentAnnouncements() {
       ) : (
         <div className="space-y-4">
           {announcements.map((a, i) => (
-            <div key={a.id} ref={el => { itemRefs.current[a.id] = el; }}
-              className={`ann-card ann-fade-in card hover:shadow-soft ${flashId === a.id ? 'ann-flash' : ''}`}
-              style={{ animationDelay: `${Math.min(i, 8) * 55}ms` }}>
-              <div className="flex items-start gap-4">
-                <div className="ann-icon-wrap w-10 h-10 rounded-xl bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center flex-shrink-0">
-                  <Megaphone className="w-5 h-5 text-orange-600" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h3 className="font-display font-bold text-sm" style={{ color: 'var(--text-primary)' }}>{a.title}</h3>
-                    {flashId === a.id && <Sparkles className="w-3.5 h-3.5 text-orange-500 flex-shrink-0" />}
-                  </div>
-                  <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{a.content}</p>
-                  <div className="flex items-center gap-3 mt-3 flex-wrap">
-                    {a.teacher_name && (
-                      <span className="text-xs text-muted">{t('announcementsPage.by', { name: a.teacher_name })}</span>
-                    )}
-                    {a.class_name ? (
-                      <span className="flex items-center gap-1 text-xs badge bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300">
-                        <BookOpen className="w-3 h-3" /> {a.class_name}
-                      </span>
-                    ) : (
-                      <span className="text-xs badge bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
-                        {t('announcementsPage.allStudents')}
-                      </span>
-                    )}
-                    <span className="flex items-center gap-1 text-xs text-muted ml-auto">
-                      <Calendar className="w-3 h-3" />
-                      {new Date(a.created_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
-                    </span>
-                  </div>
-                </div>
-              </div>
+            <div key={a.id} ref={el => { itemRefs.current[a.id] = el; }} className="ann-fade-in"
+              style={{ animationDelay: `${Math.min(i, 8) * 70}ms` }}>
+              <AnnouncementLetter announcement={a} flash={flashId === a.id} forceOpen={flashId === a.id} />
             </div>
           ))}
         </div>
