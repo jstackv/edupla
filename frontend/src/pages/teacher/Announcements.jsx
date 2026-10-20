@@ -8,7 +8,10 @@ import ConfirmDialog from '../../components/common/ConfirmDialog';
 import Pagination from '../../components/common/Pagination';
 import AnnouncementLetter from '../../components/common/AnnouncementLetter';
 import { useAuth } from '../../context/AuthContext';
-import { Plus, Search, Megaphone, Edit2, Trash2, FileText, ClipboardCheck, Eye } from 'lucide-react';
+import { Plus, Search, Megaphone, Edit2, Trash2, Eye } from 'lucide-react';
+
+// The templates a teacher can start from (texts live in the locale files: announcementLetter.tpl<Key>…).
+const TEMPLATE_KEYS = ['Homework', 'Test', 'Exam', 'ClassChange', 'Extension', 'Meeting', 'Results', 'Event', 'Holiday', 'General'];
 
 export default function TeacherAnnouncements() {
   const { t } = useTranslation();
@@ -176,11 +179,11 @@ export default function TeacherAnnouncements() {
                 <div>
                   <label className="label">{t('announcementLetter.templates')}</label>
                   <div className="flex flex-wrap gap-2">
-                    {[['Homework', FileText], ['Test', ClipboardCheck], ['General', Megaphone]].map(([key, Icon]) => (
+                    {TEMPLATE_KEYS.map(key => (
                       <button key={key} type="button" onClick={() => applyTemplate(key)}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all hover:-translate-y-0.5 active:scale-95"
-                        style={{ background: 'rgba(194,65,12,0.10)', color: '#c2410c', border: '1px solid rgba(194,65,12,0.25)' }}>
-                        <Icon className="w-3.5 h-3.5" /> {t(`announcementLetter.tpl${key}`)}
+                        className="px-3.5 py-1.5 rounded-full text-xs font-bold transition-all hover:-translate-y-0.5 active:scale-95"
+                        style={{ background: 'var(--surface-100)', color: 'var(--text-primary)', border: '1px solid var(--card-border)' }}>
+                        {t(`announcementLetter.tpl${key}`)}
                       </button>
                     ))}
                   </div>
