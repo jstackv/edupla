@@ -79,7 +79,7 @@ const createAnnouncement = async (req, res) => {
       if (studentEmails.length) {
         await notifyAnnouncement({
           studentEmails, teacherEmail,
-          announcementTitle: title, content, className,
+          announcementTitle: title, content, className, announcementId: a._id,
           teacherName: teacher?.name || 'Your teacher',
         }).catch(err => console.error('Email error:', err.message));
       }
