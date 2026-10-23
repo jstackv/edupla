@@ -15,7 +15,7 @@
  *   JMV
  *
  * Deliberately restrained: no icons, emoji or coloured cards — just
- * typography, one rule and a facts table, like a printed school notice.
+ * typography (in EDUPLA's own font), one rule and a facts table, like a printed school notice.
  * Used by the student feed, the teacher list (the teacher passes `actions`
  * for edit / delete) and the live preview while composing.
  */
@@ -23,11 +23,12 @@ import { useMemo, useRef, useState, useLayoutEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { parseLetter } from '../../utils/letterParser';
 
-const SERIF = "Georgia, 'Times New Roman', 'Noto Serif', serif";
+// The same font as the rest of EDUPLA (and as the announcement e-mail).
+const FONT = "'Plus Jakarta Sans', system-ui, sans-serif";
 const COLLAPSED_PX = 520;
 const ACCENT = '#c2410c';
 
-const body = { fontFamily: SERIF, fontSize: 15, lineHeight: 1.75, color: 'var(--text-primary)' };
+const body = { fontFamily: FONT, fontSize: 14.5, lineHeight: 1.75, color: 'var(--text-primary)' };
 
 // Emoji are for chat, not for a formal letter.
 const clean = (s) => String(s || '').replace(/\p{Extended_Pictographic}[\uFE0F\u200D]*/gu, '').replace(/[ \t]{2,}/g, ' ').trim();
@@ -154,7 +155,7 @@ export default function AnnouncementLetter({ announcement: a, senderName, action
           </p>
         </div>
         <div className="sm:text-right">
-          <p style={{ fontFamily: SERIF, fontSize: 14, color: 'var(--text-primary)' }}>{formatDate(a.created_at, i18n.language)}</p>
+          <p style={{ fontFamily: FONT, fontSize: 14, color: 'var(--text-primary)' }}>{formatDate(a.created_at, i18n.language)}</p>
           <p className="text-[11px] text-muted mt-0.5 tracking-wide">{t('announcementLetter.ref')} {ref}</p>
           {actions && <div className="mt-1.5 flex sm:justify-end gap-1">{actions}</div>}
         </div>
@@ -162,7 +163,7 @@ export default function AnnouncementLetter({ announcement: a, senderName, action
       <div className="mx-6 sm:mx-10" style={{ height: 2, background: ACCENT }} />
 
       {/* To / From / Subject */}
-      <div className="px-6 sm:px-10 pt-5 space-y-1" style={{ fontFamily: SERIF, fontSize: 15, color: 'var(--text-primary)' }}>
+      <div className="px-6 sm:px-10 pt-5 space-y-1" style={{ fontFamily: FONT, fontSize: 15, color: 'var(--text-primary)' }}>
         {[[t('announcementLetter.to'), recipient], [t('announcementLetter.from'), sender ? `${sender}, ${t('announcementLetter.teacher')}` : t('announcementLetter.teacher')]].map(([label, value]) => (
           <p key={label} className="grid grid-cols-[84px_minmax(0,1fr)] gap-x-2">
             <strong>{label}:</strong><span className="break-words">{value}</span>
@@ -191,7 +192,7 @@ export default function AnnouncementLetter({ announcement: a, senderName, action
           <div className="pt-2">
             {!parsed.hasSignoff && <p style={body}>{t('announcementLetter.kindRegards')}</p>}
             <p className="mt-6 font-bold" style={{ ...body, fontSize: 16 }}>{sender || t('announcementLetter.teacher')}</p>
-            <p className="text-[12px] text-muted" style={{ fontFamily: SERIF }}>
+            <p className="text-[12px] text-muted" style={{ fontFamily: FONT }}>
               {t('announcementLetter.teacher')}{a.class_name ? `, ${a.class_name}` : ''}
             </p>
           </div>
