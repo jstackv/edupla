@@ -1,4 +1,5 @@
 const nodemailer = require('nodemailer');
+const { parseLetter } = require('../utils/letterParser');
 
 // ── Transporter ────────────────────────────────────────────────────────────
 function createTransporter() {
@@ -60,6 +61,9 @@ const BRAND = {
 };
 
 const FONT = "'Poppins','Segoe UI',Helvetica,Arial,sans-serif";
+// The font the EDUPLA app itself uses. Announcements are sent in it (Poppins stays as the fallback
+// for clients that cannot load web fonts, which then use Segoe UI / Helvetica / Arial).
+const APP_FONT = "'Plus Jakarta Sans','Poppins','Segoe UI',Helvetica,Arial,sans-serif";
 
 const STATUS = {
   success: { solid: '#16a34a', soft: '#dcfce7', text: BRAND.successText, ring: BRAND.successRing, chip: BRAND.successBg, chipBorder: BRAND.successBorder, hero: 'orange' },
@@ -120,15 +124,15 @@ function envelopeHero({ icon, status }) {
   </table>`;
 }
 
-function wrapEmail({ title, preheader, body, badge, icon = '✓', status = 'accent' }) {
+function wrapEmail({ title, preheader, body, badge, icon = '✓', status = 'accent', font }) {
   const s = STATUS[status] || STATUS.accent;
-  return `<!DOCTYPE html>
+  const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <meta name="color-scheme" content="light only"/><meta name="supported-color-schemes" content="light only"/>
 <title>${title}</title>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
 <style>
   @keyframes eduFadeUp {
     0%   { opacity: 0; transform: translateY(18px); }
@@ -224,6 +228,8 @@ function wrapEmail({ title, preheader, body, badge, icon = '✓', status = 'acce
     </td></tr>
   </table>
 </body></html>`;
+  // Same markup for everyone; a template can ask for another font by name.
+  return font ? html.split(FONT).join(font) : html;
 }
 
 function badgeChip(text, status = 'accent') {
@@ -705,27 +711,99 @@ async function notifyDocumentPosted({ studentEmails, teacherEmail, documentTitle
 // ═══════════════════════════════════════════════════════════════════════════
 //  6. New announcement (notify students)
 // ═══════════════════════════════════════════════════════════════════════════
-async function notifyAnnouncement({ studentEmails, teacherEmail, announcementTitle, content, className, teacherName }) {
+// ── Announcement as a formal letter ─────────────────────────────────────────
+// Teachers type plain text; parseLetter finds the salutation, headings, steps, key facts, notices
+// and closing, and this lays them out like the in-app letter. EVERYTHING that came from the
+// teacher is HTML-escaped (and emoji are dropped — a formal letter has none).
+const escHtml = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const letterText = (v) => escHtml(String(v ?? '').replace(/\p{Extended_Pictographic}[\uFE0F\u200D]*/gu, '').replace(/[ \t]{2,}/g, ' ').trim());
+
+function buildLetterHtml({ title, content, className, teacherName, announcementId, date = new Date() }) {
+  const F = APP_FONT;
+  const ink = BRAND.textPrimary, soft = BRAND.textSecondary, rule = BRAND.ticketBorder;
+  const p = `margin:0 0 14px;font-family:${F};font-size:15px;line-height:1.75;color:${ink};`;
+  const parsed = parseLetter(content);
+  const when = date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  const ref = `EDU/ANN/${String(announcementId || 'DRAFT').slice(-6).toUpperCase()}`;
+  const subject = letterText(title) || escHtml(title);
+  const recipient = className ? `Students of ${escHtml(className)}` : 'All students';
+  const sender = teacherName ? `${escHtml(teacherName)}, Teacher` : 'Teacher';
+
+  const items = (list, ordered) => {
+    const tag = ordered ? 'ol' : 'ul';
+    return `<${tag} style="margin:0 0 14px;padding-left:24px;font-family:${F};font-size:14.5px;line-height:1.7;color:${ink};">${list.map(i => `<li style="margin:0 0 4px;">${letterText(i)}</li>`).join('')}</${tag}>`;
+  };
+  const heading = (n, text) => `<p style="margin:18px 0 6px;font-family:${F};font-size:15.5px;font-weight:700;color:${ink};">${n ? `${n}. ` : ''}${letterText(text)}</p>`;
+  const headed = (b) => b.type === 'steps' || (b.type === 'section' && b.heading);
+  const numbered = parsed.blocks.filter(headed).length >= 2;
+
+  let n = 0;
+  const out = [];
+  for (let i = 0; i < parsed.blocks.length; i++) {
+    const b = parsed.blocks[i];
+    if (b.type === 'fact') {                       // consecutive facts → one small table
+      const facts = [b];
+      while (parsed.blocks[i + 1] && parsed.blocks[i + 1].type === 'fact') facts.push(parsed.blocks[++i]);
+      out.push(`<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin:4px 0 16px;border-top:1px solid ${rule};border-bottom:1px solid ${rule};">${facts.map((f, k) => `
+        <tr><td width="38%" valign="top" style="padding:8px 10px 8px 0;${k ? `border-top:1px solid ${rule};` : ''}font-family:${F};font-size:14.5px;line-height:1.6;font-weight:700;color:${ink};">${letterText(f.label)}</td>
+        <td valign="top" style="padding:8px 0;${k ? `border-top:1px solid ${rule};` : ''}font-family:${F};font-size:14.5px;line-height:1.6;color:${ink};">${letterText(f.value)}</td></tr>`).join('')}</table>`);
+    } else if (b.type === 'paragraph') {
+      out.push(`<p style="${p}">${letterText(b.text)}</p>`);
+    } else if (b.type === 'labelled') {
+      out.push(`<p style="${p}"><strong>${letterText(b.label)}:</strong> ${letterText(b.text)}</p>`);
+    } else if (b.type === 'section') {
+      out.push(heading(numbered ? ++n : 0, b.heading) + (b.items ? items(b.items, b.ordered) : b.text ? `<p style="${p}font-size:14.5px;">${letterText(b.text)}</p>` : ''));
+    } else if (b.type === 'steps') {
+      out.push(heading(numbered ? ++n : 0, b.heading) + items(b.items, true));
+    } else if (b.type === 'list') {
+      out.push(items(b.items, b.ordered));
+    } else if (b.type === 'warning') {
+      out.push(`<p style="${p}padding-left:14px;border-left:3px solid ${BRAND.accentDeep};">${b.heading ? `<strong>${letterText(b.heading)}:</strong> ` : ''}${letterText(b.text)}</p>`);
+    }
+  }
+
+  const meta = (label, value, extra = '') => `<tr><td width="74" valign="top" style="padding:2px 0;font-family:${F};font-size:14.5px;font-weight:700;color:${ink};">${label}:</td><td valign="top" style="padding:2px 0;font-family:${F};font-size:14.5px;color:${ink};${extra}">${value}</td></tr>`;
+
+  return `
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#ffffff;border:1px solid ${rule};border-radius:16px;text-align:left;">
+    <tr><td style="padding:26px 30px 0;">
+      <table width="100%" cellpadding="0" cellspacing="0" role="presentation"><tr>
+        <td valign="bottom" style="font-family:${F};">
+          <div style="font-size:20px;line-height:1;font-weight:800;letter-spacing:-0.01em;color:${ink};">EDU<span style="color:${BRAND.accentDeep};">PLA</span></div>
+          <div style="margin-top:6px;font-size:10px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:${BRAND.textMuted};">${className ? 'Class announcement' : 'General announcement'}</div>
+        </td>
+        <td valign="bottom" align="right" style="font-family:${F};font-size:13px;color:${ink};">${escHtml(when)}<div style="margin-top:3px;font-size:11px;color:${BRAND.textMuted};">Ref. ${escHtml(ref)}</div></td>
+      </tr></table>
+      <div style="height:2px;background:${BRAND.accentDeep};margin:16px 0 18px;line-height:2px;font-size:0;">&nbsp;</div>
+      <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+        ${meta('To', recipient)}${meta('From', sender)}${meta('Subject', subject, 'font-weight:700;text-decoration:underline;')}
+      </table>
+    </td></tr>
+    <tr><td style="padding:22px 30px 28px;">
+      <p style="${p}">${letterText(parsed.salutation) || 'Dear students,'}</p>
+      ${out.join('\n')}
+      ${parsed.closing ? `<p style="${p}">${letterText(parsed.closing)}</p>` : ''}
+      ${parsed.hasSignoff ? '' : `<p style="margin:0;font-family:${F};font-size:15px;color:${ink};">Kind regards,</p>`}
+      <p style="margin:22px 0 0;font-family:${F};font-size:16px;font-weight:700;color:${ink};">${teacherName ? escHtml(teacherName) : 'Teacher'}</p>
+      <p style="margin:2px 0 0;font-family:${F};font-size:12px;color:${soft};">Teacher${className ? `, ${escHtml(className)}` : ''}</p>
+    </td></tr>
+  </table>`;
+}
+
+async function notifyAnnouncement({ studentEmails, teacherEmail, announcementTitle, content, className, teacherName, announcementId }) {
   if (!studentEmails?.length) return;
 
   const body = `
-    <p style="margin:0 0 20px;font-size:14px;color:${BRAND.textSecondary};">Your teacher has posted an announcement.</p>
-    ${ticketCard({
-      name: announcementTitle,
-      subtitle: className || 'General',
-      avatarText: '📣',
-      rows: [
-        { label: 'Message', value: `<span style="font-weight:500;color:${BRAND.textSecondary};font-family:inherit;">${content}</span>`, icon: false },
-        { label: 'Posted by', value: teacherName, icon: false },
-      ],
-    })}
+    <p style="margin:0 0 20px;font-size:14px;color:${BRAND.textSecondary};">${escHtml(teacherName || 'Your teacher')} has posted an announcement${className ? ` for ${escHtml(className)}` : ''}.</p>
+    ${buildLetterHtml({ title: announcementTitle, content, className, teacherName, announcementId })}
     ${ctaBtn('View Announcements →', `${APP_URL()}/student/announcements`)}`;
 
+  const plainTitle = String(announcementTitle || '').replace(/\p{Extended_Pictographic}[\uFE0F\u200D]*/gu, '').trim() || announcementTitle;
   await sendMail({
     to: studentEmails,
     ...(teacherEmail ? { bcc: teacherEmail } : {}),
-    subject: `📣 Announcement: ${announcementTitle}`,
-    html: wrapEmail({ title: 'New Announcement', preheader: `${teacherName}: ${announcementTitle}`, badge: badgeChip(className || 'Announcement', 'accent'), icon: '📣', status: 'accent', body }),
+    subject: `Announcement: ${plainTitle}`,
+    html: wrapEmail({ title: 'New Announcement', preheader: escHtml(`${teacherName}: ${plainTitle}`), badge: badgeChip(escHtml(className || 'Announcement'), 'accent'), icon: '📣', status: 'accent', body, font: APP_FONT }),
   });
 }
 
