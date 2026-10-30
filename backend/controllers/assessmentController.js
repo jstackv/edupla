@@ -2593,6 +2593,12 @@ async function buildAttemptPayload(attempt, assessment, orderedQuestions) {
     duration_minutes: assessment.duration_minutes,
     started_at: attempt.started_at,
     due_at: attempt.due_at,
+    // The student's device clock can be minutes (or hours) off, so the page must NOT work out the
+    // time left from its own clock. These are measured on the server: the page counts down from
+    // remaining_ms and re-syncs now and then.
+    server_now: new Date().toISOString(),
+    remaining_ms: Math.max(0, new Date(attempt.due_at).getTime() - Date.now()),
+    total_ms: Math.max(0, new Date(attempt.due_at).getTime() - new Date(attempt.started_at).getTime()),
     questions: questions.map(q => ({
       ...stripQuestionForAttempt(q),
       saved_answer: answerMap[q._id.toString()] ?? null,
@@ -3144,11 +3150,17 @@ exports.teacherAddAttempts = async (req, res) => {
       }
       assessment.duration_minutes = Number(duration_minutes);
     }
-    if (expires_at !== undefined && expires_at !== null && expires_at !== '') {
-      if (new Date(expires_at) <= new Date()) {
-        return res.status(400).json({ message: 'Expiry date/time must be in the future.' });
+    if (expires_at !== undefined) {
+      if (expires_at === null || expires_at === '') {
+        // An explicit empty value means "no expiry" (same as when sharing) — it used to be ignored,
+        // which silently kept an old, already-passed expiry in place.
+        assessment.expires_at = null;
+      } else {
+        if (new Date(expires_at) <= new Date()) {
+          return res.status(400).json({ message: 'Expiry date/time must be in the future.' });
+        }
+        assessment.expires_at = new Date(expires_at);
       }
-      assessment.expires_at = new Date(expires_at);
     }
     if (available_from !== undefined) {
       const newAvailableFrom = available_from ? new Date(available_from) : null;
@@ -3156,6 +3168,17 @@ exports.teacherAddAttempts = async (req, res) => {
         return res.status(400).json({ message: 'The start time must be before the expiry date/time.' });
       }
       assessment.available_from = newAvailableFrom;
+    }
+
+    // An extra attempt is useless (students just see "Time's up") if the assessment's window has
+    // already closed and nothing re-opens it. Make the teacher choose a new expiry instead of
+    // silently granting an attempt nobody can start.
+    if (assessment.expires_at && new Date(assessment.expires_at) <= new Date()) {
+      return res.status(400).json({
+        code: 'WINDOW_CLOSED',
+        expires_at: assessment.expires_at,
+        message: "This assessment's window has already closed, so students could not start the extra attempt. Set a new expiry date/time (or remove the expiry) and try again.",
+      });
     }
 
     let newMaxForSelected = null;

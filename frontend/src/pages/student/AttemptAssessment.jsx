@@ -25,31 +25,61 @@ import {
   Send, ShieldAlert, Award, Hourglass, Scale, Target, Sparkles,
 } from 'lucide-react';
 
-function useCountdown(dueAt, onExpire) {
+/* Countdown that follows the SERVER's clock.
+ *
+ * The time left is never worked out from the student's own device clock (which can be minutes or even
+ * hours wrong — that made the timer show a different number of minutes than the teacher set, or "Time's
+ * up" straight away). Instead the server says how many ms are left (`remaining_ms`) and we count down
+ * from that using the browser's monotonic timer, which ignores clock changes. Every 20 s we ask the
+ * server again, so the display can never drift far from the real deadline. */
+function useServerCountdown(attempt, { onExpire, onSync, isEnded }) {
   const [remaining, setRemaining] = useState(null);
+  const anchorRef = useRef(null);      // { base, t0 } → left = base − (performance.now() − t0)
   const expiredRef = useRef(false);
+  const cbRef = useRef({});
+  cbRef.current = { onExpire, onSync, isEnded };   // always the latest callbacks (and their latest answers)
 
   useEffect(() => {
-    if (!dueAt) return;
+    if (!attempt) return undefined;
+    const anchor = (ms) => { anchorRef.current = { base: Math.max(0, ms), t0: performance.now() }; };
+    anchor(
+      attempt.remaining_ms != null
+        ? attempt.remaining_ms
+        : new Date(attempt.due_at).getTime() - (attempt.server_now ? new Date(attempt.server_now).getTime() : Date.now()),
+    );
+    expiredRef.current = false;
+
     const tick = () => {
-      const diff = Math.max(0, new Date(dueAt).getTime() - Date.now());
-      setRemaining(diff);
-      if (diff <= 0 && !expiredRef.current) {
+      const { base, t0 } = anchorRef.current;
+      const left = Math.max(0, base - (performance.now() - t0));
+      setRemaining(left);
+      if (left <= 0 && !expiredRef.current) {
         expiredRef.current = true;
-        onExpire();
+        cbRef.current.onExpire?.();
+        // If submitting failed (e.g. a network blip) try again in a few seconds.
+        setTimeout(() => { if (!cbRef.current.isEnded?.()) expiredRef.current = false; }, 3000);
       }
     };
     tick();
-    const iv = setInterval(tick, 1000);
-    return () => clearInterval(iv);
-  }, [dueAt]); // eslint-disable-line
+    const iv = setInterval(tick, 500);
+
+    const syncIv = setInterval(async () => {
+      try {
+        const { data } = await api.get(`/assessment/student/attempts/${attempt.attempt_id}`);
+        if (data.ended) cbRef.current.onSync?.(data);
+        else if (data.remaining_ms != null) anchor(data.remaining_ms);
+      } catch { /* offline for a moment — keep counting from the last known value */ }
+    }, 20000);
+
+    return () => { clearInterval(iv); clearInterval(syncIv); };
+  }, [attempt?.attempt_id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return remaining;
 }
 
 function fmtRemaining(ms) {
   if (ms == null) return '--:--';
-  const totalSec = Math.floor(ms / 1000);
+  const totalSec = Math.ceil(ms / 1000);
   const m = Math.floor(totalSec / 60);
   const s = totalSec % 60;
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
@@ -198,7 +228,17 @@ export default function AttemptAssessment() {
   }, [attempt, answers]);
 
   /* ── Timer ── */
-  const remaining = useCountdown(attempt?.due_at, () => finishAttempt('timeout'));
+  const remaining = useServerCountdown(attempt, {
+    onExpire: () => finishAttempt('timeout'),
+    isEnded: () => endedRef.current,
+    // The server says the attempt is already over (deadline passed / submitted elsewhere).
+    onSync: (data) => {
+      if (endedRef.current) return;
+      endedRef.current = true;
+      setResult({ ...data, autoSubmitted: !!data.auto_submitted, reason: data.auto_submitted ? 'timeout' : null });
+      if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+    },
+  });
 
   /* ── Anti-cheat: leaving the exam screen auto-submits ── */
   useEffect(() => {
@@ -315,7 +355,7 @@ export default function AttemptAssessment() {
       <div className="flex items-center justify-between px-6 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
         <div>
           <p className="font-semibold text-white">{attempt.assessment_title}</p>
-          <p className="text-xs" style={{ color: 'rgba(255,255,255,0.6)' }}>{attempt.module_name} · Question {current + 1} of {attempt.questions.length} · {answeredCount} answered</p>
+          <p className="text-xs" style={{ color: 'rgba(255,255,255,0.6)' }}>{attempt.module_name} · Question {current + 1} of {attempt.questions.length} · {answeredCount} answered{attempt.duration_minutes ? ` · ${attempt.duration_minutes} min limit` : ''}</p>
         </div>
         <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl font-mono font-bold transition-colors duration-300 ${isLow ? 'text-red-400 assessment-timer-urgent' : 'text-white'}`}
           style={{ background: isLow ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.08)' }}>

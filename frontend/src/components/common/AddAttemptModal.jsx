@@ -36,7 +36,7 @@ import api from '../../utils/api';
 import toast from 'react-hot-toast';
 import {
   PlusCircle, Loader2, Minus, Plus, Clock, CalendarClock, CalendarPlus,
-  Users, User, Search, X, Check, Sparkles, ArrowRight, Zap, Sun, Moon, CalendarDays,
+  Users, User, Search, X, Check, Sparkles, ArrowRight, Zap, Sun, Moon, CalendarDays, AlertTriangle,
 } from 'lucide-react';
 
 function pad(n) { return String(n).padStart(2, '0'); }
@@ -128,11 +128,16 @@ function TimingPreview({ availableFrom, expiresAt }) {
 }
 
 export default function AddAttemptModal({ assessment, onClose, onAdded }) {
+  // If the assessment's window has already closed, an extra attempt can't be started by anyone
+  // (students would just see "Time's up"). So in that case the timing section is mandatory and
+  // the expiry starts at a sensible future default instead of the old, passed date.
+  const windowClosed = !!assessment.expires_at && new Date(assessment.expires_at) <= new Date();
+
   const [additional, setAdditional] = useState(1);
-  const [setTiming, setSetTiming] = useState(false);
+  const [setTiming, setSetTiming] = useState(windowClosed);
   const [durationMinutes, setDurationMinutes] = useState(assessment.duration_minutes || 30);
   const [availableFrom, setAvailableFrom] = useState(toDatetimeLocalOrEmpty(assessment.available_from));
-  const [expiresAt, setExpiresAt] = useState(toDatetimeLocal(assessment.expires_at));
+  const [expiresAt, setExpiresAt] = useState(windowClosed ? daysFromNowEndOfDay(7) : toDatetimeLocal(assessment.expires_at));
   const [saving, setSaving] = useState(false);
 
   // ── Student targeting ──────────────────────────────────────────────────
@@ -183,6 +188,9 @@ export default function AddAttemptModal({ assessment, onClose, onAdded }) {
 
   const handleAdd = async () => {
     if (!additional || Number(additional) < 1) return toast.error('Add at least 1 attempt.');
+    if (windowClosed && (!setTiming || !expiresAt)) {
+      return toast.error('The original window has closed — choose a new expiry date/time so students can start the extra attempt.');
+    }
     if (setTiming) {
       if (!durationMinutes || Number(durationMinutes) <= 0) return toast.error('Set a duration greater than 0 minutes.');
       if (availableFrom && expiresAt && new Date(availableFrom) >= new Date(expiresAt)) {
@@ -366,12 +374,21 @@ export default function AddAttemptModal({ assessment, onClose, onAdded }) {
           )}
         </div>
 
+        {windowClosed && (
+          <div className="flex items-start gap-2 p-3 rounded-xl text-xs" style={{ background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.35)', color: 'var(--text-primary)' }}>
+            <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#d97706' }} />
+            <span>
+              This assessment's window closed on <strong>{fmtShort(assessment.expires_at)}</strong>. Students can't start anything after that time, so set a new expiry below — otherwise they would only see "Time's up".
+            </span>
+          </div>
+        )}
+
         {/* ── Timing switch ── */}
-        <label className="flex items-center justify-between gap-2 text-sm cursor-pointer select-none" style={{ color: 'var(--text-primary)' }}>
+        <label className={`flex items-center justify-between gap-2 text-sm select-none ${windowClosed ? 'cursor-not-allowed' : 'cursor-pointer'}`} style={{ color: 'var(--text-primary)' }}>
           <span className="flex items-center gap-1.5 font-semibold">
-            <Sparkles className="w-4 h-4" style={{ color: '#c2410c' }} /> Also set the timing for this attempt
+            <Sparkles className="w-4 h-4" style={{ color: '#c2410c' }} /> {windowClosed ? 'Set the new timing for this attempt' : 'Also set the timing for this attempt'}
           </span>
-          <span className={`aam-switch ${setTiming ? 'aam-switch-on' : ''}`} onClick={() => setSetTiming(v => !v)}>
+          <span className={`aam-switch ${setTiming ? 'aam-switch-on' : ''}`} onClick={() => { if (!windowClosed) setSetTiming(v => !v); }}>
             <span className="aam-switch-knob" />
           </span>
         </label>
