@@ -27,13 +27,40 @@ function fileFromUpload(f) {
   };
 }
 
-// Works for upload.array(), upload.fields() and upload.single().
+// Files the browser uploaded straight to Cloudinary (see routes/uploads.js) and
+// then described to us in a JSON field called `uploadedFiles`. Only objects that
+// really live in our own Cloudinary account/folder are accepted.
+function directUploads(req) {
+  let raw = req.body && req.body.uploadedFiles;
+  if (!raw) return [];
+  if (typeof raw === 'string') {
+    try { raw = JSON.parse(raw); } catch { return []; }
+  }
+  if (!Array.isArray(raw)) return [];
+  const cloud = process.env.CLOUDINARY_CLOUD_NAME;
+  const urlPrefix = `https://res.cloudinary.com/${cloud}/`;
+  return raw
+    .filter(f => f
+      && typeof f.filename === 'string' && /^edupla\/assignments\/[\w-]+$/.test(f.filename)
+      && typeof f.file_url === 'string' && f.file_url.startsWith(urlPrefix))
+    .map(f => ({
+      filename: f.filename,
+      original_name: String(f.original_name || 'file').slice(0, 255),
+      mime_type: String(f.mime_type || 'application/octet-stream').slice(0, 120),
+      file_url: f.file_url,
+      size: Number(f.size) || 0,
+      uploaded_at: new Date(),
+    }));
+}
+
+// Works for upload.array(), upload.fields() and upload.single(), and also picks
+// up files the browser uploaded directly to Cloudinary.
 function uploadedFiles(req) {
   const out = [];
   if (Array.isArray(req.files)) out.push(...req.files);
   else if (req.files && typeof req.files === 'object') Object.values(req.files).forEach(list => out.push(...list));
   if (req.file) out.push(req.file);
-  return out.map(fileFromUpload);
+  return [...out.map(fileFromUpload), ...directUploads(req)];
 }
 
 // Every file on a record as plain objects with a string id. `field` is
