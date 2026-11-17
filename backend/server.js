@@ -73,6 +73,7 @@ app.use('/api/admin',         require('./routes/admin'));
 app.use('/api/classes',       require('./routes/classes'));
 app.use('/api/students',      require('./routes/students'));
 app.use('/api/documents',     require('./routes/documents'));
+app.use('/api/uploads',       require('./routes/uploads'));
 app.use('/api/assignments',   require('./routes/assignments'));
 app.use('/api/task-groups',   require('./routes/taskGroups'));
 app.use('/api/assessment',   require('./routes/assessments_new'));

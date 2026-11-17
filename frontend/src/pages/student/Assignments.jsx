@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import api from '../../utils/api';
+import { uploadFilesDirect, saveErrorMessage } from '../../utils/directUpload';
 import toast from 'react-hot-toast';
 import Pagination from '../../components/common/Pagination';
 import FileViewer from '../../components/common/FileViewer';
@@ -200,19 +201,19 @@ function TaskWorkspace({ task, onBack, onChanged, onPreview }) {
     setSaving(true); setProgress(0);
     try {
       const fd = new FormData();
-      files.forEach(f => fd.append('files', f));
+      const uploaded = await uploadFilesDirect(files, setProgress);
+      if (uploaded.length) fd.append('uploadedFiles', JSON.stringify(uploaded));
       if (removedIds.length) fd.append('removeFileIds', JSON.stringify(removedIds));
       fd.append('notes', notes);
       await api.post(`/assignments/${task.id}/submit`, fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
         timeout: 0,
-        onUploadProgress: ev => { if (ev.total) setProgress(Math.round((ev.loaded / ev.total) * 100)); },
       });
       toast.success(isSubmitted ? 'Resubmitted successfully!' : 'Submitted successfully!');
       setJustDone(true);
       onChanged();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Submission failed');
+      toast.error(saveErrorMessage(err, 'Submission failed'));
     }
     setSaving(false);
   };

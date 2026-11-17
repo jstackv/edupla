@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import api from '../../utils/api';
+import { uploadFilesDirect, saveErrorMessage } from '../../utils/directUpload';
 import toast from 'react-hot-toast';
 import Modal from '../../components/common/Modal';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
@@ -636,12 +637,12 @@ function AssignmentFormModal({ isOpen, onClose, editing, presetClass, presetModu
       fd.append('taskType', taskType || 'assignment');
       fd.append('mode', isHomework ? 'individual' : (mode || 'individual'));
       fd.append('groupIds', JSON.stringify(isDiscussion ? groupIds : []));
-      files.forEach(f => fd.append('files', f));
+      const uploaded = await uploadFilesDirect(files, setProgress);
+      if (uploaded.length) fd.append('uploadedFiles', JSON.stringify(uploaded));
       if (editing && removedIds.length) fd.append('removeAttachmentIds', JSON.stringify(removedIds));
       const cfg = {
         headers: { 'Content-Type': 'multipart/form-data' },
         timeout: 0,
-        onUploadProgress: ev => { if (ev.total) setProgress(Math.round((ev.loaded / ev.total) * 100)); },
       };
       if (editing) {
         await api.put(`/assignments/${editing.id}`, fd, cfg);
@@ -652,7 +653,7 @@ function AssignmentFormModal({ isOpen, onClose, editing, presetClass, presetModu
       }
       onClose();
       onSuccess();
-    } catch (err) { toast.error(err.response?.data?.message || 'Failed to save'); }
+    } catch (err) { toast.error(saveErrorMessage(err, 'Failed to save')); }
     finally { setSaving(false); }
   };
 
