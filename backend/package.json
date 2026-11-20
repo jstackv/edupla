@@ -7,6 +7,7 @@
     "dev": "nodemon server.js"
   },
   "dependencies": {
+    "@vercel/functions": "^1.5.0",
     "bcryptjs": "^2.4.3",
     "cloudinary": "^1.41.3",
     "compression": "^1.7.4",

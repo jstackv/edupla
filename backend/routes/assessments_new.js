@@ -58,6 +58,7 @@ router.post('/teacher/assessments/:id/submit',isAuthenticated, isTeacher, ctrl.t
 // Excel marks template download / upload
 router.get('/teacher/assessments/:id/marks/template', isAuthenticated, isTeacher, ctrl.teacherDownloadMarksTemplate);
 router.post('/teacher/assessments/:id/marks/upload',  isAuthenticated, isTeacher, excelUpload.single('file'), ctrl.teacherUploadMarks);
+router.get('/teacher/assessments/marks-summary', isAuthenticated, isTeacher, ctrl.teacherMarksSummary);
 router.get('/teacher/reports/:assessmentId',  isAuthenticated, isTeacher, ctrl.teacherAssessmentReport);
 
 // ── TEACHER: online-quiz feature (question builder, sharing, grading) ─────

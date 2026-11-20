@@ -5,25 +5,22 @@ const connectDB = async () => {
   try {
     await mongoose.connect(process.env.MONGODB_URI, {
       dbName: process.env.DB_NAME || "edupla",
+      // Fail fast and reuse sockets: on serverless a slow/stalled connect used
+      // to leave requests hanging until they timed out.
+      serverSelectionTimeoutMS: 8000,
+      socketTimeoutMS: 45000,
+      maxPoolSize: 10,
     });
     console.log("✅ MongoDB connected successfully");
 
-    // The Assessment model's unique index changed from
-    // (course_id, class_id, type, term, academic_year, mode) to
-    // (course_id, class_id, term, academic_year, mode, title) so a teacher
-    // can create more than one assessment of the same type (e.g. two or
-    // more Formative Assessments) in the same term. Without a sync, the old
-    // index stays live and blocks the very thing this change is meant to allow.
-    try {
-      await Assessment.syncIndexes();
-    } catch (err) {
-      console.error("⚠️  Assessment index sync failed:", err.message);
-    }
-
-    try {
-      await AcademicYear.syncIndexes();
-    } catch (err) {
-      console.error("⚠️  AcademicYear index sync failed:", err.message);
+    // Index syncing scans and may rebuild indexes. Doing it on EVERY serverless
+    // cold start made the first requests after a quiet period slow or fail.
+    // It runs in the background locally, and on Vercel only when
+    // SYNC_INDEXES=true is set (e.g. once after an index definition changes).
+    const shouldSync = !process.env.VERCEL || process.env.SYNC_INDEXES === "true";
+    if (shouldSync) {
+      Assessment.syncIndexes().catch(err => console.error("⚠️  Assessment index sync failed:", err.message));
+      AcademicYear.syncIndexes().catch(err => console.error("⚠️  AcademicYear index sync failed:", err.message));
     }
   } catch (err) {
     console.error("❌ MongoDB connection error:", err.message);

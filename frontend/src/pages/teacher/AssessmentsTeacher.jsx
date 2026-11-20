@@ -340,7 +340,12 @@ export default function TeacherAssessments() {
     type: '',
     term: '',
     academic_year: '',
+    max_marks: '',
   });
+
+  /* ── Marks summary report (all assessments of a module in a term) ── */
+  const [summary, setSummary]           = useState(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
 
   /* ── Marks modal state ── */
   const [marksModal, setMarksModal]   = useState(null);
@@ -495,6 +500,9 @@ export default function TeacherAssessments() {
      duplicate check — an assessment created for one class never blocks the
      same type from being created for a different class. */
   function isTypeUsed(typeKey) {
+    // Several formative / integrated assessments are allowed in one term;
+    // only the comprehensive assessment is limited to one.
+    if (typeKey !== 'CA') return false;
     if (!form.selectedClassId || !form.course_id || !form.term || !form.academic_year) return false;
     return assessments.some(a =>
       String(a.course_id?._id || a.course_id) === String(form.course_id) &&
@@ -519,6 +527,7 @@ export default function TeacherAssessments() {
       type: '',
       term: termFilter,
       academic_year: currentYearName,
+      max_marks: String(courses.find(c => String(c._id || c.id) === String(navCourseId))?.total_marks || 100),
     });
     setShowModal(true);
   }
@@ -535,6 +544,7 @@ export default function TeacherAssessments() {
       // The academic year an assessment was created under never changes —
       // this is display-only here, not something the teacher can edit.
       academic_year: a.academic_year || currentYearName,
+      max_marks: String(a.max_marks || a.course_id?.total_marks || 100),
     });
     setShowModal(true);
   }
@@ -548,33 +558,41 @@ export default function TeacherAssessments() {
     if (!form.term)           { toast.error('Please select a term'); return; }
     if (!form.academic_year)  { toast.error('Please select an academic year'); return; }
 
-    /* ── Duplicate guard — scoped to the selected class. An assessment
-       created for one class never blocks the same module/type/term/year
-       combo from being created for a different class. ── */
-    const duplicate = assessments.find(a =>
-      String(a.course_id?._id || a.course_id) === String(form.course_id) &&
-      String(a.class_id?._id || a.class_id) === String(form.selectedClassId) &&
-      a.type === form.type &&
-      a.term === form.term &&
-      a.academic_year === form.academic_year &&
-      (a._id || a.id) !== editingId
-    );
-    if (duplicate) {
-      toast.error(
-        `A "${ASSESSMENT_TYPES.find(t => t.key === form.type)?.label || form.type}" already exists for this module/class in ${form.term} ${form.academic_year}.`
+    const maxNum = Number(form.max_marks);
+    if (!form.max_marks || !Number.isFinite(maxNum) || maxNum <= 0) { toast.error('Enter the maximum marks of this assessment (more than 0)'); return; }
+
+    /* ── Only ONE comprehensive assessment per module/class/term/year.
+       Any number of formative / integrated assessments is fine. ── */
+    if (form.type === 'CA') {
+      const duplicate = assessments.find(a =>
+        String(a.course_id?._id || a.course_id) === String(form.course_id) &&
+        String(a.class_id?._id || a.class_id) === String(form.selectedClassId) &&
+        a.type === 'CA' &&
+        a.term === form.term &&
+        a.academic_year === form.academic_year &&
+        (a._id || a.id) !== editingId
       );
-      return;
+      if (duplicate) {
+        toast.error(`A Comprehensive Assessment already exists for this module in ${form.term} ${form.academic_year}. Only one is allowed per term.`);
+        return;
+      }
     }
 
-    const autoTitle = ASSESSMENT_TYPES.find(t => t.key === form.type)?.label || form.type;
     const payload = {
-      title: autoTitle,
       course_id: form.course_id,
       class_id: form.selectedClassId,
       type: form.type,
       term: form.term,
       academic_year: form.academic_year,
+      max_marks: maxNum,
     };
+    // Titles are numbered automatically by the server on create
+    // ("Formative Assessment", "Formative Assessment 2", …). When editing,
+    // keep the current title unless the type itself changed.
+    if (editingId) {
+      const current = assessments.find(a => (a._id || a.id) === editingId);
+      if (current && current.type === form.type) payload.title = current.title;
+    }
 
     setSavingAssessment(true);
     try {
@@ -638,6 +656,42 @@ export default function TeacherAssessments() {
       setMarksModal({ assessment, students, submission });
     } catch (e) { toast.error(e.response?.data?.message || 'Failed to load marks'); }
     finally { setMarksLoading(false); }
+  }
+
+  /* Print / save as PDF: opens a clean printable copy of the report. */
+  function printSummary() {
+    if (!summary) return;
+    const esc = (v) => String(v ?? '').replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+    const f = (v, d = 1) => (v == null ? '—' : Number(v).toFixed(d).replace(/\.0+$/, '').replace(/(\.\d*[1-9])0+$/, '$1'));
+    const head = summary.assessments.map(a => `<th>${esc(a.title)}<br><small>/${a.max_marks}</small></th>`).join('');
+    const rows = summary.students.map((st, i) => `<tr><td>${i + 1}</td><td class="l">${esc(st.name)}</td>${
+      summary.assessments.map(a => `<td>${st.scores[a.id]?.marks ?? '—'}</td>`).join('')
+    }<td>${f(st.fa_avg, 2)}</td><td>${f(st.ia_avg, 2)}</td><td>${f(st.ca, 2)}</td><td><b>${st.result_pct == null ? '—' : f(st.result_pct) + '%'}</b></td><td>${st.decision || '—'}</td></tr>`).join('');
+    const w = window.open('', '_blank');
+    if (!w) { toast.error('Allow pop-ups to print the report'); return; }
+    w.document.write(`<!doctype html><html><head><title>${esc(summary.course.name)} – ${esc(summary.term)} marks report</title><style>
+      body{font-family:Arial,sans-serif;color:#111;margin:24px}h1{font-size:18px;margin:0 0 4px}.sub{color:#555;font-size:12px;margin-bottom:14px}
+      table{border-collapse:collapse;width:100%;font-size:11px}th,td{border:1px solid #bbb;padding:5px 6px;text-align:center}th{background:#eef2f7}td.l{text-align:left}
+      small{font-weight:400;color:#555}.note{margin-top:12px;font-size:11px;color:#444;line-height:1.5}@media print{button{display:none}}
+    </style></head><body>
+      <h1>${esc(summary.course.name)} — Marks Report</h1>
+      <div class="sub">${esc(summary.class.name)} · ${esc(summary.term)} · ${esc(summary.academic_year)} · Module weight ${summary.course.total_marks} · Passing line ${summary.stats.passing_line}%${summary.stats.class_average_pct != null ? ' · Class average ' + summary.stats.class_average_pct + '%' : ''}</div>
+      <table><thead><tr><th>#</th><th>Student</th>${head}<th>Formative avg<br><small>/${summary.course.total_marks}</small></th><th>Integrated avg<br><small>/${summary.course.total_marks}</small></th><th>Comprehensive<br><small>/${summary.course.total_marks}</small></th><th>Term %</th><th>Decision</th></tr></thead><tbody>${rows}</tbody></table>
+      <div class="note">Each mark is converted to the module weight (mark ÷ maximum × ${summary.course.total_marks}). Several assessments of one type are averaged. Term % = (Formative + Comprehensive) ÷ (2 × ${summary.course.total_marks}).</div>
+      <script>window.onload=function(){window.print()}<\/script></body></html>`);
+    w.document.close();
+  }
+
+  async function openSummary() {
+    if (!navClassId || !navCourseId) return;
+    setSummaryLoading(true);
+    try {
+      const res = await api.get('/assessment/teacher/assessments/marks-summary', {
+        params: { course_id: navCourseId, class_id: navClassId, term: termFilter },
+      });
+      setSummary(res.data);
+    } catch (e) { toast.error(e.response?.data?.message || 'Failed to load the marks report'); }
+    finally { setSummaryLoading(false); }
   }
 
   const marksLocked = marksModal?.submission?.status === 'submitted' || marksModal?.submission?.status === 'approved';
@@ -1105,6 +1159,17 @@ export default function TeacherAssessments() {
           {navClassId && navCourseId && (
             <button
               className="ta-btn"
+              onClick={openSummary}
+              disabled={summaryLoading}
+              title="All marks recorded for this module this term, with averages and percentages"
+              style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 14px', borderRadius: 13, border: `1px solid ${dark ? '#232a3d' : '#e5e7eb'}`, background: dark ? '#1a1a1a' : '#fff', color: dark ? '#e2e8f0' : '#404040', fontSize: 13, fontWeight: 700, cursor: summaryLoading ? 'default' : 'pointer', marginLeft: 2 }}
+            >
+              <BarChart3 size={14} /> {summaryLoading ? 'Loading…' : 'Marks Report'}
+            </button>
+          )}
+          {navClassId && navCourseId && (
+            <button
+              className="ta-btn"
               onClick={openCreate}
               style={{
                 position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 8,
@@ -1383,7 +1448,7 @@ export default function TeacherAssessments() {
                                 </span>
                               )}
                               <div style={{ minWidth: 0 }}>
-                                <div style={{ fontWeight: 700, fontSize: 13, color: dark ? '#e8ecf4' : '#131313' }}>{a.title}</div>
+                                <div style={{ fontWeight: 700, fontSize: 13, color: dark ? '#e8ecf4' : '#131313' }}>{a.title} <span className="ta-mono" style={{ fontWeight: 600, fontSize: 11, color: dark ? '#7b839a' : '#9ca3af' }}>· out of {a.max_marks}</span></div>
                                 {a.review_note && (
                                   <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4, padding: '3px 8px', borderRadius: 6, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
                                     <AlertCircle size={10} color={T.red} />
@@ -1453,6 +1518,98 @@ export default function TeacherAssessments() {
           The class/module picker is kept, just collapsed behind a
           "Change" action, for the rare case neither was pre-selected.
       ══════════════════════════════════════════════════════════ */}
+      {/* ── Marks report: every assessment of this module this term, the
+          averages converted to the module weight, and the resulting % ── */}
+      {summary && (
+        <div
+          onClick={e => { if (e.target === e.currentTarget) setSummary(null); }}
+          style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+        >
+          <div style={{ width: '100%', maxWidth: 1100, maxHeight: '92vh', display: 'flex', flexDirection: 'column', borderRadius: 20, overflow: 'hidden', background: dark ? '#141414' : '#fff', border: `1px solid ${dark ? '#262626' : '#e5e7eb'}`, boxShadow: '0 24px 70px rgba(0,0,0,0.45)' }}>
+            <div style={{ padding: '18px 24px', background: `linear-gradient(135deg, ${T.navy}, ${T.blueBright})`, color: '#fff', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', opacity: 0.8 }}>Marks Report</div>
+                <div style={{ fontSize: 19, fontWeight: 800, marginTop: 2 }}>{summary.course.name}</div>
+                <div style={{ fontSize: 12.5, opacity: 0.9, marginTop: 3 }}>{summary.class.name} · {summary.term} · {summary.academic_year} · Module weight {summary.course.total_marks}</div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                <button className="ta-btn" onClick={printSummary} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 10, border: 'none', background: 'rgba(255,255,255,0.18)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                  <Download size={13} /> Print / PDF
+                </button>
+                <button className="ta-btn" onClick={() => setSummary(null)} style={{ border: 'none', background: 'rgba(255,255,255,0.18)', borderRadius: 10, width: 34, height: 34, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <X size={16} color="#fff" />
+                </button>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', padding: '14px 24px 4px' }}>
+              {[
+                { label: 'Assessments', val: summary.assessments.length, color: T.navy },
+                { label: 'Class average', val: summary.stats.class_average_pct != null ? summary.stats.class_average_pct + '%' : '—', color: T.blueBright },
+                { label: 'Competent', val: summary.stats.competent, color: T.green },
+                { label: 'Not yet competent', val: summary.stats.not_yet_competent, color: T.red },
+              ].map(c => (
+                <div key={c.label} style={{ padding: '10px 16px', borderRadius: 12, border: `1px solid ${dark ? '#262626' : '#e5e7eb'}`, background: dark ? '#171717' : '#f9fafb', minWidth: 120 }}>
+                  <div className="ta-mono" style={{ fontSize: 20, fontWeight: 800, color: c.color, lineHeight: 1.1 }}>{c.val}</div>
+                  <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: dark ? '#7b839a' : '#6b7280', marginTop: 3 }}>{c.label}</div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ padding: '10px 24px 4px', fontSize: 12, color: dark ? '#7b839a' : '#6b7280', lineHeight: 1.5 }}>
+              Every mark is converted to the module weight (mark ÷ maximum × {summary.course.total_marks}); assessments of the same type are averaged. Term % = (Formative + Comprehensive) ÷ (2 × {summary.course.total_marks}). Passing line {summary.stats.passing_line}%.
+            </div>
+
+            <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: '10px 24px 22px' }}>
+              {summary.assessments.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px 0', color: dark ? '#7b839a' : '#6b7280', fontSize: 13 }}>No assessments created for this module in {summary.term} yet.</div>
+              ) : (
+                <div style={{ overflowX: 'auto', borderRadius: 12, border: `1px solid ${dark ? '#262626' : '#eef0f4'}` }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
+                    <thead>
+                      <tr>
+                        {['#', 'Student'].map(h => <th key={h} style={{ padding: '9px 12px', textAlign: 'left', background: dark ? '#1f1f1f' : '#f9fafb', color: dark ? '#7b839a' : '#6b7280', fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap', borderBottom: `1px solid ${dark ? '#262626' : '#e5e7eb'}` }}>{h}</th>)}
+                        {summary.assessments.map(a => {
+                          const meta = ASSESSMENT_TYPES.find(t => t.key === a.type);
+                          return (
+                            <th key={a.id} title={a.title} style={{ padding: '9px 12px', textAlign: 'center', background: dark ? '#1f1f1f' : '#f9fafb', color: meta?.color || '#6b7280', fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap', borderBottom: `1px solid ${dark ? '#262626' : '#e5e7eb'}` }}>
+                              {a.title}<div style={{ fontWeight: 500, opacity: 0.8 }}>/ {a.max_marks}</div>
+                            </th>
+                          );
+                        })}
+                        {[`Formative avg /${summary.course.total_marks}`, `Integrated avg /${summary.course.total_marks}`, `Comprehensive /${summary.course.total_marks}`, 'Term %', 'Decision'].map(h => (
+                          <th key={h} style={{ padding: '9px 12px', textAlign: 'center', background: dark ? '#1b2233' : '#eef4ff', color: dark ? '#9db4e8' : '#1e3a8a', fontSize: 11, fontWeight: 800, whiteSpace: 'nowrap', borderBottom: `1px solid ${dark ? '#262626' : '#e5e7eb'}` }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {summary.students.map((st, i) => {
+                        const fmt = (v) => (v == null ? '—' : String(Math.round(v * 100) / 100));
+                        const pc = st.result_pct;
+                        return (
+                          <tr key={st.student_id} style={{ background: i % 2 === 0 ? 'transparent' : (dark ? '#ffffff04' : '#fafafa'), borderBottom: `1px solid ${dark ? '#262626' : '#f1f5f9'}` }}>
+                            <td style={{ padding: '8px 12px', color: dark ? '#7b839a' : '#9ca3af' }}>{i + 1}</td>
+                            <td style={{ padding: '8px 12px', fontWeight: 600, color: dark ? '#e2e8f0' : '#404040', whiteSpace: 'nowrap' }}>{st.name}</td>
+                            {summary.assessments.map(a => (
+                              <td key={a.id} className="ta-mono" style={{ padding: '8px 12px', textAlign: 'center', color: dark ? '#cbd5e1' : '#404040' }}>{st.scores[a.id]?.marks ?? '—'}</td>
+                            ))}
+                            <td className="ta-mono" style={{ padding: '8px 12px', textAlign: 'center', fontWeight: 700, background: dark ? '#1b223322' : '#f5f9ff' }}>{fmt(st.fa_avg)}</td>
+                            <td className="ta-mono" style={{ padding: '8px 12px', textAlign: 'center', fontWeight: 700, background: dark ? '#1b223322' : '#f5f9ff' }}>{fmt(st.ia_avg)}</td>
+                            <td className="ta-mono" style={{ padding: '8px 12px', textAlign: 'center', fontWeight: 700, background: dark ? '#1b223322' : '#f5f9ff' }}>{fmt(st.ca)}</td>
+                            <td className="ta-mono" style={{ padding: '8px 12px', textAlign: 'center', fontWeight: 800, color: pc == null ? (dark ? '#7b839a' : '#9ca3af') : pctColor(pc), background: dark ? '#1b223322' : '#f5f9ff' }}>{pc == null ? '—' : pc + '%'}</td>
+                            <td style={{ padding: '8px 12px', textAlign: 'center', fontWeight: 800, color: st.decision === 'C' ? T.green : st.decision === 'NYC' ? T.red : (dark ? '#7b839a' : '#9ca3af'), background: dark ? '#1b223322' : '#f5f9ff' }}>{st.decision || '—'}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {showModal && (
         <div
           onClick={e => { if (e.target === e.currentTarget) setShowModal(false); }}
@@ -1581,7 +1738,7 @@ export default function TeacherAssessments() {
                           <div style={{ fontSize: 13, fontWeight: selected ? 800 : 500, color: selected ? t.color : (dark ? '#e2e8f0' : '#404040') }}>{t.label}</div>
                           <div style={{ fontSize: 11, color: alreadyUsed ? T.red : (dark ? '#7b839a' : '#9ca3af'), marginTop: 1 }}>
                             {alreadyUsed
-                              ? `⚠ Already created for this module · ${form.term} · ${form.academic_year}`
+                              ? `⚠ Only one per term — already created · ${form.term} · ${form.academic_year}`
                               : t.desc}
                           </div>
                         </div>
@@ -1592,12 +1749,36 @@ export default function TeacherAssessments() {
                   })}
                 </div>
 
+                {/* Maximum marks — the teacher decides what this assessment is
+                    out of; the system converts it onto the module weight. */}
+                {form.type && (() => {
+                  const mw = Number(classModules.find(c => String(c._id || c.id) === form.course_id)?.total_marks || 100);
+                  const mx = Number(form.max_marks);
+                  return (
+                    <div className="ta-step-enter" style={{ marginTop: 14 }}>
+                      <label style={lbl}>Maximum marks of this assessment *</label>
+                      <input
+                        type="number" min="1" step="any" inputMode="decimal"
+                        value={form.max_marks}
+                        onChange={e => setForm(f => ({ ...f, max_marks: e.target.value }))}
+                        placeholder="e.g. 20, 50, 100"
+                        style={{ width: '100%', boxSizing: 'border-box', padding: '11px 14px', borderRadius: 10, fontSize: 14, fontWeight: 700, border: `1.5px solid ${dark ? '#333333' : '#e5e7eb'}`, background: dark ? '#1a1a1a' : '#fff', color: dark ? '#e2e8f0' : '#131313', outline: 'none' }}
+                      />
+                      <div style={{ marginTop: 6, fontSize: 11.5, color: dark ? '#7b839a' : '#6b7280', lineHeight: 1.5 }}>
+                        {mx > 0
+                          ? <>Marks are entered out of <strong>{mx}</strong> and converted to the module weight (<strong>{mw}</strong>). Several {form.type === 'CA' ? '' : 'assessments of this type can be recorded in one term — their converted marks are averaged.'}{form.type === 'CA' ? 'Only one comprehensive assessment is allowed per term.' : ''}</>
+                          : 'Enter what this assessment is marked out of.'}
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 {/* Auto-title preview */}
                 {form.type && (
                   <div className="ta-step-enter" style={{ marginTop: 10, padding: '9px 12px', borderRadius: 10, background: dark ? '#1f1f1f' : '#f0f9ff', border: `1px solid ${dark ? '#333333' : '#bae6fd'}`, display: 'flex', alignItems: 'center', gap: 8 }}>
                     <FileText size={12} color="#0369a1" />
                     <span style={{ fontSize: 12, color: dark ? '#7b839a' : '#0369a1' }}>
-                      Title will be: <strong style={{ color: dark ? '#e2e8f0' : '#0c4a6e' }}>{ASSESSMENT_TYPES.find(t => t.key === form.type)?.label}</strong>
+                      Title: <strong style={{ color: dark ? '#e2e8f0' : '#0c4a6e' }}>{ASSESSMENT_TYPES.find(t => t.key === form.type)?.label}</strong> <span style={{ opacity: 0.75 }}>(numbered automatically if you add more)</span>
                     </span>
                   </div>
                 )}
@@ -1611,11 +1792,11 @@ export default function TeacherAssessments() {
                 <button
                   className="ta-btn"
                   onClick={saveAssessment}
-                  disabled={!form.course_id || !form.type || !form.term || savingAssessment}
+                  disabled={!form.course_id || !form.type || !form.term || !form.max_marks || savingAssessment}
                   style={{
                     flex: 2, padding: '11px', borderRadius: 10, border: 'none',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                    background: (!form.course_id || !form.type || !form.term || savingAssessment)
+                    background: (!form.course_id || !form.type || !form.term || !form.max_marks || savingAssessment)
                       ? (dark ? '#333333' : '#e5e7eb')
                       : `linear-gradient(135deg, ${T.navy}, ${T.blueBright})`,
                     color: (!form.course_id || !form.type || !form.term)

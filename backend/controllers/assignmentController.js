@@ -1,3 +1,4 @@
+const { runInBackground } = require('../utils/background');
 const mongoose = require('mongoose');
 const { Assignment, Submission, Class, User, Course, TaskGroup } = require('../models/db');
 const { cloudinary, getResourceType } = require('../middleware/upload');
@@ -295,10 +296,11 @@ const createAssignment = async (req, res) => {
       attachments,
       ...legacyMirror(attachments),
     });
-    // ── Notifications run BEFORE responding ────────────────────────────
-    // On serverless (Vercel) the function is frozen as soon as the response
-    // ends, which silently killed in-flight emails.
-    if (a.is_active) {
+    // Reply right away — the task is saved. Notifications and emails go out in
+    // the background (kept alive by waitUntil on Vercel) so posting never waits
+    // on the mail server and can't time out because of it.
+    res.status(201).json({ message: 'Assignment created', id: a._id });
+    if (a.is_active) runInBackground(async () => {
       try {
         const [cls, teacherEmail] = await Promise.all([
           Class.findById(classId).lean(),
@@ -354,8 +356,7 @@ const createAssignment = async (req, res) => {
       } catch (err) {
         console.error('Notification error (assignment create):', err.message);
       }
-    }
-    res.status(201).json({ message: 'Assignment created', id: a._id });
+    }, 'assignment-posted');
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
@@ -514,7 +515,9 @@ const submitAssignment = async (req, res) => {
       files: nextFiles, ...legacyMirror(nextFiles),
       notes,
     });
-    // ── Notify teacher BEFORE responding (serverless freezes after the response) ──
+    // Reply right away; tell the teacher in the background.
+    res.status(201).json({ message: 'Assignment submitted successfully' });
+    runInBackground(async () => {
     try {
       const [student, cls, teacherEmail] = await Promise.all([
         User.findById(studentId, 'name').lean(),
@@ -550,7 +553,7 @@ const submitAssignment = async (req, res) => {
     } catch (err) {
       console.error('Notification error (submission):', err.message);
     }
-    res.status(201).json({ message: 'Assignment submitted successfully' });
+    }, 'submission-notify');
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 

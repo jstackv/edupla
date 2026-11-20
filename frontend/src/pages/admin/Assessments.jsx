@@ -283,14 +283,23 @@ async function persistReportConfig(cfg) {
 }
 
 /* ─────────── Category helpers ─────────── */
-function catBadge(cat) {
-  const colors = {
-    'Complementary modules':   { bg: '#f9731618', border: '#f9731630', text: '#c2410c', dot: '#c2410c' },
-    'General modules':         { bg: '#06563018', border: '#06563030', text: '#065f46', dot: '#065f46' },
-    'Specific modules':        { bg: '#7c2d1218', border: '#7c2d1230', text: '#2a0c03', dot: '#2a0c03' },
-    'Elective Non Examinable': { bg: '#4a044e18', border: '#4a044e30', text: '#4a044e', dot: '#4a044e' },
+function catBadge(cat, dark = false) {
+  // Light surfaces get deep, saturated tones; dark surfaces get lighter tones
+  // of the same hues so the badge text, dot and border stay readable on both.
+  const light = {
+    'Complementary modules':   { bg: '#f9731618', border: '#f9731640', text: '#c2410c', dot: '#c2410c' },
+    'General modules':         { bg: '#05966918', border: '#05966940', text: '#065f46', dot: '#059669' },
+    'Specific modules':        { bg: '#2563eb18', border: '#2563eb40', text: '#1d4ed8', dot: '#2563eb' },
+    'Elective Non Examinable': { bg: '#a21caf18', border: '#a21caf40', text: '#86198f', dot: '#a21caf' },
   };
-  return colors[cat] || colors['Complementary modules'];
+  const night = {
+    'Complementary modules':   { bg: '#fb923c24', border: '#fb923c66', text: '#fdba74', dot: '#fb923c' },
+    'General modules':         { bg: '#34d39922', border: '#34d39966', text: '#6ee7b7', dot: '#34d399' },
+    'Specific modules':        { bg: '#60a5fa26', border: '#60a5fa70', text: '#93c5fd', dot: '#60a5fa' },
+    'Elective Non Examinable': { bg: '#e879f922', border: '#e879f966', text: '#f0abfc', dot: '#e879f9' },
+  };
+  const set = dark ? night : light;
+  return set[cat] || set['Complementary modules'];
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -2046,7 +2055,7 @@ export default function AdminAssessments() {
           {!hasActiveCourseFilter && (
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
               {MODULE_CATEGORIES.map(cat => {
-                const cb = catBadge(cat);
+                const cb = catBadge(cat, dark);
                 return (
                   <div key={cat} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 12px', borderRadius: 20, background: cb.bg, border: `1px solid ${cb.border}` }}>
                     <div style={{ width: 8, height: 8, borderRadius: '50%', background: cb.dot }} />
@@ -2084,7 +2093,7 @@ export default function AdminAssessments() {
             ALL_MODULE_CATEGORIES.map(cat => {
               const catCourses = filteredCourses.filter(c => (c.category || 'Complementary modules') === cat);
               if (catCourses.length === 0) return null;
-              const cb = catBadge(cat);
+              const cb = catBadge(cat, dark);
               return (
                 <div key={cat} style={{ marginBottom: 24 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
@@ -2688,7 +2697,7 @@ export default function AdminAssessments() {
               ) : (
                 <div className="aop-grid">
                   {teacherModules.map((m, idx) => {
-                    const cb = catBadge(m.course?.category);
+                    const cb = catBadge(m.course?.category, dark);
                     return (
                       <button
                         key={m.id}
@@ -3195,7 +3204,7 @@ export default function AdminAssessments() {
                 <label style={{ ...labelStyle, marginBottom: 8 }}>Module Type *</label>
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: 8 }}>
                   {MODULE_CATEGORIES.map(cat => {
-                    const cb = catBadge(cat);
+                    const cb = catBadge(cat, dark);
                     const selected = courseForm.category === cat;
                     return (
                       <button key={cat} type="button" onClick={() => setCourseForm(f => ({ ...f, category: cat }))} style={{ padding: '10px 8px', borderRadius: 10, cursor: 'pointer', textAlign: 'center', border: `2px solid ${selected ? cb.dot : (dark ? '#333333' : '#e5e7eb')}`, background: selected ? cb.bg : 'transparent', transition: 'all 0.15s' }}>
@@ -3515,7 +3524,7 @@ function ReportView({ data, dark, students, classes, config, selectedTerm }) {
             <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: dark ? '#f1f5f9' : '#131313' }}>{assessment?.title}</h2>
             <TypeBadge type={assessment?.type} />
             {assessment?.course_id?.category && (() => {
-              const cb = catBadge(assessment.course_id.category);
+              const cb = catBadge(assessment.course_id.category, dark);
               return <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 7, background: cb.bg, color: cb.text, border: `1px solid ${cb.border}` }}>{assessment.course_id.category.replace(' modules', '')}</span>;
             })()}
           </div>
@@ -3583,6 +3592,7 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
         category: a.course_id?.category || 'Complementary modules',
         termData:    { 'Term 1': { FA: null, IA: null, CA: null }, 'Term 2': { FA: null, IA: null, CA: null }, 'Term 3': { FA: null, IA: null, CA: null } },
         termMaxData: { 'Term 1': { FA: null, IA: null, CA: null }, 'Term 2': { FA: null, IA: null, CA: null }, 'Term 3': { FA: null, IA: null, CA: null } },
+        termList:    { 'Term 1': { FA: [], IA: [], CA: [] }, 'Term 2': { FA: [], IA: [], CA: [] }, 'Term 3': { FA: [], IA: [], CA: [] } },
       });
     }
     const row     = courseMap.get(cid);
@@ -3590,11 +3600,27 @@ function TVETStudentReport({ student, cls, allAssessments, allStudents, config, 
     const slotKey = a.type === 'FA' ? 'FA' : a.type === 'IA' ? 'IA' : 'CA';
     if (row.termData[term]) {
       const markEntry = (student.marks || []).find(m => String(m.assessment_id) === String(a._id || a.assessment_id));
-      if (row.termData[term][slotKey] == null) {
-        row.termData[term][slotKey]    = markEntry?.marks ?? null;
-        row.termMaxData[term][slotKey] = a.max_marks || 100;
+      /* Each assessment is marked out of its OWN maximum. Convert the mark
+         onto the module weight (mark ÷ maximum × weight) and collect it;
+         when a term holds several assessments of one type their converted
+         marks are averaged below, and that average is what the report uses. */
+      const mwOfRow = row.weight || 100;
+      const maxOfA  = a.max_marks || mwOfRow;
+      if (markEntry?.marks != null && maxOfA > 0) {
+        row.termList[term][slotKey].push((markEntry.marks / maxOfA) * mwOfRow);
       }
     }
+  });
+  courseMap.forEach(row => {
+    TERMS.forEach(term => {
+      ['FA', 'IA', 'CA'].forEach(slot => {
+        const list = row.termList[term][slot];
+        if (list.length) {
+          row.termData[term][slot]    = Math.round((list.reduce((x, y) => x + y, 0) / list.length) * 100) / 100;
+          row.termMaxData[term][slot] = row.weight || 100;
+        }
+      });
+    });
   });
 
   const moduleRows = Array.from(courseMap.values()).map(row => {
