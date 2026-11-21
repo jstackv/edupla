@@ -7,11 +7,12 @@ import Pagination from '../../components/common/Pagination';
 import FileViewer from '../../components/common/FileViewer';
 import { FilePicker, FileRows, MAX_TASK_FILES } from '../../components/common/TaskFiles';
 import { useAuth } from '../../context/AuthContext';
+import { Hero, StatTile, SelectCard, SectionLabel, EmptyPanel, Loader, brandWith, workspaceStyle } from '../../components/common/WorkspaceUI';
 import {
   Search, ClipboardList, Upload, Eye,
   Clock, CheckCircle2, AlertTriangle, Award, X, CloudUpload, FileText, RefreshCw,
   BookOpen, ChevronRight, ArrowLeft, Inbox, Home, User, Users, Lock,
-  Sparkles, Trophy, Send, Timer, CalendarClock, Star, FileUp, PenLine, Paperclip, History, PartyPopper,
+  Sparkles, Trophy, Send, Timer, CalendarClock, Star, FileUp, PenLine, Paperclip, History, PartyPopper, GraduationCap, Target,
 } from 'lucide-react';
 
 /* ── helpers ─────────────────────────────────────────────────────────── */
@@ -799,125 +800,97 @@ export default function StudentAssignments() {
   ];
 
   /* ── Modules list view ── */
-  if (view === 'modules') {
-    return (
-      <div className="space-y-5">
-        <div>
-          <h2 className="font-display font-bold text-lg" style={{ color: 'var(--text-primary)' }}>Tasks</h2>
-          <p className="text-sm text-muted">
-            {studentClass ? `${studentClass.name} — select a module to view your tasks` : 'Select a module to view your tasks'}
-          </p>
-        </div>
-
-        {loadingModules ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="animate-spin w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full" />
-          </div>
-        ) : !hasGroups ? (
-          <div className="card text-center py-16">
-            <BookOpen className="w-10 h-10 mx-auto mb-3 text-muted opacity-30" />
-            <p className="font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>No modules found</p>
-            <p className="text-sm text-muted">
-              {studentClass
-                ? `No modules have been assigned to ${studentClass.name} yet.`
-                : 'You are not enrolled in a class yet.'}
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {Object.entries(grouped).map(([cat, mods]) => (
-              <div key={cat}>
-                <p className="text-xs font-bold uppercase tracking-widest text-muted mb-2 px-1">{cat}</p>
-                <div className="space-y-2">
-                  {mods.map((mod, idx) => {
-                    const color = moduleColor(idx);
-                    return (
-                      <button key={mod._id} onClick={() => openModule(mod)}
-                        className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl text-left transition-all hover:scale-[1.005] active:scale-[0.99]"
-                        style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
-                        <div className={`w-12 h-12 rounded-xl ${color.bg} flex items-center justify-center flex-shrink-0`}>
-                          <span className={`text-sm font-bold ${color.text}`}>
-                            {(mod.code || mod.name || '').slice(0, 3).toUpperCase()}
-                          </span>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          {mod.code && <p className={`text-xs font-bold ${color.text} mb-0.5`}>{mod.code}</p>}
-                          <p className="font-semibold text-sm truncate" style={{ color: 'var(--text-primary)' }}>{mod.name}</p>
-                          {mod.teacher_id?.name && <p className="text-xs text-muted mt-0.5">{mod.teacher_id.name}</p>}
-                        </div>
-                        <ChevronRight className="w-4 h-4 text-muted" />
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  const crumbs = (
-    <div className="flex items-center gap-1.5 text-xs text-muted font-medium mb-0.5 flex-wrap">
-      <BookOpen className="w-3 h-3" />
-      <span>{studentClass?.name}</span>
-      <ChevronRight className="w-3 h-3" />
-      {selectedModule?.code && <span className="text-primary-600 font-bold">{selectedModule.code}</span>}
-      {taskType && <><ChevronRight className="w-3 h-3" /><span>{taskType === 'homework' ? 'Homework' : 'Assignment'}</span></>}
-      {taskType === 'assignment' && mode && <><ChevronRight className="w-3 h-3" /><span>{mode === 'discussion' ? 'Discussion' : 'Individual'}</span></>}
+  const shell = (children) => (
+    <div className="space-y-6 ws-root">
+      <style>{workspaceStyle}</style>
+      {children}
     </div>
   );
 
+  if (view === 'modules') {
+    return shell(
+      <>
+        <Hero tone={brandWith(ClipboardList)} eyebrow="Student workspace" title="Tasks"
+          subtitle="Assignments, group discussions and homework — hand in your work and follow your marks."
+          trail={['Tasks', studentClass?.name].filter(Boolean)}>
+          <div className="grid grid-cols-2 gap-3 mt-5 max-w-md">
+            <StatTile icon={GraduationCap} label="Your class" value={studentClass?.name || '—'} />
+            <StatTile icon={BookOpen} label="Modules" value={modules.length} />
+          </div>
+        </Hero>
+
+        <div>
+          <SectionLabel>Step 1 · Choose a module</SectionLabel>
+          {loadingModules ? <Loader /> : !hasGroups ? (
+            <EmptyPanel icon={BookOpen} tone={brandWith(BookOpen)} title="No modules found"
+              text={studentClass
+                ? `No modules have been assigned to ${studentClass.name} yet.`
+                : 'You are not enrolled in a class yet.'} />
+          ) : (
+            <div className="space-y-7">
+              {Object.entries(grouped).map(([cat, mods]) => (
+                <div key={cat}>
+                  <p className="text-xs font-bold uppercase tracking-widest text-muted mb-3 px-1">{cat}</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {mods.map(mod => (
+                      <SelectCard key={mod._id}
+                        lead={(mod.code || mod.name || '').slice(0, 3).toUpperCase()}
+                        title={mod.name}
+                        desc={mod.teacher_id?.name ? `Teacher: ${mod.teacher_id.name}` : undefined}
+                        chips={[mod.code].filter(Boolean)}
+                        onClick={() => openModule(mod)} />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </>
+    );
+  }
+
+  const trail = [
+    'Tasks',
+    studentClass?.name,
+    selectedModule?.code || selectedModule?.name,
+    ...(taskType ? [taskType === 'homework' ? 'Homework' : 'Assignment'] : []),
+    ...(taskType === 'assignment' && mode ? [mode === 'discussion' ? 'Discussion' : 'Individual'] : []),
+  ].filter(Boolean);
+
   /* ── Kind picker: Assignment | Homework ── */
   if (view === 'type') {
-    return (
-      <div className="space-y-5">
-        <div className="flex items-center gap-3">
-          <button onClick={goBack} className="p-2 rounded-lg hover:bg-surface-100 transition-colors flex-shrink-0">
-            <ArrowLeft className="w-5 h-5 text-muted" />
-          </button>
-          <div className="flex-1 min-w-0">
-            {crumbs}
-            <h2 className="font-display font-bold text-lg truncate" style={{ color: 'var(--text-primary)' }}>{selectedModule?.name}</h2>
-            <p className="text-sm text-muted">Which tasks do you want to see?</p>
-          </div>
+    return shell(
+      <>
+        <Hero onBack={goBack} eyebrow="Step 2 · Type of task" title={selectedModule?.name}
+          subtitle="Which tasks do you want to see?" trail={trail} />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <SelectCard large icon={ClipboardList} tone={KIND_THEME.individual} title="Assignment"
+            desc="Class work — done on your own, or together with your discussion group."
+            chips={['Individual', 'Group discussion']} onClick={() => pickType('assignment')} />
+          <SelectCard large icon={Home} tone={KIND_THEME.homework} title="Homework"
+            desc="Individual work to do at home, then submit before the deadline."
+            chips={['At home', 'Individual']} onClick={() => pickType('homework')} />
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <ChoiceCard icon={ClipboardList} color={{ bg: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-600' }}
-            title="Assignment" desc="Class work — done on your own, or together with your discussion group."
-            onClick={() => pickType('assignment')} />
-          <ChoiceCard icon={Home} color={{ bg: 'bg-sky-100 dark:bg-sky-900/30', text: 'text-sky-600' }}
-            title="Homework" desc="Individual work to do at home, then submit."
-            onClick={() => pickType('homework')} />
-        </div>
-      </div>
+      </>
     );
   }
 
   /* ── Mode picker: Individual | Discussion ── */
   if (view === 'mode') {
-    return (
-      <div className="space-y-5">
-        <div className="flex items-center gap-3">
-          <button onClick={goBack} className="p-2 rounded-lg hover:bg-surface-100 transition-colors flex-shrink-0">
-            <ArrowLeft className="w-5 h-5 text-muted" />
-          </button>
-          <div className="flex-1 min-w-0">
-            {crumbs}
-            <h2 className="font-display font-bold text-lg truncate" style={{ color: 'var(--text-primary)' }}>Assignment</h2>
-            <p className="text-sm text-muted">How are you working?</p>
-          </div>
+    return shell(
+      <>
+        <Hero onBack={goBack} eyebrow="Step 3 · How are you working?" title="Assignment" tone={KIND_THEME.individual}
+          subtitle="Choose which assignments to open." trail={trail} />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <SelectCard large icon={User} tone={KIND_THEME.individual} title="Individual"
+            desc="Tasks given to the whole class that you do on your own."
+            chips={['Whole class']} onClick={() => pickMode('individual')} />
+          <SelectCard large icon={Users} tone={KIND_THEME.discussion} title="Group Discussion"
+            desc="Tasks given to your group — see them together with your group members."
+            chips={['Your group']} onClick={() => pickMode('discussion')} />
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <ChoiceCard icon={User} color={{ bg: 'bg-emerald-100 dark:bg-emerald-900/30', text: 'text-emerald-600' }}
-            title="Individual" desc="Tasks given to the whole class that you do on your own."
-            onClick={() => pickMode('individual')} />
-          <ChoiceCard icon={Users} color={{ bg: 'bg-violet-100 dark:bg-violet-900/30', text: 'text-violet-600' }}
-            title="Discussion" desc="Tasks given to your group — see them with your group members."
-            onClick={() => pickMode('discussion')} />
-        </div>
-      </div>
+      </>
     );
   }
 
@@ -942,18 +915,22 @@ export default function StudentAssignments() {
 
   /* ── Task list view ── */
   const kindWord = taskType === 'homework' ? 'homework' : mode === 'discussion' ? 'group task' : 'assignment';
+  const listTone = kindThemeOf(taskType, mode);
+  const todoCount   = assignments.filter(a => !a.submission_id && new Date(a.deadline) >= new Date()).length;
+  const doneCount   = assignments.filter(a => !!a.submission_id).length;
+  const gradedCount = assignments.filter(a => a.score !== null && a.score !== undefined).length;
   return (
-    <div className="space-y-5">
-      <div className="flex items-center gap-3">
-        <button onClick={goBack} className="p-2 rounded-lg hover:bg-surface-100 transition-colors flex-shrink-0">
-          <ArrowLeft className="w-5 h-5 text-muted" />
-        </button>
-        <div className="flex-1 min-w-0">
-          {crumbs}
-          <h2 className="font-display font-bold text-lg truncate" style={{ color: 'var(--text-primary)' }}>{selectedModule?.name}</h2>
-          <p className="text-sm text-muted">{total} {kindWord}{total !== 1 && taskType !== 'homework' ? 's' : ''} available</p>
+    <div className="space-y-6 ws-root">
+      <style>{workspaceStyle}</style>
+      <Hero tone={listTone} onBack={goBack} eyebrow={listTone.label} title={selectedModule?.name}
+        subtitle={`${studentClass?.name || ''} · ${listTone.label}`} trail={trail}>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-5">
+          <StatTile icon={ClipboardList} label={`${kindWord.replace(/^./, c => c.toUpperCase())}${total !== 1 && taskType !== 'homework' ? 's' : ''} available`} value={total} />
+          <StatTile icon={Timer} label="To do (this page)" value={todoCount} />
+          <StatTile icon={CheckCircle2} label="Submitted" value={doneCount} />
+          <StatTile icon={Award} label="Graded" value={gradedCount} />
         </div>
-      </div>
+      </Hero>
 
       {/* Tabs */}
       <div className="flex gap-1 p-1 rounded-xl w-fit max-w-full overflow-x-auto" style={{ background: 'var(--card-border)' }}>

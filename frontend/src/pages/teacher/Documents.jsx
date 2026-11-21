@@ -6,9 +6,11 @@ import Modal from '../../components/common/Modal';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import Pagination from '../../components/common/Pagination';
 import FileViewer, { downloadFile } from '../../components/common/FileViewer';
+import { Hero, HeroButton, StatTile, SelectCard, SectionLabel, EmptyPanel, Loader, brandWith, initialsOf, workspaceStyle } from '../../components/common/WorkspaceUI';
 import {
   Upload, FileText, Download, Eye, Edit2, Trash2,
   CloudUpload, X, BookOpen, ChevronRight, ArrowLeft, AlertCircle, Search,
+  FolderOpen, GraduationCap, Layers, Clock,
 } from 'lucide-react';
 
 function formatSize(bytes) {
@@ -422,50 +424,37 @@ export default function Documents() {
   };
 
   /* ── Classes view ── */
+  const libTone = brandWith(FolderOpen);
   if (view === 'classes') {
+    const totalModules = teacherClasses.reduce((n, c) => n + c.modules.length, 0);
     return (
-      <div className="space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-          <div className="flex-1">
-            <h2 className="font-display font-bold text-lg" style={{ color: 'var(--text-primary)' }}>Notes & Documents</h2>
-            <p className="text-sm text-muted">Select a class to manage module notes</p>
+      <div className="space-y-6 ws-root">
+        <style>{workspaceStyle}</style>
+        <Hero tone={libTone} eyebrow="Teacher workspace" title="Resource Library"
+          subtitle="Share notes and documents with your classes — organised by class and module."
+          trail={['Resource Library', 'Classes']}
+          actions={<HeroButton primary icon={Upload} onClick={() => setModal(true)}>Upload Note</HeroButton>}>
+          <div className="grid grid-cols-2 gap-3 mt-5 max-w-md">
+            <StatTile icon={GraduationCap} label="Classes" value={teacherClasses.length} />
+            <StatTile icon={BookOpen} label="Modules you teach" value={totalModules} />
           </div>
-          <button onClick={() => setModal(true)} className="btn-primary">
-            <Upload className="w-4 h-4" /> Upload Note
-          </button>
-        </div>
+        </Hero>
 
-        {loadingInit ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="animate-spin w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full" />
-          </div>
-        ) : teacherClasses.length === 0 ? (
-          <div className="card text-center py-16">
-            <BookOpen className="w-12 h-12 mx-auto mb-3 text-muted opacity-30" />
-            <p className="font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>No modules assigned yet</p>
-            <p className="text-sm text-muted">Ask the admin to assign modules to you.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {teacherClasses.map((cls, idx) => {
-              const color = moduleColor(idx);
-              return (
-                <button key={cls._id} onClick={() => goToModules(cls)}
-                  className="flex items-center gap-4 px-5 py-4 rounded-2xl text-left transition-all hover:scale-[1.01] active:scale-[0.99]"
-                  style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
-                  <div className={`w-12 h-12 rounded-xl ${color.bg} flex items-center justify-center flex-shrink-0`}>
-                    <BookOpen className={`w-6 h-6 ${color.text}`} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{cls.name}</p>
-                    <p className="text-xs text-muted mt-0.5">{cls.modules.length} module{cls.modules.length !== 1 ? 's' : ''} assigned to you</p>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-muted" />
-                </button>
-              );
-            })}
-          </div>
-        )}
+        <div>
+          <SectionLabel>Step 1 · Choose a class</SectionLabel>
+          {loadingInit ? <Loader /> : teacherClasses.length === 0 ? (
+            <EmptyPanel icon={BookOpen} tone={libTone} title="No modules assigned yet" text="Ask the admin to assign modules to you." />
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {teacherClasses.map(cls => (
+                <SelectCard key={cls._id} lead={initialsOf(cls.name)} title={cls.name} tone={libTone}
+                  desc={`${cls.modules.length} module${cls.modules.length !== 1 ? 's' : ''} assigned to you`}
+                  chips={cls.modules.slice(0, 3).map(m => m.code || m.name).filter(Boolean)}
+                  onClick={() => goToModules(cls)} />
+              ))}
+            </div>
+          )}
+        </div>
 
         <UploadModal isOpen={modal} onClose={() => setModal(false)} teacherClasses={teacherClasses} onSuccess={() => {}} />
       </div>
@@ -476,41 +465,26 @@ export default function Documents() {
   if (view === 'modules') {
     const modules = selectedClass?.modules || [];
     return (
-      <div className="space-y-5">
-        <div className="flex items-center gap-3">
-          <button onClick={() => setView('classes')}
-            className="p-2 rounded-lg hover:bg-surface-100 transition-colors flex-shrink-0">
-            <ArrowLeft className="w-5 h-5 text-muted" />
-          </button>
-          <div className="flex-1">
-            <p className="text-xs text-muted font-medium">Classes → Modules</p>
-            <h2 className="font-display font-bold text-lg" style={{ color: 'var(--text-primary)' }}>{selectedClass?.name}</h2>
-          </div>
-          <button onClick={() => setModal(true)} className="btn-primary">
-            <Upload className="w-4 h-4" /> Upload Note
-          </button>
-        </div>
+      <div className="space-y-6 ws-root">
+        <style>{workspaceStyle}</style>
+        <Hero tone={libTone} onBack={() => setView('classes')} eyebrow="Step 2 · Choose a module" title={selectedClass?.name}
+          subtitle={`${modules.length} module${modules.length !== 1 ? 's' : ''} assigned to you in this class`}
+          trail={['Resource Library', selectedClass?.name]}
+          actions={<HeroButton primary icon={Upload} onClick={() => setModal(true)}>Upload Note</HeroButton>} />
 
-        <div className="space-y-2">
-          {modules.map((mod, idx) => {
-            const color = moduleColor(idx);
-            return (
-              <button key={mod._id} onClick={() => goToDocs(mod)}
-                className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl text-left transition-all hover:scale-[1.005] active:scale-[0.99]"
-                style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
-                <div className={`w-12 h-12 rounded-xl ${color.bg} flex items-center justify-center flex-shrink-0`}>
-                  <span className={`text-sm font-bold ${color.text}`}>{(mod.code || mod.name || '').slice(0, 3).toUpperCase()}</span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  {mod.code && <p className={`text-xs font-bold ${color.text} mb-0.5`}>{mod.code}</p>}
-                  <p className="font-semibold text-sm truncate" style={{ color: 'var(--text-primary)' }}>{mod.name}</p>
-                  {mod.category && <p className="text-xs text-muted">{mod.category}</p>}
-                </div>
-                <ChevronRight className="w-4 h-4 text-muted" />
-              </button>
-            );
-          })}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {modules.map(mod => (
+            <SelectCard key={mod._id} lead={(mod.code || mod.name || '').slice(0, 3).toUpperCase()} tone={libTone}
+              title={mod.name} desc={mod.code} chips={mod.category ? [mod.category] : []}
+              onClick={() => goToDocs(mod)} />
+          ))}
         </div>
+        {modules.length === 0 && (
+          <div className="flex items-center gap-2 p-4 rounded-2xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800">
+            <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+            <p className="text-sm text-amber-700 dark:text-amber-400">No modules assigned to you in this class.</p>
+          </div>
+        )}
 
         <UploadModal isOpen={modal} onClose={() => setModal(false)} teacherClasses={teacherClasses} onSuccess={fetchDocs} presetClass={selectedClass} />
       </div>
@@ -518,77 +492,69 @@ export default function Documents() {
   }
 
   /* ── Documents view ── */
+  const totalDownloads = documents.reduce((n, d) => n + (d.download_count || 0), 0);
+  const latest = documents.length
+    ? new Date(Math.max(...documents.map(d => new Date(d.created_at || 0).getTime()))).toLocaleDateString()
+    : '—';
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <button onClick={() => { setView('modules'); setDocuments([]); }}
-          className="p-2 rounded-lg hover:bg-surface-100 transition-colors flex-shrink-0">
-          <ArrowLeft className="w-5 h-5 text-muted" />
-        </button>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 text-xs text-muted font-medium mb-0.5">
-            <span>{selectedClass?.name}</span>
-            <ChevronRight className="w-3 h-3" />
-            {selectedModule?.code && <span className="text-primary-600 font-bold">{selectedModule.code}</span>}
-          </div>
-          <h2 className="font-display font-bold text-lg truncate" style={{ color: 'var(--text-primary)' }}>
-            {selectedModule?.name}
-          </h2>
-          <p className="text-sm text-muted">{total} note{total !== 1 ? 's' : ''} posted</p>
+    <div className="space-y-6 ws-root">
+      <style>{workspaceStyle}</style>
+      <Hero tone={libTone} onBack={() => { setView('modules'); setDocuments([]); }} eyebrow="Notes & documents" title={selectedModule?.name}
+        subtitle={`${selectedClass?.name || ''} · ${total} note${total !== 1 ? 's' : ''} posted`}
+        trail={['Resource Library', selectedClass?.name, selectedModule?.code || selectedModule?.name].filter(Boolean)}
+        actions={<HeroButton primary icon={Upload} onClick={() => setModal(true)}>Upload Note</HeroButton>}>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-5">
+          <StatTile icon={FileText} label="Notes posted" value={total} />
+          <StatTile icon={Download} label="Downloads (this page)" value={totalDownloads} />
+          <StatTile icon={Clock} label="Latest upload (this page)" value={latest} />
         </div>
-        <button onClick={() => setModal(true)} className="btn-primary flex-shrink-0">
-          <Upload className="w-4 h-4" /> Upload Note
-        </button>
-      </div>
+      </Hero>
 
       {/* Search */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
         <input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
-          className="input-field pl-10" placeholder="Search notes…" />
+          className="input-field pl-11 rounded-2xl" style={{ paddingTop: 12, paddingBottom: 12 }} placeholder="Search notes…" />
       </div>
 
       {/* Documents list */}
-      {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <div className="animate-spin w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full" />
-        </div>
-      ) : documents.length === 0 ? (
-        <div className="card text-center py-16">
-          <FileText className="w-12 h-12 mx-auto mb-3 text-muted opacity-30" />
-          <p className="font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>You haven't posted any notes for this module yet</p>
-          <p className="text-sm text-muted mb-4">Upload the first note for {selectedModule?.name}.</p>
-          <button onClick={() => setModal(true)} className="btn-primary mx-auto">
-            <Upload className="w-4 h-4" /> Upload Note
-          </button>
-        </div>
+      {loading ? <Loader /> : documents.length === 0 ? (
+        <EmptyPanel icon={FileText} tone={libTone}
+          title={search ? 'No matching notes' : "You haven't posted any notes for this module yet"}
+          text={search ? `No notes match "${search}".` : `Upload the first note for ${selectedModule?.name}.`}>
+          {!search && (
+            <button onClick={() => setModal(true)} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-bold text-white transition-all hover:-translate-y-0.5 active:scale-95"
+              style={{ background: `linear-gradient(135deg, ${libTone.accent}, ${libTone.accent2})`, boxShadow: `0 10px 24px -8px ${libTone.accent}` }}>
+              <Upload className="w-4 h-4" /> Upload Note
+            </button>
+          )}
+        </EmptyPanel>
       ) : (
-        <div className="card p-4 space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted mb-3">Notes</p>
+        <div className="space-y-3">
+          <SectionLabel>Notes</SectionLabel>
           {documents.map(doc => (
             <div key={doc.id} ref={el => { cardRefs.current[doc.id] = el; }}
-              className="flex items-center gap-4 px-4 py-3.5 rounded-xl transition-colors hover:bg-primary-50/40 dark:hover:bg-primary-900/10"
+              className="group relative overflow-hidden flex flex-col sm:flex-row sm:items-center gap-4 pl-6 pr-4 py-4 rounded-3xl transition-all hover:-translate-y-0.5"
               style={{
-                background: 'var(--surface-50, var(--card-bg))', border: '1px solid var(--card-border)',
-                boxShadow: flashId === doc.id ? '0 0 0 2px #c2410c, 0 8px 24px rgba(194, 65, 12,0.25)' : undefined,
-                transition: 'box-shadow 0.4s ease',
+                background: 'var(--card-bg)', border: '1px solid var(--card-border)',
+                boxShadow: flashId === doc.id ? `0 0 0 2px ${libTone.accent}, 0 8px 24px ${libTone.ring}` : undefined,
               }}>
+              <span aria-hidden className="absolute left-0 top-0 bottom-0 w-1.5" style={{ background: `linear-gradient(180deg, ${libTone.accent}, ${libTone.accent2})` }} />
               <FileIcon name={doc.original_name} />
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-sm truncate" style={{ color: 'var(--text-primary)' }}>{doc.title}</p>
+                <p className="font-display font-bold text-sm truncate" style={{ color: 'var(--text-primary)' }}>{doc.title}</p>
                 <p className="text-xs text-muted mt-0.5 truncate">{doc.original_name}</p>
                 <p className="text-xs text-muted">{formatSize(doc.file_size)} · {doc.download_count || 0} downloads</p>
               </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
                 <button onClick={() => setViewingFile(doc)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium"
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all hover:-translate-y-0.5"
                   style={{ background: 'var(--card-border)', color: 'var(--text-primary)', border: '1px solid var(--input-border)' }}>
                   <Eye className="w-3.5 h-3.5" /> Preview
                 </button>
                 <button onClick={() => downloadFile(doc)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium"
-                  style={{ background: '#c2410c', color: '#fff', border: 'none' }}>
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold text-white transition-all hover:-translate-y-0.5"
+                  style={{ background: `linear-gradient(135deg, ${libTone.accent}, ${libTone.accent2})`, boxShadow: `0 8px 18px -8px ${libTone.accent}` }}>
                   <Download className="w-3.5 h-3.5" /> Download
                 </button>
                 <div className="flex items-center gap-1 ml-1 pl-2" style={{ borderLeft: '1px solid var(--card-border)' }}>
