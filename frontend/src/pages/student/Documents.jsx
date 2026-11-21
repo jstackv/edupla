@@ -10,7 +10,7 @@ import {
   Search, FileText, Download, Eye, BookOpen, ChevronRight,
   ArrowLeft, Inbox, X, Grid3X3, List, Filter, Clock,
   SortAsc, SortDesc, Layers, Tag, User, FolderOpen,
-  Sparkles, GraduationCap, Award, Check,
+  Sparkles, GraduationCap, Award, Check, History,
 } from 'lucide-react';
 
 /* ── Helpers ── */
@@ -375,7 +375,7 @@ function Spinner({ color = '#c2410c' }) {
   );
 }
 
-/* ── "View other contents" class picker ── */
+/* ── "View Previous" class picker ── */
 const PICKER_COLORS = ['#c2410c', '#10b981', '#f59e0b', '#06b6d4', '#ec4899', '#8b5cf6'];
 
 function ClassPickerCard({ cls, index, onSelect }) {
@@ -433,7 +433,7 @@ function ClassPickerCard({ cls, index, onSelect }) {
 
 function ClassPickerModal({ isOpen, onClose, classes, loading, onSelect, currentClassName }) {
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="View other contents" icon={Sparkles} accent="#c2410c" accent2="#ea580c" size="lg">
+    <Modal isOpen={isOpen} onClose={onClose} title="View Previous" icon={History} accent="#c2410c" accent2="#ea580c" size="lg">
       <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginBottom: 16, lineHeight: 1.5 }}>
         As a <strong>{currentClassName}</strong> student, you can also browse notes shared with earlier levels of your trade — pick a class below.
       </p>
@@ -473,7 +473,7 @@ export default function StudentDocuments() {
   const [flashId, setFlashId] = useState(searchParams.get('highlight') || null);
   const cardRefs = useRef({});
 
-  // "View other contents" — browsing a lower-level class of the same trade
+  // "View Previous" — browsing a lower-level class of the same trade
   // instead of the student's own class. `viewingClass` is null when looking
   // at their own class (the default).
   const [otherClasses, setOtherClasses] = useState([]);
@@ -687,7 +687,7 @@ export default function StudentDocuments() {
           subtitle={activeClass ? `${activeClass.name} — notes shared by your teachers` : 'Notes shared by your teachers'}
           trail={['Study Material', activeClass?.name].filter(Boolean)}
           actions={!viewingClass && otherClasses.length > 0 && (
-            <HeroButton primary icon={Sparkles} onClick={() => setShowPicker(true)}>View other contents</HeroButton>
+            <HeroButton primary icon={History} onClick={() => setShowPicker(true)}>View Previous</HeroButton>
           )}>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-5">
             <StatTile icon={GraduationCap} label={viewingClass ? 'Class (browsing)' : 'Your class'} value={activeClass?.name || '—'} />
