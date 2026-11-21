@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '../../utils/api';
+import { intakeYearOptions } from '../../utils/intakeYears';
 import toast from 'react-hot-toast';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -1498,8 +1499,8 @@ export default function AdminClasses() {
               <select value={enrollForm.class_year} onChange={e => setEnrollForm(f => ({ ...f, class_year: e.target.value }))}
                 className="input-field class-modal-input">
                 <option value="">{t('adminClasses.enrollModal.selectYear')}</option>
-                {Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - 2 + i).map(y => (
-                  <option key={y} value={String(y)}>{y}</option>
+                {intakeYearOptions(enrollForm.class_year).map(y => (
+                  <option key={y} value={y}>{y}</option>
                 ))}
               </select>
             </div>

@@ -671,7 +671,10 @@ const adminGetStudentDetail = async (req, res) => {
   try {
     const student = await User.findOne({ _id: req.params.id, role: 'student' }, '-password').lean();
     if (!student) return res.status(404).json({ message: 'Student not found' });
-    const classes = await Class.find({ students: req.params.id }, 'name _id').lean();
+    const found = await Class.find({ students: req.params.id }, 'name _id').lean();
+    // Expose `id` as well as `_id` — the edit form reads `id` to pre-select the
+    // student's current class (it was always empty before).
+    const classes = found.map(c => ({ ...c, id: c._id }));
     res.json({ student: { ...student, id: student._id, classes } });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };

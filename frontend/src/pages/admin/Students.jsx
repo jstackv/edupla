@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '../../utils/api';
+import { intakeYearOptions } from '../../utils/intakeYears';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext';
 import Modal from '../../components/common/Modal';
@@ -329,7 +330,8 @@ export default function AdminStudents() {
         const res = await api.get(`/admin/students/${student.id}`);
         const s = res.data.student;
         // A student only ever belongs to one class — use the first as "current"
-        const currentClassId = s.classes?.[0]?.id ? String(s.classes[0].id) : null;
+        const firstClass = s.classes?.[0];
+        const currentClassId = firstClass ? String(firstClass.id || firstClass._id) : null;
         setOriginalClassId(currentClassId);
         setForm({ name: s.name, email: s.email, classIds: currentClassId ? [currentClassId] : [], class_year: s.class_year || '' });
       } catch {
@@ -696,8 +698,8 @@ export default function AdminStudents() {
               <select value={form.class_year} onChange={e => setForm(f => ({ ...f, class_year: e.target.value }))}
                 className="input-field">
                 <option value="">{t('adminStudents.modal.selectYear')}</option>
-                {Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - 2 + i).map(y => (
-                  <option key={y} value={String(y)}>{y}</option>
+                {intakeYearOptions(form.class_year).map(y => (
+                  <option key={y} value={y}>{y}</option>
                 ))}
               </select>
             </div>
