@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import Pagination from '../../components/common/Pagination';
 import FileViewer, { downloadFile } from '../../components/common/FileViewer';
 import Modal from '../../components/common/Modal';
+import { Hero, HeroButton, StatTile, SelectCard, SectionLabel, EmptyPanel, Loader, brandWith, workspaceStyle } from '../../components/common/WorkspaceUI';
 import {
   Search, FileText, Download, Eye, BookOpen, ChevronRight,
   ArrowLeft, Inbox, X, Grid3X3, List, Filter, Clock,
@@ -652,12 +653,14 @@ export default function StudentDocuments() {
   const hasGroups = Object.keys(grouped).length > 0;
 
   const filterLabels = { all: 'All', pdf: 'PDF', doc: 'Docs', img: 'Images', sheet: 'Sheets', slide: 'Slides', media: 'Media' };
+  const studyTone = brandWith(FolderOpen);
   const col = selectedModule ? modColor(modules.findIndex(m => m._id === selectedModule._id)) : MOD_COLORS[0];
 
   /* ── MODULE VIEW ── */
   if (view === 'modules') {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div className="space-y-6 ws-root">
+        <style>{workspaceStyle}</style>
 
         {/* Viewing-another-class banner */}
         {viewingClass && (
@@ -680,72 +683,60 @@ export default function StudentDocuments() {
           </div>
         )}
 
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-          <div>
-            <h2 style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em', marginBottom: 4 }}>
-              Notes & Documents
-            </h2>
-            <p style={{ fontSize: 13, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <FolderOpen style={{ width: 13, height: 13 }} />
-              {activeClass ? `${activeClass.name} — pick a module below` : 'Select a module to view notes'}
-            </p>
+        <Hero tone={studyTone} eyebrow="Student workspace" title="Study Material"
+          subtitle={activeClass ? `${activeClass.name} — notes shared by your teachers` : 'Notes shared by your teachers'}
+          trail={['Study Material', activeClass?.name].filter(Boolean)}
+          actions={!viewingClass && otherClasses.length > 0 && (
+            <HeroButton primary icon={Sparkles} onClick={() => setShowPicker(true)}>View other contents</HeroButton>
+          )}>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-5">
+            <StatTile icon={GraduationCap} label={viewingClass ? 'Class (browsing)' : 'Your class'} value={activeClass?.name || '—'} />
+            <StatTile icon={BookOpen} label="Modules" value={modules.length} />
+            <StatTile icon={FileText} label="Notes available" value={Object.keys(docCounts).length ? Object.values(docCounts).reduce((n, c) => n + (Number(c) || 0), 0) : '—'} />
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            {modules.length > 0 && (
-              <span style={{ fontSize: 12, fontWeight: 700, padding: '5px 12px', borderRadius: 10, background: 'rgba(194, 65, 12,0.1)', color: '#c2410c' }}>
-                {modules.length} module{modules.length !== 1 ? 's' : ''}
-              </span>
-            )}
-            {!viewingClass && otherClasses.length > 0 && (
-              <button onClick={() => setShowPicker(true)} style={{
-                position: 'relative', overflow: 'hidden',
-                display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px',
-                borderRadius: 12, fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
-                background: 'linear-gradient(135deg, #c2410c, #ea580c)', color: '#fff', border: 'none',
-                boxShadow: '0 6px 18px rgba(194, 65, 12, 0.35)',
-                transition: 'transform 0.15s, box-shadow 0.15s',
-              }}
-                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 8px 22px rgba(194, 65, 12, 0.45)'; }}
-                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 6px 18px rgba(194, 65, 12, 0.35)'; }}>
-                <Sparkles style={{ width: 14, height: 14 }} /> View other contents
-              </button>
-            )}
-          </div>
-        </div>
+        </Hero>
 
-        {/* Module search */}
-        {modules.length > 3 && (
-          <SearchBar value={moduleSearch} onChange={setModuleSearch} placeholder="Search modules…" />
-        )}
+        <div>
+          <SectionLabel>Step 1 · Choose a module</SectionLabel>
 
-        {loadingModules ? <Spinner />
-          : !hasGroups ? (
-            <div className="card">
-              <EmptyState icon={BookOpen} title="No modules found"
-                subtitle={moduleSearch ? `No modules match "${moduleSearch}"` : activeClass ? `No modules have been assigned to ${activeClass.name} yet.` : 'You are not enrolled in a class yet.'} />
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-              {Object.entries(grouped).map(([cat, mods]) => (
-                <div key={cat}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                    <Tag style={{ width: 12, height: 12, color: 'var(--text-secondary)', opacity: 0.5 }} />
-                    <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-secondary)', opacity: 0.6 }}>{cat}</span>
-                    <div style={{ flex: 1, height: 1, background: 'var(--card-border)', marginLeft: 4 }} />
-                    <span style={{ fontSize: 10, color: 'var(--text-secondary)', opacity: 0.5 }}>{mods.length}</span>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {mods.map((mod, idx) => (
-                      <ModuleCard key={mod._id} mod={mod} index={idx}
-                        docCount={docCounts[mod._id]}
-                        onClick={() => openModule(mod)} />
-                    ))}
-                  </div>
-                </div>
-              ))}
+          {modules.length > 3 && (
+            <div style={{ marginBottom: 16 }}>
+              <SearchBar value={moduleSearch} onChange={setModuleSearch} placeholder="Search modules…" />
             </div>
           )}
+
+          {loadingModules ? <Loader />
+            : !hasGroups ? (
+              <EmptyPanel icon={BookOpen} tone={studyTone} title="No modules found"
+                text={moduleSearch ? `No modules match "${moduleSearch}"` : activeClass ? `No modules have been assigned to ${activeClass.name} yet.` : 'You are not enrolled in a class yet.'} />
+            ) : (
+              <div className="space-y-7">
+                {Object.entries(grouped).map(([cat, mods]) => (
+                  <div key={cat}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                      <Tag style={{ width: 12, height: 12, color: 'var(--text-secondary)', opacity: 0.5 }} />
+                      <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-secondary)', opacity: 0.7 }}>{cat}</span>
+                      <div style={{ flex: 1, height: 1, background: 'var(--card-border)', marginLeft: 4 }} />
+                      <span style={{ fontSize: 10, color: 'var(--text-secondary)', opacity: 0.6 }}>{mods.length}</span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {mods.map(mod => {
+                        const n = docCounts[mod._id];
+                        return (
+                          <SelectCard key={mod._id} tone={studyTone}
+                            lead={(mod.code || mod.name || '').slice(0, 3).toUpperCase()}
+                            title={mod.name}
+                            desc={mod.teacher_id?.name ? `Teacher: ${mod.teacher_id.name}` : undefined}
+                            chips={[mod.code, n !== undefined ? `${n} ${n === 1 ? 'note' : 'notes'}` : null].filter(Boolean)}
+                            onClick={() => openModule(mod)} />
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+        </div>
 
         <ClassPickerModal isOpen={showPicker} onClose={() => setShowPicker(false)}
           classes={otherClasses} loading={loadingOtherClasses}
@@ -758,45 +749,20 @@ export default function StudentDocuments() {
 
   /* ── DOCS VIEW ── */
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+    <div className="space-y-6 ws-root">
+      <style>{workspaceStyle}</style>
 
-      {/* Breadcrumb + back */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-        <button onClick={() => { setView('modules'); setDocuments([]); setFilterType('all'); setSortOrder('newest'); }} style={{
-          width: 38, height: 38, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'var(--card-bg)', border: '1px solid var(--card-border)', cursor: 'pointer', flexShrink: 0,
-          transition: 'all 0.15s',
-        }}
-          onMouseEnter={e => { e.currentTarget.style.background = col.accent + '15'; e.currentTarget.style.borderColor = col.accent + '40'; }}
-          onMouseLeave={e => { e.currentTarget.style.background = 'var(--card-bg)'; e.currentTarget.style.borderColor = 'var(--card-border)'; }}>
-          <ArrowLeft style={{ width: 16, height: 16, color: 'var(--text-primary)' }} />
-        </button>
-
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
-            <span style={{ fontSize: 11, color: 'var(--text-secondary)', opacity: 0.6, display: 'flex', alignItems: 'center', gap: 4 }}>
-              <BookOpen style={{ width: 11, height: 11 }} /> {activeClass?.name}
-              {viewingClass && (
-                <span style={{ fontSize: 9, fontWeight: 800, padding: '1px 7px', borderRadius: 20, background: 'rgba(194, 65, 12,0.15)', color: '#c2410c', marginLeft: 2 }}>
-                  OTHER CLASS
-                </span>
-              )}
-            </span>
-            <ChevronRight style={{ width: 11, height: 11, color: 'var(--text-secondary)', opacity: 0.4 }} />
-            {selectedModule?.code && (
-              <>
-                <span style={{ fontSize: 11, fontWeight: 700, color: col.accent }}>{selectedModule.code}</span>
-                <ChevronRight style={{ width: 11, height: 11, color: 'var(--text-secondary)', opacity: 0.4 }} />
-              </>
-            )}
-            <span style={{ fontSize: 11, color: 'var(--text-secondary)', opacity: 0.6 }}>Notes</span>
-          </div>
-          <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {selectedModule?.name}
-          </h2>
-          {!loading && <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2, opacity: 0.7 }}>{total} note{total !== 1 ? 's' : ''} available</p>}
+      <Hero tone={studyTone}
+        onBack={() => { setView('modules'); setDocuments([]); setFilterType('all'); setSortOrder('newest'); }}
+        eyebrow={viewingClass ? 'Notes · other class' : 'Notes'} title={selectedModule?.name}
+        subtitle={`${activeClass?.name || ''}${selectedModule?.teacher_id?.name ? ` · ${selectedModule.teacher_id.name}` : ''}`}
+        trail={['Study Material', activeClass?.name, selectedModule?.code || selectedModule?.name].filter(Boolean)}>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-5">
+          <StatTile icon={FileText} label="Notes available" value={loading ? '…' : total} />
+          <StatTile icon={Sparkles} label="New to you (this page)" value={loading ? '…' : documents.filter(d => !seenIds.has(d.id)).length} />
+          <StatTile icon={Clock} label="Latest upload" value={loading || !documents.length ? '—' : timeAgo(documents.reduce((a, b) => (new Date(a.created_at) > new Date(b.created_at) ? a : b)).created_at)} />
         </div>
-      </div>
+      </Hero>
 
       {/* Toolbar */}
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
