@@ -61,7 +61,7 @@ export function getDownloadName(file) {
 export function getFileType(filename, mimeType) {
   const ext = (filename || '').split('.').pop().toLowerCase();
   const mime = mimeType || '';
-  if (['jpg','jpeg','png','gif','webp','svg','bmp','avif'].includes(ext) || mime.startsWith('image/')) return 'image';
+  if (['jpg','jpeg','jfif','png','gif','webp','svg','bmp','avif','ico'].includes(ext) || mime.startsWith('image/')) return 'image';
   if (ext === 'pdf' || mime === 'application/pdf') return 'pdf';
   if (['mp4','webm','ogg','mov','avi'].includes(ext) || mime.startsWith('video/')) return 'video';
   if (['mp3','wav','ogg','m4a','flac'].includes(ext) || mime.startsWith('audio/')) return 'audio';
@@ -105,14 +105,13 @@ export function toInlineUrl(cloudUrl, fileType) {
       // files" enabled under Console → Settings → Security.
       return cloudUrl.replace('/raw/upload/', '/raw/upload/fl_inline/');
     case 'image':
-      // Images: change resource type from raw → image
-      return cloudUrl.replace('/raw/upload/', '/image/upload/');
     case 'video':
-      // Videos: change resource type from raw → video
-      return cloudUrl.replace('/raw/upload/', '/video/upload/');
     case 'audio':
-      // Audio: Cloudinary uses video resource type for audio too
-      return cloudUrl.replace('/raw/upload/', '/video/upload/');
+      // A Cloudinary file only exists under the resource type it was uploaded
+      // with (/raw/, /image/ or /video/). Rewriting /raw/ → /image/ made every
+      // image that was stored as raw return "not found", so the URL is used
+      // exactly as stored — <img>, <video> and <audio> render it fine.
+      return cloudUrl;
     default:
       return cloudUrl; // raw URL fine for download / Google Docs Viewer
   }
@@ -150,26 +149,19 @@ export function openFileInNewTab(file) {
       window.open(`/view-doc?${params.toString()}`, '_blank', 'noopener,noreferrer');
 
     } else if (['word', 'excel', 'powerpoint'].includes(fileType)) {
-      // Office docs: use Google Docs Viewer with the raw Cloudinary URL
-      // (Google Docs Viewer fetches from Cloudinary directly — raw URL works fine)
-      const isLocal = origin.includes('localhost') || origin.includes('127.0.0.1');
-      if (isLocal) {
-        // Google Docs Viewer can't reach localhost — show download page
-        const params = new URLSearchParams({
-          url:    rawCloudUrl,
-          type:   fileType,
-          name:   fileName,
-          title:  fileTitle,
-          direct: '1',
-          download_name: getDownloadName(file),
-          ...(file.description ? { description: file.description } : {}),
-          ...(file.class_name  ? { class_name:  file.class_name  } : {}),
-        });
-        window.open(`/view-doc?${params.toString()}`, '_blank', 'noopener,noreferrer');
-      } else {
-        const gv = `https://docs.google.com/viewer?url=${encodeURIComponent(rawCloudUrl)}&embedded=false`;
-        window.open(gv, '_blank', 'noopener,noreferrer');
-      }
+      // Word / Excel are rendered inside EDUPLA's own viewer (no third-party
+      // iframe service that can refuse the file); PowerPoint gets a download page.
+      const params = new URLSearchParams({
+        url:    rawCloudUrl,
+        type:   fileType,
+        name:   fileName,
+        title:  fileTitle,
+        direct: '1',
+        download_name: getDownloadName(file),
+        ...(file.description ? { description: file.description } : {}),
+        ...(file.class_name  ? { class_name:  file.class_name  } : {}),
+      });
+      window.open(`/view-doc?${params.toString()}`, '_blank', 'noopener,noreferrer');
 
     } else {
       // Unknown type — open raw URL (browser will decide what to do)
@@ -190,13 +182,7 @@ export function openFileInNewTab(file) {
   if (['pdf', 'image', 'video', 'audio', 'text'].includes(fileType)) {
     window.open(`/view-doc?${params.toString()}`, '_blank', 'noopener,noreferrer');
   } else if (['word', 'excel', 'powerpoint'].includes(fileType)) {
-    const isLocal = origin.includes('localhost') || origin.includes('127.0.0.1');
-    window.open(
-      isLocal
-        ? dlUrl
-        : `https://docs.google.com/viewer?url=${encodeURIComponent(viewUrl)}&embedded=false`,
-      '_blank', 'noopener,noreferrer'
-    );
+    window.open(`/view-doc?${params.toString()}`, '_blank', 'noopener,noreferrer');
   } else {
     window.open(dlUrl, '_blank', 'noopener,noreferrer');
   }
