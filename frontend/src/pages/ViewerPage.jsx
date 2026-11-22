@@ -53,12 +53,21 @@ function getTypeBadge(type, name) {
   return labels[type] || ext || 'FILE';
 }
 
+const MIME_BY_EXT = {
+  jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp',
+  svg: 'image/svg+xml', bmp: 'image/bmp', avif: 'image/avif', ico: 'image/x-icon',
+};
+function mimeFromName(name = '') {
+  return MIME_BY_EXT[(name.split('.').pop() || '').toLowerCase()] || 'image/jpeg';
+}
+
 export default function ViewerPage() {
   const [dark, setDark] = useState(
     window.matchMedia('(prefers-color-scheme: dark)').matches
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [imgSrc, setImgSrc] = useState('');
 
   const params = new URLSearchParams(window.location.search);
   const fileUrl = params.get('url');
@@ -222,11 +231,25 @@ export default function ViewerPage() {
               </div>
             )}
             <img
-              src={fullUrl}
+              src={imgSrc || fullUrl}
               alt={fileTitle}
               style={{ maxWidth: '100%', maxHeight: 'calc(100vh - 120px)', objectFit: 'contain', borderRadius: 12, boxShadow: dark ? '0 20px 60px rgba(0,0,0,0.6)' : '0 20px 60px rgba(0,0,0,0.15)', display: loading ? 'none' : 'block' }}
               onLoad={() => setLoading(false)}
-              onError={() => { setLoading(false); setError('Failed to load image'); }}
+              onError={async () => {
+                // Some stored files are served without an image content-type
+                // (older uploads). Fetch the bytes and show them with the right
+                // type instead of giving up — one retry only.
+                if (imgSrc) { setLoading(false); setError('This image could not be displayed. Try downloading it instead.'); return; }
+                try {
+                  const r = await fetch(fullUrl, { credentials: isDirect ? 'omit' : 'include' });
+                  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                  const buf = await r.arrayBuffer();
+                  setImgSrc(URL.createObjectURL(new Blob([buf], { type: mimeFromName(fileName) })));
+                } catch (e) {
+                  setLoading(false);
+                  setError('This image could not be loaded. Try downloading it instead.');
+                }
+              }}
             />
           </div>
         )}
@@ -270,31 +293,23 @@ export default function ViewerPage() {
 
         {/* Text / code viewer */}
         {fileType === 'text' && (
-          <TextViewer url={fullUrl} fileName={fileName} dark={dark} accent={accent} tp={tp} tm={tm} border={border} cardBg={cardBg} onLoad={() => setLoading(false)} />
+          <TextViewer url={fullUrl} direct={isDirect} fileName={fileName} dark={dark} accent={accent} tp={tp} tm={tm} border={border} cardBg={cardBg} onLoad={() => setLoading(false)} />
         )}
 
-        {/* Office docs — Google Docs Viewer fallback message for localhost */}
-        {['word', 'excel', 'powerpoint', 'other'].includes(fileType) && (
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 40, minHeight: 'calc(100vh - 60px)' }}>
-            <div style={{ textAlign: 'center', maxWidth: 440 }}>
-              <div style={{ width: 80, height: 80, borderRadius: 20, background: `${accent}15`, border: `2px solid ${accent}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
-                <TypeIcon size={36} color={accent} />
-              </div>
-              <h3 style={{ fontWeight: 800, fontSize: 22, marginBottom: 12, color: tp, letterSpacing: '-0.03em' }}>{fileTitle}</h3>
-              {fileDesc && <p style={{ fontSize: 14, color: tm, marginBottom: 20, lineHeight: 1.6 }}>{fileDesc}</p>}
-              <div style={{ padding: '16px 20px', borderRadius: 14, background: dark ? 'rgba(245,158,11,0.08)' : 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.25)', marginBottom: 24 }}>
-                <p style={{ fontSize: 13, color: dark ? '#fbbf24' : '#92400e', lineHeight: 1.6 }}>
-                  <strong>Preview unavailable on local server.</strong> On a deployed server this would open in Google Docs Viewer. Use the Download button to open the file in your local application.
-                </p>
-              </div>
-              <button
-                onClick={handleDownload}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '12px 24px', borderRadius: 12, background: `linear-gradient(135deg,${accent},${accent}cc)`, color: 'white', fontWeight: 700, fontSize: 14, border: 'none', cursor: 'pointer', boxShadow: `0 6px 20px ${accent}40` }}
-              >
-                <Download size={16} /> Download & Open
-              </button>
-            </div>
-          </div>
+        {/* Word / Excel — rendered right here in the browser */}
+        {fileType === 'word' && (
+          <WordViewer url={fullUrl} direct={isDirect} fileName={fileName} accent={accent} tp={tp} tm={tm} dark={dark}
+            fallback={(msg) => <FallbackPanel Icon={TypeIcon} accent={accent} tp={tp} tm={tm} dark={dark} title={fileTitle} desc={fileDesc} message={msg} onDownload={handleDownload} />} />
+        )}
+        {fileType === 'excel' && (
+          <ExcelViewer url={fullUrl} direct={isDirect} accent={accent} tp={tp} tm={tm} dark={dark} border={border} cardBg={cardBg}
+            fallback={(msg) => <FallbackPanel Icon={TypeIcon} accent={accent} tp={tp} tm={tm} dark={dark} title={fileTitle} desc={fileDesc} message={msg} onDownload={handleDownload} />} />
+        )}
+
+        {/* PowerPoint and anything else a browser can't draw */}
+        {['powerpoint', 'other'].includes(fileType) && (
+          <FallbackPanel Icon={TypeIcon} accent={accent} tp={tp} tm={tm} dark={dark} title={fileTitle} desc={fileDesc}
+            message="This type of file can't be previewed in the browser. Download it to open it in the app that made it." onDownload={handleDownload} />
         )}
 
         {/* Error state */}
@@ -324,14 +339,14 @@ export default function ViewerPage() {
 }
 
 /* ── Async text/code viewer ── */
-function TextViewer({ url, fileName, dark, accent, tp, tm, border, cardBg, onLoad }) {
+function TextViewer({ url, direct, fileName, dark, accent, tp, tm, border, cardBg, onLoad }) {
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
   const ext = (fileName || '').split('.').pop().toLowerCase();
 
   useEffect(() => {
-    fetch(url, { credentials: 'include' })
+    fetch(url, { credentials: direct ? 'omit' : 'include' })
       .then(r => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.text();
@@ -374,6 +389,165 @@ function TextViewer({ url, fileName, dark, accent, tp, tm, border, cardBg, onLoa
         }}>
           {content}
         </pre>
+      </div>
+    </div>
+  );
+}
+
+/* ── Shared: fetch a file as an ArrayBuffer ──
+   Files stored on Cloudinary ("direct") are fetched without cookies — a
+   wildcard CORS answer is refused when credentials are included. Files
+   served by our own API keep their cookie/token. */
+function useBuffer(url, direct) {
+  const [state, setState] = useState('loading');
+  const [buffer, setBuffer] = useState(null);
+  const [err, setErr] = useState('');
+  useEffect(() => {
+    if (!url) return undefined;
+    let cancelled = false;
+    const ctl = new AbortController();
+    setState('loading');
+    fetch(url, { credentials: direct ? 'omit' : 'include', signal: ctl.signal })
+      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.arrayBuffer(); })
+      .then(b => { if (!cancelled) { setBuffer(b); setState('ready'); } })
+      .catch(e => { if (!cancelled) { setErr(e.message || 'failed'); setState('error'); } });
+    return () => { cancelled = true; ctl.abort(); };
+  }, [url, direct]);
+  return { state, buffer, err };
+}
+
+function Busy({ accent, tm, label }) {
+  return (
+    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 60px)' }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ width: 36, height: 36, border: `3px solid ${accent}30`, borderTopColor: accent, borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
+        <p style={{ fontSize: 14, color: tm }}>{label}</p>
+      </div>
+    </div>
+  );
+}
+
+/* Shown when a file can't be drawn in the browser: says why, offers download. */
+function FallbackPanel({ Icon, accent, tp, tm, dark, title, desc, message, onDownload }) {
+  return (
+    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 40, minHeight: 'calc(100vh - 60px)' }}>
+      <div style={{ textAlign: 'center', maxWidth: 440 }}>
+        <div style={{ width: 80, height: 80, borderRadius: 20, background: `${accent}15`, border: `2px solid ${accent}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
+          <Icon size={36} color={accent} />
+        </div>
+        <h3 style={{ fontWeight: 800, fontSize: 22, marginBottom: 12, color: tp, letterSpacing: '-0.03em' }}>{title}</h3>
+        {desc && <p style={{ fontSize: 14, color: tm, marginBottom: 20, lineHeight: 1.6 }}>{desc}</p>}
+        <div style={{ padding: '16px 20px', borderRadius: 14, background: dark ? 'rgba(245,158,11,0.08)' : 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.25)', marginBottom: 24 }}>
+          <p style={{ fontSize: 13, color: dark ? '#fbbf24' : '#92400e', lineHeight: 1.6 }}>{message}</p>
+        </div>
+        <button onClick={onDownload}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '12px 24px', borderRadius: 12, background: `linear-gradient(135deg,${accent},${accent}cc)`, color: 'white', fontWeight: 700, fontSize: 14, border: 'none', cursor: 'pointer', boxShadow: `0 6px 20px ${accent}40` }}>
+          <Download size={16} /> Download &amp; Open
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ── Word (.docx): converted to HTML with mammoth and shown as a page ── */
+function WordViewer({ url, direct, fileName, accent, tp, tm, dark, fallback }) {
+  const isOldDoc = /\.doc$/i.test(fileName || '');
+  const { state, buffer } = useBuffer(isOldDoc ? null : url, direct);
+  const [html, setHtml] = useState('');
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    if (isOldDoc || state !== 'ready' || !buffer) return;
+    let cancelled = false;
+    import('mammoth').then(({ default: mammoth }) =>
+      mammoth.convertToHtml(
+        { arrayBuffer: buffer },
+        { convertImage: mammoth.images.imgElement(img => img.read('base64').then(b64 => ({ src: `data:${img.contentType};base64,${b64}` }))) }
+      )
+    )
+      .then(r => { if (!cancelled) setHtml(r.value || '<p><em>This document is empty.</em></p>'); })
+      .catch(() => { if (!cancelled) setFailed(true); });
+    return () => { cancelled = true; };
+  }, [state, buffer, isOldDoc]);
+
+  if (isOldDoc) return fallback('Older Word files (.doc) can\'t be previewed in the browser. Download it to open in Word — .docx files open right here.');
+  if (state === 'error' || failed) return fallback("Couldn't read this document. Download it to open in Word.");
+  if (state === 'loading' || !html) return <Busy accent={accent} tm={tm} label="Opening document…" />;
+
+  return (
+    <div style={{ flex: 1, overflow: 'auto', padding: '32px 16px', background: dark ? '#060912' : '#eef1f6' }}>
+      <div className="vp-docx-page" style={{ maxWidth: 820, margin: '0 auto', background: '#ffffff', color: '#1a1a1a', borderRadius: 6, padding: '56px 64px', boxShadow: '0 12px 34px rgba(0,0,0,0.25), 0 0 0 1px rgba(0,0,0,0.04)', minHeight: 480 }}
+        dangerouslySetInnerHTML={{ __html: html }} />
+      <style>{`
+        .vp-docx-page { font-family: Georgia, 'Times New Roman', serif; font-size: 15px; line-height: 1.7; word-wrap: break-word; }
+        .vp-docx-page h1, .vp-docx-page h2, .vp-docx-page h3 { font-family: system-ui, -apple-system, sans-serif; font-weight: 700; color: #111; margin: 1.4em 0 0.5em; }
+        .vp-docx-page h1 { font-size: 1.7em; } .vp-docx-page h2 { font-size: 1.4em; } .vp-docx-page h3 { font-size: 1.15em; }
+        .vp-docx-page p { margin: 0 0 1em; }
+        .vp-docx-page table { border-collapse: collapse; width: 100%; margin: 1em 0; font-size: 0.92em; }
+        .vp-docx-page td, .vp-docx-page th { border: 1px solid #d0d0d0; padding: 6px 9px; vertical-align: top; }
+        .vp-docx-page img { max-width: 100%; height: auto; margin: 0.5em 0; }
+        .vp-docx-page ul, .vp-docx-page ol { margin: 0 0 1em; padding-left: 1.6em; }
+        .vp-docx-page a { color: ${accent}; }
+        @media (max-width: 640px) { .vp-docx-page { padding: 28px 20px !important; } }
+      `}</style>
+    </div>
+  );
+}
+
+/* ── Excel (.xlsx / .xls): parsed with SheetJS into tabs + a real table ── */
+const ROW_CAP = 500;
+const COL_CAP = 60;
+function ExcelViewer({ url, direct, accent, tp, tm, dark, border, cardBg, fallback }) {
+  const { state, buffer } = useBuffer(url, direct);
+  const [sheets, setSheets] = useState(null);
+  const [active, setActive] = useState(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    if (state !== 'ready' || !buffer) return;
+    let cancelled = false;
+    import('xlsx').then(XLSX => {
+      if (cancelled) return;
+      const wb = XLSX.read(buffer, { type: 'array' });
+      const rowsByName = {};
+      wb.SheetNames.forEach(n => { rowsByName[n] = XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: false, defval: '' }); });
+      setSheets({ names: wb.SheetNames, rowsByName });
+      setActive(wb.SheetNames[0]);
+    }).catch(() => { if (!cancelled) setFailed(true); });
+    return () => { cancelled = true; };
+  }, [state, buffer]);
+
+  if (state === 'error' || failed) return fallback("Couldn't read this spreadsheet. Download it to open in Excel.");
+  if (state === 'loading' || !sheets) return <Busy accent={accent} tm={tm} label="Opening spreadsheet…" />;
+
+  const rows = (sheets.rowsByName[active] || []);
+  const shown = rows.slice(0, ROW_CAP);
+  const cols = Math.min(COL_CAP, shown.reduce((m, r) => Math.max(m, r.length), 0));
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+      {sheets.names.length > 1 && (
+        <div style={{ display: 'flex', gap: 6, padding: '10px 16px', borderBottom: `1px solid ${border}`, overflowX: 'auto', background: cardBg }}>
+          {sheets.names.map(n => (
+            <button key={n} onClick={() => setActive(n)} style={{ padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', border: `1px solid ${n === active ? accent : border}`, background: n === active ? accent : 'transparent', color: n === active ? '#fff' : tm }}>{n}</button>
+          ))}
+        </div>
+      )}
+      <div style={{ flex: 1, overflow: 'auto', padding: 16 }}>
+        {shown.length === 0 ? <p style={{ color: tm, fontSize: 14, textAlign: 'center', padding: 40 }}>This sheet is empty.</p> : (
+          <table style={{ borderCollapse: 'collapse', fontSize: 13, color: tp, background: cardBg }}>
+            <tbody>
+              {shown.map((r, ri) => (
+                <tr key={ri} style={{ background: ri === 0 ? `${accent}18` : ri % 2 ? (dark ? '#ffffff05' : '#f8fafc') : 'transparent' }}>
+                  <td style={{ padding: '5px 8px', border: `1px solid ${border}`, color: tm, fontSize: 11, textAlign: 'right', position: 'sticky', left: 0, background: cardBg }}>{ri + 1}</td>
+                  {Array.from({ length: cols }, (_, ci) => (
+                    <td key={ci} style={{ padding: '5px 10px', border: `1px solid ${border}`, whiteSpace: 'nowrap', fontWeight: ri === 0 ? 700 : 400 }}>{r[ci] ?? ''}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        {rows.length > ROW_CAP && <p style={{ color: tm, fontSize: 12, textAlign: 'center', padding: 14 }}>Showing the first {ROW_CAP} of {rows.length} rows — download the file to see everything.</p>}
       </div>
     </div>
   );
