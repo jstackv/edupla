@@ -30,19 +30,33 @@ function fileFromUpload(f) {
 // Files the browser uploaded straight to Cloudinary (see routes/uploads.js) and
 // then described to us in a JSON field called `uploadedFiles`. Only objects that
 // really live in our own Cloudinary account/folder are accepted.
-function directUploads(req) {
+//
+// NOTE: Cloudinary "raw" files (ZIP, Word, Excel, PowerPoint… everything that is
+// not a PDF/image) can come back with the file extension inside the public_id
+// (e.g. "edupla/assignments/1764-ab12cd.zip"), so dots must be allowed here.
+// Rejecting them silently dropped those files and only the comment was saved.
+const PUBLIC_ID_RE = /^edupla\/assignments\/[\w.-]+$/;
+
+function rawDirectUploads(req) {
   let raw = req.body && req.body.uploadedFiles;
   if (!raw) return [];
   if (typeof raw === 'string') {
     try { raw = JSON.parse(raw); } catch { return []; }
   }
-  if (!Array.isArray(raw)) return [];
-  const cloud = process.env.CLOUDINARY_CLOUD_NAME;
-  const urlPrefix = `https://res.cloudinary.com/${cloud}/`;
-  return raw
+  return Array.isArray(raw) ? raw : [];
+}
+
+function isOurCloudinaryUrl(url) {
+  const cloud = String(process.env.CLOUDINARY_CLOUD_NAME || '').trim();
+  if (!cloud || typeof url !== 'string') return false;
+  return url.toLowerCase().startsWith(`https://res.cloudinary.com/${cloud.toLowerCase()}/`);
+}
+
+function directUploads(req) {
+  return rawDirectUploads(req)
     .filter(f => f
-      && typeof f.filename === 'string' && /^edupla\/assignments\/[\w-]+$/.test(f.filename)
-      && typeof f.file_url === 'string' && f.file_url.startsWith(urlPrefix))
+      && typeof f.filename === 'string' && PUBLIC_ID_RE.test(f.filename) && !f.filename.includes('..')
+      && isOurCloudinaryUrl(f.file_url))
     .map(f => ({
       filename: f.filename,
       original_name: String(f.original_name || 'file').slice(0, 255),
@@ -51,6 +65,12 @@ function directUploads(req) {
       size: Number(f.size) || 0,
       uploaded_at: new Date(),
     }));
+}
+
+// How many direct-upload descriptions the browser sent that we did NOT accept.
+// Callers use it to fail loudly instead of saving a submission without files.
+function rejectedDirectUploads(req) {
+  return Math.max(0, rawDirectUploads(req).length - directUploads(req).length);
 }
 
 // Works for upload.array(), upload.fields() and upload.single(), and also picks
@@ -149,6 +169,6 @@ async function destroyStoredFiles(files, cloudinary, getResourceType) {
 
 module.exports = {
   MAX_TASK_FILES, LEGACY_FILE_ID,
-  uploadedFiles, resolveFiles, findFile, legacyMirror, parseIdArray,
+  uploadedFiles, rejectedDirectUploads, resolveFiles, findFile, legacyMirror, parseIdArray,
   allStoredFiles, destroyStoredFiles,
 };
