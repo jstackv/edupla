@@ -7,7 +7,7 @@ const { createInAppNotification, createDirectNotification, getStudentEmails, get
 const { buildDownloadFilename, streamWithFilename } = require('../utils/downloadFilename');
 const {
   MAX_TASK_FILES, LEGACY_FILE_ID,
-  uploadedFiles, resolveFiles, findFile, legacyMirror, parseIdArray,
+  uploadedFiles, rejectedDirectUploads, resolveFiles, findFile, legacyMirror, parseIdArray,
   allStoredFiles, destroyStoredFiles,
 } = require('../utils/taskFiles');
 
@@ -483,6 +483,13 @@ const submitAssignment = async (req, res) => {
     // A submission can hold several files. On a resubmit the student keeps the
     // files they didn't remove and adds the ones they just picked.
     const incoming = uploadedFiles(req);
+    // Never save a submission that silently lost files: if the browser sent
+    // files we could not accept, say so (and clean them up) instead of keeping
+    // only the comment.
+    if (rejectedDirectUploads(req) > 0) {
+      await destroyStoredFiles(incoming, cloudinary, getResourceType);
+      return res.status(400).json({ message: 'Some of your files could not be attached. Please try submitting again.' });
+    }
     const existing = await Submission.findOne({ assignment_id: assignmentId, student_id: studentId });
     const removeIds = new Set(parseIdArray(req.body.removeFileIds));
     const current = resolveFiles(existing, 'files');
